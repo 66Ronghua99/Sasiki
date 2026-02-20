@@ -1,0 +1,90 @@
+# 示例工作流: 法律合同起草
+# 这是一个展示 Sasiki 工作流结构的示例文件
+
+id: example-legal-contract-001
+name: 法律合同起草
+description: 搜索法律条文并整合到合同模板中
+created_at: 2024-01-15T10:30:00
+updated_at: 2024-01-15T10:30:00
+version: 1
+
+source_session_id: null
+
+stages:
+  - name: 法条检索
+    description: 在法律法规数据库中搜索相关条文
+    application: Chrome
+    actions:
+      - 打开浏览器
+      - 访问法律法规网站
+      - 搜索 "{{search_query}}"
+      - 筛选相关法条
+      - 复制法条内容
+    inputs:
+      - search_query
+    outputs:
+      - 法条文本
+      - 法条引用
+    estimated_duration_seconds: 300
+
+  - name: 数据整理
+    description: 将检索到的法条整理成结构化数据
+    application: Excel
+    actions:
+      - 打开 Excel
+      - 创建新表格
+      - 记录法条编号
+      - 记录法条摘要
+      - 标记适用场景
+    inputs:
+      - 法条文本
+    outputs:
+      - 法条整理表
+    estimated_duration_seconds: 180
+
+  - name: 文档编辑
+    description: 将整理好的法条整合到合同模板
+    application: Word
+    actions:
+      - 打开合同模板 "{{template_file}}"
+      - 定位到引用条款位置
+      - 插入法条引用
+      - 调整格式
+      - 保存文档
+    inputs:
+      - template_file
+      - 法条整理表
+    outputs:
+      - 完成后的合同
+    estimated_duration_seconds: 600
+
+variables:
+  - name: search_query
+    description: 要搜索的法律关键词或法条编号
+    var_type: text
+    required: true
+    example: "劳动合同法第38条"
+
+  - name: template_file
+    description: 合同模板文件的路径
+    var_type: file
+    required: true
+    example: "/Users/cory/Documents/合同模板.docx"
+
+checkpoints:
+  - after_stage: 0
+    description: 确认已找到所需的全部法条
+    manual_confirmation: true
+    verify_outputs:
+      - 法条文本
+
+  - after_stage: 1
+    description: 确认法条数据已正确整理
+    manual_confirmation: true
+    verify_outputs:
+      - 法条整理表
+
+estimated_duration_minutes: 15
+success_count: 0
+failure_count: 0
+is_active: true

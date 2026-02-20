@@ -1,0 +1,77 @@
+# 示例工作流: 竞品价格监控
+# 展示如何定期监控竞品网站价格并更新表格
+
+id: example-price-monitor-001
+name: 竞品价格监控
+description: 访问竞品网站，提取产品价格，更新到监控表格
+created_at: 2024-01-14T14:00:00
+updated_at: 2024-01-14T14:00:00
+version: 1
+
+source_session_id: null
+
+stages:
+  - name: 数据采集
+    description: 访问竞品网站并提取价格信息
+    application: Chrome
+    actions:
+      - 打开浏览器
+      - 访问 "{{competitor_url}}"
+      - 搜索产品 "{{product_model}}"
+      - 记录产品价格
+      - 记录促销信息
+      - 截图保存
+    inputs:
+      - competitor_url
+      - product_model
+    outputs:
+      - 价格数据
+      - 促销截图
+    estimated_duration_seconds: 180
+
+  - name: 数据更新
+    description: 将采集到的价格更新到监控表格
+    application: Excel
+    actions:
+      - 打开价格监控表 "{{spreadsheet_path}}"
+      - 找到对应产品行
+      - 更新当前价格
+      - 记录更新时间
+      - 保存文件
+    inputs:
+      - spreadsheet_path
+      - 价格数据
+    outputs:
+      - 更新后的监控表
+    estimated_duration_seconds: 120
+
+variables:
+  - name: competitor_url
+    description: 竞品网站 URL
+    var_type: url
+    required: true
+    example: "https://www.example-shop.com"
+
+  - name: product_model
+    description: 要监控的产品型号
+    var_type: text
+    required: true
+    example: "iPhone 15 Pro 256GB"
+
+  - name: spreadsheet_path
+    description: 价格监控表格的路径
+    var_type: file
+    required: true
+    example: "/Users/cory/Documents/价格监控.xlsx"
+
+checkpoints:
+  - after_stage: 0
+    description: 确认价格数据正确采集
+    manual_confirmation: false
+    verify_outputs:
+      - 价格数据
+
+estimated_duration_minutes: 5
+success_count: 0
+failure_count: 0
+is_active: true
