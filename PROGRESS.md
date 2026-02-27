@@ -164,6 +164,18 @@ steps:
 
 ---
 
+## 已知问题与待办
+
+### 录制逻辑
+- [ ] **延迟导航标记失效**（低优先级）
+  - 问题：当前 `click.triggers_navigation` 依赖 250ms 延迟检测，如果导航发生在延迟之后（>250ms），会误判为 `false`
+  - 触发场景：慢网络、SPA 数据预加载、过渡动画等
+  - 现象：click 先记录为 `triggersNavigation: false`，随后 navigate 记录 `triggeredBy: 'click'`
+  - 解决方向：事后标记机制（根据时间戳重新关联）或延长检测窗口
+  - 备注：当前优先处理稳定网络场景，此问题在快网络环境下不影响使用
+
+---
+
 ## Phase 1 使用说明
 
 ### 1. 安装 Python 依赖

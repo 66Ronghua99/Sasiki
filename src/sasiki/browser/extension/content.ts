@@ -49,6 +49,9 @@ interface RecentClickInfo {
 let recentClick: RecentClickInfo | null = null;
 const CLICK_NAVIGATION_THRESHOLD = 200; // ms - time window to consider a click as triggering navigation
 
+// Pending navigation queue to ensure event order (click before navigate)
+let pendingNavigate: RecordedAction | null = null;
+
 // ============================================================================
 // Initial State Check
 // ============================================================================
@@ -171,6 +174,9 @@ function attachRecordingListeners() {
                         }
                     });
 
+                    // Flush any pending navigation to ensure click comes before navigate
+                    flushPendingNavigate();
+
                     if (!navigationOccurred) {
                         recentClick = null;
                     }
@@ -287,6 +293,14 @@ function recordAction(action: RecordedAction) {
     });
 }
 
+// Flush pending navigation after click is recorded (ensures click comes before navigate)
+function flushPendingNavigate() {
+    if (pendingNavigate) {
+        recordAction(pendingNavigate);
+        pendingNavigate = null;
+    }
+}
+
 // Navigation detection
 let lastUrl = location.href;
 new MutationObserver(() => {
@@ -310,7 +324,7 @@ new MutationObserver(() => {
             triggeredBy = 'url_change';
         }
 
-        recordAction({
+        const navigateAction: RecordedAction = {
             timestamp: Date.now(),
             type: 'navigate',
             url: currentUrl,
@@ -321,7 +335,15 @@ new MutationObserver(() => {
                 title: document.title,
                 tabId: recordingState.tabId
             }
-        });
+        };
+
+        if (isClickTriggered) {
+            // Queue the navigation - it will be recorded after the click
+            pendingNavigate = navigateAction;
+        } else {
+            // Non-click navigation - record immediately
+            recordAction(navigateAction);
+        }
 
         // Clear recent click after navigation is recorded
         if (isClickTriggered) {
