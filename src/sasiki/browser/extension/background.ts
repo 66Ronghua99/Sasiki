@@ -12,7 +12,7 @@
 // Configuration
 // ============================================================================
 
-const WS_URL = 'ws://localhost:8765';
+const WS_URL = 'ws://localhost:8766';
 
 const CONFIG = {
     WS_RECONNECT_DELAY: 3000,       // 3 seconds
@@ -279,6 +279,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     globalRecording.tabIds.delete(tabId);
 });
 
+// Track navigation history per tab to determine if it's same-tab navigation
+const tabNavigationHistory = new Map<number, string>();
+
 // Listen for navigation (URL changes within same tab)
 chrome.webNavigation?.onCompleted.addListener((details) => {
     if (!globalRecording.isRecording) return;
@@ -287,6 +290,25 @@ chrome.webNavigation?.onCompleted.addListener((details) => {
     // Add tab to recording
     globalRecording.tabIds.add(details.tabId);
 
+    // Determine if this is same-tab navigation
+    const previousUrl = tabNavigationHistory.get(details.tabId);
+    const isSameTab = previousUrl !== undefined;
+
+    // Update navigation history
+    tabNavigationHistory.set(details.tabId, details.url);
+
+    // Determine trigger source
+    // Note: Background script can't reliably detect click-triggered vs URL-change
+    // Content script will override this with more accurate info
+    let triggeredBy: 'url_change' | 'redirect' = 'url_change';
+    // Type assertion for transitionType which exists on WebNavigationTransitionCallbackDetails
+    const transitionDetails = details as chrome.webNavigation.WebNavigationTransitionCallbackDetails;
+    if (transitionDetails.transitionType === 'auto_subframe' ||
+        transitionDetails.transitionType === 'form_submit' ||
+        transitionDetails.transitionType === 'link') {
+        triggeredBy = 'redirect';
+    }
+
     // Record navigation action
     sendToWebSocket({
         type: 'action',
@@ -294,6 +316,8 @@ chrome.webNavigation?.onCompleted.addListener((details) => {
             type: 'navigate',
             timestamp: Date.now(),
             url: details.url,
+            triggeredBy: triggeredBy,
+            isSameTab: isSameTab,
             pageContext: {
                 url: details.url,
                 tabId: details.tabId
@@ -301,6 +325,11 @@ chrome.webNavigation?.onCompleted.addListener((details) => {
         }
     });
 }, { url: [{ schemes: ['http', 'https'] }] });
+
+// Clean up navigation history when tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    tabNavigationHistory.delete(tabId);
+});
 
 // ============================================================================
 // Content Script Management

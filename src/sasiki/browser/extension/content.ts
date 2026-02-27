@@ -41,6 +41,14 @@ let scrollListener: (() => void) | null = null;
 let inputTimeout: number | null = null;
 let scrollTimeout: number | null = null;
 
+// Click tracking for navigation detection
+interface RecentClickInfo {
+    timestamp: number;
+    fingerprint: ElementFingerprint;
+}
+let recentClick: RecentClickInfo | null = null;
+const CLICK_NAVIGATION_THRESHOLD = 200; // ms - time window to consider a click as triggering navigation
+
 // ============================================================================
 // Initial State Check
 // ============================================================================
@@ -77,16 +85,98 @@ function attachRecordingListeners() {
 
         if (refId) {
             const fingerprint = axTreeManager.getElementFingerprint(refId);
-            recordAction({
+
+            // Track this click for navigation correlation
+            recentClick = {
                 timestamp: Date.now(),
-                type: 'click',
-                targetHint: fingerprint!,
-                pageContext: {
-                    url: window.location.href,
-                    title: document.title,
-                    tabId: recordingState.tabId
+                fingerprint: fingerprint!
+            };
+
+            // Delay the click recording to check if it triggers navigation
+            setTimeout(() => {
+                const currentUrl = window.location.href;
+                const navigationOccurred = !!(recentClick &&
+                    (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
+
+                recordAction({
+                    timestamp: recentClick?.timestamp || Date.now(),
+                    type: 'click',
+                    targetHint: fingerprint!,
+                    triggersNavigation: navigationOccurred,
+                    pageContext: {
+                        url: currentUrl,
+                        title: document.title,
+                        tabId: recordingState.tabId
+                    }
+                });
+
+                // Clear recent click after processing
+                if (navigationOccurred) {
+                    // Keep recentClick for MutationObserver to use
+                    // It will be cleared after the navigation is recorded
+                } else {
+                    recentClick = null;
                 }
-            });
+            }, CLICK_NAVIGATION_THRESHOLD + 50);
+        } else {
+            // Fallback: try to find an interactive parent element (link, button, etc.)
+            let elementToRecord: Element | null = target;
+            let current: Element | null = target;
+            let depth = 0;
+            const maxDepth = 5;
+
+            // Check if clicked element or any parent is a native interactive element
+            while (current && depth < maxDepth) {
+                const tag = current.tagName.toLowerCase();
+                const isNativeLink = tag === 'a' && current.hasAttribute('href');
+                const isNativeButton = tag === 'button';
+                const isNativeInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+                const hasRole = current.getAttribute('role');
+                const hasTabindex = current.hasAttribute('tabindex');
+
+                if (isNativeLink || isNativeButton || isNativeInput || hasRole || hasTabindex) {
+                    elementToRecord = current;
+                    break;
+                }
+
+                current = current.parentElement;
+                depth++;
+            }
+
+            if (elementToRecord) {
+                // Create fingerprint directly from the element
+                const fingerprint = axTreeManager.createFingerprintFromElement(elementToRecord);
+
+                // Track this click for navigation correlation
+                recentClick = {
+                    timestamp: Date.now(),
+                    fingerprint: fingerprint
+                };
+
+                // Delay the click recording to check if it triggers navigation
+                setTimeout(() => {
+                    const currentUrl = window.location.href;
+                    const navigationOccurred = !!(recentClick &&
+                        (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
+
+                    recordAction({
+                        timestamp: recentClick?.timestamp || Date.now(),
+                        type: 'click',
+                        targetHint: fingerprint,
+                        triggersNavigation: navigationOccurred,
+                        pageContext: {
+                            url: currentUrl,
+                            title: document.title,
+                            tabId: recordingState.tabId
+                        }
+                    });
+
+                    if (!navigationOccurred) {
+                        recentClick = null;
+                    }
+                }, CLICK_NAVIGATION_THRESHOLD + 50);
+            }
+            // Silent skip for non-interactive elements
         }
     };
     document.addEventListener('click', clickListener, true); // use capture phase
@@ -175,6 +265,10 @@ interface RecordedAction {
         title: string;
         tabId?: number;
     };
+    // Navigation tracking fields
+    triggersNavigation?: boolean;
+    triggeredBy?: 'click' | 'url_change' | 'redirect';
+    isSameTab?: boolean;
 }
 
 function recordAction(action: RecordedAction) {
@@ -199,17 +293,40 @@ new MutationObserver(() => {
     if (!recordingState.isRecording) return;
     const currentUrl = location.href;
     if (currentUrl !== lastUrl) {
+        const previousUrl = lastUrl;
         lastUrl = currentUrl;
+
+        // Check if this navigation was triggered by a recent click
+        const isClickTriggered = recentClick !== null &&
+            (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD + 100);
+
+        // Determine trigger source
+        let triggeredBy: 'click' | 'url_change' | 'redirect';
+        if (isClickTriggered) {
+            triggeredBy = 'click';
+        } else if (document.referrer && document.referrer.includes(previousUrl)) {
+            triggeredBy = 'redirect';
+        } else {
+            triggeredBy = 'url_change';
+        }
+
         recordAction({
             timestamp: Date.now(),
             type: 'navigate',
             url: currentUrl,
+            triggeredBy: triggeredBy,
+            isSameTab: true, // Content script runs in same tab
             pageContext: {
                 url: currentUrl,
                 title: document.title,
                 tabId: recordingState.tabId
             }
         });
+
+        // Clear recent click after navigation is recorded
+        if (isClickTriggered) {
+            recentClick = null;
+        }
     }
 }).observe(document, { subtree: true, childList: true });
 

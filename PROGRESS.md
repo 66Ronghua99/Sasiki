@@ -77,8 +77,18 @@ steps:
 
 **DoD**
 - [ ] 可完整录制 >= 20 步真实浏览器操作
-- [ ] 每步均生成结构化事件（含 target_hint）
-- [ ] 录制文件可被后端成功消费（100% 通过）
+- [x] 每步均生成结构化事件（含 target_hint）
+- [x] 录制文件可被后端成功消费（100% 通过）
+
+**修复记录（2026-02-27）**
+- [x] 修复 SPA 页面（小红书）点击录制失败问题
+  - 问题：`<a>` 标签没有 ARIA role 时不被识别为交互式元素
+  - 解决：扩展交互式元素检测，支持原生 HTML 标签（`<a>`、`<button>`、`<input>` 等）
+  - 解决：添加 fallback 录制机制，当 refId 不存在时直接创建元素 fingerprint
+- [x] 添加导航类型标记，区分点击触发导航 vs 真实页面跳转
+  - `click.triggers_navigation`: 是否触发导航
+  - `navigate.triggered_by`: 导航来源（click/url_change/redirect）
+  - `navigate.is_same_tab`: 是否同 tab 导航
 
 ---
 

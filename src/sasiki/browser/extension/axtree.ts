@@ -184,7 +184,13 @@ export class AXTreeManager {
         const isClickable = element.hasAttribute('onclick') || element.hasAttribute('data-click') ||
             (element as HTMLElement).onclick !== null;
 
-        const isInteractiveElement = isInteractive || hasTabindex || isClickable;
+        // Native interactive elements (regardless of ARIA role)
+        const isNativeLink = tag === 'a' && element.hasAttribute('href');
+        const isNativeButton = tag === 'button';
+        const isNativeInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+        const isNativeInteractive = isNativeLink || isNativeButton || isNativeInput;
+
+        const isInteractiveElement = isInteractive || hasTabindex || isClickable || isNativeInteractive;
 
         // Check if this element has semantic label
         const semanticLabel = getSemanticLabel(element);
@@ -201,9 +207,18 @@ export class AXTreeManager {
             this.elementMap.set(refId, element);
             this.elementToRefId.set(element, refId);  // Set reverse lookup
 
+            // Determine effective role
+            let effectiveRole = role;
+            if (!effectiveRole) {
+                if (isNativeLink) effectiveRole = 'link';
+                else if (isNativeButton) effectiveRole = 'button';
+                else if (isNativeInput) effectiveRole = 'textbox';
+                else effectiveRole = 'generic';
+            }
+
             const node: AXNode = {
                 refId: refId,
-                role: role || 'generic',
+                role: effectiveRole,
                 name: truncateName(name),  // Apply truncation to save tokens
                 tagName: tag,
                 attributes: this.getCompactAttributes(element),  // Use compact attributes
@@ -262,8 +277,24 @@ export class AXTreeManager {
     public getElementFingerprint(refId: number): ElementFingerprint | null {
         const element = this.elementMap.get(refId);
         if (!element) return null;
+        return this.createFingerprintFromElement(element);
+    }
 
-        const role = getRole(element) || 'generic';
+    /**
+     * Create fingerprint directly from an element (without requiring refId).
+     * Useful for recording clicks on elements not yet in the AX tree.
+     */
+    public createFingerprintFromElement(element: Element): ElementFingerprint {
+        // Determine effective role
+        let role = getRole(element);
+        if (!role) {
+            const tag = element.tagName.toLowerCase();
+            if (tag === 'a' && element.hasAttribute('href')) role = 'link';
+            else if (tag === 'button') role = 'button';
+            else if (tag === 'input' || tag === 'textarea' || tag === 'select') role = 'textbox';
+            else role = 'generic';
+        }
+
         let name = computeAccessibleName(element) || this.getFallbackName(element);
 
         // Get parent context
@@ -384,7 +415,13 @@ export class AXTreeManager {
         const isClickable = element.hasAttribute('onclick') || element.hasAttribute('data-click') ||
             (element as HTMLElement).onclick !== null;
 
-        if (isInteractive || hasTabindex || isClickable) {
+        // Native interactive elements (regardless of ARIA role)
+        const isNativeLink = tag === 'a' && element.hasAttribute('href');
+        const isNativeButton = tag === 'button';
+        const isNativeInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+        const isNativeInteractive = isNativeLink || isNativeButton || isNativeInput;
+
+        if (isInteractive || hasTabindex || isClickable || isNativeInteractive) {
             let name = computeAccessibleName(element);
             if (!name) {
                 name = this.getFallbackName(element);
@@ -398,10 +435,19 @@ export class AXTreeManager {
             const value = (element as HTMLInputElement).value;
             const truncatedName = truncateName(name) || '';
 
+            // Determine effective role
+            let effectiveRole = role;
+            if (!effectiveRole) {
+                if (isNativeLink) effectiveRole = 'link';
+                else if (isNativeButton) effectiveRole = 'button';
+                else if (isNativeInput) effectiveRole = 'textbox';
+                else effectiveRole = 'generic';
+            }
+
             if (value) {
-                result.push([refId, role || 'generic', truncatedName, value]);
+                result.push([refId, effectiveRole, truncatedName, value]);
             } else {
-                result.push([refId, role || 'generic', truncatedName]);
+                result.push([refId, effectiveRole, truncatedName]);
             }
         }
 

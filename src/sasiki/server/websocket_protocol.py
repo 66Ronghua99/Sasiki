@@ -120,6 +120,19 @@ class RecordedAction(BaseModel):
         validation_alias=AliasChoices("scroll_direction", "scrollDirection"),
         default=None, description="Scroll direction for scroll actions"
     )
+    # Navigation tracking fields
+    triggers_navigation: Optional[bool] = Field(
+        validation_alias=AliasChoices("triggers_navigation", "triggersNavigation"),
+        default=None, description="For click actions: whether the click triggered a navigation"
+    )
+    triggered_by: Optional[str] = Field(
+        validation_alias=AliasChoices("triggered_by", "triggeredBy"),
+        default=None, description="For navigate actions: source of navigation ('click', 'url_change', 'redirect')"
+    )
+    is_same_tab: Optional[bool] = Field(
+        validation_alias=AliasChoices("is_same_tab", "isSameTab"),
+        default=None, description="Whether navigation occurred in the same tab"
+    )
     # Page context
     page_context: PageContext = Field(
         validation_alias=AliasChoices("page_context", "pageContext"),
