@@ -1,0 +1,23 @@
+{
+  "name": "sasiki-extension",
+  "version": "1.0.0",
+  "description": "Sasiki Browser Automation Extension - Records user actions for workflow generation",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode=production",
+    "build:dev": "webpack --mode=development",
+    "watch": "webpack --mode=development --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.260",
+    "dom-accessibility-api": "^0.6.3",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "dom-accessibility-api": "^0.6.3"
+  }
+}

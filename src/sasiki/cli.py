@@ -1,20 +1,21 @@
 """Command-line interface for Sasiki."""
 
+import asyncio
+import json
+import signal
+import uuid
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 import typer
+import websockets
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
-from sasiki.config import settings
-from sasiki.recorder.capture import ScreenRecorder
-from sasiki.analyzer.session_analyzer import SessionAnalyzer
 from sasiki.workflow.storage import WorkflowStorage
-from sasiki.utils.logger import logger, configure_logging
+from sasiki.utils.logger import configure_logging
 
 # Configure logging
 configure_logging()
@@ -37,133 +38,6 @@ def _print_header():
 
 
 @app.command()
-def record(
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="Recording name"),
-    description: Optional[str] = typer.Option(None, "--desc", "-d", help="Description"),
-):
-    """Start a new recording session."""
-    _print_header()
-    
-    recorder = ScreenRecorder()
-    
-    # Start recording
-    session = recorder.start_recording(name=name, description=description)
-    
-    console.print(f"\n[green]🔴 Recording started[/green]")
-    console.print(f"Session ID: {session.metadata.id}")
-    console.print(f"Save location: {session.base_path}")
-    console.print("\n[yellow]Press Ctrl+C to stop recording[/yellow]")
-    
-    try:
-        # Wait for interrupt
-        import time
-        while recorder.is_recording:
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        if recorder.is_recording:
-            session = recorder.stop_recording()
-        
-        # Print summary
-        console.print(f"\n[green]✓ Recording stopped[/green]")
-        console.print(f"Duration: {session.metadata.duration_seconds:.1f}s")
-        console.print(f"Events: {session.metadata.total_events}")
-        console.print(f"Screenshots: {session.metadata.total_screenshots}")
-        console.print(f"Apps used: {', '.join(session.metadata.apps_used) or 'None detected'}")
-        
-        # Offer to analyze
-        if typer.confirm("\nAnalyze this recording to create a workflow?"):
-            analyze_recording(session.base_path)
-
-
-@app.command()
-def analyze(
-    recording_path: Path = typer.Argument(..., help="Path to recording directory"),
-):
-    """Analyze a recording to extract a workflow."""
-    analyze_recording(recording_path)
-
-
-def analyze_recording(recording_path: Path):
-    """Analyze a recording and save the workflow."""
-    from sasiki.recorder.events import RecordingSession, RecordingMetadata
-    import json
-    
-    console.print(f"\n[blue]Analyzing recording: {recording_path}[/blue]")
-    
-    # Load session
-    metadata_path = recording_path / "metadata.json"
-    events_path = recording_path / "events.jsonl"
-    screenshots_dir = recording_path / "screenshots"
-    
-    if not metadata_path.exists():
-        console.print("[red]Error: metadata.json not found[/red]")
-        raise typer.Exit(1)
-    
-    with open(metadata_path) as f:
-        metadata = RecordingMetadata(**json.load(f))
-    
-    session = RecordingSession(
-        metadata=metadata,
-        base_path=recording_path,
-        screenshots_dir=screenshots_dir,
-    )
-    
-    # Load events
-    if events_path.exists():
-        with open(events_path) as f:
-            for line in f:
-                from sasiki.recorder.events import Event
-                session.events.append(Event(**json.loads(line)))
-    
-    # Analyze
-    with console.status("[bold green]Analyzing with VLM..."):
-        analyzer = SessionAnalyzer()
-        workflow = analyzer.analyze_session(session)
-    
-    # Display results
-    console.print(f"\n[green]✓ Workflow extracted:[/green] {workflow.name}")
-    console.print(f"Description: {workflow.description}")
-    console.print(f"\nStages ({len(workflow.stages)}):")
-    
-    table = Table(box=box.SIMPLE)
-    table.add_column("#", style="dim")
-    table.add_column("Stage")
-    table.add_column("Application")
-    table.add_column("Actions")
-    
-    for i, stage in enumerate(workflow.stages, 1):
-        table.add_row(
-            str(i),
-            stage.name,
-            stage.application or "-",
-            str(len(stage.actions)),
-        )
-    
-    console.print(table)
-    
-    if workflow.variables:
-        console.print(f"\nVariables ({len(workflow.variables)}):")
-        for var in workflow.variables:
-            console.print(f"  • {var.name} ({var.var_type.value}): {var.description}")
-            if var.example:
-                console.print(f"    Example: {var.example}")
-    
-    if workflow.checkpoints:
-        console.print(f"\nCheckpoints ({len(workflow.checkpoints)}):")
-        for cp in workflow.checkpoints:
-            console.print(f"  • After stage {cp.after_stage}: {cp.description}")
-    
-    # Save
-    storage = WorkflowStorage()
-    workflow_path = storage.save(workflow)
-    
-    console.print(f"\n[green]✓ Workflow saved to:[/green] {workflow_path}")
-    console.print(f"Workflow ID: {workflow.id}")
-
-
-@app.command()
 def list(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed info"),
 ):
@@ -175,7 +49,7 @@ def list(
     
     if not workflows:
         console.print("\n[yellow]No workflows found.[/yellow]")
-        console.print("Create one with: sasiki record")
+        console.print("Create one from browser recorder pipeline (in progress).")
         return
     
     console.print(f"\nFound {len(workflows)} workflow(s):\n")
@@ -384,6 +258,169 @@ def run(
         console.print("\n[bold red]⚠️  Live execution not yet implemented[/bold red]")
         console.print("\n[dim]Phase 2 execution engine is in development.[/dim]")
         console.print("The execution plan has been prepared but not executed.")
+
+
+@app.command()
+def record(
+    name: str = typer.Option(None, "--name", "-n", help="Recording name"),
+    ws_port: int = typer.Option(8766, "--ws-port", help="WebSocket server port"),
+):
+    """Start a browser recording session.
+
+    Records user interactions from the Chrome Extension and saves them
+    for later skill generation.
+    """
+    _print_header()
+
+    async def run_recording():
+        uri = f"ws://localhost:{ws_port}"
+
+        try:
+            async with websockets.connect(uri) as websocket:
+                # Register as CLI client
+                await websocket.send(json.dumps({
+                    "type": "register",
+                    "client": "cli"
+                }))
+
+                session_id = name or str(uuid.uuid4())[:8]
+                console.print(f"\n[green]Starting recording session: {session_id}[/green]")
+                console.print("[dim]Please use the Chrome Extension to record your actions.[/dim]")
+                console.print("[dim]Press Ctrl+C to stop recording.[/dim]\n")
+
+                # Send start command
+                await websocket.send(json.dumps({
+                    "type": "control",
+                    "command": "start",
+                    "session_id": session_id
+                }))
+
+                # Wait for start confirmation
+                try:
+                    response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                    data = json.loads(response)
+                    if data.get("type") == "control_response" and data.get("success"):
+                        console.print(f"[dim]Recording started successfully[/dim]\n")
+                    elif data.get("type") == "control_response" and not data.get("success"):
+                        console.print(f"[red]Failed to start recording: {data.get('error')}[/red]")
+                        return
+                except asyncio.TimeoutError:
+                    console.print("[yellow]No confirmation from server, continuing...[/yellow]")
+
+                # Keep connection open, display incoming actions
+                stop_requested = False
+
+                def signal_handler(sig, frame):
+                    nonlocal stop_requested
+                    stop_requested = True
+                    console.print("\n[yellow]Stopping recording...[/yellow]")
+
+                # Set up signal handler for graceful shutdown
+                if hasattr(signal, 'SIGINT'):
+                    signal.signal(signal.SIGINT, signal_handler)
+
+                try:
+                    while not stop_requested:
+                        try:
+                            message = await asyncio.wait_for(websocket.recv(), timeout=0.5)
+                            data = json.loads(message)
+
+                            if data.get("type") == "action_logged":
+                                action = data.get("action", {})
+                                action_type = action.get('type', 'unknown')
+                                target = action.get('target', 'unknown')
+                                console.print(f"  [blue]{action_type}[/blue]: {target[:40] if target else 'N/A'}")
+                            elif data.get("type") == "error":
+                                console.print(f"  [red]Error: {data.get('payload', {}).get('message', 'Unknown error')}[/red]")
+                        except asyncio.TimeoutError:
+                            continue
+
+                except websockets.exceptions.ConnectionClosed:
+                    console.print("\n[yellow]Connection to server closed.[/yellow]")
+                    return
+
+                # Send stop command
+                await websocket.send(json.dumps({
+                    "type": "control",
+                    "command": "stop"
+                }))
+
+                # Wait for stop confirmation with filepath
+                try:
+                    response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                    data = json.loads(response)
+                    if data.get("type") == "control_response" and data.get("success"):
+                        filepath = data.get("filepath")
+                        if filepath:
+                            console.print(f"\n[green]Recording saved to:[/green] {filepath}")
+                        else:
+                            console.print(f"\n[green]Recording saved.[/green]")
+                    else:
+                        console.print(f"\n[yellow]Recording stopped (no confirmation).[/yellow]")
+                except asyncio.TimeoutError:
+                    console.print(f"\n[yellow]Recording stopped (timeout waiting for confirmation).[/yellow]")
+
+        except OSError:
+            console.print("[red]Error: Cannot connect to WebSocket server.[/red]")
+            console.print("[dim]Please run: sasiki server start[/dim]")
+            raise typer.Exit(1)
+        except Exception as e:
+            console.print(f"[red]Error during recording: {e}[/red]")
+            raise typer.Exit(1)
+
+    try:
+        asyncio.run(run_recording())
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Recording interrupted by user.[/yellow]")
+
+
+@app.command()
+def server(
+    action: str = typer.Argument("start", help="Action: start, status"),
+    port: int = typer.Option(8766, "--port", "-p", help="Server port"),
+    host: str = typer.Option("localhost", "--host", help="Server host"),
+):
+    """Manage the Sasiki WebSocket server.
+
+    The WebSocket server facilitates communication between the Chrome Extension
+    and the Python backend for recording browser actions.
+    """
+    if action == "start":
+        from sasiki.server.websocket_server import WebSocketServer
+
+        console.print(Panel.fit(
+            f"[bold blue]Sasiki WebSocket Server[/bold blue]\n"
+            f"[dim]ws://{host}:{port}[/dim]",
+            border_style="blue",
+        ))
+
+        ws_server = WebSocketServer(host=host, port=port)
+
+        try:
+            asyncio.run(ws_server.start())
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Shutting down server...[/yellow]")
+            asyncio.run(ws_server.stop())
+
+    elif action == "status":
+        # Quick check if server is running
+        async def check_status():
+            try:
+                async with websockets.connect(f"ws://{host}:{port}") as ws:
+                    await ws.send(json.dumps({
+                        "type": "register",
+                        "client": "cli"
+                    }))
+                    console.print("[green]Server is running[/green] at " + f"ws://{host}:{port}")
+            except Exception:
+                console.print("[red]Server is not running[/red]")
+                console.print(f"[dim]Start it with: sasiki server start --port {port}[/dim]")
+
+        asyncio.run(check_status())
+    else:
+        console.print(f"[red]Unknown action: {action}[/red]")
+        console.print("[dim]Available actions: start, status[/dim]")
+        raise typer.Exit(1)
 
 
 def main():

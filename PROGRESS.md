@@ -1,120 +1,219 @@
 # Sasiki - 项目进度追踪
 
-## 产品概述
+## 当前主线（唯一）
 
-**Sasiki**（日语「摹す」- 临摹、模仿）是一个通过观察用户屏幕操作，自动生成可复用工作流的 AI Agent。
+**日期：2026-02-27**
 
-核心理念：**你演示一遍，AI 学会你的工作方式**
+Sasiki 当前仅维护 **浏览器自动化（browser-first）** 路线。
 
-## 技术架构
+- 主目标：录制浏览器操作并生成可执行 Skill
+- 执行方式：规则筛选 + LLM 文本决策 + Playwright
+- 参考实现重点：`src/sasiki/browser/extension/`（本项目浏览器能力建设核心实现）
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Layer 1: Universal Observation                │
-│                         (视频录制层)                              │
-│  • 全屏录制，捕获所有应用操作                                     │
-│  • 事件驱动采样（点击、输入、应用切换）                            │
-│  • 智能去重（相似画面合并）                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    Layer 2: Multimodal Understanding             │
-│                         (离线分析层)                              │
-│  • 多模态 LLM (Claude/GPT-4V) 分析截图序列                       │
-│  • 理解：使用什么软件、执行什么操作、数据流向                      │
-│  • 提取：阶段划分、可变量识别、检查点建议                          │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    Layer 3: Workflow Generation                  │
-│                         (工作流生成层)                            │
-│  • 生成结构化工作流定义 (YAML/JSON)                               │
-│  • 支持参数化（搜索词、文件路径等变量）                            │
-│  • 支持检查点（人工确认节点）                                     │
-└─────────────────────────────────────────────────────────────────┘
-```
+> 屏幕录制路线已下线：不再维护，不再作为当前 roadmap 的一部分。
 
-## 开发路线图
+---
 
-### Phase 1: MVP ✅
-- [x] 屏幕录制（macOS）- `src/sasiki/recorder/capture.py`
-- [x] 事件捕获（鼠标、键盘、应用切换）- `src/sasiki/recorder/events.py`
-- [x] 本地图像预处理（去重、压缩）- `src/sasiki/utils/image.py`
-- [x] VLM 分析集成（OpenRouter）- `src/sasiki/llm/client.py`
-- [x] 工作流提取和存储 - `src/sasiki/analyzer/session_analyzer.py`, `src/sasiki/workflow/`
-- [x] CLI 界面 - `src/sasiki/cli.py`
-  - [x] `sasiki record` - 开始录制
-  - [x] `sasiki analyze <path>` - 分析录制
-  - [x] `sasiki list` - 列出工作流
-  - [x] `sasiki show <id>` - 查看工作流详情
-  - [x] `sasiki delete <id>` - 删除工作流
-
-### Phase 2: 执行引擎 🚧
-- [ ] 基于视觉的回放（pyautogui）
-- [x] `sasiki run <workflow>` 命令（基础框架，dry-run 模式）
-- [ ] 检查点系统（人工确认）
-- [ ] 错误处理和恢复
-- [ ] 执行日志和反馈
-
-### Phase 3: 渐进增强 📋
-- [ ] Chrome 扩展（提供精确 DOM 选择器）
-- [ ] Excel/Word 脚本优化
-- [ ] 工作流版本管理
-- [ ] 从多次执行中学习优化
-
-### Phase 4: 高级功能 📋
-- [ ] 工作流组合（调用其他工作流）
-- [ ] 条件分支（基于屏幕状态决策）
-- [ ] 定时触发和监控
-- [ ] Web UI
-
-## 项目结构
+## 架构（当前）
 
 ```
-sasiki/
-├── src/sasiki/
-│   ├── cli.py                  # 命令行界面
-│   ├── config.py               # 配置管理
-│   ├── recorder/
-│   │   ├── capture.py          # 屏幕录制（macOS）
-│   │   └── events.py           # 事件数据模型
-│   ├── analyzer/
-│   │   └── session_analyzer.py # VLM 分析器
-│   ├── llm/
-│   │   └── client.py           # LLM 客户端（OpenRouter）
-│   ├── workflow/
-│   │   ├── models.py           # 工作流数据模型
-│   │   └── storage.py          # 工作流存储
-│   ├── storage/
-│   │   └── __init__.py         # (预留)
-│   └── utils/
-│       ├── image.py            # 图像处理工具
-│       └── logger.py           # 结构化日志
-├── tests/                      # 测试
-│   ├── test_workflow_models.py # 工作流模型测试
-│   └── test_config.py          # 配置测试
-├── examples/                   # 示例工作流
-│   ├── 法律合同起草.yaml
-│   └── 竞品价格监控.yaml
-├── pyproject.toml             # 项目配置
-├── .env.example               # 环境变量模板
-└── README.md                  # 项目说明
+Chrome Extension（录制）
+  -> Python Agent Service（事件接入 / Skill 生成）
+  -> Agent Runtime（候选匹配 / LLM 决策 / Playwright 执行）
 ```
 
-## 最近一次更新 (2024-02-19)
+### 核心设计决策
 
-### 完成的工作
-1. ✅ 修复了 `storage/__init__.py` 为空文件的问题
-2. ✅ 完善了 `utils/__init__.py`，导出常用工具函数
-3. ✅ 添加了基础测试文件
-4. ✅ 添加了示例工作流文件到 `examples/`
+| 问题 | 决策 |
+|------|------|
+| 元素定位 | 使用元素指纹（role/name/tag/context），不依赖固定 ref_id |
+| 匹配策略 | 先规则筛选候选，再由 LLM 在候选集中做文本决策 |
+| 动态列表 | 保存内容关键词 + 局部上下文，运行时重定位 |
+| Skill 形态 | 自然语言步骤 + `target_hint`（元素指纹提示） |
 
-### 已知问题
-1. `sasiki run` 命令尚未实现（Phase 2）
-2. 缺少端到端测试
-3. 需要补充更多单元测试
+示例：
 
-### 下一步计划
-1. 实现 `sasiki run` 命令的基础框架
-2. 添加更多测试覆盖
-3. 完善错误处理
+```yaml
+steps:
+  - description: "在搜索框输入关键词"
+    action: type
+    target_hint:
+      role: textbox
+      name_contains: "搜索"
+      tagName: INPUT
+      context:
+        parent_role: search
+        sibling_texts: ["热门搜索"]
+    variable: keyword
+```
+
+---
+
+## 里程碑与完成标准
+
+### Phase 1: Extension 录制链路 ✅ COMPLETED
+- [x] 复用 `src/sasiki/browser/extension/axtree.ts` 并实现 `getElementFingerprint()`
+- [x] 录制模式：监听 click/type/select/navigation
+- [x] Background 与 Python 建立 WebSocket 双向通道
+
+**新增文件：**
+- `src/sasiki/server/websocket_protocol.py` - 协议定义 (ActionType, ElementFingerprint, RecordedAction, WSMessage)
+- `src/sasiki/server/websocket_server.py` - WebSocket 服务端 (RecordingSession, WebSocketServer)
+- `src/sasiki/server/__init__.py` - 模块导出
+
+**修改文件：**
+- `src/sasiki/browser/extension/axtree.ts` - 添加 getElementFingerprint() 和 getRefIdForElement() 方法
+- `src/sasiki/browser/extension/content.ts` - 添加录制状态管理和事件监听器
+- `src/sasiki/browser/extension/background.ts` - 重写为 WebSocket 通信，添加跨页面录制支持
+- `src/sasiki/cli.py` - 添加 `record` 和 `server` 命令
+- `pyproject.toml` - 添加 websockets 依赖
+
+**Extension 配置文件：**
+- `src/sasiki/browser/extension/manifest.json` - Manifest V3 配置
+- `src/sasiki/browser/extension/package.json` - npm 构建配置
+- `src/sasiki/browser/extension/tsconfig.json` - TypeScript 配置
+- `src/sasiki/browser/extension/webpack.config.js` - 打包配置
+- `src/sasiki/browser/extension/popup.html` / `popup.js` - 扩展弹出界面
+
+**DoD**
+- [ ] 可完整录制 >= 20 步真实浏览器操作
+- [ ] 每步均生成结构化事件（含 target_hint）
+- [ ] 录制文件可被后端成功消费（100% 通过）
+
+---
+
+### Phase 2: Python Skill 生成
+- [ ] WebSocket 服务接收并落盘事件流
+- [ ] LLM 合并语义动作并提取变量
+- [ ] 输出 Skill YAML（含变量、步骤、target_hint）
+
+**DoD**
+- [ ] 对 5 条示例任务均可生成有效 YAML
+- [ ] YAML 可通过模型校验并可被运行时加载
+- [ ] 变量提取准确率达到可用水平（人工评审通过）
+
+---
+
+### Phase 3: Agent 执行引擎
+- [ ] Playwright + CDP 获取精简 DOM 上下文
+- [ ] 规则匹配引擎（target_hint -> 候选集）
+- [ ] LLM 文本决策模块（候选选择 + action args）
+
+**DoD**
+- [ ] 在 3 个站点上端到端执行成功率 >= 85%
+- [ ] 元素定位失败可触发重试并输出诊断日志
+- [ ] 单步执行日志可追溯（输入、候选、决策、动作）
+
+---
+
+### Phase 4: 稳定性与体验
+- [ ] Skill 管理 CLI（list/show/edit/run）
+- [ ] 失败重试与人工介入机制
+- [ ] 动态列表与分页场景优化
+
+**DoD**
+- [ ] 失败场景可人工接管并继续执行
+- [ ] 常见站点列表任务成功率持续提升
+
+---
+
+## browser-use 参考强调
+
+`src/sasiki/browser/extension/` 是当前阶段最重要的实现资产：
+
+- `src/sasiki/browser/extension/axtree.ts`：可访问性树与元素语义提取
+- `src/sasiki/browser/extension/content.ts`：页面侧事件与元素信息采集（新增录制模式）
+- `src/sasiki/browser/extension/background.ts`：扩展后台通信骨架（WebSocket 版本）
+- `src/sasiki/browser/extension/sidebar.ts`：交互入口/录制 UI 参考
+- `src/sasiki/browser/extension/popup.html` / `popup.js`：扩展弹出界面
+
+原则：**优先复用和改造，不重复造轮子**。
+
+---
+
+## 代码清理状态（旧路线退场）
+
+### 已完成
+- [x] 移除屏幕录制 CLI 命令（`record` / `analyze`）
+- [x] 移除 `src/sasiki/recorder/`
+- [x] 移除 `src/sasiki/analyzer/`
+- [x] 移除与旧录制链路绑定的图像处理模块 `src/sasiki/utils/image.py`
+- [x] 清理对应导出与依赖（`utils/__init__.py`, `pyproject.toml`）
+
+### 待完成
+- [x] 替换/新增浏览器录制入口命令（Phase 1 已完成）
+- [ ] 增加 browser-first 端到端测试
+
+---
+
+## 当前阻塞与优先级
+
+1. **P0**：Phase 1 端到端测试验证 (录制 >= 20 步真实操作)
+2. **P1**：确定元素指纹匹配评分与阈值
+3. **P1**：沉淀 LLM 决策提示词模板与评测集
+
+---
+
+## Phase 1 使用说明
+
+### 1. 安装 Python 依赖
+
+```bash
+cd /Users/cory/codes/Sasiki
+uv sync
+```
+
+### 2. 构建 Extension
+
+```bash
+cd src/sasiki/browser/extension
+npm install
+npm run build
+```
+
+### 3. 加载 Extension
+
+1. 打开 Chrome，访问 `chrome://extensions/`
+2. 开启「开发者模式」
+3. 点击「加载已解压的扩展程序」
+4. 选择 `src/sasiki/browser/extension/` 目录
+
+### 4. 启动录制
+
+```bash
+# 终端 1：启动 WebSocket 服务器
+PYTHONPATH=src uv run --with websockets python -m sasiki.cli server start
+
+# 终端 2：开始录制
+PYTHONPATH=src uv run --with websockets python -m sasiki.cli record --name "xhs-e2e-01"
+```
+
+### 5. 小红书 10 步手测任务（推荐）
+
+在 Chrome 中打开小红书并执行以下步骤（尽量每步间隔 1-2 秒）：
+1. 访问 `https://www.xiaohongshu.com`
+2. 点击顶部搜索框
+3. 输入 `通勤穿搭 春季`
+4. 按 `Enter` 触发搜索
+5. 在结果页点击「最热」或「最新」筛选
+6. 滚动页面约 2-3 屏
+7. 点击一条笔记卡片进入详情
+8. 在详情页再滚动 1-2 屏
+9. 点击浏览器后退返回搜索结果页
+10. 点击另一条笔记卡片进入详情页
+
+### 6. 停止录制
+
+在终端 2 中按 `Ctrl+C`，录制文件将保存到 `~/.sasiki/recordings/browser/<session_id>.jsonl`
+
+### 7. 验证录制结果
+
+```bash
+cat ~/.sasiki/recordings/browser/xhs-e2e-01.jsonl
+```
+
+### 8. 运行自动化端到端测试
+
+```bash
+PYTHONPATH=src uv run --with pytest --with pytest-asyncio --with websockets pytest -q tests/test_phase1_websocket_flow.py
+```

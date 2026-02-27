@@ -1,0 +1,439 @@
+"""WebSocket server for Sasiki Extension <-> Python communication.
+
+This server handles bidirectional communication between the Chrome Extension
+(recording layer) and the Python backend (Agent service layer).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
+
+import structlog
+import websockets
+
+from sasiki.server.websocket_protocol import (
+    RecordedAction,
+    WSMessageType,
+)
+
+logger = structlog.get_logger(__name__)
+
+
+class RecordingSession:
+    """A single recording session that collects actions from the extension."""
+
+    def __init__(self, session_id: str) -> None:
+        self.session_id = session_id
+        self.actions: list[RecordedAction] = []
+        self.started_at: datetime = datetime.now()
+        self.stopped_at: Optional[datetime] = None
+        self.source_url: Optional[str] = None
+        self._lock = asyncio.Lock()
+
+    async def add_action(self, action: RecordedAction) -> None:
+        """Add an action to this session (thread-safe)."""
+        async with self._lock:
+            self.actions.append(action)
+            logger.debug(
+                "action_added",
+                session_id=self.session_id,
+                action_type=action.type.value,
+                action_count=len(self.actions),
+            )
+
+    def get_action_count(self) -> int:
+        """Get the number of actions recorded."""
+        return len(self.actions)
+
+    def stop(self) -> None:
+        """Mark the session as stopped."""
+        self.stopped_at = datetime.now()
+
+    @property
+    def duration_ms(self) -> int:
+        """Get the recording duration in milliseconds."""
+        end = self.stopped_at or datetime.now()
+        return int((end - self.started_at).total_seconds() * 1000)
+
+    def save(self, recordings_dir: Path) -> Path:
+        """Save session to disk as JSONL file.
+
+        Each line is a JSON object representing one action.
+        """
+        recordings_dir.mkdir(parents=True, exist_ok=True)
+
+        filepath = recordings_dir / f"{self.session_id}.jsonl"
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            # Write metadata as first line (commented)
+            metadata = {
+                "_meta": True,
+                "session_id": self.session_id,
+                "started_at": self.started_at.isoformat(),
+                "stopped_at": self.stopped_at.isoformat() if self.stopped_at else None,
+                "action_count": len(self.actions),
+                "duration_ms": self.duration_ms,
+            }
+            f.write(json.dumps(metadata, ensure_ascii=False) + "\n")
+
+            # Write each action
+            for action in self.actions:
+                f.write(action.model_dump_json() + "\n")
+
+        logger.info(
+            "session_saved",
+            session_id=self.session_id,
+            filepath=str(filepath),
+            action_count=len(self.actions),
+        )
+
+        return filepath
+
+    def to_summary(self) -> dict[str, Any]:
+        """Get a summary of this session for display."""
+        action_counts: dict[str, int] = {}
+        for action in self.actions:
+            action_counts[action.type.value] = action_counts.get(action.type.value, 0) + 1
+
+        return {
+            "session_id": self.session_id,
+            "started_at": self.started_at.isoformat(),
+            "duration_ms": self.duration_ms,
+            "action_count": len(self.actions),
+            "action_breakdown": action_counts,
+        }
+
+
+class WebSocketServer:
+    """WebSocket server for Extension <-> Python communication."""
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 8766,
+        recordings_dir: Optional[Path] = None,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.recordings_dir = recordings_dir or Path.home() / ".sasiki" / "recordings" / "browser"
+
+        # Connected clients
+        self.extension_ws: Optional[Any] = None
+        self.cli_ws: Optional[Any] = None
+
+        # Recording state
+        self.current_session: Optional[RecordingSession] = None
+        self.sessions: dict[str, RecordingSession] = {}
+
+        # Server state
+        self._server: Optional[asyncio.Server] = None
+        self._shutdown_event = asyncio.Event()
+
+    async def handle_client(
+        self, websocket: Any, path: Optional[str] = None
+    ) -> None:
+        """Handle a WebSocket client connection."""
+        client_type: Optional[str] = None
+        client_info = f"{websocket.remote_address}"
+
+        logger.info("client_connected", client=client_info)
+
+        try:
+            async for message in websocket:
+                try:
+                    data = json.loads(message)
+                    client_type = await self._handle_message(websocket, data, client_type)
+                except json.JSONDecodeError as e:
+                    logger.error("invalid_json", error=str(e), client=client_info)
+                    await self._send_error(websocket, "Invalid JSON message")
+                except Exception as e:
+                    logger.error("message_handler_error", error=str(e), client=client_info)
+                    await self._send_error(websocket, f"Error processing message: {e}")
+
+        except websockets.exceptions.ConnectionClosed:
+            logger.info("client_disconnected", client=client_info, type=client_type)
+        except Exception as e:
+            logger.error("connection_error", error=str(e), client=client_info)
+        finally:
+            # Clean up client reference
+            if client_type == "extension" and self.extension_ws is websocket:
+                self.extension_ws = None
+            elif client_type == "cli" and self.cli_ws is websocket:
+                self.cli_ws = None
+
+    async def _handle_message(
+        self,
+        websocket: Any,
+        data: dict[str, Any],
+        client_type: Optional[str],
+    ) -> Optional[str]:
+        """Handle a single message from a client."""
+        msg_type = data.get("type")
+
+        # Registration message
+        if msg_type == WSMessageType.REGISTER.value:
+            client_type = data.get("client")
+            if client_type == "extension":
+                self.extension_ws = websocket
+                logger.info("extension_registered", client=f"{websocket.remote_address}")
+            elif client_type == "cli":
+                self.cli_ws = websocket
+                logger.info("cli_registered", client=f"{websocket.remote_address}")
+            else:
+                logger.warning("unknown_client_type", client_type=client_type)
+            return client_type
+
+        # Action message from extension
+        if msg_type == WSMessageType.ACTION.value:
+            await self._handle_action(data.get("payload", data))
+            return client_type
+
+        # Control message from CLI
+        if msg_type == WSMessageType.CONTROL.value:
+            await self._handle_control(data.get("payload", data), websocket)
+            return client_type
+
+        logger.warning("unknown_message_type", type=msg_type, data=data)
+        return client_type
+
+    async def _handle_action(self, payload: dict[str, Any]) -> None:
+        """Handle an action message from the extension."""
+        if not self.current_session:
+            logger.warning("action_received_but_no_recording", payload=payload)
+            return
+
+        try:
+            # Parse the action
+            action = RecordedAction(**payload)
+
+            # Add to current session
+            await self.current_session.add_action(action)
+
+            # Log the action
+            target_name = action.target_hint.name if action.target_hint else "page"
+            logger.info(
+                "action_recorded",
+                type=action.type.value,
+                target=target_name[:30] if target_name else None,
+                url=action.page_context.url[:50] if action.page_context else None,
+            )
+
+            # Forward to CLI for display
+            if self.cli_ws:
+                await self.cli_ws.send(
+                    json.dumps({
+                        "type": "action_logged",
+                        "action": {
+                            "type": action.type.value,
+                            "target": target_name,
+                            "timestamp": action.timestamp,
+                        },
+                    })
+                )
+
+        except Exception as e:
+            logger.error("action_parse_error", error=str(e), payload=payload)
+
+    async def _handle_control(
+        self, payload: dict[str, Any], source_ws: Any
+    ) -> None:
+        """Handle a control message (start/stop/pause recording)."""
+        command = payload.get("command")
+        session_id = payload.get("session_id") or payload.get("sessionId")
+
+        if command in ("start", "START_RECORDING"):
+            await self._start_recording(session_id)
+
+            # Forward to extension if connected
+            if self.extension_ws:
+                await self.extension_ws.send(
+                    json.dumps({
+                        "type": "control",
+                        "command": "START_RECORDING",
+                        "sessionId": self.current_session.session_id if self.current_session else None,
+                    })
+                )
+
+            # Confirm to CLI
+            await source_ws.send(
+                json.dumps({
+                    "type": "control_response",
+                    "command": "start",
+                    "success": True,
+                    "session_id": self.current_session.session_id if self.current_session else None,
+                })
+            )
+
+        elif command in ("stop", "STOP_RECORDING"):
+            session_id = self.current_session.session_id if self.current_session else None
+
+            # Stop the recording
+            filepath = await self._stop_recording()
+
+            # Forward to extension if connected
+            if self.extension_ws:
+                await self.extension_ws.send(
+                    json.dumps({
+                        "type": "control",
+                        "command": "STOP_RECORDING",
+                    })
+                )
+
+            # Confirm to CLI
+            await source_ws.send(
+                json.dumps({
+                    "type": "control_response",
+                    "command": "stop",
+                    "success": True,
+                    "session_id": session_id,
+                    "filepath": str(filepath) if filepath else None,
+                })
+            )
+
+        else:
+            logger.warning("unknown_control_command", command=command)
+            await source_ws.send(
+                json.dumps({
+                    "type": "control_response",
+                    "command": command,
+                    "success": False,
+                    "error": f"Unknown command: {command}",
+                })
+            )
+
+    async def _start_recording(self, session_id: Optional[str] = None) -> None:
+        """Start a new recording session."""
+        if self.current_session:
+            logger.warning("recording_already_in_progress", session_id=self.current_session.session_id)
+            return
+
+        session_id = session_id or str(uuid.uuid4())[:8]
+        self.current_session = RecordingSession(session_id)
+        self.sessions[session_id] = self.current_session
+
+        logger.info("recording_started", session_id=session_id)
+
+    async def _stop_recording(self) -> Optional[Path]:
+        """Stop the current recording session and save it."""
+        if not self.current_session:
+            logger.warning("no_recording_in_progress")
+            return None
+
+        self.current_session.stop()
+        filepath = self.current_session.save(self.recordings_dir)
+
+        logger.info(
+            "recording_stopped",
+            session_id=self.current_session.session_id,
+            filepath=str(filepath),
+            action_count=self.current_session.get_action_count(),
+            duration_ms=self.current_session.duration_ms,
+        )
+
+        self.current_session = None
+        return filepath
+
+    async def _send_error(self, websocket: Any, message: str) -> None:
+        """Send an error message to a client."""
+        try:
+            await websocket.send(
+                json.dumps({
+                    "type": "error",
+                    "payload": {"message": message},
+                })
+            )
+        except Exception:
+            pass
+
+    async def start(self) -> None:
+        """Start the WebSocket server."""
+        logger.info("starting_websocket_server", host=self.host, port=self.port)
+
+        self._server = await websockets.serve(
+            self.handle_client,
+            self.host,
+            self.port,
+        )
+
+        logger.info(
+            "websocket_server_started",
+            host=self.host,
+            port=self.port,
+            url=f"ws://{self.host}:{self.port}",
+        )
+
+        # Wait for shutdown signal
+        await self._shutdown_event.wait()
+
+    async def stop(self) -> None:
+        """Stop the WebSocket server gracefully."""
+        logger.info("stopping_websocket_server")
+        self._shutdown_event.set()
+
+        if self._server:
+            self._server.close()
+            await self._server.wait_closed()
+
+        logger.info("websocket_server_stopped")
+
+    def get_status(self) -> dict[str, Any]:
+        """Get current server status."""
+        return {
+            "running": self._server is not None,
+            "host": self.host,
+            "port": self.port,
+            "extension_connected": self.extension_ws is not None,
+            "cli_connected": self.cli_ws is not None,
+            "recording": self.current_session is not None,
+            "current_session": (
+                self.current_session.to_summary() if self.current_session else None
+            ),
+            "total_sessions": len(self.sessions),
+        }
+
+
+def main() -> None:
+    """Entry point for running the WebSocket server standalone."""
+    import signal
+
+    # Configure logging
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.dev.ConsoleRenderer(),
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    server = WebSocketServer()
+
+    # Handle shutdown signals
+    loop = asyncio.get_event_loop()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(server.stop()))
+
+    try:
+        loop.run_until_complete(server.start())
+    except KeyboardInterrupt:
+        logger.info("shutdown_requested")
+    finally:
+        loop.run_until_complete(server.stop())
+
+
+if __name__ == "__main__":
+    main()
