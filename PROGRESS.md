@@ -249,6 +249,18 @@ npm run build
 
 ### 4. 启动录制
 
+**方式 1: 使用 CLI 命令 (推荐)**
+
+```bash
+# 终端 1：启动 WebSocket 服务器
+sasiki server start
+
+# 终端 2：开始录制
+sasiki record --name "xhs-e2e-01"
+```
+
+**方式 2: 使用 uv 运行 (开发调试)**
+
 ```bash
 # 终端 1：启动 WebSocket 服务器
 PYTHONPATH=src uv run --with websockets python -m sasiki.cli server start
@@ -286,3 +298,67 @@ cat ~/.sasiki/recordings/browser/xhs-e2e-01.jsonl
 ```bash
 PYTHONPATH=src uv run --with pytest --with pytest-asyncio --with websockets pytest -q tests/test_phase1_websocket_flow.py
 ```
+
+---
+
+## 未来开发目标与 TODO
+
+### 近期目标 (Next 2-4 Weeks)
+
+#### Phase 2: Python Skill 生成
+- [ ] WebSocket 服务接收并落盘事件流
+- [ ] 实现事件合并算法（将连续操作合并为语义步骤）
+- [ ] LLM 提示词工程：从录制事件生成 Skill YAML
+- [ ] 变量提取（识别可参数化的输入值）
+- [ ] Skill YAML 模型校验与存储
+
+#### 体验优化
+- [ ] 录制可视化：实时显示已录制步骤数
+- [ ] 录制回放：可在 CLI 中查看录制过程的文本摘要
+- [ ] 扩展 Popup UI：直接在浏览器中启动/停止录制
+
+### 中期目标 (1-3 Months)
+
+#### Phase 3: Agent 执行引擎
+- [ ] Playwright + CDP 获取精简 DOM 上下文
+- [ ] 元素指纹匹配引擎（基于 role/name/tag/context 评分）
+- [ ] LLM 决策模块：在候选元素中选择最优目标
+- [ ] 动作执行器：click/type/select/navigate 实现
+- [ ] 执行日志与诊断工具
+
+#### 稳定性建设
+- [ ] 端到端测试覆盖（至少 3 个常见站点）
+- [ ] 元素定位失败的重试与降级策略
+- [ ] 动态等待机制（智能等待元素出现）
+
+### 长期目标 (3-6 Months)
+
+#### Phase 4: 产品化与扩展
+- [ ] Skill  marketplace：分享与导入社区工作流
+- [ ] 可视化 Skill 编辑器
+- [ ] 执行历史与统计分析
+- [ ] 支持更多浏览器（Firefox、Safari）
+
+#### 智能化增强
+- [ ] 从录制中自动发现变量（智能参数化）
+- [ ] 失败场景的自我修复（自动选择替代元素）
+- [ ] 批量执行与调度（定时任务）
+
+### 技术债务与基础设施
+
+- [ ] 补充单元测试（覆盖率 > 80%）
+- [ ] TypeScript 类型严格化
+- [ ] Python 类型注解完整覆盖
+- [ ] CI/CD 流水线（自动测试、构建、发布）
+- [ ] 文档站点（自动生成的 API 文档）
+
+### 已规划但待排期
+
+| 功能 | 优先级 | 备注 |
+|------|--------|------|
+| 延迟导航标记修复 | P2 | 当前 250ms 检测窗口在慢网络下可能失效 |
+| 悬浮菜单/右键菜单录制 | P2 | 当前主要覆盖左键点击 |
+| 拖拽操作录制 | P3 | 需要设计新的 action 类型 |
+| iframe 支持 | P2 | 跨 iframe 元素定位与录制 |
+| Shadow DOM 支持 | P2 | Web Components 兼容性 |
+| 移动端浏览器支持 | P3 | 需要调研技术方案 |

@@ -1,72 +1,180 @@
 # Sasiki
 
-> 观察用户操作，自动生成可复用的工作流 Agent
+> Observe user actions, automatically generate reusable workflow agents
 
-Sasiki（日语「摹す」- 临摹、模仿）当前采用浏览器自动化主线：通过浏览器内操作录制与 Agent 执行，生成可复用的自动化工作流。
+Sasiki (Japanese "摩す" - to imitate, to copy) is a browser automation framework that records user interactions and generates reusable automation workflows through AI-powered skill generation and execution.
 
-## 核心理念
+## Core Concept
 
-**你演示一遍，AI 学会你的工作方式**
+**Demonstrate once, AI learns your workflow**
 
-不需要写代码，不需要描述需求，只需正常工作，Sasiki 会自动学习并为你生成可复用的工作流。
+No code writing, no requirement descriptions needed. Just work normally, and Sasiki will automatically learn and generate reusable workflows for you.
 
-## 当前主线
+## Current Focus
 
-- 浏览器录制（Chrome Extension）+ 元素指纹
-- Python Agent 服务（WebSocket）
-- Skill 生成（YAML）
-- Playwright 执行引擎
+- Browser recording (Chrome Extension) + Element fingerprinting
+- Python Agent Service (WebSocket)
+- Skill generation (YAML)
+- Playwright execution engine
 
-屏幕录制路线已停止维护，并从代码主干移除。
+Screen recording approach has been deprecated and removed from the codebase.
 
-## 快速开始
+## Quick Start
+
+### Installation
 
 ```bash
-# 安装
+# Option 1: Using pip (recommended)
 pip install -e ".[dev]"
 
-# 配置 API Key
-cp .env.example .env
-# 编辑 .env，添加 OPENROUTER_API_KEY
+# Option 2: Using uv
+uv pip install -e ".[dev]"
+```
 
-# 查看已保存的工作流
+After installation, the `sasiki` CLI tool will be available:
+
+```bash
+# Show help
+sasiki --help
+
+# List saved workflows
 sasiki list
 
-# 查看工作流详情
-sasiki show "法律合同起草"
+# Show workflow details
+sasiki show "Contract Drafting"
 ```
 
-浏览器录制与执行链路正在建设中，详见 `PROGRESS.md`。
+### Configure API Key
 
-## 使用场景
-
-- **法律合同起草**: 搜索法条 → 整理要点 → 生成合同
-- **竞品价格监控**: 访问网站 → 提取数据 → 更新表格
-- **周报生成**: 提取项目数据 → 整理 → 生成报告
-- **任何重复性浏览器工作**
-
-## 架构
-
-```
-录制 (Chrome Extension) → 生成 (Skill) → 执行 (Playwright Agent)
+```bash
+cp .env.example .env
+# Edit .env and add your OPENROUTER_API_KEY
 ```
 
-1. **录制层**: 浏览器事件采集 + 元素指纹
-2. **Skill 层**: LLM 合并语义动作并提取变量
-3. **执行层**: 规则匹配候选元素 + LLM 文本决策 + Playwright 动作
-4. **反馈层**: 失败重试和人工介入（规划中）
+## Browser Recording Guide
 
-## 参考实现
+Sasiki can record user actions in the browser through a Chrome extension, automatically generating reusable workflows.
 
-`src/sasiki/browser/extension/` 目录是当前浏览器能力建设的核心实现（axtree、content/background script 等），项目主线会围绕它持续演进。
+### 1. Build and Load Extension
 
-## 成本
+```bash
+# Build extension and copy to root extension/ folder
+./build_extension.sh          # macOS/Linux
+# or
+.\build_extension.ps1         # Windows
+```
 
-当前架构优先使用文本与结构化上下文进行决策，减少截图和视觉 token 消耗。
+Then load the extension in Chrome:
+1. Open Chrome and visit `chrome://extensions/`
+2. Enable "Developer mode" (toggle in top right)
+3. Click "Load unpacked"
+4. Select the `extension/` folder in the project root
 
-## 文档
+### 2. Start Recording Service
 
-详见 `PROGRESS.md` 与 `AGENTS.md`
+```bash
+# Terminal 1: Start WebSocket server
+sasiki server start
+
+# Terminal 2: Start recording session
+sasiki record --name "my-task"
+```
+
+### 3. Perform Browser Actions
+
+Execute the actions you want to record in Chrome:
+
+| Action Type | Example | Description |
+|-------------|---------|-------------|
+| Click | Click buttons, links, cards | Automatic element fingerprinting |
+| Type | Enter text in search boxes | Supports native input and contenteditable |
+| Select | Dropdown menu selection | Records option value |
+| Scroll | Infinite scroll loading | Smart content loading detection |
+| Navigate | Page navigation, back/forward | Navigation source tracking |
+
+Recorded event types:
+- `click` - Click element
+- `type` - Text input (supports `<input>`, `<textarea>`, `<div contenteditable>`)
+- `select` - Dropdown selection
+- `navigate` - Page navigation
+- `scroll_load` - Scroll-triggered content loading (smart detection)
+
+### 4. Stop Recording
+
+Press `Ctrl+C` in the recording terminal. The recording file will be automatically saved to `~/.sasiki/recordings/browser/<name>.jsonl`
+
+### 5. View Recording Results
+
+```bash
+# View recording file content
+cat ~/.sasiki/recordings/browser/my-task.jsonl
+
+# Pretty print (if jq is installed)
+cat ~/.sasiki/recordings/browser/my-task.jsonl | jq
+```
+
+### Recording Example: Xiaohongshu Search Task
+
+```bash
+# 1. Start the server
+sasiki server start
+
+# 2. Start recording in another terminal
+sasiki record --name "xhs-search"
+
+# 3. Perform these actions in Chrome:
+#    - Visit https://www.xiaohongshu.com
+#    - Click the search box
+#    - Type "通勤穿搭 春季" (spring commute outfits)
+#    - Press Enter
+#    - Click "最热" (hottest) filter
+#    - Scroll the page
+#    - Click a note card to enter details
+#    - Click back
+
+# 4. Press Ctrl+C to stop recording
+```
+
+## Use Cases
+
+- **Legal Contract Drafting**: Search laws → Organize key points → Generate contract
+- **Competitor Price Monitoring**: Visit websites → Extract data → Update spreadsheets
+- **Weekly Report Generation**: Extract project data → Organize → Generate report
+- **Any repetitive browser work**
+
+## Architecture
+
+```
+Record (Chrome Extension) → Generate (Skill) → Execute (Playwright Agent)
+```
+
+1. **Recording Layer**: Browser event capture + element fingerprinting
+2. **Skill Layer**: LLM merges semantic actions and extracts variables
+3. **Execution Layer**: Rule-based candidate matching + LLM decision + Playwright actions
+4. **Feedback Layer**: Failure retry and human intervention (planned)
+
+## Reference Implementation
+
+The `src/sasiki/browser/extension/` directory contains the core browser capabilities (axtree, content/background scripts, etc.), which is the foundation of the project roadmap.
+
+## Cost
+
+The current architecture prioritizes text and structured context for decision-making, reducing screenshot and visual token consumption.
+
+## Development Roadmap
+
+See `PROGRESS.md` for details. Current phases:
+
+- ✅ Phase 1: Extension recording pipeline (Completed)
+- 🔄 Phase 2: Python Skill generation (In progress)
+- 📋 Phase 3: Agent execution engine (Planned)
+- 📋 Phase 4: Stability and UX (Planned)
+
+## Documentation
+
+- `PROGRESS.md` - Project progress and detailed documentation
+- `AGENTS.md` - Agent development guide
+- `Memory.md` - Technical lessons learned and pitfalls
 
 ## License
 
