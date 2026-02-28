@@ -1,5 +1,63 @@
 # Sasiki 项目经验教训
 
+## 2026-02-28 content script 录制启动问题
+
+### 问题描述
+使用 `sasiki record` 命令启动录制时，server 收到命令并转发给 extension，但网页（content script）没有实际开始录制。控制台看不到 `[Sasiki] Attaching recording listeners` 日志。
+
+### 根本原因
+1. **错误静默捕获**：background.ts 中 `.catch(() => {})` 吞掉了 `sendMessage` 的所有错误
+2. **注入未验证**：`ensureContentScriptInjected` 只执行注入，不验证 content script 是否真的加载成功
+3. **缺少初始化延迟**：注入后立即发送 `START_RECORDING` 消息，content script 可能还没初始化完成
+4. **无重试机制**：如果第一次发送失败，没有补救措施
+
+### 代码问题位置
+```typescript
+// background.ts 原问题代码（第170-178行）
+await ensureContentScriptInjected(tab.id);
+await chrome.tabs.sendMessage(tab.id, {
+    action: 'START_RECORDING',
+    sessionId: globalRecording.sessionId
+}).catch(() => {});  // ← 静默吞掉错误
+```
+
+### 解决方案
+1. **验证注入结果**：`ensureContentScriptInjected` 返回 boolean，失败后中止录制
+2. **添加初始化延迟**：注入后等待 100ms 确保 content script 就绪
+3. **重试机制**：第一次发送失败时，重新注入并重试一次
+4. **适当的错误日志**：保留关键错误信息，移除过多 debug 日志
+
+### 关键代码变更
+```typescript
+// 1. 验证注入
+const injected = await ensureContentScriptInjected(tab.id);
+if (!injected) {
+    log('ERROR', 'Failed to inject content script, recording aborted');
+    globalRecording.isRecording = false;
+    return;
+}
+
+// 2. 等待初始化
+await new Promise(resolve => setTimeout(resolve, 100));
+
+// 3. 发送消息（带重试）
+try {
+    await chrome.tabs.sendMessage(tab.id, {...});
+} catch (err) {
+    // Retry injection once
+    await chrome.scripting.executeScript({...});
+    await chrome.tabs.sendMessage(tab.id, {...});
+}
+```
+
+### 调试技巧
+1. 打开 background script console（chrome://extensions/ → 背景页）
+2. 检查是否收到 WebSocket 消息：`Received from WebSocket:`
+3. 检查是否成功发送消息到 tab：`Successfully sent START_RECORDING`
+4. 在目标网页 F12 Console 检查：`[Sasiki] Attaching recording listeners`
+
+---
+
 ## 2026-02-28 contenteditable 元素输入录制问题
 
 ### 问题描述
