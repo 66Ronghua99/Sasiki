@@ -1,5 +1,47 @@
 # Sasiki 项目经验教训
 
+## 2026-02-28 contenteditable 元素输入录制问题
+
+### 问题描述
+在 Gemini、Notion 等网站录制用户输入时，`type` 事件无法记录。用户输入了文本但录制文件中只有 `click` 事件。
+
+### 根本原因
+1. **元素类型不匹配**: 这些网站使用 `contenteditable` div (`<div role="textbox" contenteditable="true">`) 而不是原生 `<input>` 或 `<textarea>`
+2. **input 事件监听器过于严格**: 原 `inputListener` 将 `e.target` 强制转换为 `HTMLInputElement`，忽略了 `contenteditable` 元素
+3. **值提取方式错误**: 原 `recordInputAction` 使用 `target.value` 获取输入值，但 `contenteditable` div 需要使用 `target.textContent`
+4. **事件触发问题**: 某些 `contenteditable` 元素可能不触发标准的 `input` 事件，需要额外的 `keyup` 监听
+
+### 解决方案
+1. **扩展输入元素检测** (`content.ts`)
+   - 检测 `contenteditable` 属性: `target.isContentEditable`
+   - 同时监听 `input` 和 `keyup` 事件
+
+2. **统一值提取逻辑**
+   ```typescript
+   let value: string;
+   if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+       value = (target as HTMLInputElement).value;
+   } else if (target.isContentEditable) {
+       value = target.textContent || '';
+   }
+   ```
+
+3. **类型定义更新**
+   - `PendingActions.input.target`: `HTMLInputElement | null` → `HTMLElement | null`
+   - `recordInputAction` 参数: `HTMLInputElement` → `HTMLElement`
+
+### 关键代码变更
+```typescript
+// content.ts: 支持 contenteditable
+const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+
+// 同时监听 keyup 以确保 contenteditable 可靠触发
+document.addEventListener('input', inputListener, true);
+document.addEventListener('keyup', inputListener, true);
+```
+
+---
+
 ## 2026-02-27 SPA 页面点击录制问题
 
 ### 问题描述

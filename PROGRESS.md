@@ -120,6 +120,16 @@ steps:
     - 新增 `recordInputAction()` 函数提取 input 记录逻辑
     - 添加 blur 和 keypress (Enter) 监听器作为强制 flush 触发器
 
+- [x] 支持 contenteditable 元素输入录制 (Gemini、Notion 等)
+  - 问题：现代 Web 应用使用 `contenteditable` div 代替原生 input，导致输入无法记录
+  - 触发场景：Gemini (`<div role="textbox" contenteditable="true">`)、Notion、Google Docs 等
+  - 解决方案：
+    - 扩展输入元素检测：同时检查 `tag === 'input'` 和 `target.isContentEditable`
+    - 统一值提取逻辑：原生 input 用 `.value`，contenteditable 用 `.textContent`
+    - 添加 `keyup` 事件监听作为 contenteditable 的备选触发机制
+    - 更新类型定义：`HTMLElement` 替代 `HTMLInputElement`
+  - 修改文件：`src/sasiki/browser/extension/content.ts` (inputListener, recordInputAction, PendingActions)
+
 ---
 
 ### Phase 2: Python Skill 生成

@@ -48,7 +48,7 @@ let isScrollIntended = false;
 // ============================================================================
 
 interface PendingActions {
-    input: { timeout: number | null; target: HTMLInputElement | null };
+    input: { timeout: number | null; target: HTMLElement | null };
     scroll: { timeout: number | null };
 }
 
@@ -79,9 +79,21 @@ function flushAllPendingActions() {
 
 /**
  * Extracted input recording logic for reuse in debounce and flush
+ * Supports both native input elements and contenteditable divs (e.g., Gemini, Notion)
  */
-function recordInputAction(target: HTMLInputElement) {
+function recordInputAction(target: HTMLElement) {
     const refId = axTreeManager.getRefIdForElement(target);
+
+    // Get value: native inputs use .value, contenteditable uses .textContent
+    let value: string;
+    const tag = target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        value = (target as HTMLInputElement).value;
+    } else if (target.isContentEditable) {
+        value = target.textContent || '';
+    } else {
+        return; // Not an input element
+    }
 
     if (refId) {
         const fingerprint = axTreeManager.getElementFingerprint(refId);
@@ -89,7 +101,7 @@ function recordInputAction(target: HTMLInputElement) {
             timestamp: Date.now(),
             type: 'type',
             targetHint: fingerprint!,
-            value: target.value,
+            value: value,
             pageContext: {
                 url: window.location.href,
                 title: document.title,
@@ -98,14 +110,14 @@ function recordInputAction(target: HTMLInputElement) {
         });
     } else {
         // Fallback: directly create fingerprint for input elements
-        const tag = target.tagName.toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        const isInputElement = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+        if (isInputElement) {
             const fingerprint = axTreeManager.createFingerprintFromElement(target);
             recordAction({
                 timestamp: Date.now(),
                 type: 'type',
                 targetHint: fingerprint,
-                value: target.value,
+                value: value,
                 pageContext: {
                     url: window.location.href,
                     title: document.title,
@@ -267,8 +279,15 @@ function attachRecordingListeners() {
     document.addEventListener('click', clickListener, true); // use capture phase
 
     // Input recording (debounced)
+    // Supports both native input elements and contenteditable divs
     inputListener = (e: Event) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as HTMLElement;
+
+        // Check if element is editable (native input or contenteditable)
+        const tag = target.tagName.toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+
+        if (!isEditable) return;
 
         // Clear old pending timeout
         if (pendingActions.input.timeout) {
@@ -285,9 +304,12 @@ function attachRecordingListeners() {
     };
     document.addEventListener('input', inputListener, true);
 
+    // Additional listener for contenteditable elements that may not trigger 'input' reliably
+    document.addEventListener('keyup', inputListener, true);
+
     // Force flush trigger: blur event (user leaves input field)
     document.addEventListener('blur', (e) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as HTMLElement;
         if (target === pendingActions.input.target) {
             flushAllPendingActions();
         }
