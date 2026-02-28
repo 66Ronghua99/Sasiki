@@ -37,13 +37,84 @@ let recordingState: RecordingState = {
 // Recording listeners (attached only when recording)
 let clickListener: ((e: MouseEvent) => void) | null = null;
 let inputListener: ((e: Event) => void) | null = null;
-let inputTimeout: number | null = null;
 
 // Smart scroll detection
-let scrollIntentTimeout: number | null = null;
 let lastScrollHeight = 0;
 let lastContentChildCount = 0;
 let isScrollIntended = false;
+
+// ============================================================================
+// Unified Pending Actions Management
+// ============================================================================
+
+interface PendingActions {
+    input: { timeout: number | null; target: HTMLInputElement | null };
+    scroll: { timeout: number | null };
+}
+
+const pendingActions: PendingActions = {
+    input: { timeout: null, target: null },
+    scroll: { timeout: null }
+};
+
+/**
+ * Force flush all pending actions (input and scroll)
+ * Call this before critical events like click, navigate to ensure correct event order
+ */
+function flushAllPendingActions() {
+    // Flush input
+    if (pendingActions.input.timeout && pendingActions.input.target) {
+        window.clearTimeout(pendingActions.input.timeout);
+        recordInputAction(pendingActions.input.target);
+        pendingActions.input = { timeout: null, target: null };
+    }
+    // Flush scroll - just clear the timeout, the scroll check will happen immediately
+    if (pendingActions.scroll.timeout) {
+        window.clearTimeout(pendingActions.scroll.timeout);
+        checkForContentLoading();
+        isScrollIntended = false;
+        pendingActions.scroll.timeout = null;
+    }
+}
+
+/**
+ * Extracted input recording logic for reuse in debounce and flush
+ */
+function recordInputAction(target: HTMLInputElement) {
+    const refId = axTreeManager.getRefIdForElement(target);
+
+    if (refId) {
+        const fingerprint = axTreeManager.getElementFingerprint(refId);
+        recordAction({
+            timestamp: Date.now(),
+            type: 'type',
+            targetHint: fingerprint!,
+            value: target.value,
+            pageContext: {
+                url: window.location.href,
+                title: document.title,
+                tabId: recordingState.tabId
+            }
+        });
+    } else {
+        // Fallback: directly create fingerprint for input elements
+        const tag = target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+            const fingerprint = axTreeManager.createFingerprintFromElement(target);
+            recordAction({
+                timestamp: Date.now(),
+                type: 'type',
+                targetHint: fingerprint,
+                value: target.value,
+                pageContext: {
+                    url: window.location.href,
+                    title: document.title,
+                    tabId: recordingState.tabId
+                }
+            });
+        }
+    }
+}
 
 // Click tracking for navigation detection
 interface RecentClickInfo {
@@ -87,6 +158,10 @@ function attachRecordingListeners() {
 
     // Click recording
     clickListener = (e: MouseEvent) => {
+        // Force flush any pending input/scroll actions to ensure correct event order
+        // This ensures input -> click -> navigate sequence is preserved
+        flushAllPendingActions();
+
         const target = e.target as Element;
         const refId = axTreeManager.getRefIdForElement(target);
 
@@ -194,27 +269,36 @@ function attachRecordingListeners() {
     // Input recording (debounced)
     inputListener = (e: Event) => {
         const target = e.target as HTMLInputElement;
-        if (inputTimeout) window.clearTimeout(inputTimeout);
 
-        inputTimeout = window.setTimeout(() => {
-            const refId = axTreeManager.getRefIdForElement(target);
-            if (refId) {
-                const fingerprint = axTreeManager.getElementFingerprint(refId);
-                recordAction({
-                    timestamp: Date.now(),
-                    type: 'type',
-                    targetHint: fingerprint!,
-                    value: target.value,
-                    pageContext: {
-                        url: window.location.href,
-                        title: document.title,
-                        tabId: recordingState.tabId
-                    }
-                });
-            }
-        }, 500); // 500ms debounce
+        // Clear old pending timeout
+        if (pendingActions.input.timeout) {
+            window.clearTimeout(pendingActions.input.timeout);
+        }
+
+        // Set new pending action with 2000ms debounce
+        // This reduces intermediate state recording for normal typing
+        pendingActions.input.target = target;
+        pendingActions.input.timeout = window.setTimeout(() => {
+            recordInputAction(target);
+            pendingActions.input = { timeout: null, target: null };
+        }, 2000); // 2000ms debounce - records only when user pauses typing
     };
     document.addEventListener('input', inputListener, true);
+
+    // Force flush trigger: blur event (user leaves input field)
+    document.addEventListener('blur', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target === pendingActions.input.target) {
+            flushAllPendingActions();
+        }
+    }, true);
+
+    // Force flush trigger: Enter key (form submission)
+    document.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && pendingActions.input.target) {
+            flushAllPendingActions();
+        }
+    }, true);
 
     // Smart scroll detection - only record when scroll triggers content loading
     attachSmartScrollDetection();
@@ -235,15 +319,16 @@ function attachSmartScrollDetection() {
 
         isScrollIntended = true;
 
-        // Clear previous timeout
-        if (scrollIntentTimeout) {
-            window.clearTimeout(scrollIntentTimeout);
+        // Clear previous pending scroll timeout
+        if (pendingActions.scroll.timeout) {
+            window.clearTimeout(pendingActions.scroll.timeout);
         }
 
         // Wait for scroll to settle (500ms debounce)
-        scrollIntentTimeout = window.setTimeout(() => {
+        pendingActions.scroll.timeout = window.setTimeout(() => {
             checkForContentLoading();
             isScrollIntended = false;
+            pendingActions.scroll.timeout = null;
         }, 500);
     };
 
@@ -358,10 +443,17 @@ function detachRecordingListeners() {
         document.removeEventListener('input', inputListener, true);
         inputListener = null;
     }
-    if (inputTimeout) {
-        window.clearTimeout(inputTimeout);
-        inputTimeout = null;
+
+    // Clear all pending actions
+    if (pendingActions.input.timeout) {
+        window.clearTimeout(pendingActions.input.timeout);
     }
+    pendingActions.input = { timeout: null, target: null };
+
+    if (pendingActions.scroll.timeout) {
+        window.clearTimeout(pendingActions.scroll.timeout);
+    }
+    pendingActions.scroll = { timeout: null };
 
     // Clean up smart scroll detection
     const handlers = (window as any).__sasikiScrollHandlers;
@@ -370,10 +462,8 @@ function detachRecordingListeners() {
         document.removeEventListener('touchmove', handlers.touchmove, { capture: true });
         delete (window as any).__sasikiScrollHandlers;
     }
-    if (scrollIntentTimeout) {
-        window.clearTimeout(scrollIntentTimeout);
-        scrollIntentTimeout = null;
-    }
+
+    isScrollIntended = false;
 }
 
 interface RecordedAction {

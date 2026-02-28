@@ -48,6 +48,100 @@
 
 ---
 
+## 2026-02-28 input 事件录制缺失 value 问题
+
+### 问题描述
+在录制登录表单时，手机号和验证码输入框的内容没有被记录，录制文件中 `type` 事件的 `value` 字段始终为 `null`。
+
+### 根本原因分析
+1. **录制流程差异**：
+   - click 事件有 fallback 机制（当 refId 不存在时，查找交互式父元素并直接创建 fingerprint）
+   - input 事件只有主路径，没有 fallback 机制
+
+2. **AX Tree 依赖问题**：
+   - `getRefIdForElement` 依赖 `elementToRefId` WeakMap
+   - 这个 map 只有在调用 `captureTree`/`captureCompactTree` 等方法时才会填充
+   - 录制模式**没有预先生成** AX Tree
+
+3. **为什么 click 能工作**：
+   - click 事件第 128-188 行实现了 fallback：当 refId 不存在时，向上遍历 DOM 查找交互式父元素
+   - 找到后直接调用 `createFingerprintFromElement` 创建 fingerprint
+
+### 解决方案
+为 input 事件添加 fallback 模式：
+```typescript
+if (refId) {
+    // 原有逻辑
+} else {
+    // Fallback: 直接为 input 元素创建 fingerprint
+    const tag = target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        const fingerprint = axTreeManager.createFingerprintFromElement(target);
+        recordAction({...});
+    }
+}
+```
+
+### 为什么不需要预生成 AX Tree
+- 预生成需要 MutationObserver 监听所有 DOM 变化，性能开销大
+- click 事件的 fallback 方案已证明可行
+- 按需 fallback 更轻量，适合录制场景
+
+### 相关代码位置
+- `content.ts` 第 194-217 行：input 事件监听
+- `content.ts` 第 128-188 行：click 事件 fallback 参考实现
+- `axtree.ts` 第 287-325 行：`createFingerprintFromElement` 方法
+
+---
+
+## 2026-02-28 录制事件时序和冗余问题修复
+
+### 问题描述
+1. **Input 事件冗余**: 500ms debounce 太短，用户输入 "hello" 被记录了 4 次中间状态（"h", "he", "hel", "hello"）
+2. **事件时序错乱**: 快速提交时（输入后立即点击/按Enter），input 事件可能在 click 之后发送，导致回放时序错误
+3. **Scroll 事件跨页面**: 滚动中点击链接导航，scroll 事件可能在导航后才记录
+
+### 根本原因
+- Debounce 时间过短，用户正常打字停顿就会触发记录
+- 没有强制 flush 机制确保 pending 事件在关键操作前发送
+- Input、scroll、click 各自管理 timeout，没有统一协调
+
+### 解决方案
+采用「统一 pending 管理 + 强制 flush」机制：
+
+1. **延长 input debounce**: 500ms → 2000ms，只记录用户真正停顿后的最终结果
+2. **添加强制 flush 触发器**:
+   - `blur` - 用户离开输入框
+   - `Enter` 键 - 表单提交
+   - `click` 事件开头 - 确保 input 在 click 之前记录
+3. **统一 pending 管理**: 使用 `PendingActions` 接口集中管理所有 pending 状态
+
+### 关键代码结构
+```typescript
+interface PendingActions {
+    input: { timeout: number | null; target: HTMLInputElement | null };
+    scroll: { timeout: number | null };
+}
+
+function flushAllPendingActions() {
+    // Flush input: clear timeout + record immediately
+    // Flush scroll: clear timeout + check content loading
+}
+```
+
+### 实现要点
+- Click 监听器开头必须调用 `flushAllPendingActions()`
+- Input debounce 延长至 2000ms 减少中间状态
+- Scroll 检测也纳入统一 pending 管理
+- Detach listeners 时清理所有 pending timeouts
+
+### 验证方法
+1. 缓慢输入 "hello"（每字母间隔 <2秒）- 应只记录 1 次 type 事件
+2. 快速输入 "test" 后立即按 Enter - type 事件应在 navigate 之前
+3. 滚动后立即点击链接 - scroll 事件应在 click/navigate 之前
+
+---
+
 ## 2026-02-27 区分点击触发导航 vs 真实页面跳转
 
 ### 问题背景

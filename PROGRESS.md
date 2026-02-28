@@ -104,6 +104,22 @@ steps:
     - 记录内容加载提示（如 "Added 5 items" 或 "Height increased by 300px"）
   - 修改文件：`src/sasiki/browser/extension/content.ts`
 
+- [x] 修复录制事件时序和冗余问题
+  - 问题 1: Input 事件冗余 - 500ms debounce 太短，导致 "h" -> "he" -> "hel" -> "hello" 多次记录
+  - 问题 2: 事件时序错乱 - 快速提交时 input 事件可能在 click 之后发送
+  - 问题 3: Scroll 事件可能在导航后才记录
+  - 解决方案：采用「统一 pending 管理 + 强制 flush」机制
+    - Input debounce: 500ms -> 2000ms，减少中间状态记录
+    - 添加强制 flush 触发器：blur / Enter / click 前强制发送 pending input
+    - 统一 pending 管理：集中管理 input 和 scroll 的 pending 状态
+    - Click 事件开头调用 `flushAllPendingActions()` 确保时序正确
+  - 修改文件：`src/sasiki/browser/extension/content.ts`
+  - 关键变更：
+    - 新增 `PendingActions` 接口统一管理 pending 状态
+    - 新增 `flushAllPendingActions()` 函数强制发送所有 pending 事件
+    - 新增 `recordInputAction()` 函数提取 input 记录逻辑
+    - 添加 blur 和 keypress (Enter) 监听器作为强制 flush 触发器
+
 ---
 
 ### Phase 2: Python Skill 生成
@@ -181,6 +197,13 @@ steps:
 ## 已知问题与待办
 
 ### 录制逻辑
+- [x] **input 事件 value 为 null** ✅ FIXED (2026-02-28)
+  - 问题：`type` 事件（用户输入）的 `value` 字段始终为 null
+  - 根本原因：`getRefIdForElement` 依赖预计算的 AX Tree，但录制模式没有预生成树
+  - 解决方案：为 input 事件添加 fallback 机制（参考 click 事件的实现）
+  - 修改文件：`src/sasiki/browser/extension/content.ts` 第 194-217 行
+  - 状态：代码已修改，extension 已重新构建，待验证
+
 - [ ] **延迟导航标记失效**（低优先级）
   - 问题：当前 `click.triggers_navigation` 依赖 250ms 延迟检测，如果导航发生在延迟之后（>250ms），会误判为 `false`
   - 触发场景：慢网络、SPA 数据预加载、过渡动画等
