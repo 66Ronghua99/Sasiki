@@ -170,11 +170,46 @@ async function startRecording(sessionId?: string) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
         globalRecording.tabIds.add(tab.id);
-        await ensureContentScriptInjected(tab.id);
-        await chrome.tabs.sendMessage(tab.id, {
-            action: 'START_RECORDING',
-            sessionId: globalRecording.sessionId
-        }).catch(() => {});
+        
+        // Ensure content script is injected
+        const injected = await ensureContentScriptInjected(tab.id);
+        if (!injected) {
+            log('ERROR', 'Failed to inject content script, recording aborted');
+            globalRecording.isRecording = false;
+            globalRecording.sessionId = null;
+            return;
+        }
+        
+        // Wait for content script to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Send start recording message
+        try {
+            await chrome.tabs.sendMessage(tab.id, {
+                action: 'START_RECORDING',
+                sessionId: globalRecording.sessionId,
+                tabId: tab.id
+            });
+        } catch (err) {
+            log('WARN', 'Failed to start recording in tab, retrying...');
+            // Retry injection once
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['dist/content.js']
+                });
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await chrome.tabs.sendMessage(tab.id, {
+                    action: 'START_RECORDING',
+                    sessionId: globalRecording.sessionId,
+                    tabId: tab.id
+                });
+            } catch (retryErr) {
+                log('ERROR', 'Retry failed, recording may not work in this tab');
+            }
+        }
+    } else {
+        log('WARN', 'No active tab found to start recording');
     }
 
     // Notify Python backend
@@ -347,11 +382,17 @@ async function ensureContentScriptInjected(tabId: number): Promise<boolean> {
                 target: { tabId },
                 files: ['dist/content.js']
             });
-            // Wait a bit for the script to initialize
+            // Wait for initialization
             await new Promise(resolve => setTimeout(resolve, 100));
-            return true;
-        } catch (injectError) {
-            log('ERROR', 'Failed to inject content script:', injectError);
+            
+            // Verify injection succeeded
+            try {
+                await chrome.tabs.sendMessage(tabId, { action: 'PING' });
+                return true;
+            } catch {
+                return false;
+            }
+        } catch {
             return false;
         }
     }

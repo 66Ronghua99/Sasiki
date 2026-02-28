@@ -2,7 +2,7 @@
 
 ## 当前主线（唯一）
 
-**日期：2026-02-27**
+**日期：2026-02-28**
 
 Sasiki 当前仅维护 **浏览器自动化（browser-first）** 路线。
 
@@ -80,6 +80,36 @@ steps:
 - [x] 每步均生成结构化事件（含 target_hint）
 - [x] 录制文件可被后端成功消费（100% 通过）
 - [x] 智能滚动录制实现（TypeScript 编译通过）
+
+---
+
+### Phase 1 E2E 验证任务设计
+
+**任务名称**: `xhs_search_and_browse` - 小红书搜索与浏览任务
+
+**验证目标**: 确保录制链路在真实场景下稳定运行，为 Phase 2 提供可靠的输入数据
+
+**操作序列**（13 步，预计 3-5 分钟）：
+
+| 步骤 | 动作 | 验证点 |
+|------|------|--------|
+| 1 | 访问 `https://www.xiaohongshu.com` | navigate 事件 |
+| 2 | 点击顶部搜索框 | click 事件，元素指纹 |
+| 3 | 输入 `通勤穿搭 春季` | type 事件，中文输入 |
+| 4 | 按 `Enter` 搜索 | keypress 触发导航 |
+| 5 | 点击「最热」筛选 | click，SPA 动态内容 |
+| 6 | 向下滚动 2-3 屏 | scroll_load 事件 |
+| 7 | 点击第 1 条笔记 | click，triggersNavigation |
+| 8 | 在详情页滚动 1 屏 | scroll_load（详情页）|
+| 9 | 点击收藏按钮 | click（交互反馈）|
+| 10 | 点击浏览器后退 | navigate，triggeredBy: 'click' |
+| 11 | 点击第 2 条笔记 | click，返回后元素定位 |
+| 12 | 在详情页滚动 | scroll_load |
+| 13 | 点击返回首页/关闭 | navigate |
+
+**验收标准**: 见下方"Phase 1 E2E 验收检查清单"
+
+**执行脚本**: `scripts/test_e2e_xhs_search.sh`（待创建）
 
 **修复记录（2026-02-27）**
 - [x] 修复 SPA 页面（小红书）点击录制失败问题
@@ -198,9 +228,140 @@ steps:
 
 ## 当前阻塞与优先级
 
-1. **P0**：Phase 1 端到端测试验证 (录制 >= 20 步真实操作)
-2. **P1**：确定元素指纹匹配评分与阈值
-3. **P1**：沉淀 LLM 决策提示词模板与评测集
+1. **P0**：Phase 1 E2E 验证任务执行（小红书搜索任务）
+2. **P1**：基于验证结果进入 Phase 2: Skill 生成开发
+3. **P1**：确定元素指纹匹配评分与阈值
+4. **P2**：沉淀 LLM 决策提示词模板与评测集
+
+---
+
+## 下一步执行计划（Next Actions）
+
+### 🔴 立即执行（今天/明天）
+
+#### 1. 执行 Phase 1 E2E 验证任务
+**负责人**: 开发者 + 测试人员
+**耗时**: ~30 分钟
+
+```bash
+# 步骤 1: 确保最新代码已构建
+cd src/sasiki/browser/extension && npm run build
+
+# 步骤 2: 启动服务器（终端 1）
+sasiki server start
+
+# 步骤 3: 执行验证任务（终端 2）
+sasiki record --name "xhs_e2e_verify_$(date +%m%d)"
+```
+
+**手动操作清单**:
+- [ ] 访问小红书首页
+- [ ] 完成搜索流程（关键词可自定义）
+- [ ] 完成筛选 + 滚动 + 点击笔记
+- [ ] 详情页交互 + 返回
+- [ ] 再次点击另一条笔记
+- [ ] Ctrl+C 停止录制
+
+**验证录制文件**:
+```bash
+RECORDING_FILE="$HOME/.sasiki/recordings/browser/xhs_e2e_verify_*.jsonl"
+
+# 检查 1: 事件数量
+cat $RECORDING_FILE | wc -l  # 预期 >= 14
+
+# 检查 2: 事件类型分布
+cat $RECORDING_FILE | tail -n +2 | jq -r '.type' | sort | uniq -c
+# 预期看到: click, type, navigate, scroll_load
+
+# 检查 3: 数据完整性
+cat $RECORDING_FILE | jq 'select(.targetHint) | .targetHint | {role, name, tag_name}' | head -20
+```
+
+**验收通过标准**:
+- [ ] 事件数量 >= 13
+- [ ] 包含 4 种事件类型: click, type, navigate, scroll_load
+- [ ] 每个 click/type 事件都有完整的 target_hint（role, name, tag_name）
+- [ ] navigate 事件有 triggeredBy 字段
+- [ ] 无明显重复事件（input debounce 正常工作）
+
+---
+
+#### 2. 创建 E2E 测试脚本（自动化验收）
+**负责人**: 开发者
+**耗时**: ~2 小时
+**输出**: `scripts/test_e2e_recording.py`
+
+功能:
+- 自动检查录制文件格式
+- 统计事件类型分布
+- 验证数据完整性
+- 生成验收报告
+
+---
+
+### 🟡 本周内完成（Phase 2 启动准备）
+
+#### 3. 更新事件协议（支持 scroll_load）
+**文件**: `src/sasiki/server/websocket_protocol.py`
+
+当前 `ActionType` 缺少 `SCROLL_LOAD`，需要添加:
+```python
+class ActionType(str, Enum):
+    CLICK = "click"
+    TYPE = "type"
+    SELECT = "select"
+    NAVIGATE = "navigate"
+    SCROLL = "scroll"
+    SCROLL_LOAD = "scroll_load"  # 新增
+    TAB_SWITCH = "tab_switch"
+    PAGE_ENTER = "page_enter"
+```
+
+同时更新 `RecordedAction` 支持 scroll_load 特有字段:
+- `trigger`: 'infinite_scroll' | 'lazy_load'
+- `loaded_content_hint`: string
+
+---
+
+#### 4. 录制文件可视化工具
+**输出**: `sasiki recording show <file>` 命令
+
+功能:
+- 以时间线形式展示录制过程
+- 显示每步操作的摘要
+- 高亮可能的问题（如重复事件、缺失 target_hint）
+
+示例输出:
+```
+📹 Recording: xhs_e2e_verify_0228
+Duration: 2m 34s | Events: 15
+
+Timeline:
+[00:00:02] 🌐 navigate  → https://www.xiaohongshu.com
+[00:00:05] 🖱️  click     → search box (role=textbox, name=搜索)
+[00:00:08] ⌨️  type      → "通勤穿搭 春季"
+[00:00:12] 🖱️  click     → 搜索按钮
+[00:00:13] 🌐 navigate  → /search_result (triggeredBy: click)
+...
+```
+
+---
+
+### 🟢 Phase 2 开发规划（下周开始）
+
+基于 E2E 验证结果，Phase 2 将分为 4 个迭代:
+
+| 迭代 | 目标 | 关键产出 |
+|------|------|----------|
+| Week 1 | 事件合并算法 | `EventMerger` 类，将连续操作合并为语义步骤 |
+| Week 2 | LLM Skill 生成 | `SkillGenerator` 类，提示词模板，YAML 输出 |
+| Week 3 | 变量提取 | 自动识别可参数化的值（搜索词、选项等）|
+| Week 4 | CLI 集成 | `sasiki skill generate` 命令，端到端验证 |
+
+**Phase 2 DoD**:
+- [ ] 对 5 条录制均可生成有效 YAML
+- [ ] YAML 可通过模型校验
+- [ ] 变量提取准确率 >= 80%（人工评审）
 
 ---
 
@@ -298,6 +459,42 @@ cat ~/.sasiki/recordings/browser/xhs-e2e-01.jsonl
 ```bash
 PYTHONPATH=src uv run --with pytest --with pytest-asyncio --with websockets pytest -q tests/test_phase1_websocket_flow.py
 ```
+
+---
+
+### 9. Phase 1 E2E 验收检查清单
+
+执行完小红书验证任务后，逐项确认:
+
+**A. 录制完整性**
+- [ ] 总事件数 >= 13 个
+- [ ] 事件类型覆盖 >= 3 种（click, type, navigate, scroll_load）
+- [ ] 无丢失事件（按操作时序核对）
+- [ ] 无重复/冗余事件（input debounce 正常工作）
+
+**B. 数据质量**
+```bash
+# 快速验证命令
+cat ~/.sasiki/recordings/browser/xhs_*.jsonl | jq '
+  select(._meta | not) |
+  {
+    type,
+    has_target: (.targetHint != null),
+    has_url: (.pageContext.url != null),
+    has_timestamp: (.timestamp != null)
+  }
+'
+```
+
+- [ ] 每个事件都有 `timestamp`, `type`, `pageContext`
+- [ ] click/type 事件都有 `target_hint`（含 role, name, tag_name）
+- [ ] 输入事件的 `value` 是完整文本（非中间状态）
+- [ ] navigate 事件有 `triggeredBy` 和 `isSameTab`
+
+**C. 时序正确性**
+- [ ] input 事件在对应的 click 事件之前（blur/Enter flush 机制）
+- [ ] click 事件在 navigate 事件之前（点击触发导航场景）
+- [ ] scroll_load 仅在内容确实加载后记录
 
 ---
 
