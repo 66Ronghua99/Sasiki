@@ -121,6 +121,27 @@ steps:
   - `navigate.triggered_by`: 导航来源（click/url_change/redirect）
   - `navigate.is_same_tab`: 是否同 tab 导航
 
+**修复记录（2026-02-28 下午）**
+- [x] 修复 content script 录制启动问题
+  - 问题：`sasiki record` 命令执行后，server 收到命令但网页没有开始录制
+  - 原因：background.ts 中 `.catch(() => {})` 静默吞掉了 sendMessage 错误
+  - 原因：`ensureContentScriptInjected` 没有验证注入是否成功
+  - 原因：注入后没有等待 content script 初始化完成
+  - 解决：添加注入验证 + 100ms 延迟 + 重试机制
+  - 修改文件：`src/sasiki/browser/extension/background.ts`
+
+- [x] 修复 target_hint 信息捕获不完整问题
+  - 问题：录制文件中很多 click 事件的 `name` 为空字符串，`parent_role` 为 null
+  - 统计：39 个 click 事件中有 10 个 name 为空，主要来自 bilibili、小红书、深信服等站点
+  - 原因：现代 Web 应用大量使用 `div`/`span`/`svg` 作为交互元素，无 ARIA 属性
+  - 解决：重写 `createFingerprintFromElement`，添加多层 fallback 策略
+    - 增强 name 提取：检查子图片 alt、从 CSS class 提取语义、提取 URL 路径
+    - 扩展 parent role 搜索：向上遍历 5 层 DOM
+    - 扩展 sibling 上下文：检查祖父元素子元素、前面兄弟元素
+    - 添加识别属性：data-testid、有意义的 element id、关键 CSS class
+  - 新增字段：`testId`、`elementId`、`classNames`
+  - 修改文件：`src/sasiki/browser/extension/axtree.ts`
+
 **优化记录（2026-02-28）**
 - [x] 智能滚动录制：从"全量记录"改为"按需录制"
   - 背景：当前会记录所有 scroll 事件，但项目不使用视觉能力，滚动位置对精准定位无用
@@ -255,12 +276,12 @@ sasiki record --name "xhs_e2e_verify_$(date +%m%d)"
 ```
 
 **手动操作清单**:
-- [ ] 访问小红书首页
-- [ ] 完成搜索流程（关键词可自定义）
-- [ ] 完成筛选 + 滚动 + 点击笔记
-- [ ] 详情页交互 + 返回
-- [ ] 再次点击另一条笔记
-- [ ] Ctrl+C 停止录制
+- [x] 访问小红书首页
+- [x] 完成搜索流程（关键词可自定义）
+- [x] 完成筛选 + 滚动 + 点击笔记
+- [x] 详情页交互 + 返回
+- [x] 再次点击另一条笔记
+- [x] Ctrl+C 停止录制
 
 **验证录制文件**:
 ```bash
@@ -278,11 +299,11 @@ cat $RECORDING_FILE | jq 'select(.targetHint) | .targetHint | {role, name, tag_n
 ```
 
 **验收通过标准**:
-- [ ] 事件数量 >= 13
+- [x] 事件数量 >= 13
 - [ ] 包含 4 种事件类型: click, type, navigate, scroll_load
 - [ ] 每个 click/type 事件都有完整的 target_hint（role, name, tag_name）
 - [ ] navigate 事件有 triggeredBy 字段
-- [ ] 无明显重复事件（input debounce 正常工作）
+- [x] 无明显重复事件（input debounce 正常工作）
 
 ---
 

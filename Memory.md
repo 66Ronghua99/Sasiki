@@ -257,3 +257,98 @@ function flushAllPendingActions() {
 1. 使用 `recentClick` 状态跟踪最近一次点击
 2. MutationObserver 检测 URL 变化时，检查时间窗口内是否有点击
 3. 延迟记录点击事件（250ms），检查是否发生了导航
+
+## 2026-02-28 target_hint 信息捕获不完整问题
+
+### 问题描述
+用户录制网站操作后，回放时发现很多 `target_hint` 字段为 null 或空字符串，导致无法识别被点击的元素：
+
+```json
+{
+  "type": "click",
+  "target_hint": {
+    "role": "generic",
+    "name": "",
+    "tag_name": "div",
+    "placeholder": null,
+    "parent_role": null,
+    "sibling_texts": []
+  }
+}
+```
+
+统计发现，在 39 个 click 事件中，有 10 个事件的 `name` 为空字符串，主要来自：
+- bilibili.com - 无 name 的 div 点击
+- 小红书 - 无 name 的 div/span/svg 点击
+- 深信服登录页 - 多个无 name 的 div 点击
+
+### 根本原因
+现代 Web 应用大量使用非语义化元素作为交互控件：
+1. **div/span 作为按钮**: 无 `aria-label`，无 `role`，依赖 CSS 和 JS 处理点击
+2. **SVG 图标**: 无 `title` 元素，无 `aria-label`
+3. **过于依赖 `computeAccessibleName`**: 当 ARIA 属性缺失时直接返回空字符串
+4. **fallback 策略不足**: `getFallbackName` 只检查传统属性（placeholder、title、label 等）
+5. **上下文捕获有限**: 
+   - `parent_role` 只检查直接父元素
+   - `sibling_texts` 只检查直接兄弟元素
+
+### 解决方案
+重写 `createFingerprintFromElement` 方法，添加多层 fallback 策略：
+
+```typescript
+// 1. 增强 name 提取 (getEnhancedName)
+- 检查子元素中的 img alt / svg title
+- 从 CSS class 名提取语义（btn-submit → "submit"）
+- 提取链接 URL 路径作为线索
+- 获取 div/span 的截断文本内容
+
+// 2. 扩展 parent role 搜索 (getNearestParentRole)
+- 向上遍历 5 层 DOM 查找 semantic role
+- 识别 semantic HTML tags (nav, header, main, etc.)
+
+// 3. 扩展 sibling 上下文 (getSiblingContext)
+- 检查直接父元素的子元素
+- 检查祖父元素的子元素（用于 grid 布局）
+- 检查前面的兄弟元素
+
+// 4. 添加识别属性 (getIdentifyingAttributes)
+- data-testid / data-test-id / data-cy
+- 有意义的 element id（过滤自动生成 id）
+- 关键 CSS class 名（过滤框架类名）
+```
+
+### 关键代码变更
+```typescript
+// axtree.ts - ElementFingerprint 接口扩展
+export interface ElementFingerprint {
+    role: string;
+    name: string;
+    tagName: string;
+    placeholder?: string;
+    parentRole?: string;
+    siblingTexts: string[];
+    // 新增字段
+    testId?: string;
+    elementId?: string;
+    classNames?: string[];
+}
+```
+
+### 验证方法
+录制后检查 target_hint 字段：
+```bash
+cat ~/.sasiki/recordings/browser/*.jsonl | jq -s '
+  map(select(._meta != true and .target_hint != null)) |
+  group_by(.target_hint.name) | map({name: .[0].target_hint.name, count: length}) |
+  sort_by(-.count)
+'
+```
+期望：空字符串 `""` 的 count 显著减少，新增 testId/classNames 字段有值。
+
+### 后续优化方向
+1. **机器学习识别**: 基于 CSS class 模式训练模型识别元素用途
+2. **视觉特征捕获**: 结合截图 OCR 识别图标含义
+3. **页面结构分析**: 记录元素在页面中的位置（header、sidebar、main content）
+
+---
+

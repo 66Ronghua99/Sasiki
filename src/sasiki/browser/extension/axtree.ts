@@ -23,6 +23,10 @@ export interface ElementFingerprint {
     // Context for disambiguation
     parentRole?: string;
     siblingTexts: string[];
+    // Additional identifying attributes for better recognition
+    testId?: string;
+    elementId?: string;
+    classNames?: string[];
 }
 
 // Compact node format: [refId, role, name, value?]
@@ -283,6 +287,7 @@ export class AXTreeManager {
     /**
      * Create fingerprint directly from an element (without requiring refId).
      * Useful for recording clicks on elements not yet in the AX tree.
+     * Enhanced version with better name extraction and context capture.
      */
     public createFingerprintFromElement(element: Element): ElementFingerprint {
         // Determine effective role
@@ -292,27 +297,21 @@ export class AXTreeManager {
             if (tag === 'a' && element.hasAttribute('href')) role = 'link';
             else if (tag === 'button') role = 'button';
             else if (tag === 'input' || tag === 'textarea' || tag === 'select') role = 'textbox';
+            else if (tag === 'img' || tag === 'svg') role = 'img';
             else role = 'generic';
         }
 
-        let name = computeAccessibleName(element) || this.getFallbackName(element);
+        // Get enhanced name with multiple fallback strategies
+        let name = this.getEnhancedName(element);
 
-        // Get parent context
-        const parent = element.parentElement;
-        const parentRole = parent ? (getRole(parent) || undefined) : undefined;
+        // Get parent context (traverse up to find semantic role)
+        const parentRole = this.getNearestParentRole(element);
 
-        // Get sibling texts (up to 3, for disambiguation)
-        const siblings: string[] = [];
-        if (parent) {
-            for (const sibling of Array.from(parent.children)) {
-                if (sibling === element) continue;
-                const text = sibling.textContent?.trim();
-                if (text && text.length < 50 && text.length > 0) {
-                    siblings.push(text);
-                    if (siblings.length >= 3) break;
-                }
-            }
-        }
+        // Get sibling texts with expanded search
+        const siblings = this.getSiblingContext(element);
+
+        // Get additional identifying attributes
+        const attrs = this.getIdentifyingAttributes(element);
 
         return {
             role,
@@ -320,8 +319,238 @@ export class AXTreeManager {
             tagName: element.tagName.toLowerCase(),
             placeholder: element.getAttribute('placeholder') || undefined,
             parentRole,
-            siblingTexts: siblings
+            siblingTexts: siblings,
+            ...attrs
         };
+    }
+
+    /**
+     * Enhanced name extraction with multiple fallback strategies for modern web apps.
+     * Handles divs/spans used as buttons, SVG icons, and other non-semantic elements.
+     */
+    private getEnhancedName(element: Element): string {
+        // 1. Try standard accessible name first
+        let name = computeAccessibleName(element);
+        if (name && name.trim()) return name.trim();
+
+        // 2. Try existing fallback method
+        name = this.getFallbackName(element);
+        if (name && name.trim()) return name.trim();
+
+        const tag = element.tagName.toLowerCase();
+
+        // 3. For images and SVGs, check alt or title
+        if (tag === 'img') {
+            const alt = element.getAttribute('alt');
+            if (alt) return alt;
+        }
+
+        if (tag === 'svg') {
+            // Check for title element inside SVG
+            const title = element.querySelector('title');
+            if (title?.textContent) return title.textContent.trim();
+            // Check aria-label on SVG
+            const ariaLabel = element.getAttribute('aria-label');
+            if (ariaLabel) return ariaLabel;
+        }
+
+        // 4. Check for image children with alt text (common for icon buttons)
+        const imgChild = element.querySelector('img[alt]');
+        if (imgChild) {
+            const alt = imgChild.getAttribute('alt');
+            if (alt) return alt;
+        }
+
+        // 5. Check for SVG children
+        const svgChild = element.querySelector('svg');
+        if (svgChild) {
+            const title = svgChild.querySelector('title');
+            if (title?.textContent) return title.textContent.trim();
+        }
+
+        // 6. Extract from CSS class names (e.g., "btn-submit", "icon-search")
+        const classHint = this.extractNameFromClasses(element);
+        if (classHint) return classHint;
+
+        // 7. For links, extract meaningful text from href
+        if (tag === 'a') {
+            const href = element.getAttribute('href');
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+                // Extract last path segment as hint
+                const segments = href.split('/').filter(s => s);
+                if (segments.length > 0) {
+                    const lastSegment = segments[segments.length - 1];
+                    // Remove query params and hash
+                    const clean = lastSegment.split('?')[0].split('#')[0];
+                    if (clean && clean.length < 30) return clean;
+                }
+            }
+        }
+
+        // 8. Get truncated text content for generic elements
+        if (tag === 'div' || tag === 'span') {
+            const text = element.textContent?.trim();
+            if (text && text.length > 0) {
+                // Limit length but provide some context
+                if (text.length <= 30) return text;
+                return text.substring(0, 27) + '...';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Extract potential name hints from CSS class names.
+     * E.g., "btn-submit" -> "submit", "icon-search" -> "search"
+     */
+    private extractNameFromClasses(element: Element): string | null {
+        const className = element.className;
+        if (!className || typeof className !== 'string') return null;
+
+        const classes = className.toLowerCase();
+        
+        // Common patterns that indicate purpose
+        const patterns = [
+            { regex: /btn-([a-z-]+)/, prefix: '' },
+            { regex: /button-([a-z-]+)/, prefix: '' },
+            { regex: /icon-([a-z-]+)/, prefix: '' },
+            { regex: /nav-([a-z-]+)/, prefix: '' },
+            { regex: /tab-([a-z-]+)/, prefix: '' },
+            { regex: /menu-([a-z-]+)/, prefix: '' },
+            { regex: /action-([a-z-]+)/, prefix: '' },
+        ];
+
+        for (const pattern of patterns) {
+            const match = classes.match(pattern.regex);
+            if (match) {
+                return match[1].replace(/-/g, ' ');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the nearest parent element with a semantic role.
+     * Traverses up the DOM tree to find context.
+     */
+    private getNearestParentRole(element: Element): string | undefined {
+        let current = element.parentElement;
+        let depth = 0;
+        const maxDepth = 5;
+
+        while (current && depth < maxDepth) {
+            const role = getRole(current);
+            if (role) return role;
+
+            // Check for semantic HTML tags
+            const tag = current.tagName.toLowerCase();
+            if (['nav', 'header', 'footer', 'main', 'aside', 'form'].includes(tag)) {
+                return tag;
+            }
+            if (tag === 'button') return 'button';
+            if (tag === 'a') return 'link';
+
+            current = current.parentElement;
+            depth++;
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Get sibling context with expanded search scope.
+     * Includes siblings from parent containers and nearby text.
+     */
+    private getSiblingContext(element: Element): string[] {
+        const siblings: string[] = [];
+        const seen = new Set<string>();
+
+        // Helper to add unique text
+        const addText = (text: string) => {
+            const trimmed = text.trim();
+            if (trimmed && trimmed.length < 50 && trimmed.length > 0 && !seen.has(trimmed)) {
+                seen.add(trimmed);
+                siblings.push(trimmed);
+            }
+        };
+
+        // 1. Check direct siblings
+        const parent = element.parentElement;
+        if (parent) {
+            for (const sibling of Array.from(parent.children)) {
+                if (sibling === element) continue;
+                const text = sibling.textContent?.trim();
+                if (text) addText(text);
+                if (siblings.length >= 3) return siblings;
+            }
+        }
+
+        // 2. Check grandparent level (useful for grid layouts)
+        const grandparent = parent?.parentElement;
+        if (grandparent) {
+            for (const sibling of Array.from(grandparent.children)) {
+                if (sibling === parent) continue;
+                const text = sibling.textContent?.trim();
+                if (text) addText(text);
+                if (siblings.length >= 3) return siblings;
+            }
+        }
+
+        // 3. Check for preceding siblings with labels
+        let prev = element.previousElementSibling;
+        let count = 0;
+        while (prev && count < 3) {
+            const text = prev.textContent?.trim();
+            if (text) addText(text);
+            prev = prev.previousElementSibling;
+            count++;
+        }
+
+        return siblings;
+    }
+
+    /**
+     * Get additional identifying attributes for better element recognition.
+     */
+    private getIdentifyingAttributes(element: Element): {
+        testId?: string;
+        elementId?: string;
+        classNames?: string[];
+    } {
+        const attrs: {
+            testId?: string;
+            elementId?: string;
+            classNames?: string[];
+        } = {};
+
+        // Check for test ids (common in React, Vue apps)
+        const testId = element.getAttribute('data-testid') ||
+                      element.getAttribute('data-test-id') ||
+                      element.getAttribute('data-cy') ||
+                      element.getAttribute('data-qa');
+        if (testId) attrs.testId = testId;
+
+        // Include element id if it's meaningful (not auto-generated)
+        const id = element.getAttribute('id');
+        if (id && !id.match(/^\d+$/) && !id.includes('react') && !id.includes('vue')) {
+            attrs.elementId = id;
+        }
+
+        // Include key class names (filter out framework classes)
+        const className = element.className;
+        if (className && typeof className === 'string') {
+            const classes = className.split(/\s+/)
+                .filter(c => c.length > 2)
+                .filter(c => !c.startsWith('css-'))
+                .filter(c => !c.startsWith('style_'))
+                .filter(c => !c.match(/^[_-]/))
+                .slice(0, 3);
+            if (classes.length > 0) attrs.classNames = classes;
+        }
+
+        return attrs;
     }
 
     /**
