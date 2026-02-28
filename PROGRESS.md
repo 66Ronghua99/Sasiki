@@ -79,6 +79,7 @@ steps:
 - [ ] 可完整录制 >= 20 步真实浏览器操作
 - [x] 每步均生成结构化事件（含 target_hint）
 - [x] 录制文件可被后端成功消费（100% 通过）
+- [x] 智能滚动录制实现（TypeScript 编译通过）
 
 **修复记录（2026-02-27）**
 - [x] 修复 SPA 页面（小红书）点击录制失败问题
@@ -89,6 +90,19 @@ steps:
   - `click.triggers_navigation`: 是否触发导航
   - `navigate.triggered_by`: 导航来源（click/url_change/redirect）
   - `navigate.is_same_tab`: 是否同 tab 导航
+
+**优化记录（2026-02-28）**
+- [x] 智能滚动录制：从"全量记录"改为"按需录制"
+  - 背景：当前会记录所有 scroll 事件，但项目不使用视觉能力，滚动位置对精准定位无用
+  - 方案：移除普通 scroll 监听，改为检测"滚动意图 + 内容变化"
+  - 只记录触发内容加载的滚动（如无限滚动场景），事件类型改为 `scroll_load`
+  - 减少录制文件体积，回放更稳定，语义更清晰
+  - 实现细节：
+    - 监听 `wheel` / `touchmove` 检测滚动意图（500ms debounce）
+    - 滚动停止后检查 `scrollHeight` 变化（>100px 阈值）或子元素数量增加
+    - 区分 `infinite_scroll`（新增多个元素）和 `lazy_load`（高度增加）
+    - 记录内容加载提示（如 "Added 5 items" 或 "Height increased by 300px"）
+  - 修改文件：`src/sasiki/browser/extension/content.ts`
 
 ---
 

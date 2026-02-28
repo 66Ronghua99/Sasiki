@@ -37,9 +37,13 @@ let recordingState: RecordingState = {
 // Recording listeners (attached only when recording)
 let clickListener: ((e: MouseEvent) => void) | null = null;
 let inputListener: ((e: Event) => void) | null = null;
-let scrollListener: (() => void) | null = null;
 let inputTimeout: number | null = null;
-let scrollTimeout: number | null = null;
+
+// Smart scroll detection
+let scrollIntentTimeout: number | null = null;
+let lastScrollHeight = 0;
+let lastContentChildCount = 0;
+let isScrollIntended = false;
 
 // Click tracking for navigation detection
 interface RecentClickInfo {
@@ -212,26 +216,135 @@ function attachRecordingListeners() {
     };
     document.addEventListener('input', inputListener, true);
 
-    // Scroll recording (throttled)
-    scrollListener = () => {
-        if (scrollTimeout) return;
-        scrollTimeout = window.setTimeout(() => {
-            scrollTimeout = null;
-        }, 250);
+    // Smart scroll detection - only record when scroll triggers content loading
+    attachSmartScrollDetection();
+}
 
-        // Only record significant scrolls
+/**
+ * Smart scroll detection: only records scroll events that trigger meaningful content changes
+ * Useful for infinite scroll pages (e.g., 小红书/Xiaohongshu, Twitter)
+ */
+function attachSmartScrollDetection() {
+    // Initialize baseline measurements
+    lastScrollHeight = document.body.scrollHeight;
+    lastContentChildCount = getMainContentChildCount();
+
+    // Listen for scroll intent (wheel for desktop, touchmove for mobile)
+    const handleScrollIntent = () => {
+        if (!recordingState.isRecording) return;
+
+        isScrollIntended = true;
+
+        // Clear previous timeout
+        if (scrollIntentTimeout) {
+            window.clearTimeout(scrollIntentTimeout);
+        }
+
+        // Wait for scroll to settle (500ms debounce)
+        scrollIntentTimeout = window.setTimeout(() => {
+            checkForContentLoading();
+            isScrollIntended = false;
+        }, 500);
+    };
+
+    document.addEventListener('wheel', handleScrollIntent, { passive: true, capture: true });
+    document.addEventListener('touchmove', handleScrollIntent, { passive: true, capture: true });
+
+    // Also listen for scroll events that might be triggered by other means
+    // but use a much longer debounce and only record if content changed
+    let scrollCheckTimeout: number | null = null;
+    document.addEventListener('scroll', () => {
+        if (!recordingState.isRecording) return;
+
+        if (scrollCheckTimeout) return;
+
+        scrollCheckTimeout = window.setTimeout(() => {
+            scrollCheckTimeout = null;
+            // Only check if we haven't already captured via wheel/touchmove
+            if (!isScrollIntended) {
+                checkForContentLoading();
+            }
+        }, 1000); // Longer debounce for generic scrolls
+    }, true);
+
+    // Store references for cleanup (we'll use a different approach)
+    (window as any).__sasikiScrollHandlers = {
+        wheel: handleScrollIntent,
+        touchmove: handleScrollIntent
+    };
+}
+
+/**
+ * Get the main content area's child count for detecting content additions
+ */
+function getMainContentChildCount(): number {
+    // Try to find main content area
+    const contentSelectors = [
+        'main',
+        '[role="main"]',
+        '#content',
+        '.content',
+        'article',
+        '[role="feed"]',
+        '.feed',
+        '.list',
+        '[role="list"]'
+    ];
+
+    for (const selector of contentSelectors) {
+        const el = document.querySelector(selector);
+        if (el && el.children.length > 0) {
+            return el.children.length;
+        }
+    }
+
+    // Fallback: use body
+    return document.body.children.length;
+}
+
+/**
+ * Check if scroll triggered meaningful content loading
+ */
+function checkForContentLoading() {
+    const currentScrollHeight = document.body.scrollHeight;
+    const currentChildCount = getMainContentChildCount();
+
+    // Detect significant changes
+    const heightIncreased = currentScrollHeight > lastScrollHeight + 100; // 100px threshold
+    const contentAdded = currentChildCount > lastContentChildCount;
+
+    if (heightIncreased || contentAdded) {
+        // Determine the type of loading
+        let triggerType: 'infinite_scroll' | 'lazy_load' = 'lazy_load';
+        let contentHint = '';
+
+        if (contentAdded && currentChildCount > lastContentChildCount + 2) {
+            triggerType = 'infinite_scroll';
+            contentHint = `Added ${currentChildCount - lastContentChildCount} items`;
+        } else if (heightIncreased) {
+            triggerType = 'lazy_load';
+            contentHint = `Height increased by ${currentScrollHeight - lastScrollHeight}px`;
+        }
+
+        // Record the scroll_load event
         recordAction({
             timestamp: Date.now(),
-            type: 'scroll',
-            scrollDirection: 'user_scroll',
+            type: 'scroll_load',
+            trigger: triggerType,
+            loadedContentHint: contentHint,
             pageContext: {
                 url: window.location.href,
                 title: document.title,
                 tabId: recordingState.tabId
             }
         });
-    };
-    document.addEventListener('scroll', scrollListener, true);
+
+        console.log('[Sasiki] Smart scroll detected:', triggerType, contentHint);
+
+        // Update baselines for next detection
+        lastScrollHeight = currentScrollHeight;
+        lastContentChildCount = currentChildCount;
+    }
 }
 
 function detachRecordingListeners() {
@@ -245,17 +358,21 @@ function detachRecordingListeners() {
         document.removeEventListener('input', inputListener, true);
         inputListener = null;
     }
-    if (scrollListener) {
-        document.removeEventListener('scroll', scrollListener, true);
-        scrollListener = null;
-    }
     if (inputTimeout) {
         window.clearTimeout(inputTimeout);
         inputTimeout = null;
     }
-    if (scrollTimeout) {
-        window.clearTimeout(scrollTimeout);
-        scrollTimeout = null;
+
+    // Clean up smart scroll detection
+    const handlers = (window as any).__sasikiScrollHandlers;
+    if (handlers) {
+        document.removeEventListener('wheel', handlers.wheel, { capture: true });
+        document.removeEventListener('touchmove', handlers.touchmove, { capture: true });
+        delete (window as any).__sasikiScrollHandlers;
+    }
+    if (scrollIntentTimeout) {
+        window.clearTimeout(scrollIntentTimeout);
+        scrollIntentTimeout = null;
     }
 }
 
@@ -275,6 +392,9 @@ interface RecordedAction {
     triggersNavigation?: boolean;
     triggeredBy?: 'click' | 'url_change' | 'redirect';
     isSameTab?: boolean;
+    // Smart scroll fields
+    trigger?: 'infinite_scroll' | 'lazy_load';
+    loadedContentHint?: string;
 }
 
 function recordAction(action: RecordedAction) {
