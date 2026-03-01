@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-02-28** (Phase 2 Skill 生成实现完成)
+**最后更新：2026-03-01** (Phase 3 架构设计完成并启动核心开发)
 
 ## 当前主线
 
@@ -17,22 +17,22 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 1 录制链路 | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通 |
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证 |
 | Phase 2 Skill 生成 | 🟡 进行中 | Parser + Generator + CLI 已完成，待 LLM 集成测试 |
-| Phase 3 执行引擎 | 🟡 架构设计中 | 已完成 Replay Engine 设计，开始核心组件开发 |
+| Phase 3 执行引擎 | 🟢 进行中 | 已完成 Replay Engine 设计，Playwright 环境管理与 CDP DOM 观测器、Replay Agent 雏形实现完成 |
 
 ---
 
 ## 已完成（近期关键项）
 
-### Phase 1 录制链路
-- 录制链路闭环：`sasiki server start` + `sasiki record` 可用。
-- 录制事件结构化落盘（JSONL，首行 metadata，后续 action）。
-- 修复 content script 启动不稳定（注入校验 + 初始化延迟 + 重试）。
-- 修复 SPA 点击漏录（原生交互元素识别 + fallback 指纹创建）。
-- 支持 contenteditable 输入录制（含 keyup 兜底）。
-- 修复输入冗余与时序问题（统一 pending 管理 + 强制 flush）。
-- 滚动事件优化为 `scroll_load`（只记录内容加载相关滚动）。
+### Phase 3 执行引擎（新启动）
+- 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
+- 引入 `playwright` 依赖，作为自动化执行基础。
+- 实现 `PlaywrightEnvironment` (支持 CDP 连接或指定独立 `user_data_dir` 保留登录态)。
+- 实现 `SessionManager`，支持通过 JSON 文件（如 EditThisCookie 导出）动态注入 Cookie 以绕过单点登录限制。
+- 实现 `AccessibilityObserver`，通过 CDP 获取 `Accessibility.getFullAXTree` 并高比例压缩生成适合 LLM 阅读的树状 `live_dom_snapshot.json`。
+- 实现 `ReplayAgent` 及 `AgentAction` Pydantic 模型，连通 LLM 推理与 Playwright `mouse.click` / `keyboard.type` 坐标级精准执行。
+- 打通 DashScope (MiniMax-M2.5) 与 OpenRouter 的灵活切换。
 
-### Phase 2 Skill 生成（新完成）
+### Phase 2 Skill 生成
 - `RecordingParser` 模块：JSONL 解析、元数据提取、target_hint 压缩、事件过滤/分组。
 - `SkillGenerator` 模块：LLM Prompt 构建、Workflow 提取与转换、自动保存支持。
 - CLI `generate` 命令：`sasiki generate <recording.jsonl> [--preview]`。
@@ -74,14 +74,13 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [x] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
 - [x] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
 
-### Phase 2（生成）
-- [x] ~~明确 Phase 2 输入输出契约（event stream -> skill yaml）~~
-- [x] ~~实现 `RecordingParser` 模块~~
-- [x] ~~实现 `SkillGenerator` 模块~~
-- [x] ~~添加 CLI `generate` 命令~~
-- [x] 使用真实录制文件进行 LLM 集成测试
-- [ ] 优化 Prompt 以提高 Workflow 生成质量
-- [ ] 添加重试机制和错误处理
+### Phase 3（执行引擎）
+- [x] 设计 Replay Engine 架构与核心逻辑。
+- [x] 实现页面观测器 (`AccessibilityObserver`) 与精简 DOM 树压缩。
+- [x] 实现单步决策代理 (`ReplayAgent`) 并打通 Playwright 坐标执行。
+- [x] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
+- [ ] 构建 `WorkflowReplayer` 读取 YAML 执行自动化重放。
+- [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
 ---
 

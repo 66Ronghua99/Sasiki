@@ -22,9 +22,15 @@
 - **根因**：pending input/scroll 与 click/navigate 缺少统一协调。
 - **做法**：集中管理 pending 状态；在 click/导航前强制 flush；延长 input debounce 只保留最终输入。
 
-### 5) target_hint 信息太弱
-- **根因**：现代站点大量非语义元素，accessible name 为空。
-- **做法**：多层 fallback（子元素文本/alt、父层语义、兄弟上下文、testId/关键 class/id）。
+### 6) Playwright 目录锁冲突与 Cookie 注入
+- **根因**：使用 `launch_persistent_context` 直接挂载日常 Chrome 目录时，如果日常 Chrome 未关闭，会导致 `lockfile` 冲突报错启动失败。
+- **做法**：采用独立 `user_data_dir` 策略（隔离环境），配合 `SessionManager` 通过 JSON 直接注入日常浏览器提取出的 Cookie 绕过单点登录限制。
+
+### 7) Playwright Accessibility 观测与坐标执行
+- **根因**：Playwright Python 1.42 移除了 `page.accessibility.snapshot()`；同时常规 DOM 过于庞大且充满无关结构。
+- **做法**：
+  1. 通过 `page.context.new_cdp_session(page)` 获取底层 CDP `Accessibility.getFullAXTree` 并自行做语义剪枝。
+  2. 舍弃原生 Locators，改用 CDP 的 `DOM.getBoxModel` 提取目标 `backendNodeId` 的绝对坐标 $(x,y)$，直接调用 `page.mouse.click(x,y)` 提高操作稳定性与成功率。
 
 ---
 
