@@ -18,6 +18,7 @@ class ReplayAgent:
         """Gets the center coordinates of an element using CDP."""
         client = await page.context.new_cdp_session(page)
         try:
+            await client.send("DOM.enable")
             res = await client.send("DOM.getBoxModel", {"backendNodeId": backend_node_id})
             quad = res["model"]["border"]
             # quad is [x1, y1, x2, y2, x3, y3, x4, y4]
