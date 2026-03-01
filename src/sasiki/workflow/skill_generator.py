@@ -182,6 +182,21 @@ Important constraints:
 
         raise ValueError(f"Could not parse LLM response as JSON: {response[:200]}...")
 
+    def _remove_null_values(self, obj: Any) -> Any:
+        """Recursively remove null/empty values from dict/list."""
+        if isinstance(obj, dict):
+            result = {}
+            for k, v in obj.items():
+                cleaned = self._remove_null_values(v)
+                # Keep only non-null, non-empty values
+                if cleaned is not None and cleaned != "" and cleaned != []:
+                    result[k] = cleaned
+            return result
+        elif isinstance(obj, list):
+            result = [self._remove_null_values(item) for item in obj if item is not None]
+            return result
+        return obj
+
     def _format_action_text(self, action_detail: dict[str, Any]) -> str:
         """Create human-readable action summary while keeping raw detail separate."""
         action_type = action_detail.get("action_type", "action")
@@ -228,7 +243,9 @@ Important constraints:
                 "triggers_navigation": raw.get("triggers_navigation"),
                 "triggered_by": raw.get("triggered_by"),
             }
-            action_details.append(detail)
+            # Clean null values from detail before adding
+            cleaned_detail = self._remove_null_values(detail)
+            action_details.append(cleaned_detail)
             action_summaries.append(self._format_action_text(detail))
 
         return {
