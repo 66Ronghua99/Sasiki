@@ -39,6 +39,14 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 完整测试覆盖：36 个单元测试全部通过。
 - Phase 2 输入输出契约明确：event stream → compact narrative → LLM → Workflow YAML。
 
+### Code Quality & Refactoring (New)
+- Split large files for better maintainability:
+  - `src/sasiki/cli.py` -> `src/sasiki/commands/`
+  - `src/sasiki/workflow/skill_generator.py` -> `skill_models.py`, `action_formatter.py`
+  - `src/sasiki/workflow/recording_parser.py` -> `recording_models.py`
+  - `src/sasiki/server/websocket_server.py` -> `recording_session.py`
+- Added `tests/test_action_formatter.py` and updated existing tests.
+
 ### Phase 2 预期改动设计（改动前 Review）
 - 目标：降低“Skill 总结过度压缩”风险，保证 page context 与 DOM 检索关键信息稳定保留。
 - 策略：从“LLM 直接生成最终 Workflow”调整为“两阶段”：

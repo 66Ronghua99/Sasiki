@@ -5,39 +5,13 @@ into a compact narrative format suitable for LLM processing.
 """
 
 import json
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 from sasiki.server.websocket_protocol import RecordedAction
 from sasiki.utils.logger import logger
-
-
-@dataclass
-class RecordingMetadata:
-    """Metadata from a recording session."""
-
-    session_id: str
-    started_at: datetime
-    stopped_at: Optional[datetime] = None
-    action_count: int = 0
-    duration_ms: int = 0
-
-    @property
-    def duration_seconds(self) -> float:
-        """Get duration in seconds."""
-        return self.duration_ms / 1000
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "session_id": self.session_id,
-            "started_at": self.started_at.isoformat(),
-            "stopped_at": self.stopped_at.isoformat() if self.stopped_at else None,
-            "action_count": self.action_count,
-            "duration_seconds": round(self.duration_seconds, 2),
-        }
+from sasiki.workflow.recording_models import RecordingMetadata
 
 
 class RecordingParser:

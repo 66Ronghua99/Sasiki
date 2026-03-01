@@ -8,7 +8,8 @@ from sasiki.server.websocket_protocol import (
     WSMessage,
     WSMessageType,
 )
-from sasiki.server.websocket_server import RecordingSession, WebSocketServer
+from sasiki.server.recording_session import RecordingSession
+from sasiki.server.websocket_server import WebSocketServer
 
 __all__ = [
     "ActionType",
