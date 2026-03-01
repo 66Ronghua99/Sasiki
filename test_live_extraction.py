@@ -1,26 +1,36 @@
 import asyncio
 import json
+import os
 from sasiki.engine.playwright_env import PlaywrightEnvironment
 from sasiki.engine.page_observer import AccessibilityObserver
+from sasiki.engine.cookie_manager import SessionManager
 
 async def main():
     print("Launching Playwright with a dedicated persistent profile...")
     print("This will open a new Chrome window that saves your login state.")
     try:
-        # We use a dedicated profile for Sasiki to avoid conflicts with your main Chrome
+        # We use a local dedicated profile for Sasiki to avoid conflicts with your main Chrome
         env = PlaywrightEnvironment(
-            user_data_dir="~/.sasiki/chrome_profile",
+            user_data_dir="./browser_data",
             headless=False
         )
         page = await env.start()
         print(f"Successfully launched! Current URL: {page.url}")
         
-        # Navigate to a test page if it's blank
-        if page.url == "about:blank":
-            await page.goto("https://www.baidu.com")
-            # Wait for network idle to ensure the page is loaded
-            await page.wait_for_load_state("networkidle")
-            print(f"Navigated to {page.url}")
+        # Inject cookies if available
+        cookie_file = "browser_cookies/xhs.json"
+        if os.path.exists(cookie_file):
+            print(f"Found cookie file {cookie_file}, injecting...")
+            await SessionManager.inject_cookies_from_file(env.context, cookie_file)
+            print("Cookies injected successfully.")
+        
+        # Navigate to target page
+        target_url = "https://www.xiaohongshu.com"
+        print(f"Navigating to {target_url}...")
+        await page.goto(target_url)
+        # Wait for network idle to ensure the page is loaded
+        await page.wait_for_load_state("networkidle")
+        print(f"Navigated to {page.url}")
         
         observer = AccessibilityObserver()
         print("Capturing Accessibility Tree...")
@@ -46,7 +56,6 @@ async def main():
         
     except Exception as e:
         print(f"Failed to connect or observe: {e}")
-        print("Make sure you started Chrome with: /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222")
-
+        
 if __name__ == "__main__":
     asyncio.run(main())
