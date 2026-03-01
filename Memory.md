@@ -32,6 +32,10 @@
   1. 通过 `page.context.new_cdp_session(page)` 获取底层 CDP `Accessibility.getFullAXTree` 并自行做语义剪枝。
   2. 舍弃原生 Locators，改用 CDP 的 `DOM.getBoxModel` 提取目标 `backendNodeId` 的绝对坐标 $(x,y)$，直接调用 `page.mouse.click(x,y)` 提高操作稳定性与成功率。
 
+### 8) Agent History 注入与大模型 Prompt 缓存机制 (Phase 3 待优化点)
+- **根因**：在测试 `ReplayAgent` 的自主循环时，必须注入动作历史（History）才能避免 Agent 死循环点击同一个元素。但如果将不断增长的 history text 直接拼接在 `User Prompt` 的尾部或中间，会导致每次请求的 Prompt 都在变化，**极大地降低了 LLM API 的 Cache 命中率**，增加成本与延迟。
+- **做法**：在设计最终的 `WorkflowReplayer` 状态机与 Agent 记忆时，需要将稳定的、不变的指令（如 System Prompt、任务背景）与高频变化的数据（如当前 DOM Snapshot、最近步骤 History）合理分离或分页。确保长文本（如 DOM Tree）能够被有效 Cache。
+
 ---
 
 ## 排查清单（按顺序）
