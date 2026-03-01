@@ -177,6 +177,7 @@ class RecordingParser:
             "placeholder",
             "parent_role",
             "class_name",
+            "class_names",
             "element_id",
             "test_id",
         ]
@@ -184,7 +185,7 @@ class RecordingParser:
         compressed = {}
         for key in key_fields:
             value = hint.get(key)
-            if value is not None and value != "":
+            if value is not None and value != "" and value != []:
                 compressed[key] = value
 
         # Handle sibling_texts specially - keep if non-empty
@@ -233,8 +234,9 @@ class RecordingParser:
             compact["page_title"] = action.page_context.title
 
         # Add target hint (compressed)
-        if action.target_hint:
-            hint_dict = action.target_hint.model_dump()
+        target_hint = action.normalized_target_hint or action.target_hint
+        if target_hint:
+            hint_dict = target_hint.model_dump()
             compressed_hint = self._compress_target_hint(hint_dict)
             if compressed_hint:
                 compact["target_hint"] = compressed_hint
@@ -340,6 +342,12 @@ class RecordingParser:
         for idx, action in enumerate(actions, 1):
             action_id = idx
             hint_raw = action.target_hint.model_dump() if action.target_hint else None
+            raw_hint = action.raw_target_hint.model_dump() if action.raw_target_hint else None
+            normalized_hint = (
+                action.normalized_target_hint.model_dump()
+                if action.normalized_target_hint
+                else hint_raw
+            )
             action_data = {
                 "action_id": action_id,
                 "raw": {
@@ -353,6 +361,10 @@ class RecordingParser:
                 "page_context": action.page_context.model_dump(),
                 "target_hint_raw": hint_raw,
                 "target_hint_compact": self._compress_target_hint(hint_raw),
+                "raw_target_hint_raw": raw_hint,
+                "raw_target_hint_compact": self._compress_target_hint(raw_hint),
+                "normalized_target_hint_raw": normalized_hint,
+                "normalized_target_hint_compact": self._compress_target_hint(normalized_hint),
             }
             packet_actions.append(action_data)
 

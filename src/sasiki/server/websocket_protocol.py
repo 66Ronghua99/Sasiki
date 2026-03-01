@@ -66,6 +66,11 @@ class ElementFingerprint(BaseModel):
         default=None,
         description="Primary class name for DOM-based disambiguation",
     )
+    class_names: list[str] = Field(
+        validation_alias=AliasChoices("class_names", "classNames"),
+        default_factory=list,
+        description="Additional class names for richer DOM context",
+    )
     element_id: Optional[str] = Field(
         validation_alias=AliasChoices("element_id", "elementId", "id"),
         default=None,
@@ -88,6 +93,7 @@ class ElementFingerprint(BaseModel):
                 "parent_role": self.parent_role,
                 "sibling_texts": self.sibling_texts[:2],
                 "class_name": self.class_name,
+                "class_names": self.class_names[:3],
                 "element_id": self.element_id,
                 "test_id": self.test_id,
             },
@@ -127,6 +133,16 @@ class RecordedAction(BaseModel):
         validation_alias=AliasChoices("target_hint", "targetHint"),
         default=None, description="Element fingerprint (None for page-level actions)"
     )
+    raw_target_hint: Optional[ElementFingerprint] = Field(
+        validation_alias=AliasChoices("raw_target_hint", "rawTargetHint"),
+        default=None,
+        description="Raw clicked node fingerprint before normalization",
+    )
+    normalized_target_hint: Optional[ElementFingerprint] = Field(
+        validation_alias=AliasChoices("normalized_target_hint", "normalizedTargetHint"),
+        default=None,
+        description="Normalized actionable target fingerprint for semantic/action use",
+    )
     # Action-specific data
     value: Optional[str] = Field(
         default=None, description="Input value for type/select actions"
@@ -165,8 +181,9 @@ class RecordedAction(BaseModel):
             "page_context": self.page_context.model_dump(),
         }
 
-        if self.target_hint:
-            step["target_hint"] = self.target_hint.to_selector_hint()
+        target_hint = self.normalized_target_hint or self.target_hint
+        if target_hint:
+            step["target_hint"] = target_hint.to_selector_hint()
 
         if self.value:
             step["value"] = self.value

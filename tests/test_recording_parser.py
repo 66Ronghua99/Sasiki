@@ -176,6 +176,54 @@ class TestRecordingParser:
         assert click_action["target_hint_raw"]["element_id"] == "submit-main"
         assert click_action["target_hint_raw"]["test_id"] == "submit-cta"
 
+    def test_to_structured_packet_preserves_raw_and_normalized_target_hints(self):
+        """Structured packet should keep both raw and normalized target hints."""
+        metadata = {
+            "_meta": True,
+            "session_id": "ctx_session",
+            "started_at": "2024-01-01T12:00:00.000000",
+            "stopped_at": "2024-01-01T12:00:05.000000",
+            "action_count": 1,
+            "duration_ms": 5000,
+        }
+        click_action = {
+            "timestamp": 1704110401000,
+            "type": "click",
+            "session_id": "ctx_session",
+            "page_context": {
+                "url": "https://example.com/page",
+                "title": "Example Page",
+                "tab_id": 123,
+            },
+            "target_hint": {
+                "role": "button",
+                "name": "收藏",
+                "tag_name": "button",
+            },
+            "raw_target_hint": {
+                "role": "generic",
+                "name": "",
+                "tag_name": "svg",
+            },
+            "normalized_target_hint": {
+                "role": "button",
+                "name": "收藏",
+                "tag_name": "button",
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps(metadata) + "\n")
+            f.write(json.dumps(click_action) + "\n")
+            filepath = Path(f.name)
+
+        parser = RecordingParser(filepath)
+        packet = parser.to_structured_packet(max_actions=10)
+        action = packet["actions"][0]
+
+        assert action["raw_target_hint_raw"]["tag_name"] == "svg"
+        assert action["normalized_target_hint_raw"]["tag_name"] == "button"
+
     def test_filter_actions_by_type(self, sample_recording):
         """Test filtering actions by type."""
         parser = RecordingParser(sample_recording)

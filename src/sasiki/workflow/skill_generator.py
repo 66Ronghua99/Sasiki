@@ -200,7 +200,11 @@ Important constraints:
     def _format_action_text(self, action_detail: dict[str, Any]) -> str:
         """Create human-readable action summary while keeping raw detail separate."""
         action_type = action_detail.get("action_type", "action")
-        target_hint = action_detail.get("target_hint") or {}
+        target_hint = (
+            action_detail.get("normalized_target_hint")
+            or action_detail.get("target_hint")
+            or {}
+        )
         target_name = target_hint.get("name")
         url = (action_detail.get("page_context") or {}).get("url")
         value = action_detail.get("value")
@@ -237,7 +241,9 @@ Important constraints:
                 "action_type": raw.get("type"),
                 "timestamp": raw.get("timestamp"),
                 "page_context": action.get("page_context"),
-                "target_hint": action.get("target_hint_raw"),
+                "target_hint": action.get("normalized_target_hint_raw") or action.get("target_hint_raw"),
+                "raw_target_hint": action.get("raw_target_hint_raw"),
+                "normalized_target_hint": action.get("normalized_target_hint_raw"),
                 "value": raw.get("value"),
                 "url": raw.get("url"),
                 "triggers_navigation": raw.get("triggers_navigation"),
@@ -478,10 +484,14 @@ Important constraints:
                 "actions_with_target_hint_raw": sum(
                     1 for a in actions if a.get("target_hint_raw")
                 ),
+                "actions_with_normalized_target_hint_raw": sum(
+                    1 for a in actions if a.get("normalized_target_hint_raw")
+                ),
                 "actions_with_dom_context": sum(
                     1
                     for a in actions
                     if (a.get("target_hint_raw") or {}).get("class_name")
+                    or (a.get("target_hint_raw") or {}).get("class_names")
                     or (a.get("target_hint_raw") or {}).get("element_id")
                     or (a.get("target_hint_raw") or {}).get("test_id")
                     or (a.get("target_hint_raw") or {}).get("sibling_texts")

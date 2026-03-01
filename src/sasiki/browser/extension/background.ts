@@ -292,6 +292,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         payload: {
             type: 'tab_switch',
             timestamp: Date.now(),
+            sessionId: globalRecording.sessionId,
             pageContext: {
                 url: tab.url,
                 title: tab.title,
@@ -350,6 +351,7 @@ chrome.webNavigation?.onCompleted.addListener((details) => {
         payload: {
             type: 'navigate',
             timestamp: Date.now(),
+            sessionId: globalRecording.sessionId,
             url: details.url,
             triggeredBy: triggeredBy,
             isSameTab: isSameTab,

@@ -27,6 +27,7 @@ export interface ElementFingerprint {
     testId?: string;
     elementId?: string;
     classNames?: string[];
+    className?: string;
 }
 
 // Compact node format: [refId, role, name, value?]
@@ -518,11 +519,13 @@ export class AXTreeManager {
         testId?: string;
         elementId?: string;
         classNames?: string[];
+        className?: string;
     } {
         const attrs: {
             testId?: string;
             elementId?: string;
             classNames?: string[];
+            className?: string;
         } = {};
 
         // Check for test ids (common in React, Vue apps)
@@ -547,7 +550,10 @@ export class AXTreeManager {
                 .filter(c => !c.startsWith('style_'))
                 .filter(c => !c.match(/^[_-]/))
                 .slice(0, 3);
-            if (classes.length > 0) attrs.classNames = classes;
+            if (classes.length > 0) {
+                attrs.classNames = classes;
+                attrs.className = classes[0];
+            }
         }
 
         return attrs;

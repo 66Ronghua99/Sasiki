@@ -139,6 +139,129 @@ const CLICK_NAVIGATION_THRESHOLD = 200; // ms - time window to consider a click 
 // Pending navigation queue to ensure event order (click before navigate)
 let pendingNavigate: RecordedAction | null = null;
 
+const INTERACTIVE_ROLES = new Set([
+    'button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio',
+    'tab', 'option', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox'
+]);
+
+interface ClickTargetResolution {
+    targetHint: ElementFingerprint;
+    rawTargetHint: ElementFingerprint;
+    normalizedTargetHint: ElementFingerprint;
+}
+
+function isNativeInteractiveElement(element: Element): boolean {
+    const tag = element.tagName.toLowerCase();
+    if (tag === 'a' && element.hasAttribute('href')) return true;
+    return tag === 'button' || tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'summary';
+}
+
+function getRoleAttr(element: Element): string | undefined {
+    const role = element.getAttribute('role');
+    return role || undefined;
+}
+
+function isInteractiveRole(role?: string): boolean {
+    return !!(role && INTERACTIVE_ROLES.has(role));
+}
+
+function hasExplicitClickHandler(element: Element): boolean {
+    const htmlElement = element as HTMLElement;
+    return element.hasAttribute('onclick') ||
+        element.hasAttribute('data-click') ||
+        typeof htmlElement.onclick === 'function';
+}
+
+function hasFocusableTabIndex(element: Element): boolean {
+    const tabindex = element.getAttribute('tabindex');
+    return tabindex !== null && tabindex !== '-1';
+}
+
+function hasPointerCursor(element: Element): boolean {
+    try {
+        return window.getComputedStyle(element).cursor === 'pointer';
+    } catch {
+        return false;
+    }
+}
+
+function hasSelfClickSignal(element: Element, role?: string): boolean {
+    return isNativeInteractiveElement(element) ||
+        isInteractiveRole(role) ||
+        hasExplicitClickHandler(element) ||
+        hasFocusableTabIndex(element);
+}
+
+function scoreClickCandidate(
+    element: Element,
+    depth: number,
+    fingerprint: ElementFingerprint
+): number {
+    const role = getRoleAttr(element) || fingerprint.role;
+    const tag = element.tagName.toLowerCase();
+    const hasName = !!(fingerprint.name && fingerprint.name.trim());
+
+    let score = 0;
+
+    if (isNativeInteractiveElement(element)) score += 4;
+    if (isInteractiveRole(role)) score += 3;
+    if (hasExplicitClickHandler(element)) score += 3;
+    if (hasFocusableTabIndex(element)) score += 2;
+    if (hasPointerCursor(element)) score += 1;
+    if (hasName) score += 1;
+    if (element.getAttribute('aria-label') || element.getAttribute('title')) score += 1;
+    if (tag === 'a' && element.hasAttribute('href')) score += 1;
+
+    // Penalize leaf icon nodes unless they have explicit click signals themselves.
+    if ((tag === 'svg' || tag === 'path' || tag === 'g' || tag === 'use') && !hasSelfClickSignal(element, role)) {
+        score -= 3;
+    }
+
+    // Prefer nearby targets if scores are similar.
+    score -= depth * 0.5;
+    return score;
+}
+
+function resolveClickTarget(target: Element): ClickTargetResolution {
+    const maxDepth = 6;
+    const candidates: Array<{
+        element: Element;
+        depth: number;
+        fingerprint: ElementFingerprint;
+        score: number;
+    }> = [];
+
+    let current: Element | null = target;
+    let depth = 0;
+    while (current && depth <= maxDepth) {
+        const fingerprint = axTreeManager.createFingerprintFromElement(current);
+        const score = scoreClickCandidate(current, depth, fingerprint);
+        candidates.push({ element: current, depth, fingerprint, score });
+        current = current.parentElement;
+        depth++;
+    }
+
+    const raw = candidates[0];
+    let best = raw;
+    for (const candidate of candidates) {
+        if (candidate.score > best.score + 0.2) {
+            best = candidate;
+            continue;
+        }
+        if (Math.abs(candidate.score - best.score) <= 0.2 && candidate.depth < best.depth) {
+            best = candidate;
+        }
+    }
+
+    const normalized = best.fingerprint;
+
+    return {
+        targetHint: normalized,
+        rawTargetHint: raw.fingerprint,
+        normalizedTargetHint: normalized,
+    };
+}
+
 // ============================================================================
 // Initial State Check
 // ============================================================================
@@ -174,107 +297,46 @@ function attachRecordingListeners() {
         // This ensures input -> click -> navigate sequence is preserved
         flushAllPendingActions();
 
-        const target = e.target as Element;
-        const refId = axTreeManager.getRefIdForElement(target);
+        const target = e.target;
+        if (!(target instanceof Element)) return;
 
-        if (refId) {
-            const fingerprint = axTreeManager.getElementFingerprint(refId);
+        // Keep raw click target while also providing a normalized actionable target.
+        const clickTarget = resolveClickTarget(target);
 
-            // Track this click for navigation correlation
-            recentClick = {
-                timestamp: Date.now(),
-                fingerprint: fingerprint!
-            };
+        // Track this click for navigation correlation
+        recentClick = {
+            timestamp: Date.now(),
+            fingerprint: clickTarget.targetHint
+        };
 
-            // Delay the click recording to check if it triggers navigation
-            setTimeout(() => {
-                const currentUrl = window.location.href;
-                const navigationOccurred = !!(recentClick &&
-                    (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
+        // Delay the click recording to check if it triggers navigation
+        setTimeout(() => {
+            const currentUrl = window.location.href;
+            const navigationOccurred = !!(recentClick &&
+                (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
 
-                recordAction({
-                    timestamp: recentClick?.timestamp || Date.now(),
-                    type: 'click',
-                    targetHint: fingerprint!,
-                    triggersNavigation: navigationOccurred,
-                    pageContext: {
-                        url: currentUrl,
-                        title: document.title,
-                        tabId: recordingState.tabId
-                    }
-                });
-
-                // Clear recent click after processing
-                if (navigationOccurred) {
-                    // Keep recentClick for MutationObserver to use
-                    // It will be cleared after the navigation is recorded
-                } else {
-                    recentClick = null;
+            recordAction({
+                timestamp: recentClick?.timestamp || Date.now(),
+                type: 'click',
+                targetHint: clickTarget.targetHint,
+                rawTargetHint: clickTarget.rawTargetHint,
+                normalizedTargetHint: clickTarget.normalizedTargetHint,
+                triggersNavigation: navigationOccurred,
+                pageContext: {
+                    url: currentUrl,
+                    title: document.title,
+                    tabId: recordingState.tabId
                 }
-            }, CLICK_NAVIGATION_THRESHOLD + 50);
-        } else {
-            // Fallback: try to find an interactive parent element (link, button, etc.)
-            let elementToRecord: Element | null = target;
-            let current: Element | null = target;
-            let depth = 0;
-            const maxDepth = 5;
+            });
 
-            // Check if clicked element or any parent is a native interactive element
-            while (current && depth < maxDepth) {
-                const tag = current.tagName.toLowerCase();
-                const isNativeLink = tag === 'a' && current.hasAttribute('href');
-                const isNativeButton = tag === 'button';
-                const isNativeInput = tag === 'input' || tag === 'textarea' || tag === 'select';
-                const hasRole = current.getAttribute('role');
-                const hasTabindex = current.hasAttribute('tabindex');
+            // Flush any pending navigation to ensure click comes before navigate
+            flushPendingNavigate();
 
-                if (isNativeLink || isNativeButton || isNativeInput || hasRole || hasTabindex) {
-                    elementToRecord = current;
-                    break;
-                }
-
-                current = current.parentElement;
-                depth++;
+            // Clear recent click after processing
+            if (!navigationOccurred) {
+                recentClick = null;
             }
-
-            if (elementToRecord) {
-                // Create fingerprint directly from the element
-                const fingerprint = axTreeManager.createFingerprintFromElement(elementToRecord);
-
-                // Track this click for navigation correlation
-                recentClick = {
-                    timestamp: Date.now(),
-                    fingerprint: fingerprint
-                };
-
-                // Delay the click recording to check if it triggers navigation
-                setTimeout(() => {
-                    const currentUrl = window.location.href;
-                    const navigationOccurred = !!(recentClick &&
-                        (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
-
-                    recordAction({
-                        timestamp: recentClick?.timestamp || Date.now(),
-                        type: 'click',
-                        targetHint: fingerprint,
-                        triggersNavigation: navigationOccurred,
-                        pageContext: {
-                            url: currentUrl,
-                            title: document.title,
-                            tabId: recordingState.tabId
-                        }
-                    });
-
-                    // Flush any pending navigation to ensure click comes before navigate
-                    flushPendingNavigate();
-
-                    if (!navigationOccurred) {
-                        recentClick = null;
-                    }
-                }, CLICK_NAVIGATION_THRESHOLD + 50);
-            }
-            // Silent skip for non-interactive elements
-        }
+        }, CLICK_NAVIGATION_THRESHOLD + 50);
     };
     document.addEventListener('click', clickListener, true); // use capture phase
 
@@ -492,6 +554,8 @@ interface RecordedAction {
     timestamp: number;
     type: string;
     targetHint?: ElementFingerprint;
+    rawTargetHint?: ElementFingerprint;
+    normalizedTargetHint?: ElementFingerprint;
     value?: string;
     url?: string;
     scrollDirection?: string;

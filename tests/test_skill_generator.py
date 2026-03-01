@@ -157,6 +157,17 @@ class TestSkillGenerator:
         with pytest.raises(ValueError, match="Could not parse"):
             generator._parse_llm_response(response)
 
+    def test_format_action_text_prefers_normalized_target(self):
+        """Click summaries should prefer normalized target over raw node."""
+        generator = SkillGenerator(llm_client=MagicMock())
+        action_detail = {
+            "action_type": "click",
+            "target_hint": {"role": "generic", "tag_name": "svg", "name": ""},
+            "normalized_target_hint": {"role": "button", "tag_name": "button", "name": "收藏"},
+            "page_context": {"url": "https://example.com"},
+        }
+        assert generator._format_action_text(action_detail) == 'Click "收藏"'
+
     def test_convert_to_workflow(self, mock_llm_response):
         """Test converting LLM data to Workflow model."""
         generator = SkillGenerator(llm_client=MagicMock())
