@@ -15,14 +15,14 @@ class LLMClient:
     
     def __init__(self):
         self.client = OpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.openrouter_api_key,
+            base_url=settings.active_base_url,
+            api_key=settings.active_api_key,
         )
         self.async_client = AsyncOpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.openrouter_api_key,
+            base_url=settings.active_base_url,
+            api_key=settings.active_api_key,
         )
-        self.model = settings.llm_model
+        self.model = settings.active_model
         
         logger.info("llm_client_initialized", model=self.model)
     

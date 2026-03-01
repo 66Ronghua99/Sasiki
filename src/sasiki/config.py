@@ -17,15 +17,44 @@ class Settings(BaseSettings):
     )
     
     # LLM Configuration
-    openrouter_api_key: str = Field(..., description="OpenRouter API key")
-    llm_model: str = Field(
-        default="minimax/minimax-m2.5",
-        description="LLM model to use"
+    openrouter_api_key: Optional[str] = Field(default=None, description="OpenRouter API key")
+    dashscope_api_key: Optional[str] = Field(default=None, description="DashScope API key")
+    dashscope_base_url: str = Field(
+        default="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        description="DashScope API base URL"
     )
-    llm_base_url: str = Field(
-        default="https://openrouter.ai/api/v1",
-        description="LLM API base URL"
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="LLM model to use (overrides default provider models if set)"
     )
+    llm_base_url: Optional[str] = Field(
+        default=None,
+        description="LLM API base URL (overrides default provider URLs if set)"
+    )
+
+    @property
+    def active_model(self) -> str:
+        if self.llm_model:
+            return self.llm_model
+        if self.dashscope_api_key:
+            return "MiniMax-M2.5"
+        return "minimax/minimax-m2.5"
+
+    @property
+    def active_api_key(self) -> str:
+        if self.dashscope_api_key:
+            return self.dashscope_api_key
+        if self.openrouter_api_key:
+            return self.openrouter_api_key
+        return "dummy_key"
+        
+    @property
+    def active_base_url(self) -> str:
+        if self.llm_base_url:
+            return self.llm_base_url
+        if self.dashscope_api_key:
+            return self.dashscope_base_url
+        return "https://openrouter.ai/api/v1"
     
     # Recording Settings
     recordings_dir: Path = Field(
