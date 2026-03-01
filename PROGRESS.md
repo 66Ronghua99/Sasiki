@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-02-28**
+**最后更新：2026-02-28** (Phase 2 Skill 生成实现完成)
 
 ## 当前主线
 
@@ -16,13 +16,14 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 |---|---|---|
 | Phase 1 录制链路 | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通 |
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证 |
-| Phase 2 Skill 生成 | 🟡 准备中 | 事件合并、变量提取、YAML 输出待实现 |
+| Phase 2 Skill 生成 | 🟡 进行中 | Parser + Generator + CLI 已完成，待 LLM 集成测试 |
 | Phase 3 执行引擎 | ⏳ 未开始 | 候选匹配 + LLM 决策 + Playwright |
 
 ---
 
 ## 已完成（近期关键项）
 
+### Phase 1 录制链路
 - 录制链路闭环：`sasiki server start` + `sasiki record` 可用。
 - 录制事件结构化落盘（JSONL，首行 metadata，后续 action）。
 - 修复 content script 启动不稳定（注入校验 + 初始化延迟 + 重试）。
@@ -30,6 +31,13 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 支持 contenteditable 输入录制（含 keyup 兜底）。
 - 修复输入冗余与时序问题（统一 pending 管理 + 强制 flush）。
 - 滚动事件优化为 `scroll_load`（只记录内容加载相关滚动）。
+
+### Phase 2 Skill 生成（新完成）
+- `RecordingParser` 模块：JSONL 解析、元数据提取、target_hint 压缩、事件过滤/分组。
+- `SkillGenerator` 模块：LLM Prompt 构建、Workflow 提取与转换、自动保存支持。
+- CLI `generate` 命令：`sasiki generate <recording.jsonl> [--preview]`。
+- 完整测试覆盖：36 个单元测试全部通过。
+- Phase 2 输入输出契约明确：event stream → compact narrative → LLM → Workflow YAML。
 
 ---
 
@@ -43,15 +51,25 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 本周执行项
 
+### Phase 1（录制）
 - [ ] 完成 1 条标准化录制验收任务（推荐小红书搜索流程）
 - [ ] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
 - [ ] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
-- [ ] 明确 Phase 2 输入输出契约（event stream -> skill yaml）
+
+### Phase 2（生成）
+- [x] ~~明确 Phase 2 输入输出契约（event stream -> skill yaml）~~
+- [x] ~~实现 `RecordingParser` 模块~~
+- [x] ~~实现 `SkillGenerator` 模块~~
+- [x] ~~添加 CLI `generate` 命令~~
+- [ ] 使用真实录制文件进行 LLM 集成测试
+- [ ] 优化 Prompt 以提高 Workflow 生成质量
+- [ ] 添加重试机制和错误处理
 
 ---
 
 ## 快速验证命令
 
+### Phase 1 - 录制
 ```bash
 # 1) 启动服务
 sasiki server start
@@ -62,8 +80,30 @@ sasiki record --name "e2e_verify"
 # 3) 查看录制结果
 cat ~/.sasiki/recordings/browser/e2e_verify.jsonl
 
-# 4) 运行现有 E2E 测试
+# 4) 运行 E2E 测试
 PYTHONPATH=src uv run --with pytest --with pytest-asyncio --with websockets pytest -q tests/test_phase1_websocket_flow.py
+```
+
+### Phase 2 - Skill 生成
+```bash
+# 1) 预览 LLM 输入（不调用 LLM）
+sasiki generate ~/.sasiki/recordings/browser/xhs_e2e.jsonl --preview
+
+# 2) 生成 Workflow（调用 LLM）
+sasiki generate ~/.sasiki/recordings/browser/xhs_e2e.jsonl --name "小红书搜索" --description "搜索并浏览小红书笔记"
+
+# 3) 生成但不保存（Dry Run）
+sasiki generate ~/.sasiki/recordings/browser/xhs_e2e.jsonl --dry-run
+
+# 4) 查看生成的 Workflow
+sasiki list
+sasiki show <workflow_id>
+
+# 5) 试运行 Workflow
+sasiki run <workflow_id> --dry-run
+
+# 6) 运行 Phase 2 测试
+PYTHONPATH=src uv run --with pytest tests/test_recording_parser.py tests/test_skill_generator.py -v
 ```
 
 ---

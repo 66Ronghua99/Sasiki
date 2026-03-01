@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # LLM Configuration
     openrouter_api_key: str = Field(..., description="OpenRouter API key")
     llm_model: str = Field(
-        default="anthropic/claude-3-sonnet-20240229",
+        default="minimax/minimax-m2.5",
         description="LLM model to use"
     )
     llm_base_url: str = Field(
