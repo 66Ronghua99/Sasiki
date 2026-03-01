@@ -16,7 +16,7 @@ class TestSettings:
         
         settings = Settings()
         
-        assert settings.llm_model == "anthropic/claude-3-sonnet-20240229"
+        assert settings.llm_model == "minimax/minimax-m2.5"
         assert settings.llm_base_url == "https://openrouter.ai/api/v1"
         assert settings.frame_sample_rate == 1
         assert settings.similarity_threshold == 0.9

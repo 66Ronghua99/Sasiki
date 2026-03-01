@@ -69,13 +69,11 @@ class RecordingSession:
                 "action_count": len(self.actions),
                 "duration_ms": self.duration_ms,
             }
-            f.write(json.dumps(metadata, ensure_ascii=False) + "
-")
+            f.write(json.dumps(metadata, ensure_ascii=False) + "\n")
 
             # Write each action
             for action in self.actions:
-                f.write(action.model_dump_json() + "
-")
+                f.write(action.model_dump_json() + "\n")
 
         logger.info(
             "session_saved",
