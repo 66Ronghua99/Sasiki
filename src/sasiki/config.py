@@ -34,10 +34,10 @@ class Settings(BaseSettings):
 
     @property
     def active_model(self) -> str:
-        if self.llm_model:
-            return self.llm_model
         if self.dashscope_api_key:
             return "MiniMax-M2.5"
+        if self.llm_model:
+            return self.llm_model
         return "minimax/minimax-m2.5"
 
     @property
@@ -50,10 +50,10 @@ class Settings(BaseSettings):
         
     @property
     def active_base_url(self) -> str:
-        if self.llm_base_url:
-            return self.llm_base_url
         if self.dashscope_api_key:
             return self.dashscope_base_url
+        if self.llm_base_url:
+            return self.llm_base_url
         return "https://openrouter.ai/api/v1"
     
     # Recording Settings
