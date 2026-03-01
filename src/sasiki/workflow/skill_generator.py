@@ -21,14 +21,14 @@ class SkillGenerator:
 
     WORKFLOW_EXTRACTION_PROMPT = """You are a workflow extraction specialist.
 
-You are given a structured recording packet in JSON.
-The packet contains deterministic action records with stable action_id values.
+You are given a structured browser action recording in JSON.
+The packet contains deterministic action during web visiting with stable action_id values.
 
 Your job:
 1. Identify the workflow goal.
 2. Group actions into logical stages.
-3. Identify reusable variables.
-4. Add checkpoints.
+3. Identify reusable/replacable variables.
+4. Add verifiable key checkpoints.
 
 Important constraints:
 - Do NOT rewrite raw action fields.

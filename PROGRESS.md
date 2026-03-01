@@ -17,7 +17,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 1 录制链路 | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通 |
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证 |
 | Phase 2 Skill 生成 | 🟡 进行中 | Parser + Generator + CLI 已完成，待 LLM 集成测试 |
-| Phase 3 执行引擎 | ⏳ 未开始 | 候选匹配 + LLM 决策 + Playwright |
+| Phase 3 执行引擎 | 🟡 架构设计中 | 已完成 Replay Engine 设计，开始核心组件开发 |
 
 ---
 
@@ -70,16 +70,16 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 ## 本周执行项
 
 ### Phase 1（录制）
-- [ ] 完成 1 条标准化录制验收任务（推荐小红书搜索流程）
-- [ ] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
-- [ ] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
+- [x] 完成 1 条标准化录制验收任务（推荐小红书搜索流程）
+- [x] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
+- [x] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
 
 ### Phase 2（生成）
 - [x] ~~明确 Phase 2 输入输出契约（event stream -> skill yaml）~~
 - [x] ~~实现 `RecordingParser` 模块~~
 - [x] ~~实现 `SkillGenerator` 模块~~
 - [x] ~~添加 CLI `generate` 命令~~
-- [ ] 使用真实录制文件进行 LLM 集成测试
+- [x] 使用真实录制文件进行 LLM 集成测试
 - [ ] 优化 Prompt 以提高 Workflow 生成质量
 - [ ] 添加重试机制和错误处理
 
