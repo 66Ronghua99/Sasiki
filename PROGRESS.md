@@ -61,9 +61,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P0：Phase 1 E2E 稳定性补齐**（至少覆盖 3 个真实站点场景）
-2. **P1：启动 Phase 2 Skill 生成**（事件合并 + 变量提取 + YAML）
-3. **P1：确定元素匹配评分与阈值**（为执行引擎做准备）
+1. **P0：构建 `WorkflowReplayer` 核心调度器**（支持 YAML 解析与分阶段任务执行）
+2. **P0：优化 Agent Memory 与 Prompt Cache**（提升连续动作执行的稳定性和 LLM 响应速度）
+3. **P1：Phase 1 E2E 稳定性补齐**（至少覆盖 3 个真实站点场景）
 
 ---
 
@@ -79,7 +79,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [x] 实现页面观测器 (`AccessibilityObserver`) 与精简 DOM 树压缩。
 - [x] 实现单步决策代理 (`ReplayAgent`) 并打通 Playwright 坐标执行。
 - [x] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
-- [ ] 构建 `WorkflowReplayer` 读取 YAML 执行自动化重放。
+- [x] 验证连续目标执行（Agent Loop）并识别出状态记忆问题。
+- [ ] 构建 `WorkflowReplayer` 读取 YAML 并拆分 Stage 执行。
+- [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
 ---
