@@ -42,6 +42,7 @@ class WorkflowStage(BaseModel):
     
     # Actions in this stage
     actions: list[str] = Field(default_factory=list)
+    action_details: list[dict[str, Any]] = Field(default_factory=list)
     
     # Data flow
     inputs: list[str] = Field(default_factory=list)

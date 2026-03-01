@@ -1,60 +1,85 @@
-"""Skill generator for converting recordings to Workflows using LLM.
-
-This module uses LLM to analyze recorded browser actions and extract
-structured, reusable workflows (Skills).
-"""
+"""Skill generator for converting recordings to Workflows using LLM."""
 
 import json
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
+from pydantic import BaseModel, Field, ValidationError
+
 from sasiki.llm.client import LLMClient
-from sasiki.server.websocket_protocol import RecordedAction
 from sasiki.utils.logger import logger
 from sasiki.workflow.models import Checkpoint, VariableType, Workflow, WorkflowStage, WorkflowVariable
 from sasiki.workflow.recording_parser import RecordingParser
 from sasiki.workflow.storage import WorkflowStorage
 
 
+class SemanticStagePlan(BaseModel):
+    """LLM output for a semantic stage."""
+
+    name: str
+    action_ids: list[int] = Field(default_factory=list)
+    description: str = ""
+    application: str = "Chrome"
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
+
+
+class SemanticVariablePlan(BaseModel):
+    """LLM output for a semantic variable."""
+
+    name: str
+    description: str = ""
+    type: str = "text"
+    example: Optional[str] = None
+    required: bool = True
+    default: Optional[str] = None
+    options: list[str] = Field(default_factory=list)
+
+
+class SemanticCheckpointPlan(BaseModel):
+    """LLM output for a checkpoint."""
+
+    after_stage: int = 0
+    description: str = ""
+    manual_confirmation: bool = True
+    verify_outputs: list[str] = Field(default_factory=list)
+    expected_state: Optional[str] = None
+
+
+class SemanticPlan(BaseModel):
+    """Validated semantic plan output from LLM."""
+
+    workflow_name: str
+    description: str = ""
+    stages: list[SemanticStagePlan] = Field(default_factory=list)
+    variables: list[SemanticVariablePlan] = Field(default_factory=list)
+    checkpoints: list[SemanticCheckpointPlan] = Field(default_factory=list)
+    estimated_duration_minutes: Optional[int] = None
+
+
 class SkillGenerator:
-    """Generate workflows from browser recordings using LLM.
+    """Generate workflows from browser recordings using a structured I/O pipeline."""
 
-    This class coordinates:
-    1. Parsing recording files
-    2. Building LLM prompts
-    3. Extracting workflow structure
-    4. Validating and saving workflows
-    """
+    WORKFLOW_EXTRACTION_PROMPT = """You are a workflow extraction specialist.
 
-    # System prompt for workflow extraction
-    WORKFLOW_EXTRACTION_PROMPT = """You are a workflow extraction specialist. Analyze the browser recording and extract a reusable, structured workflow.
+You are given a structured recording packet in JSON.
+The packet contains deterministic action records with stable action_id values.
 
-Your task is to:
-1. Identify the high-level goal of the workflow (e.g., "Search for products", "Fill out a form")
-2. Group related actions into logical stages
-3. Identify values that should be parameterized as variables
-4. Preserve element targeting information for replay
+Your job:
+1. Identify the workflow goal.
+2. Group actions into logical stages.
+3. Identify reusable variables.
+4. Add checkpoints.
 
-Guidelines:
-- Stages represent distinct phases (e.g., "Navigate to site", "Search", "Review results")
-- Actions within each stage should be sequential and related
-- Variables are values that would change between executions (search terms, usernames, etc.)
-- Keep target_hint details for element identification during replay
-- URL patterns should use wildcards for dynamic parts (e.g., "*/search_result*")
-
-Think step by step:
-1. What is the user trying to accomplish?
-2. What are the main phases/stages?
-3. What values are specific to this execution vs. reusable?
-4. What could go wrong and need verification (checkpoints)?"""
+Important constraints:
+- Do NOT rewrite raw action fields.
+- Do NOT invent action_ids. Only reference existing action_ids from packet.actions.
+- Keep output concise and semantic. Raw data preservation is handled by code.
+- Prefer stable grouping by page/task transitions.
+"""
 
     def __init__(self, llm_client: Optional[LLMClient] = None):
-        """Initialize the skill generator.
-
-        Args:
-            llm_client: LLM client to use (creates default if None)
-        """
         self.llm_client = llm_client or LLMClient()
 
     def _build_extraction_prompt(
@@ -64,16 +89,9 @@ Think step by step:
         name_hint: Optional[str] = None,
         description_hint: Optional[str] = None,
     ) -> tuple[str, str]:
-        """Build the prompt for workflow extraction.
+        """Build extraction prompt.
 
-        Args:
-            narrative: Compact narrative of the recording
-            metadata: Recording metadata
-            name_hint: Optional suggested workflow name
-            description_hint: Optional suggested description
-
-        Returns:
-            Tuple of (system_prompt, user_prompt)
+        `narrative` now carries structured packet JSON content.
         """
         system_prompt = self.WORKFLOW_EXTRACTION_PROMPT
 
@@ -83,11 +101,10 @@ Think step by step:
             f"Duration: {metadata['duration_seconds']} seconds",
             f"Total Actions: {metadata['action_count']}",
             "",
+            "=== Structured Packet JSON ===",
             narrative,
             "",
             "=== Output Instructions ===",
-            "Extract a workflow with the following structure:",
-            "",
         ]
 
         if name_hint:
@@ -103,62 +120,48 @@ Think step by step:
             '  "description": "What this workflow accomplishes",',
             '  "stages": [',
             '    {',
-            '      "name": "Stage name (verb + noun, e.g., Search for items)",',
+            '      "name": "Stage name",',
+            '      "description": "Optional stage summary",',
             '      "application": "Chrome",',
-            '      "url_pattern": "URL pattern with wildcards for dynamic parts",',
-            '      "actions": ["action 1", "action 2"],',
+            '      "action_ids": [1, 2, 3],',
             '      "inputs": ["input variable names"],',
             '      "outputs": ["output data produced"]',
             '    }',
-            '  ],',
+            "  ],",
             '  "variables": [',
             '    {',
             '      "name": "variable_name_snake_case",',
             '      "description": "What this variable represents",',
-            '      "type": "text|number|url",',
+            '      "type": "text|number|url|choice|date|file",',
             '      "example": "example value from recording",',
             '      "required": true|false',
             '    }',
-            '  ],',
+            "  ],",
             '  "checkpoints": [',
             '    {',
             '      "after_stage": 0,',
             '      "description": "What to verify",',
             '      "manual_confirmation": true',
             '    }',
-            '  ],',
+            "  ],",
             '  "estimated_duration_minutes": 5',
             "}",
             "",
             "Important:",
+            "- Stages must only reference valid action_ids from packet",
             "- Use snake_case for variable names",
-            "- url_pattern should match the pages where actions occur",
-            "- Each stage should have 1-5 related actions",
-            "- Variables should capture user-specific values (search terms, etc.)",
-            "- Checkpoints mark natural breakpoints for verification",
+            "- Keep each stage semantically coherent",
         ])
 
         return system_prompt, "\n".join(user_parts)
 
     def _parse_llm_response(self, response: str) -> dict[str, Any]:
-        """Parse and validate LLM response.
-
-        Args:
-            response: Raw LLM response string
-
-        Returns:
-            Parsed JSON dictionary
-
-        Raises:
-            ValueError: If response cannot be parsed
-        """
-        # Try to parse as JSON directly
+        """Parse and validate LLM response."""
         try:
             return json.loads(response)
         except json.JSONDecodeError:
             pass
 
-        # Try to extract JSON from markdown code blocks
         if "```json" in response:
             json_start = response.find("```json") + 7
             json_end = response.find("```", json_start)
@@ -168,7 +171,6 @@ Think step by step:
                 except json.JSONDecodeError:
                     pass
 
-        # Try to extract from generic code blocks
         if "```" in response:
             json_start = response.find("```") + 3
             json_end = response.find("```", json_start)
@@ -180,41 +182,118 @@ Think step by step:
 
         raise ValueError(f"Could not parse LLM response as JSON: {response[:200]}...")
 
+    def _format_action_text(self, action_detail: dict[str, Any]) -> str:
+        """Create human-readable action summary while keeping raw detail separate."""
+        action_type = action_detail.get("action_type", "action")
+        target_hint = action_detail.get("target_hint") or {}
+        target_name = target_hint.get("name")
+        url = (action_detail.get("page_context") or {}).get("url")
+        value = action_detail.get("value")
+
+        if action_type == "type" and value is not None:
+            if target_name:
+                return f'Type "{value}" into "{target_name}"'
+            return f'Type "{value}"'
+        if action_type == "navigate":
+            return f'Navigate to "{action_detail.get("url") or url or ""}"'.strip()
+        if target_name:
+            return f'{action_type.capitalize()} "{target_name}"'
+        if url:
+            return f"{action_type.capitalize()} on {url}"
+        return action_type.capitalize()
+
+    def _build_stage_from_action_ids(
+        self,
+        stage_plan: SemanticStagePlan,
+        action_map: dict[int, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Build stage payload deterministically from action_ids."""
+        action_details: list[dict[str, Any]] = []
+        action_summaries: list[str] = []
+
+        for action_id in stage_plan.action_ids:
+            action = action_map.get(action_id)
+            if not action:
+                continue
+
+            raw = action.get("raw", {})
+            detail = {
+                "action_id": action_id,
+                "action_type": raw.get("type"),
+                "timestamp": raw.get("timestamp"),
+                "page_context": action.get("page_context"),
+                "target_hint": action.get("target_hint_raw"),
+                "value": raw.get("value"),
+                "url": raw.get("url"),
+                "triggers_navigation": raw.get("triggers_navigation"),
+                "triggered_by": raw.get("triggered_by"),
+            }
+            action_details.append(detail)
+            action_summaries.append(self._format_action_text(detail))
+
+        return {
+            "name": stage_plan.name,
+            "description": stage_plan.description,
+            "application": stage_plan.application,
+            "actions": action_summaries,
+            "action_details": action_details,
+            "inputs": stage_plan.inputs,
+            "outputs": stage_plan.outputs,
+        }
+
+    def _assemble_workflow_data(
+        self,
+        semantic_plan: SemanticPlan,
+        structured_packet: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Combine semantic plan + structured packet into final workflow payload."""
+        action_map = {
+            int(action["action_id"]): action
+            for action in structured_packet.get("actions", [])
+            if "action_id" in action
+        }
+
+        stages = [
+            self._build_stage_from_action_ids(stage_plan, action_map)
+            for stage_plan in semantic_plan.stages
+        ]
+
+        variables = [var.model_dump() for var in semantic_plan.variables]
+        checkpoints = [cp.model_dump() for cp in semantic_plan.checkpoints]
+
+        return {
+            "workflow_name": semantic_plan.workflow_name,
+            "description": semantic_plan.description,
+            "stages": stages,
+            "variables": variables,
+            "checkpoints": checkpoints,
+            "estimated_duration_minutes": semantic_plan.estimated_duration_minutes,
+        }
+
     def _extract_workflow_data(
         self,
         recording_path: Path,
         name_hint: Optional[str] = None,
         description_hint: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Extract workflow data from recording using LLM.
-
-        Args:
-            recording_path: Path to JSONL recording file
-            name_hint: Optional suggested workflow name
-            description_hint: Optional suggested description
-
-        Returns:
-            Raw workflow data from LLM
-        """
-        # Parse recording
+        """Extract workflow data from recording using structured I/O + LLM."""
         parser = RecordingParser(recording_path)
         metadata = parser.metadata.to_dict()
 
-        # Generate compact narrative (with truncation for token limits)
-        # Assuming ~1000 tokens for prompt structure, ~4000 for narrative
-        # Rough estimate: 50 tokens per action
-        max_actions = 80  # Conservative limit
-        narrative = parser.to_compact_narrative(max_actions=max_actions)
+        max_actions = 80
+        structured_packet = parser.to_structured_packet(max_actions=max_actions)
+        packet_json = json.dumps(structured_packet, ensure_ascii=False)
 
         logger.info(
             "extracting_workflow",
             recording=str(recording_path),
             actions=metadata["action_count"],
+            selected_actions=structured_packet["metadata"]["selected_action_count"],
+            truncated=structured_packet["metadata"]["truncated"],
         )
 
-        # Build and send prompt
         system_prompt, user_prompt = self._build_extraction_prompt(
-            narrative=narrative,
+            narrative=packet_json,
             metadata=metadata,
             name_hint=name_hint,
             description_hint=description_hint,
@@ -225,16 +304,23 @@ Think step by step:
             {"role": "user", "content": user_prompt},
         ]
 
-        # Call LLM with JSON response format
         response = self.llm_client.complete(
             messages=messages,
             temperature=0.2,
             max_tokens=4000,
             response_format={"type": "json_object"},
         )
+        semantic_raw = self._parse_llm_response(response)
 
-        # Parse response
-        workflow_data = self._parse_llm_response(response)
+        try:
+            semantic_plan = SemanticPlan.model_validate(semantic_raw)
+        except ValidationError as e:
+            raise ValueError(f"Invalid semantic plan schema: {e}") from e
+
+        workflow_data = self._assemble_workflow_data(
+            semantic_plan=semantic_plan,
+            structured_packet=structured_packet,
+        )
 
         logger.info(
             "workflow_extracted",
@@ -242,7 +328,6 @@ Think step by step:
             stages=len(workflow_data.get("stages", [])),
             variables=len(workflow_data.get("variables", [])),
         )
-
         return workflow_data
 
     def _convert_to_workflow(
@@ -250,16 +335,7 @@ Think step by step:
         data: dict[str, Any],
         source_session_id: Optional[str] = None,
     ) -> Workflow:
-        """Convert LLM-extracted data to Workflow model.
-
-        Args:
-            data: Raw workflow data from LLM
-            source_session_id: Original recording session ID
-
-        Returns:
-            Workflow model instance
-        """
-        # Convert stages
+        """Convert assembled workflow data to Workflow model."""
         stages: list[WorkflowStage] = []
         for stage_data in data.get("stages", []):
             stage = WorkflowStage(
@@ -267,12 +343,12 @@ Think step by step:
                 description=stage_data.get("description", ""),
                 application=stage_data.get("application", "Chrome"),
                 actions=stage_data.get("actions", []),
+                action_details=stage_data.get("action_details", []),
                 inputs=stage_data.get("inputs", []),
                 outputs=stage_data.get("outputs", []),
             )
             stages.append(stage)
 
-        # Convert variables
         variables: list[WorkflowVariable] = []
         for var_data in data.get("variables", []):
             var_type_str = var_data.get("type", "text").upper()
@@ -292,7 +368,6 @@ Think step by step:
             )
             variables.append(variable)
 
-        # Convert checkpoints
         checkpoints: list[Checkpoint] = []
         for cp_data in data.get("checkpoints", []):
             checkpoint = Checkpoint(
@@ -304,7 +379,6 @@ Think step by step:
             )
             checkpoints.append(checkpoint)
 
-        # Create workflow
         workflow = Workflow(
             name=data.get("workflow_name", "Unnamed Workflow"),
             description=data.get("description", ""),
@@ -315,7 +389,6 @@ Think step by step:
             tags=["auto-generated"],
         )
 
-        # Set source session ID if provided
         if source_session_id:
             try:
                 workflow.source_session_id = UUID(source_session_id)
@@ -331,49 +404,26 @@ Think step by step:
         description: Optional[str] = None,
         save: bool = True,
     ) -> Workflow:
-        """Generate a workflow from a recording file.
-
-        This is the main entry point for skill generation.
-
-        Args:
-            recording_path: Path to JSONL recording file
-            name: Optional workflow name (suggested to LLM)
-            description: Optional workflow description (suggested to LLM)
-            save: Whether to save the workflow to storage
-
-        Returns:
-            Generated Workflow instance
-
-        Raises:
-            FileNotFoundError: If recording file doesn't exist
-            ValueError: If workflow extraction fails
-        """
+        """Generate a workflow from a recording file."""
         recording_path = Path(recording_path)
-
         if not recording_path.exists():
             raise FileNotFoundError(f"Recording file not found: {recording_path}")
 
-        # Get session ID from recording
         parser = RecordingParser(recording_path)
         session_id = parser.metadata.session_id
 
-        # Extract workflow data using LLM
         workflow_data = self._extract_workflow_data(
             recording_path=recording_path,
             name_hint=name,
             description_hint=description,
         )
-
-        # Convert to Workflow model
         workflow = self._convert_to_workflow(workflow_data, source_session_id=session_id)
 
-        # Override name/description if explicitly provided
         if name:
             workflow.name = name
         if description:
             workflow.description = description
 
-        # Save if requested
         if save:
             storage = WorkflowStorage()
             storage.save(workflow)
@@ -390,23 +440,36 @@ Think step by step:
         recording_path: Path | str,
         max_actions: int = 20,
     ) -> dict[str, Any]:
-        """Preview what would be sent to the LLM.
-
-        Useful for debugging and understanding the input to LLM.
-
-        Args:
-            recording_path: Path to JSONL recording file
-            max_actions: Maximum actions to include in preview
-
-        Returns:
-            Dictionary with metadata and narrative preview
-        """
+        """Preview what would be sent to the LLM."""
         recording_path = Path(recording_path)
         parser = RecordingParser(recording_path)
+        structured_packet = parser.to_structured_packet(max_actions=max_actions)
+        actions = structured_packet.get("actions", [])
 
         return {
             "metadata": parser.metadata.to_dict(),
             "narrative_preview": parser.to_compact_narrative(max_actions=max_actions),
+            "structured_preview": {
+                "metadata": structured_packet.get("metadata", {}),
+                "actions": actions[: min(5, len(actions))],
+                "page_groups": structured_packet.get("page_groups", {}),
+            },
+            "preserved_field_stats": {
+                "actions_with_page_context": sum(
+                    1 for a in actions if (a.get("page_context") or {}).get("url")
+                ),
+                "actions_with_target_hint_raw": sum(
+                    1 for a in actions if a.get("target_hint_raw")
+                ),
+                "actions_with_dom_context": sum(
+                    1
+                    for a in actions
+                    if (a.get("target_hint_raw") or {}).get("class_name")
+                    or (a.get("target_hint_raw") or {}).get("element_id")
+                    or (a.get("target_hint_raw") or {}).get("test_id")
+                    or (a.get("target_hint_raw") or {}).get("sibling_texts")
+                ),
+            },
             "action_count": len(parser.parse_actions()),
             "file_path": str(recording_path),
         }

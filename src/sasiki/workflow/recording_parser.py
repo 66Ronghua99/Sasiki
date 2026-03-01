@@ -170,7 +170,16 @@ class RecordingParser:
             return None
 
         # Fields to keep if they have values
-        key_fields = ["role", "name", "tag_name", "placeholder", "parent_role"]
+        key_fields = [
+            "role",
+            "name",
+            "tag_name",
+            "placeholder",
+            "parent_role",
+            "class_name",
+            "element_id",
+            "test_id",
+        ]
 
         compressed = {}
         for key in key_fields:
@@ -185,6 +194,21 @@ class RecordingParser:
             compressed["sibling_texts"] = siblings[:2]
 
         return compressed if compressed else None
+
+    def _select_actions(
+        self, max_actions: Optional[int] = None
+    ) -> tuple[list[RecordedAction], bool]:
+        """Select actions with optional truncation strategy.
+
+        Returns:
+            Tuple of (selected_actions, truncated)
+        """
+        actions = self.parse_actions()
+        if max_actions and len(actions) > max_actions:
+            keep_first = max_actions // 2
+            keep_last = max_actions - keep_first
+            return actions[:keep_first] + actions[-keep_last:], True
+        return actions, False
 
     def _action_to_compact_dict(self, action: RecordedAction) -> dict[str, Any]:
         """Convert action to compact dictionary for narrative.
@@ -243,17 +267,8 @@ class RecordingParser:
         Returns:
             Compact narrative string in structured format
         """
-        actions = self.parse_actions()
+        actions, truncated = self._select_actions(max_actions=max_actions)
         metadata = self.metadata
-
-        if max_actions and len(actions) > max_actions:
-            # Smart truncation: keep first and last portions, skip middle
-            keep_first = max_actions // 2
-            keep_last = max_actions - keep_first
-            actions = actions[:keep_first] + actions[-keep_last:]
-            truncated = True
-        else:
-            truncated = False
 
         lines: list[str] = []
 
@@ -308,6 +323,52 @@ class RecordingParser:
             lines.append("")
 
         return "\n".join(lines)
+
+    def to_structured_packet(self, max_actions: Optional[int] = None) -> dict[str, Any]:
+        """Convert actions to a structured packet for LLM semantic extraction.
+
+        The packet preserves replay-critical fields deterministically while still
+        exposing compact hints for token efficiency.
+        """
+        actions, truncated = self._select_actions(max_actions=max_actions)
+        metadata = self.metadata
+        total_actions = len(self.parse_actions())
+
+        packet_actions: list[dict[str, Any]] = []
+        page_groups: dict[str, list[int]] = {}
+
+        for idx, action in enumerate(actions, 1):
+            action_id = idx
+            hint_raw = action.target_hint.model_dump() if action.target_hint else None
+            action_data = {
+                "action_id": action_id,
+                "raw": {
+                    "type": action.type.value,
+                    "timestamp": action.timestamp,
+                    "value": action.value,
+                    "url": action.url,
+                    "triggers_navigation": action.triggers_navigation,
+                    "triggered_by": action.triggered_by,
+                },
+                "page_context": action.page_context.model_dump(),
+                "target_hint_raw": hint_raw,
+                "target_hint_compact": self._compress_target_hint(hint_raw),
+            }
+            packet_actions.append(action_data)
+
+            page_key = action.page_context.url or ""
+            page_groups.setdefault(page_key, []).append(action_id)
+
+        return {
+            "metadata": {
+                **metadata.to_dict(),
+                "selected_action_count": len(packet_actions),
+                "truncated": truncated,
+                "total_action_count": total_actions,
+            },
+            "actions": packet_actions,
+            "page_groups": page_groups,
+        }
 
     def to_json_summary(self) -> dict[str, Any]:
         """Generate a JSON-serializable summary of the recording.

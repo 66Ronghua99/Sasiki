@@ -90,17 +90,17 @@ class TestSkillGenerator:
             "stages": [
                 {
                     "name": "Navigate to site",
+                    "description": "Open target website",
                     "application": "Chrome",
-                    "url_pattern": "https://example.com*",
-                    "actions": ["Navigate to example.com"],
+                    "action_ids": [1],
                     "inputs": [],
                     "outputs": [],
                 },
                 {
                     "name": "Perform search",
+                    "description": "Use search box",
                     "application": "Chrome",
-                    "url_pattern": "https://example.com*",
-                    "actions": ["Click search box", "Type search query"],
+                    "action_ids": [2, 3],
                     "inputs": ["search_query"],
                     "outputs": ["search_results"],
                 },
@@ -160,7 +160,52 @@ class TestSkillGenerator:
     def test_convert_to_workflow(self, mock_llm_response):
         """Test converting LLM data to Workflow model."""
         generator = SkillGenerator(llm_client=MagicMock())
-        workflow = generator._convert_to_workflow(mock_llm_response)
+        assembled_data = {
+            "workflow_name": "Example Site Search",
+            "description": "Search for content on example.com",
+            "stages": [
+                {
+                    "name": "Navigate to site",
+                    "description": "Open target website",
+                    "application": "Chrome",
+                    "actions": ['Navigate to "https://example.com"'],
+                    "action_details": [
+                        {
+                            "action_id": 1,
+                            "action_type": "navigate",
+                            "page_context": {"url": "https://example.com", "title": "Example Site", "tab_id": 123},
+                        }
+                    ],
+                    "inputs": [],
+                    "outputs": [],
+                },
+                {
+                    "name": "Perform search",
+                    "description": "Use search box",
+                    "application": "Chrome",
+                    "actions": ['Click "Search"', 'Type "test query" into "Search"'],
+                    "action_details": [
+                        {
+                            "action_id": 2,
+                            "action_type": "click",
+                            "page_context": {"url": "https://example.com", "title": "Example Site", "tab_id": 123},
+                        },
+                        {
+                            "action_id": 3,
+                            "action_type": "type",
+                            "value": "test query",
+                            "page_context": {"url": "https://example.com", "title": "Example Site", "tab_id": 123},
+                        },
+                    ],
+                    "inputs": ["search_query"],
+                    "outputs": ["search_results"],
+                },
+            ],
+            "variables": mock_llm_response["variables"],
+            "checkpoints": mock_llm_response["checkpoints"],
+            "estimated_duration_minutes": 2,
+        }
+        workflow = generator._convert_to_workflow(assembled_data)
 
         assert isinstance(workflow, Workflow)
         assert workflow.name == "Example Site Search"
@@ -173,6 +218,7 @@ class TestSkillGenerator:
         assert workflow.stages[0].name == "Navigate to site"
         assert workflow.stages[1].name == "Perform search"
         assert workflow.stages[1].inputs == ["search_query"]
+        assert len(workflow.stages[1].action_details) == 2
 
         # Check variable details
         var = workflow.variables[0]
@@ -200,6 +246,8 @@ class TestSkillGenerator:
         assert preview["metadata"]["session_id"] == "test_search_session"
         assert preview["action_count"] == 3
         assert "narrative_preview" in preview
+        assert "structured_preview" in preview
+        assert "preserved_field_stats" in preview
         assert "=== Recording Summary ===" in preview["narrative_preview"]
 
     def test_preview_generation_max_actions(self, sample_recording):

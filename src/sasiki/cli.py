@@ -210,6 +210,25 @@ def generate(
             if len(preview_data['narrative_preview'].split('\n')) > 50:
                 console.print("\n[dim]... (truncated for preview)[/dim]")
 
+            structured = preview_data.get("structured_preview", {})
+            if structured:
+                s_meta = structured.get("metadata", {})
+                console.print("\n[bold]Structured Preview:[/bold]")
+                console.print(
+                    "  Selected/Total Actions: "
+                    f"{s_meta.get('selected_action_count', 0)}/{s_meta.get('total_action_count', 0)}"
+                )
+                console.print(f"  Truncated: {s_meta.get('truncated', False)}")
+                console.print(f"  Sample Actions: {len(structured.get('actions', []))}")
+                console.print(f"  Page Groups: {len(structured.get('page_groups', {}))}")
+
+            stats = preview_data.get("preserved_field_stats", {})
+            if stats:
+                console.print("\n[bold]Preserved Field Stats:[/bold]")
+                console.print(f"  With page_context: {stats.get('actions_with_page_context', 0)}")
+                console.print(f"  With target_hint_raw: {stats.get('actions_with_target_hint_raw', 0)}")
+                console.print(f"  With DOM context: {stats.get('actions_with_dom_context', 0)}")
+
             console.print("\n[yellow]Preview complete. Run without --preview to generate workflow.[/yellow]")
             return
 

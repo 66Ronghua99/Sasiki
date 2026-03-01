@@ -61,6 +61,21 @@ class ElementFingerprint(BaseModel):
         default_factory=list,
         description="Text content of sibling elements (up to 3, for disambiguation)",
     )
+    class_name: Optional[str] = Field(
+        validation_alias=AliasChoices("class_name", "className", "class"),
+        default=None,
+        description="Primary class name for DOM-based disambiguation",
+    )
+    element_id: Optional[str] = Field(
+        validation_alias=AliasChoices("element_id", "elementId", "id"),
+        default=None,
+        description="Element id attribute for DOM-based disambiguation",
+    )
+    test_id: Optional[str] = Field(
+        validation_alias=AliasChoices("test_id", "testId", "data_testid", "data-testid"),
+        default=None,
+        description="Testing identifier for robust matching",
+    )
 
     def to_selector_hint(self) -> dict[str, Any]:
         """Convert to selector hint format for Playwright/Agent execution."""
@@ -72,6 +87,9 @@ class ElementFingerprint(BaseModel):
             "context": {
                 "parent_role": self.parent_role,
                 "sibling_texts": self.sibling_texts[:2],
+                "class_name": self.class_name,
+                "element_id": self.element_id,
+                "test_id": self.test_id,
             },
         }
 

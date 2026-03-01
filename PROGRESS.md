@@ -39,6 +39,16 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 完整测试覆盖：36 个单元测试全部通过。
 - Phase 2 输入输出契约明确：event stream → compact narrative → LLM → Workflow YAML。
 
+### Phase 2 预期改动设计（改动前 Review）
+- 目标：降低“Skill 总结过度压缩”风险，保证 page context 与 DOM 检索关键信息稳定保留。
+- 策略：从“LLM 直接生成最终 Workflow”调整为“两阶段”：
+  1) `structured_packet`（代码构建，结构化输入）  
+  2) `semantic_plan`（LLM 仅做阶段识别/关键摘要）  
+  3) `deterministic_assembler`（代码确定性组装最终 Workflow）
+- 字段保留策略：采用**增强白名单**，强制保留 `page_context`、navigation 字段、`target_hint`（含 class/id/testid/sibling 等上下文）及动作原始关键字段。
+- 兼容性：`WorkflowStage.actions` 保留；新增 `action_details` 承载结构化动作明细；旧 YAML/JSON 可继续读取。
+- 风险控制：先双轨支持（legacy narrative + structured mode），通过回归测试后再默认切换；失败时可回退到 legacy 流程。
+
 ---
 
 ## 当前优先级（按顺序）

@@ -85,6 +85,9 @@ class TestRecordingParser:
                 "placeholder": None,
                 "parent_role": None,
                 "sibling_texts": [],
+                "class_name": "submit-btn",
+                "element_id": "submit-main",
+                "test_id": "submit-cta",
             },
             "triggers_navigation": False,
         }
@@ -134,6 +137,9 @@ class TestRecordingParser:
         assert '"role":"button"' in narrative
         assert '"name":"Submit"' in narrative
         assert "placeholder" not in narrative or '"placeholder":null' not in narrative
+        assert '"class_name":"submit-btn"' in narrative
+        assert '"element_id":"submit-main"' in narrative
+        assert '"test_id":"submit-cta"' in narrative
 
     def test_to_compact_narrative_truncation(self, sample_recording):
         """Test narrative truncation."""
@@ -151,6 +157,24 @@ class TestRecordingParser:
         assert summary["metadata"]["session_id"] == "test_session"
         assert len(summary["actions"]) == 2
         assert summary["actions"][0]["type"] == "navigate"
+
+    def test_to_structured_packet(self, sample_recording):
+        """Structured packet should preserve replay-critical fields."""
+        parser = RecordingParser(sample_recording)
+        packet = parser.to_structured_packet(max_actions=10)
+
+        assert packet["metadata"]["total_action_count"] == 2
+        assert packet["metadata"]["selected_action_count"] == 2
+        assert packet["metadata"]["truncated"] is False
+        assert len(packet["actions"]) == 2
+
+        click_action = packet["actions"][1]
+        assert click_action["action_id"] == 2
+        assert click_action["raw"]["type"] == "click"
+        assert click_action["page_context"]["url"] == "https://example.com/page"
+        assert click_action["target_hint_raw"]["class_name"] == "submit-btn"
+        assert click_action["target_hint_raw"]["element_id"] == "submit-main"
+        assert click_action["target_hint_raw"]["test_id"] == "submit-cta"
 
     def test_filter_actions_by_type(self, sample_recording):
         """Test filtering actions by type."""
