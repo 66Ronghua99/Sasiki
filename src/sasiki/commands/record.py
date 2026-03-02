@@ -1,29 +1,19 @@
 """Command for starting a browser recording session."""
 
 import asyncio
-import json
 import signal
 import uuid
-from typing import Any
 
 import typer
 import websockets
 from rich.console import Console
-from rich.panel import Panel
 
-from sasiki.server.message_codec import WSMessageCodec
+from sasiki.commands.ui import print_header
+from sasiki.server.message_codec import WSMessageCodec, WSMessageCodecError
+from sasiki.server.websocket_protocol import WSMessageType
 
 app = typer.Typer()
 console = Console()
-
-
-def _print_header() -> None:
-    """Print the application header."""
-    console.print(Panel.fit(
-        "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
-        "[dim]观察一次，永久复用[/dim]",
-        border_style="blue",
-    ))
 
 
 @app.command()
@@ -36,7 +26,7 @@ def record(
     Records user interactions from the Chrome Extension and saves them
     for later skill generation.
     """
-    _print_header()
+    print_header()
 
     async def run_recording():
         uri = f"ws://localhost:{ws_port}"
@@ -60,14 +50,17 @@ def record(
                 # Wait for start confirmation
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                    data = json.loads(response)
-                    if data.get("type") == "control_response" and data.get("success"):
+                    response_str = response.decode() if isinstance(response, bytes) else response
+                    message = WSMessageCodec.parse_incoming(response_str)
+                    if message.type == WSMessageType.CONTROL_RESPONSE and message.payload.get("success"):
                         console.print("[dim]Recording started successfully[/dim]\n")
-                    elif data.get("type") == "control_response" and not data.get("success"):
-                        console.print(f"[red]Failed to start recording: {data.get('error')}[/red]")
+                    elif message.type == WSMessageType.CONTROL_RESPONSE and not message.payload.get("success"):
+                        console.print(f"[red]Failed to start recording: {message.payload.get('error')}[/red]")
                         return
                 except asyncio.TimeoutError:
                     console.print("[yellow]No confirmation from server, continuing...[/yellow]")
+                except WSMessageCodecError as e:
+                    console.print(f"[yellow]Invalid message from server: {e}[/yellow]")
 
                 # Keep connection open, display incoming actions
                 stop_requested = False
@@ -84,16 +77,21 @@ def record(
                 try:
                     while not stop_requested:
                         try:
-                            message = await asyncio.wait_for(websocket.recv(), timeout=0.5)
-                            data = json.loads(message)
+                            raw = await asyncio.wait_for(websocket.recv(), timeout=0.5)
+                            raw_str = raw.decode() if isinstance(raw, bytes) else raw
+                            try:
+                                message = WSMessageCodec.parse_incoming(raw_str)
+                            except WSMessageCodecError:
+                                continue
 
-                            if data.get("type") == "action_logged":
-                                action = data.get("action", {})
+                            if message.type == WSMessageType.ACTION_LOGGED:
+                                action = message.payload.get("action", {})
                                 action_type = action.get('type', 'unknown')
                                 target = action.get('target', 'unknown')
                                 console.print(f"  [blue]{action_type}[/blue]: {target[:40] if target else 'N/A'}")
-                            elif data.get("type") == "error":
-                                console.print(f"  [red]Error: {data.get('payload', {}).get('message', 'Unknown error')}[/red]")
+                            elif message.type == WSMessageType.ERROR:
+                                payload = message.payload or {}
+                                console.print(f"  [red]Error: {payload.get('message', 'Unknown error')}[/red]")
                         except asyncio.TimeoutError:
                             continue
 
@@ -107,15 +105,19 @@ def record(
                 # Wait for stop confirmation with filepath
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                    data = json.loads(response)
-                    if data.get("type") == "control_response" and data.get("success"):
-                        filepath = data.get("filepath")
-                        if filepath:
-                            console.print(f"\n[green]Recording saved to:[/green] {filepath}")
+                    response_str = response.decode() if isinstance(response, bytes) else response
+                    try:
+                        message = WSMessageCodec.parse_incoming(response_str)
+                        if message.type == WSMessageType.CONTROL_RESPONSE and message.payload.get("success"):
+                            filepath = message.payload.get("filepath")
+                            if filepath:
+                                console.print(f"\n[green]Recording saved to:[/green] {filepath}")
+                            else:
+                                console.print("\n[green]Recording saved.[/green]")
                         else:
-                            console.print("\n[green]Recording saved.[/green]")
-                    else:
-                        console.print("\n[yellow]Recording stopped (no confirmation).[/yellow]")
+                            console.print("\n[yellow]Recording stopped (no confirmation).[/yellow]")
+                    except WSMessageCodecError:
+                        console.print("\n[yellow]Recording stopped (invalid confirmation).[/yellow]")
                 except asyncio.TimeoutError:
                     console.print("\n[yellow]Recording stopped (timeout waiting for confirmation).[/yellow]")
 

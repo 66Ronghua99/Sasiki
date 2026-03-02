@@ -143,9 +143,7 @@ class WorkflowRefiner:
                         stage_name=stage["name"],
                         error=result.error,
                     )
-                    state.skip_remaining_stages([
-                        s["name"] for s in stages[stage_index + 1:]
-                    ])
+                    self._skip_tail(stages, stage_index, state)
                     break
 
                 if result.status == "paused":
@@ -154,9 +152,7 @@ class WorkflowRefiner:
                         stage_index=stage_index,
                         stage_name=stage["name"],
                     )
-                    state.skip_remaining_stages([
-                        s["name"] for s in stages[stage_index + 1:]
-                    ])
+                    self._skip_tail(stages, stage_index, state)
                     break
 
                 # Check for checkpoint after this stage
@@ -174,17 +170,13 @@ class WorkflowRefiner:
                         # Remove the result we just added and continue without advancing
                         state.pop_last_stage_result()
                         # Mark remaining stages as skipped for now, will restart this one
-                        state.skip_remaining_stages([
-                            s["name"] for s in stages[stage_index + 1:]
-                        ])
+                        self._skip_tail(stages, stage_index, state)
                         state.mark_paused()
                         break
                     if not should_continue:
                         state.mark_paused()
                         # Mark remaining stages as skipped
-                        state.skip_remaining_stages([
-                            s["name"] for s in stages[stage_index + 1:]
-                        ])
+                        self._skip_tail(stages, stage_index, state)
                         break
 
             # Save final workflow if completed or paused (not on failure)
@@ -236,3 +228,18 @@ class WorkflowRefiner:
             max_repeats=3,
         )
         return await executor.execute(page, stage, stage_index, self._history)
+
+    def _skip_tail(
+        self,
+        stages: list[dict[str, Any]],
+        current_index: int,
+        state: RefinerState,
+    ) -> None:
+        """Mark all stages after current_index as skipped.
+
+        Centralizes the "skip remaining stages" logic to avoid repetition
+        across failure, pause, and checkpoint branches.
+        """
+        state.skip_remaining_stages([
+            s["name"] for s in stages[current_index + 1:]
+        ])

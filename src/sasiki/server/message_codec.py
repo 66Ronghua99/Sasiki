@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from pydantic import ValidationError
 
-from sasiki.server.websocket_protocol import WSMessage, WSMessageType
+from sasiki.server.websocket_protocol import WSMessage
 
 
 class WSMessageCodecError(Exception):
@@ -131,50 +131,21 @@ class WSMessageCodec:
         error: Optional[str] = None,
     ) -> str:
         """Build a control response message."""
-        # Control responses have fields at top level, not in payload
-        data: dict[str, Any] = {
-            "type": WSMessageType.CONTROL_RESPONSE.value,
-            "command": command,
-            "success": success,
-        }
-        if session_id is not None:
-            data["session_id"] = session_id
-        if filepath is not None:
-            data["filepath"] = filepath
-        if error is not None:
-            data["error"] = error
-
-        try:
-            return json.dumps(data)
-        except (TypeError, ValueError) as e:
-            raise WSMessageCodecError(f"Failed to encode message: {e}") from e
+        message = WSMessage.control_response(
+            command=command,
+            success=success,
+            session_id=session_id,
+            filepath=filepath,
+            error=error,
+        )
+        return cls.build_outgoing(message)
 
     @classmethod
     def build_action_logged(cls, action: dict[str, Any]) -> str:
         """Build an action_logged notification message."""
-        # Action logged messages have fields at top level
-        data: dict[str, Any] = {
-            "type": WSMessageType.ACTION_LOGGED.value,
-            "action": action,
-        }
-        try:
-            return json.dumps(data)
-        except (TypeError, ValueError) as e:
-            raise WSMessageCodecError(f"Failed to encode message: {e}") from e
+        return cls.build_outgoing(WSMessage.action_logged(action))
 
     @classmethod
     def build_error(cls, message: str, details: Optional[dict] = None) -> str:
         """Build an error message."""
-        # Error messages have payload.message structure
-        payload: dict[str, Any] = {"message": message}
-        if details:
-            payload.update(details)
-
-        data: dict[str, Any] = {
-            "type": WSMessageType.ERROR.value,
-            "payload": payload,
-        }
-        try:
-            return json.dumps(data)
-        except (TypeError, ValueError) as e:
-            raise WSMessageCodecError(f"Failed to encode message: {e}") from e
+        return cls.build_outgoing(WSMessage.error(message, details))

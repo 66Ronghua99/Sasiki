@@ -245,16 +245,7 @@ class WSMessage(BaseModel):
         )
 
     @classmethod
-    def action_logged(cls, action: dict[str, Any]) -> "WSMessage":
-        """Create an action_logged confirmation message."""
-        return cls(
-            type=WSMessageType.ACTION_LOGGED,
-            payload=action,
-            timestamp=_now_ms(),
-        )
-
-    @classmethod
-    def error(cls, message: str, details: Optional[dict] = None) -> "WSMessage":
+    def error(cls, message: str, details: Optional[dict[str, Any]] = None) -> "WSMessage":
         """Create an error message."""
         payload = {"message": message}
         if details:
@@ -262,6 +253,41 @@ class WSMessage(BaseModel):
         return cls(
             type=WSMessageType.ERROR,
             payload=payload,
+            timestamp=_now_ms(),
+        )
+
+    @classmethod
+    def control_response(
+        cls,
+        command: str,
+        success: bool,
+        session_id: Optional[str] = None,
+        filepath: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> "WSMessage":
+        """Create a control response message."""
+        payload: dict[str, Any] = {
+            "command": command,
+            "success": success,
+        }
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if filepath is not None:
+            payload["filepath"] = filepath
+        if error is not None:
+            payload["error"] = error
+        return cls(
+            type=WSMessageType.CONTROL_RESPONSE,
+            payload=payload,
+            timestamp=_now_ms(),
+        )
+
+    @classmethod
+    def action_logged(cls, action: dict[str, Any]) -> "WSMessage":
+        """Create an action_logged notification message."""
+        return cls(
+            type=WSMessageType.ACTION_LOGGED,
+            payload={"action": action},
             timestamp=_now_ms(),
         )
 
