@@ -4,26 +4,27 @@
 
 ## 当前主线
 
-仅维护 **browser-first** 路线：  
-Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执行。  
+仅维护 **browser-first** 路线：
+Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执行。
 屏幕录制路线已下线。
 
 ---
 
 ## 当前状态（快照）
 
-| 阶段 | 状态 | 结果 |
-|---|---|---|
-| Phase 1 录制链路 | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通 |
-| Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证 |
-| Phase 2 Skill 生成 | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代 |
-| Phase 3 执行引擎 | 🟢 进行中 | 已完成 Replay Engine 设计，Playwright 环境管理与 CDP DOM 观测器、Replay Agent 雏形实现完成 |
+| 阶段                 | 状态      | 结果                                                                                       |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| Phase 1 录制链路     | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通                                                   |
+| Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证                                                                  |
+| Phase 2 Skill 生成   | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代                |
+| Phase 3 执行引擎     | 🟢 进行中 | 已完成 Replay Engine 设计，Playwright 环境管理与 CDP DOM 观测器、Replay Agent 雏形实现完成 |
 
 ---
 
 ## 已完成（近期关键项）
 
 ### Phase 3 执行引擎（新启动）
+
 - 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
 - 引入 `playwright` 依赖，作为自动化执行基础。
 - 实现 `PlaywrightEnvironment` (支持 CDP 连接或指定独立 `user_data_dir` 保留登录态)。
@@ -33,6 +34,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 打通 DashScope (MiniMax-M2.5) 与 OpenRouter 的灵活切换。
 
 ### Phase 2 Skill 生成
+
 - `RecordingParser` 模块：JSONL 解析、元数据提取、target_hint 压缩、事件过滤/分组。
 - `SkillGenerator` 模块：LLM Prompt 构建、Workflow 提取与转换、自动保存支持。
 - CLI `generate` 命令：`sasiki generate <recording.jsonl> [--preview]`。
@@ -40,6 +42,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - Phase 2 输入输出契约明确：event stream → compact narrative → LLM → Workflow YAML。
 
 ### Code Quality & Refactoring (New)
+
 - Split large files for better maintainability:
   - `src/sasiki/cli.py` -> `src/sasiki/commands/`
   - `src/sasiki/workflow/skill_generator.py` -> `skill_models.py`, `action_formatter.py`
@@ -48,10 +51,11 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - Added `tests/test_action_formatter.py` and updated existing tests.
 
 ### Phase 2 预期改动设计（改动前 Review）
+
 - 目标：降低“Skill 总结过度压缩”风险，保证 page context 与 DOM 检索关键信息稳定保留。
 - 策略：从“LLM 直接生成最终 Workflow”调整为“两阶段”：
-  1) `structured_packet`（代码构建，结构化输入）  
-  2) `semantic_plan`（LLM 仅做阶段识别/关键摘要）  
+  1) `structured_packet`（代码构建，结构化输入）
+  2) `semantic_plan`（LLM 仅做阶段识别/关键摘要）
   3) `deterministic_assembler`（代码确定性组装最终 Workflow）
 - 字段保留策略：采用**增强白名单**，强制保留 `page_context`、navigation 字段、`target_hint`（含 class/id/testid/sibling 等上下文）及动作原始关键字段。
 - 兼容性：`WorkflowStage.actions` 保留；新增 `action_details` 承载结构化动作明细；旧 YAML/JSON 可继续读取。
@@ -70,17 +74,19 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 ## 本周执行项
 
 ### Phase 1（录制）
-- [x] 完成 1 条标准化录制验收任务（推荐小红书搜索流程）
-- [x] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
-- [x] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
+
+- [X] 完成 1 条标准化录制验收任务（推荐小红书搜索流程）
+- [X] 增加录制结果自动检查脚本（事件分布/字段完整性/时序）
+- [X] 协议补齐 `scroll_load` 相关字段（服务端模型对齐）
 
 ### Phase 3（执行引擎）
-- [x] 设计 Replay Engine 架构与核心逻辑。
-- [x] 实现页面观测器 (`AccessibilityObserver`) 与精简 DOM 树压缩。
-- [x] 实现单步决策代理 (`ReplayAgent`) 并打通 Playwright 坐标执行。
-- [x] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
-- [x] 验证连续目标执行（Agent Loop）并识别出状态记忆问题。
-- [ ] 构建 `WorkflowReplayer` 读取 YAML 并拆分 Stage 执行。
+
+- [X] 设计 Replay Engine 架构与核心逻辑。
+- [X] 实现页面观测器 (`AccessibilityObserver`) 与精简 DOM 树压缩。
+- [X] 实现单步决策代理 (`ReplayAgent`) 并打通 Playwright 坐标执行。
+- [X] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
+- [X] 验证连续目标执行（Agent Loop）并识别出状态记忆问题。
+- [ ] 构建 `WorkflowRefiner` 读取 YAML 并拆分 Stage 执行。
 - [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
@@ -89,6 +95,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 ## 快速验证命令
 
 ### Phase 1 - 录制
+
 ```bash
 # 1) 启动服务
 sasiki server start
@@ -104,6 +111,7 @@ PYTHONPATH=src uv run --with pytest --with pytest-asyncio --with websockets pyte
 ```
 
 ### Phase 2 - Skill 生成
+
 ```bash
 # 1) 预览 LLM 输入（不调用 LLM）
 sasiki generate ~/.sasiki/recordings/browser/xhs_e2e.jsonl --preview
@@ -129,7 +137,7 @@ PYTHONPATH=src uv run --with pytest tests/test_recording_parser.py tests/test_sk
 
 ## 已知未解决问题
 
-- `click.triggers_navigation` 目前依赖短时间窗口，慢网络下可能误判。  
+- `click.triggers_navigation` 目前依赖短时间窗口，慢网络下可能误判。
   方向：改为事后关联或可配置窗口。
 
 ---
