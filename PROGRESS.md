@@ -18,6 +18,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证                                                                  |
 | Phase 2 Skill 生成   | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代                |
 | Phase 3 执行引擎     | 🟢 进行中 | WorkflowRefiner 核心调度器已完成，支持分 Stage 执行、Checkpoint 暂停、变量替换与最终 Workflow 产出 |
+| Phase 3 Retry & HITL | ✅ 已完成 | Retry 上下文传递、HumanInteractionHandler 抽象接口、CLI/NonInteractive 双实现 |
 
 ---
 
@@ -35,6 +36,14 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 实现 `WorkflowRefiner` 核心调度器，支持 Workflow 分 Stage 循环执行、变量解析、Checkpoint 暂停与 `*_final.yaml` 产出。
 - 新增 `sasiki refine <workflow_id>` CLI 命令，提供试运行提纯功能。
 - 编写 24 个单元测试覆盖 WorkflowRefiner 核心逻辑。
+- **Retry & HITL 重构**（详见 `docs/retry-hitl-redesign.md`）：
+  - 新增 `RetryContext` 模型，支持 retry 时传递失败上下文（错误类型、失败 action、失败原因）。
+  - 增强 `ReplayAgent.step_with_context()` 方法，支持 retry context 和 action history。
+  - 实现 `HumanInteractionHandler` 抽象接口，引擎层只依赖接口，不依赖具体实现。
+  - 实现 `CLIInteractiveHandler`（`src/sasiki/commands/handlers.py`）提供 CLI 交互式 HITL。
+  - 实现 `NonInteractiveHandler`（`src/sasiki/engine/handlers/auto.py`）用于自动化/测试场景。
+  - 重构 `WorkflowRefiner` 以通过依赖注入使用 handler 接口，支持非交互式模式（`--no-interactive`）。
+  - 新增 31 个单元测试覆盖 handler 接口和 retry 逻辑。
 
 ### Phase 2 Skill 生成
 
@@ -90,6 +99,8 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [X] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
 - [X] 验证连续目标执行（Agent Loop）并识别出状态记忆问题。
 - [X] 构建 `WorkflowRefiner` 读取 YAML 并拆分 Stage 执行。
+- [X] 实现 Retry 上下文传递与失败信息分类 (`_classify_error`)。
+- [X] 实现 HITL 抽象接口与 CLI/NonInteractive 双模式支持。
 - [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
@@ -146,6 +157,12 @@ sasiki refine <workflow_id>
 
 # 3) 连接已有浏览器试运行
 sasiki refine <workflow_id> --cdp-url http://localhost:9222
+
+# 4) 非交互式模式（用于自动化/CI）
+sasiki refine <workflow_id> --no-interactive --on-hitl=abort
+
+# 5) 运行 HITL/Retry 相关测试
+PYTHONPATH=src uv run --with pytest --with pytest-asyncio pytest tests/engine/test_human_interface.py tests/engine/test_cli_handler.py tests/engine/test_replay_agent_retry.py -v
 ```
 
 ---

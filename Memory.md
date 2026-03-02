@@ -36,6 +36,25 @@
 - **根因**：在测试 `ReplayAgent` 的自主循环时，必须注入动作历史（History）才能避免 Agent 死循环点击同一个元素。但如果将不断增长的 history text 直接拼接在 `User Prompt` 的尾部或中间，会导致每次请求的 Prompt 都在变化，**极大地降低了 LLM API 的 Cache 命中率**，增加成本与延迟。
 - **做法**：在设计最终的 `WorkflowReplayer` 状态机与 Agent 记忆时，需要将稳定的、不变的指令（如 System Prompt、任务背景）与高频变化的数据（如当前 DOM Snapshot、最近步骤 History）合理分离或分页。确保长文本（如 DOM Tree）能够被有效 Cache。
 
+### 9) Retry 上下文传递与 HITL 抽象接口设计 (2026-03-02)
+- **根因**：
+  1. Retry 缺乏失败上下文传递：当 action 执行失败时，retry 使用相同的 goal，Agent 不知道失败原因，导致盲目重试。
+  2. HITL 没有真正的交互机制：`ask_human` 只是打印消息并暂停，checkpoint 自动继续，没有等待用户决策。
+  3. 引擎层直接调用 `input()`，与具体前端耦合，无法支持 Web/桌面客户端等多形态。
+- **做法**：
+  1. **RetryContext 模型**：新增 `RetryContext` dataclass，包含 `failed_action`, `error_message`, `error_type`, `attempt_number`, `max_attempts`，在 retry 时传递给 Agent。
+  2. **step_with_context() 方法**：`ReplayAgent` 新增支持 retry context 的入口，根据是否有 `retry_context` 构建不同的 prompt（正常 vs  retry）。
+  3. **HumanInteractionHandler 抽象接口**：引擎层只依赖接口 `HumanInteractionHandler`（ABC），不依赖具体实现。各前端（CLI/Web/Client）各自实现此接口。
+  4. **依赖注入**：`WorkflowRefiner` 通过 `__init__(human_handler=...)` 注入 handler，不创建默认实现，强制调用方明确选择交互模式。
+  5. **分层实现**：
+     - `CLIInteractiveHandler`：CLI 交互实现，放在 `commands/handlers.py` 与 CLI 入口一起。
+     - `NonInteractiveHandler`：自动化/测试实现，放在 `engine/handlers/auto.py`，支持配置默认决策。
+  6. **向后兼容**：无 handler 时，`WorkflowRefiner` 保持原有行为（paused/failed 状态）。
+- **关键设计决策**：
+  - 引擎层零前端依赖：`engine/human_interface.py` 只定义接口，`engine/handlers/` 只包含无外部依赖的通用实现（如 `NonInteractiveHandler`）。
+  - 具体实现（`CLIInteractiveHandler`）放在 `commands/` 或未来的 `server/`、`client/` 目录。
+  - Checkpoint 返回 `(should_continue, should_repeat)` tuple，支持"重复当前 stage"的决策。
+
 ---
 
 ## 排查清单（按顺序）
