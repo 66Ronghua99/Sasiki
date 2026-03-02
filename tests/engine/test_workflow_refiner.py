@@ -11,11 +11,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from uuid import uuid4
 
-from sasiki.engine.workflow_refiner import (
-    WorkflowRefiner,
-    StageResult,
-    RefineResult,
-)
+from sasiki.engine.workflow_refiner import WorkflowRefiner
+from sasiki.engine.refiner_state import StageResult, RefineResult
 from sasiki.engine.replay_models import AgentAction
 from sasiki.engine.handlers.auto import NonInteractiveHandler
 from sasiki.workflow.models import Workflow, WorkflowStage, WorkflowVariable, VariableType
@@ -48,7 +45,7 @@ def mock_replay_agent():
 @pytest.fixture
 def mock_storage(tmp_path):
     """Create a mocked WorkflowStorage."""
-    with patch("sasiki.engine.workflow_refiner.WorkflowStorage") as MockStorage:
+    with patch("sasiki.workflow.final_workflow_writer.WorkflowStorage") as MockStorage:
         mock_storage = MagicMock()
         mock_storage.base_dir = tmp_path / ".sasiki" / "workflows"
         mock_storage.base_dir.mkdir(parents=True, exist_ok=True)
@@ -208,7 +205,7 @@ class TestSingleStageExecution:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_single_stage_single_step_done(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow, mock_storage
     ):
@@ -237,7 +234,7 @@ class TestSingleStageExecution:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_single_stage_multiple_steps_then_done(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -291,7 +288,7 @@ class TestMultipleStages:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_multiple_stages_sequential(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -391,9 +388,10 @@ class TestCheckpointHandling:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    @patch("sasiki.engine.checkpoint_coordinator.CheckpointCoordinator.handle_checkpoint")
     async def test_checkpoint_pause(
-        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow_with_checkpoint
+        self, mock_handle_cp, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow_with_checkpoint
     ):
         """Test that checkpoint pauses execution."""
         mock_env, mock_page = mock_playwright_env
@@ -405,10 +403,10 @@ class TestCheckpointHandling:
             AgentAction(thought="Stage 2 done", action_type="done"),
         ]
 
-        # Mock _handle_checkpoint to return (should_continue=False, should_repeat=False)
-        refiner = WorkflowRefiner(enable_checkpoints=True)
-        refiner._handle_checkpoint = AsyncMock(return_value=(False, False))
+        # Mock handle_checkpoint to return (should_continue=False, should_repeat=False)
+        mock_handle_cp.return_value = (False, False)
 
+        refiner = WorkflowRefiner(enable_checkpoints=True)
         result = await refiner.run(
             workflow=sample_workflow_with_checkpoint,
             inputs={},
@@ -417,13 +415,14 @@ class TestCheckpointHandling:
         assert result.status == "paused"
         assert result.stage_results[0].status == "success"
         assert result.stage_results[1].status == "skipped"
-        refiner._handle_checkpoint.assert_called_once()
+        mock_handle_cp.assert_called_once()
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    @patch("sasiki.engine.checkpoint_coordinator.CheckpointCoordinator.handle_checkpoint")
     async def test_checkpoint_skip_when_disabled(
-        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow_with_checkpoint
+        self, mock_handle_cp, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow_with_checkpoint
     ):
         """Test that checkpoints are skipped when disabled."""
         mock_env, mock_page = mock_playwright_env
@@ -435,7 +434,7 @@ class TestCheckpointHandling:
         ]
 
         refiner = WorkflowRefiner(enable_checkpoints=False)
-        refiner._handle_checkpoint = AsyncMock(return_value=(True, False))
+        mock_handle_cp.return_value = (True, False)
 
         result = await refiner.run(
             workflow=sample_workflow_with_checkpoint,
@@ -444,7 +443,7 @@ class TestCheckpointHandling:
 
         assert result.status == "completed"
         # Checkpoint handler should not be called when disabled
-        refiner._handle_checkpoint.assert_not_called()
+        mock_handle_cp.assert_not_called()
 
 
 class TestRetryLogic:
@@ -452,7 +451,7 @@ class TestRetryLogic:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_step_exception_retry(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -504,7 +503,7 @@ class TestVariableSubstitution:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_variable_substitution_passed_to_goal(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -541,7 +540,7 @@ class TestSaveFinalWorkflow:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_save_final_workflow(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow, tmp_path
     ):
@@ -554,7 +553,7 @@ class TestSaveFinalWorkflow:
             action_type="done",
         )
 
-        with patch("sasiki.engine.workflow_refiner.WorkflowStorage") as MockStorage:
+        with patch("sasiki.workflow.final_workflow_writer.WorkflowStorage") as MockStorage:
             mock_storage = MagicMock()
             mock_storage.base_dir = tmp_path / ".sasiki" / "workflows"
             mock_storage.base_dir.mkdir(parents=True, exist_ok=True)
@@ -584,7 +583,7 @@ class TestSaveFinalWorkflow:
         # Cause a failure
         mock_agent.step.side_effect = Exception("Fatal error")
 
-        with patch("sasiki.engine.workflow_refiner.WorkflowStorage") as MockStorage:
+        with patch("sasiki.workflow.final_workflow_writer.WorkflowStorage") as MockStorage:
             mock_storage = MagicMock()
             MockStorage.return_value = mock_storage
 
@@ -603,7 +602,7 @@ class TestStartStage:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_start_from_specific_stage(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -693,7 +692,7 @@ class TestAskHumanPause:
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
-    @patch("sasiki.engine.workflow_refiner.to_yaml_file")
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
     async def test_ask_human_pauses_stage(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
@@ -751,14 +750,17 @@ class TestBuildStageGoal:
 
     def test_build_stage_goal_basic(self):
         """Test basic goal building."""
-        refiner = WorkflowRefiner()
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
         stage = {
             "name": "Test Stage",
             "application": "Chrome",
             "actions": ["Click button", "Type text"],
         }
+        history: list[str] = []
 
-        goal = refiner._build_stage_goal(stage)
+        goal = executor._build_stage_goal(stage, history)
 
         assert "Test Stage" in goal
         assert "Chrome" in goal
@@ -767,15 +769,17 @@ class TestBuildStageGoal:
 
     def test_build_stage_goal_with_history(self):
         """Test goal building with history."""
-        refiner = WorkflowRefiner()
-        refiner._history = ["Step 1 thought", "Step 2 thought"]
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        history = ["Step 1 thought", "Step 2 thought"]
 
         stage = {
             "name": "Test Stage",
             "actions": ["Action 1"],
         }
 
-        goal = refiner._build_stage_goal(stage)
+        goal = executor._build_stage_goal(stage, history)
 
         assert "Recent progress" in goal
         assert "Step 1 thought" in goal
