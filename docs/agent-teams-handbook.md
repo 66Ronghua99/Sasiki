@@ -1,3 +1,8 @@
+> [!WARNING]
+> **过时文档 / 无关内容** | 标记日期：2026-03-02
+> 本文档是 Claude Code Agent Teams Protocol 的通用参考手册，与 Sasiki 项目本身**无直接关联**，属于历史遗留文档。
+> 如需参考多代理协调，请查阅最新的 Claude 官方文档。本文档不再维护。
+
 # Agent Teams 技能手册
 
 > **版本**: Claude Code Agent Teams Protocol v1.0

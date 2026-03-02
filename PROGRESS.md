@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-03-01** (Phase 3 架构设计完成并启动核心开发)
+**最后更新：2026-03-02** (Phase 2 正式完成，进入持续优化迭代；Phase 3 核心开发中)
 
 ## 当前主线
 
@@ -16,7 +16,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 |---|---|---|
 | Phase 1 录制链路 | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通 |
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证 |
-| Phase 2 Skill 生成 | 🟡 进行中 | Parser + Generator + CLI 已完成，待 LLM 集成测试 |
+| Phase 2 Skill 生成 | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代 |
 | Phase 3 执行引擎 | 🟢 进行中 | 已完成 Replay Engine 设计，Playwright 环境管理与 CDP DOM 观测器、Replay Agent 雏形实现完成 |
 
 ---
@@ -136,6 +136,6 @@ PYTHONPATH=src uv run --with pytest tests/test_recording_parser.py tests/test_sk
 
 ## 后续里程碑（简版）
 
-- **Phase 2**：生成可校验的 Skill YAML（含变量、步骤、target_hint）。
+- **Phase 2**：~~生成可校验的 Skill YAML（含变量、步骤、target_hint）~~ ✅ 已完成。后续持续优化：null 值过滤、click+navigate 合并、描述生成改进（详见 `docs/WORKFLOW_IMPROVEMENT_PLAN.md`）。
 - **Phase 3**：完成执行引擎首版并在多站点达成稳定执行。
 - **Phase 4**：补齐失败重试、人工介入、CLI 管理与体验优化。

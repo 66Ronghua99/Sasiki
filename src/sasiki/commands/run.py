@@ -27,8 +27,8 @@ def run(
 ):
     """Run a workflow.
     
-    Currently in Phase 2 development. Use --execute to attempt actual execution
-    (requires Phase 2 execution engine), or use --dry-run (default) to preview.
+    Phase 2 (Skill generation) is complete. Use --execute to attempt actual execution
+    (requires Phase 3 WorkflowReplayer, currently in development), or use --dry-run (default) to preview.
     """
     storage = WorkflowStorage()
     
@@ -113,5 +113,5 @@ def run(
         console.print("\n[green]✓ Dry run complete. No actions were executed.[/green]")
     else:
         console.print("\n[bold red]⚠️  Live execution not yet implemented[/bold red]")
-        console.print("\n[dim]Phase 2 execution engine is in development.[/dim]")
+        console.print("\n[dim]Phase 3 WorkflowReplayer (execution engine) is in development.[/dim]")
         console.print("The execution plan has been prepared but not executed.")
