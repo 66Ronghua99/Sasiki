@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sasiki.engine.replay_agent import ReplayAgent
 from sasiki.engine.replay_models import AgentAction, RetryContext
+from sasiki.engine.page_observer import ObservationResult, NodeMapping, CompressedNode, LocatorInfo
 
 
 class TestReplayAgentStepWithContext:
@@ -16,10 +17,17 @@ class TestReplayAgentStepWithContext:
         """Create a mock observer."""
         with patch("sasiki.engine.replay_agent.AccessibilityObserver") as MockObserver:
             mock = MagicMock()
-            mock.observe = AsyncMock(return_value={
-                "compressed_tree": [{"id": 1, "name": "button"}],
-                "node_map": {1: {"raw_node": {"backendDOMNodeId": 123}}},
-            })
+            # Create proper ObservationResult with model instances
+            compressed_node = CompressedNode(node_id=1, role="button", name="button")
+            node_mapping = NodeMapping(
+                clean_node=compressed_node,
+                raw_node={"backendDOMNodeId": 123},
+                locator_args=LocatorInfo(role="button", name="button"),
+            )
+            mock.observe = AsyncMock(return_value=ObservationResult(
+                compressed_tree=compressed_node,
+                node_map={1: node_mapping},
+            ))
             MockObserver.return_value = mock
             yield mock
 

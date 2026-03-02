@@ -4,7 +4,7 @@ import json
 from typing import Any, Dict, Optional
 from playwright.async_api import Page
 
-from sasiki.engine.page_observer import AccessibilityObserver
+from sasiki.engine.page_observer import AccessibilityObserver, CompressedNode
 from sasiki.engine.replay_models import AgentAction, RetryContext
 from sasiki.llm.client import LLMClient
 from sasiki.utils.logger import get_logger
@@ -50,7 +50,7 @@ You MUST output your choice in valid JSON format:
 
 
 class ReplayAgent:
-    def __init__(self):
+    def __init__(self) -> None:
         self.observer = AccessibilityObserver()
         self.llm = LLMClient()
 
@@ -119,8 +119,8 @@ class ReplayAgent:
 
         # 1. Observe the page (只在这里观测一次)
         observation = await self.observer.observe(page)
-        compressed_tree = observation["compressed_tree"]
-        self.current_node_map = observation["node_map"]
+        compressed_tree = observation.compressed_tree
+        self.current_node_map = observation.node_map
 
         # 2. Build the prompt based on context
         if retry_context:
@@ -174,10 +174,26 @@ class ReplayAgent:
             for i, action in enumerate(action_history[-5:], 1):  # 最近5步
                 parts.append(f"  {i}. {action}")
 
-        parts.append(f"\nCurrent Page DOM Snapshot:\n{json.dumps(compressed_tree, ensure_ascii=False)}")
+        parts.append(f"\nCurrent Page DOM Snapshot:\n{self._serialize_tree(compressed_tree)}")
         parts.append("\nChoose the next action.")
 
         return "\n".join(parts)
+
+    def _serialize_tree(self, compressed_tree: CompressedNode | list[CompressedNode] | dict[str, Any] | list[Any] | None) -> str:
+        """Serialize compressed tree to JSON string.
+
+        Handles both Pydantic models (new format) and plain dicts (legacy/tests).
+        """
+        if compressed_tree is None:
+            return "{}"
+        if isinstance(compressed_tree, CompressedNode):
+            return compressed_tree.model_dump_json()
+        if isinstance(compressed_tree, dict):
+            return json.dumps(compressed_tree, ensure_ascii=False)
+        # Handle list case - check if elements are models or dicts
+        if compressed_tree and isinstance(compressed_tree[0], CompressedNode):
+            return json.dumps([node.model_dump() for node in compressed_tree], ensure_ascii=False)
+        return json.dumps(compressed_tree, ensure_ascii=False)
 
     def _build_retry_prompt(
         self,
@@ -222,7 +238,7 @@ class ReplayAgent:
             for i, action in enumerate(action_history[-3:], 1):  # 最近3步
                 parts.append(f"  {i}. {action}")
 
-        parts.append(f"\nCurrent Page DOM Snapshot:\n{json.dumps(compressed_tree, ensure_ascii=False)}")
+        parts.append(f"\nCurrent Page DOM Snapshot:\n{self._serialize_tree(compressed_tree)}")
         parts.append("\nChoose the next action carefully with a different strategy.")
 
         return "\n".join(parts)
@@ -256,7 +272,7 @@ class ReplayAgent:
             raise ValueError(f"Target ID {action.target_id} not found in node map")
             
         node_info = self.current_node_map[action.target_id]
-        raw_node = node_info["raw_node"]
+        raw_node = node_info.raw_node
         backend_node_id = raw_node.get("backendDOMNodeId")
         
         if not backend_node_id:
