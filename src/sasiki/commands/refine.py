@@ -11,6 +11,9 @@ from rich.table import Table
 
 from sasiki.workflow.storage import WorkflowStorage
 from sasiki.engine.workflow_refiner import WorkflowRefiner
+from sasiki.engine.handlers.auto import NonInteractiveHandler
+from sasiki.engine.human_interface import HumanDecision
+from sasiki.commands.handlers import CLIInteractiveHandler
 from sasiki.utils.logger import logger
 
 app = typer.Typer()
@@ -37,6 +40,8 @@ def refine(
     skip_checkpoints: bool = typer.Option(False, "--skip-checkpoints", help="Skip all checkpoints"),
     max_steps: int = typer.Option(20, "--max-steps", help="Maximum steps per stage"),
     output_suffix: str = typer.Option("final", "--output-suffix", help="Suffix for output workflow file"),
+    no_interactive: bool = typer.Option(False, "--no-interactive", help="Disable interactive mode (for automation)"),
+    on_hitl: str = typer.Option("abort", "--on-hitl", help="Default action when HITL is triggered in non-interactive mode: abort, continue, skip"),
 ):
     """试运行并提纯 Workflow，产出 *_final.yaml
 
@@ -123,12 +128,26 @@ def refine(
     config_table.add_row("  Max Steps/Stage:", str(max_steps))
     config_table.add_row("  Checkpoints:", "Skipped" if skip_checkpoints else "Enabled")
     config_table.add_row("  Output Suffix:", output_suffix)
+    config_table.add_row("  Interactive:", "No" if no_interactive else "Yes")
+    if no_interactive:
+        config_table.add_row("  On HITL:", on_hitl)
     console.print(config_table)
 
     # Confirm execution
     if not headless:
         console.print("\n[dim]A browser window will open for visual feedback.[/dim]")
     console.print("\n[yellow]Press Ctrl+C at any time to stop execution.[/yellow]")
+
+    # Create the appropriate handler based on options
+    if no_interactive:
+        try:
+            hitl_default = HumanDecision(on_hitl)
+        except ValueError:
+            console.print(f"[red]Invalid --on-hitl value: {on_hitl}. Use: abort, continue, skip[/red]")
+            raise typer.Exit(1)
+        handler = NonInteractiveHandler(hitl_default=hitl_default)
+    else:
+        handler = CLIInteractiveHandler()
 
     # Run the refiner
     async def _run_refinement():
@@ -138,6 +157,7 @@ def refine(
             user_data_dir=user_data_dir,
             max_steps_per_stage=max_steps,
             enable_checkpoints=not skip_checkpoints,
+            human_handler=handler,
         )
 
         return await refiner.run(
