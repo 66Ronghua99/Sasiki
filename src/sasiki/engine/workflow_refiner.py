@@ -15,7 +15,8 @@ from pydantic_yaml import to_yaml_file
 
 from sasiki.engine.playwright_env import PlaywrightEnvironment
 from sasiki.engine.replay_agent import ReplayAgent
-from sasiki.engine.replay_models import AgentAction
+from sasiki.engine.replay_models import AgentAction, RetryContext
+from sasiki.engine.human_interface import HumanInteractionHandler, HITLContext, HumanDecision
 from sasiki.workflow.models import Workflow
 from sasiki.workflow.storage import WorkflowStorage
 from sasiki.utils.logger import logger
@@ -56,6 +57,7 @@ class WorkflowRefiner:
         user_data_dir: Optional[str] = None,
         max_steps_per_stage: int = 20,
         enable_checkpoints: bool = True,
+        human_handler: Optional[HumanInteractionHandler] = None,
     ):
         """Initialize the WorkflowRefiner.
 
@@ -65,6 +67,8 @@ class WorkflowRefiner:
             user_data_dir: Path to Chrome user data directory for persistent profile
             max_steps_per_stage: Maximum steps before marking a stage as failed
             enable_checkpoints: Whether to pause at checkpoints for user confirmation
+            human_handler: Handler for human-in-the-loop interactions.
+                          If None, HITL/checkpoint will raise an error.
         """
         self.env = PlaywrightEnvironment(
             cdp_url=cdp_url,
@@ -74,6 +78,7 @@ class WorkflowRefiner:
         self.agent = ReplayAgent()
         self.max_steps_per_stage = max_steps_per_stage
         self.enable_checkpoints = enable_checkpoints
+        self.human_handler = human_handler
         self._history: list[str] = []
 
     async def run(
@@ -200,7 +205,25 @@ class WorkflowRefiner:
                 # Check for checkpoint after this stage
                 checkpoint = self._find_checkpoint(checkpoints, stage_index)
                 if checkpoint and self.enable_checkpoints:
-                    should_continue = await self._handle_checkpoint(checkpoint, stage_index)
+                    should_continue, should_repeat = await self._handle_checkpoint(
+                        checkpoint, stage_index, result
+                    )
+                    if should_repeat:
+                        # User wants to repeat this stage
+                        # Remove the result we just added and continue without advancing
+                        stage_results.pop()
+                        # Mark remaining stages as skipped for now, will restart this one
+                        for remaining_stage in stages[stage_index + 1 :]:
+                            stage_results.append(
+                                StageResult(
+                                    stage_name=remaining_stage["name"],
+                                    status="skipped",
+                                    steps_taken=0,
+                                    actions=[],
+                                )
+                            )
+                        final_status = "paused"
+                        break
                     if not should_continue:
                         final_status = "paused"
                         # Mark remaining stages as skipped
@@ -288,7 +311,10 @@ class WorkflowRefiner:
         while steps_taken < self.max_steps_per_stage:
             try:
                 # Get next action from agent
-                action = await self.agent.step(page, goal)
+                action = await self.agent.step(
+                    page, goal,
+                    action_history=self._history[-5:]  # 最近5步
+                )
                 taken_actions.append(action)
                 steps_taken += 1
 
@@ -333,29 +359,34 @@ class WorkflowRefiner:
 
                 # Check for human pause request
                 if action.action_type == "ask_human":
-                    logger.info(
-                        "stage_paused_for_human",
-                        stage_index=stage_index,
-                        stage_name=stage_name,
-                        message=action.message,
-                    )
-                    return StageResult(
-                        stage_name=stage_name,
-                        status="paused",
-                        steps_taken=steps_taken,
-                        actions=taken_actions,
+                    return await self._handle_ask_human(
+                        stage_name, stage_index, steps_taken, taken_actions, action, goal
                     )
 
             except Exception as e:
-                # Retry once on failure
+                # Retry with context on failure
                 logger.warning(
                     "action_failed_retrying",
                     stage_index=stage_index,
                     step=steps_taken,
                     error=str(e),
                 )
+
+                # Build retry context
+                retry_ctx = RetryContext(
+                    failed_action=action if 'action' in locals() else None,
+                    error_message=str(e),
+                    error_type=self._classify_error(e),
+                    attempt_number=2,
+                    max_attempts=2,
+                )
+
                 try:
-                    action = await self.agent.step(page, goal)
+                    action = await self.agent.step_with_context(
+                        page, goal,
+                        retry_context=retry_ctx,
+                        action_history=self._history[-5:]
+                    )
                     taken_actions.append(action)
                     steps_taken += 1
                     await self.agent.execute_action(page, action)
@@ -371,6 +402,11 @@ class WorkflowRefiner:
                             actions=taken_actions,
                         )
 
+                    if action.action_type == "ask_human":
+                        return await self._handle_ask_human(
+                            stage_name, stage_index, steps_taken, taken_actions, action, goal
+                        )
+
                 except Exception as e2:
                     logger.error(
                         "action_failed_after_retry",
@@ -378,12 +414,9 @@ class WorkflowRefiner:
                         step=steps_taken,
                         error=str(e2),
                     )
-                    return StageResult(
-                        stage_name=stage_name,
-                        status="failed",
-                        steps_taken=steps_taken,
-                        actions=taken_actions,
-                        error=f"Action failed after retry: {e2}",
+                    # Retry failed, enter HITL
+                    return await self._handle_step_failure(
+                        stage_name, stage_index, steps_taken, taken_actions, e2, goal
                     )
 
         # Max steps reached
@@ -399,6 +432,220 @@ class WorkflowRefiner:
             steps_taken=steps_taken,
             actions=taken_actions,
             error=f"Maximum steps ({self.max_steps_per_stage}) reached",
+        )
+
+    def _classify_error(self, error: Exception) -> str:
+        """分类错误类型，用于 retry 策略。
+
+        Args:
+            error: 发生的异常
+
+        Returns:
+            错误类型字符串
+        """
+        error_str = str(error).lower()
+        if "not found" in error_str or "backendnodeid" in error_str:
+            return "element_not_found"
+        elif "timeout" in error_str:
+            return "timeout"
+        elif "navigation" in error_str:
+            return "navigation_error"
+        else:
+            return "execution_error"
+
+    async def _handle_ask_human(
+        self,
+        stage_name: str,
+        stage_index: int,
+        steps_taken: int,
+        taken_actions: list[AgentAction],
+        action: AgentAction,
+        goal: str,
+    ) -> StageResult:
+        """Handle ask_human action type.
+
+        Args:
+            stage_name: Name of the current stage
+            stage_index: Index of the current stage
+            steps_taken: Number of steps taken so far
+            taken_actions: List of actions taken in this stage
+            action: The ask_human action
+            goal: The current goal
+
+        Returns:
+            StageResult based on user decision
+        """
+        logger.info(
+            "stage_paused_for_human",
+            stage_index=stage_index,
+            stage_name=stage_name,
+            message=action.message,
+        )
+
+        # If no handler, return paused status (backwards compatible)
+        if self.human_handler is None:
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+            )
+
+        # Build HITL context
+        hitl_context = HITLContext(
+            stage_name=stage_name,
+            stage_index=stage_index,
+            step_number=steps_taken,
+            agent_message=action.message,
+            last_action=action,
+            current_goal=goal,
+            history=self._history[-5:],
+        )
+
+        # Wait for user decision
+        decision, feedback = await self.human_handler.handle_hitl_pause(hitl_context)
+
+        if decision == HumanDecision.ABORT:
+            return StageResult(
+                stage_name=stage_name,
+                status="failed",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error="Aborted by user",
+            )
+        elif decision == HumanDecision.SKIP_STAGE:
+            return StageResult(
+                stage_name=stage_name,
+                status="skipped",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+            )
+        elif decision == HumanDecision.RETRY:
+            # Mark as success but with retry flag - the caller should repeat this stage
+            # For now, we return paused and let the user resume with start_stage
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error="Retry requested - resume with --start-stage",
+            )
+        elif decision == HumanDecision.CONTINUE:
+            if feedback:
+                self._history.append(f"Human: {feedback}")
+            # Continue execution from this point
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error="Continue requested - manual intervention required",
+            )
+        elif decision == HumanDecision.PROVIDE_INPUT:
+            if feedback:
+                self._history.append(f"Human: {feedback}")
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error="Input provided - manual intervention required",
+            )
+
+        return StageResult(
+            stage_name=stage_name,
+            status="paused",
+            steps_taken=steps_taken,
+            actions=taken_actions,
+        )
+
+    async def _handle_step_failure(
+        self,
+        stage_name: str,
+        stage_index: int,
+        steps_taken: int,
+        taken_actions: list[AgentAction],
+        error: Exception,
+        goal: str,
+    ) -> StageResult:
+        """Handle step failure after retry exhaustion.
+
+        Args:
+            stage_name: Name of the current stage
+            stage_index: Index of the current stage
+            steps_taken: Number of steps taken so far
+            taken_actions: List of actions taken in this stage
+            error: The error that caused the failure
+            goal: The current goal
+
+        Returns:
+            StageResult based on user decision or default failure
+        """
+        # If no handler, return failed status (backwards compatible)
+        if self.human_handler is None:
+            return StageResult(
+                stage_name=stage_name,
+                status="failed",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error=f"Action failed after retry: {error}",
+            )
+
+        # Build HITL context with error information
+        hitl_context = HITLContext(
+            stage_name=stage_name,
+            stage_index=stage_index,
+            step_number=steps_taken,
+            error_message=str(error),
+            last_action=taken_actions[-1] if taken_actions else None,
+            current_goal=goal,
+            history=self._history[-5:],
+        )
+
+        # Wait for user decision
+        decision, feedback = await self.human_handler.handle_hitl_pause(hitl_context)
+
+        if decision == HumanDecision.ABORT:
+            return StageResult(
+                stage_name=stage_name,
+                status="failed",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error=f"Aborted by user after: {error}",
+            )
+        elif decision == HumanDecision.SKIP_STAGE:
+            return StageResult(
+                stage_name=stage_name,
+                status="skipped",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+            )
+        elif decision == HumanDecision.RETRY:
+            # Return paused status - user should resume with start_stage
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error=f"Retry requested after: {error}",
+            )
+        elif decision == HumanDecision.CONTINUE or decision == HumanDecision.PROVIDE_INPUT:
+            if feedback:
+                self._history.append(f"Human: {feedback}")
+            return StageResult(
+                stage_name=stage_name,
+                status="paused",
+                steps_taken=steps_taken,
+                actions=taken_actions,
+                error=f"Continue requested after: {error}",
+            )
+
+        return StageResult(
+            stage_name=stage_name,
+            status="failed",
+            steps_taken=steps_taken,
+            actions=taken_actions,
+            error=f"Action failed after retry: {error}",
         )
 
     def _build_stage_goal(self, stage: dict[str, Any]) -> str:
@@ -438,15 +685,21 @@ class WorkflowRefiner:
                 return cp
         return None
 
-    async def _handle_checkpoint(self, checkpoint: dict, stage_index: int) -> bool:
+    async def _handle_checkpoint(
+        self,
+        checkpoint: dict,
+        stage_index: int,
+        stage_result: StageResult,
+    ) -> tuple[bool, bool]:  # (should_continue, should_repeat_stage)
         """Handle a checkpoint pause.
 
         Args:
             checkpoint: The checkpoint definition
             stage_index: Index of stage just completed
+            stage_result: Result of the completed stage
 
         Returns:
-            True to continue execution, False to pause
+            (should_continue, should_repeat): 是否继续执行，是否重试当前 stage
         """
         description = checkpoint.get("description", "Checkpoint")
         manual_confirmation = checkpoint.get("manual_confirmation", True)
@@ -454,24 +707,32 @@ class WorkflowRefiner:
         logger.info(
             "checkpoint_reached",
             stage_index=stage_index,
+            stage_name=stage_result.stage_name,
             description=description,
             manual_confirmation=manual_confirmation,
         )
 
-        print(f"\n{'='*50}")
-        print(f"⏸️  CHECKPOINT after stage {stage_index + 1}")
-        print(f"   {description}")
-        print(f"{'='*50}")
+        # If no handler, return default behavior (backwards compatible)
+        if self.human_handler is None:
+            print(f"\n{'='*50}")
+            print(f"⏸️  CHECKPOINT after stage {stage_index + 1}")
+            print(f"   {description}")
+            print(f"{'='*50}")
+            print("   [No handler configured - continuing]")
+            return True, False
 
-        if manual_confirmation:
-            # In a real CLI, we would prompt the user here
-            # For now, we simulate with a message
-            print("   [Manual confirmation required - continuing for now]")
-            # TODO: Add actual user prompt when integrated with CLI
-            # response = input("   Continue? (y/n): ")
-            # return response.lower().strip() in ('y', 'yes', '')
+        # Use the handler for checkpoint interaction
+        should_continue, action = await self.human_handler.handle_checkpoint(
+            stage_index=stage_index,
+            stage_name=stage_result.stage_name,
+            description=description,
+            manual_confirmation=manual_confirmation,
+        )
 
-        return True
+        if action == "repeat":
+            return False, True  # 不继续，但重试当前 stage
+
+        return should_continue, False
 
     def _save_final_workflow(
         self,

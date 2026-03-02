@@ -17,6 +17,7 @@ from sasiki.engine.workflow_refiner import (
     RefineResult,
 )
 from sasiki.engine.replay_models import AgentAction
+from sasiki.engine.handlers.auto import NonInteractiveHandler
 from sasiki.workflow.models import Workflow, WorkflowStage, WorkflowVariable, VariableType
 
 
@@ -38,6 +39,7 @@ def mock_replay_agent():
     with patch("sasiki.engine.workflow_refiner.ReplayAgent") as MockAgent:
         mock_agent = MagicMock()
         mock_agent.step = AsyncMock()
+        mock_agent.step_with_context = AsyncMock()
         mock_agent.execute_action = AsyncMock()
         MockAgent.return_value = mock_agent
         yield mock_agent
@@ -52,6 +54,12 @@ def mock_storage(tmp_path):
         mock_storage.base_dir.mkdir(parents=True, exist_ok=True)
         MockStorage.return_value = mock_storage
         yield mock_storage
+
+
+@pytest.fixture
+def non_interactive_handler():
+    """Create a NonInteractiveHandler for testing."""
+    return NonInteractiveHandler()
 
 
 @pytest.fixture
@@ -397,9 +405,9 @@ class TestCheckpointHandling:
             AgentAction(thought="Stage 2 done", action_type="done"),
         ]
 
-        # Mock _handle_checkpoint to return False (pause)
+        # Mock _handle_checkpoint to return (should_continue=False, should_repeat=False)
         refiner = WorkflowRefiner(enable_checkpoints=True)
-        refiner._handle_checkpoint = AsyncMock(return_value=False)
+        refiner._handle_checkpoint = AsyncMock(return_value=(False, False))
 
         result = await refiner.run(
             workflow=sample_workflow_with_checkpoint,
@@ -427,7 +435,7 @@ class TestCheckpointHandling:
         ]
 
         refiner = WorkflowRefiner(enable_checkpoints=False)
-        refiner._handle_checkpoint = AsyncMock(return_value=True)
+        refiner._handle_checkpoint = AsyncMock(return_value=(True, False))
 
         result = await refiner.run(
             workflow=sample_workflow_with_checkpoint,
@@ -448,20 +456,15 @@ class TestRetryLogic:
     async def test_step_exception_retry(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
-        """Test that a failed step is retried once."""
+        """Test that a failed step is retried once with context."""
         mock_env, mock_page = mock_playwright_env
         mock_agent = mock_replay_agent
 
-        # First call fails, retry succeeds
-        call_count = 0
-        async def step_with_failure(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise Exception("Network error")
-            return AgentAction(thought="Success after retry", action_type="done")
-
-        mock_agent.step.side_effect = step_with_failure
+        # First call fails (step), retry succeeds (step_with_context)
+        mock_agent.step.side_effect = Exception("Network error")
+        mock_agent.step_with_context.return_value = AgentAction(
+            thought="Success after retry", action_type="done"
+        )
 
         refiner = WorkflowRefiner()
         result = await refiner.run(
@@ -470,19 +473,20 @@ class TestRetryLogic:
         )
 
         assert result.status == "completed"
-        # Should have been called at least twice: once (fail) + retry (success) + second stage
-        assert call_count >= 2
+        # step_with_context should have been called for retry
+        assert mock_agent.step_with_context.call_count >= 1
 
     @pytest.mark.asyncio
     async def test_step_exception_double_failure(
         self, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
-        """Test that double failure marks stage as failed."""
+        """Test that double failure (initial + retry) marks stage as failed."""
         mock_env, mock_page = mock_playwright_env
         mock_agent = mock_replay_agent
 
-        # Both initial call and retry fail
+        # Both initial call (step) and retry (step_with_context) fail
         mock_agent.step.side_effect = Exception("Persistent error")
+        mock_agent.step_with_context.side_effect = Exception("Retry also failed")
 
         refiner = WorkflowRefiner()
         result = await refiner.run(
