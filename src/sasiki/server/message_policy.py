@@ -7,7 +7,6 @@ Provides centralized policy enforcement to prevent role spoofing.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from sasiki.server.websocket_protocol import WSMessageType
 
@@ -107,7 +106,7 @@ class MessagePolicy:
     @classmethod
     def validate_receiver(
         cls,
-        role: ClientRole | str,
+        role: ClientRole | str | None,
         msg_type: WSMessageType,
         raise_on_violation: bool = True,
     ) -> bool:
@@ -124,6 +123,10 @@ class MessagePolicy:
         Raises:
             MessagePolicyViolation: If role cannot receive this message type
         """
+        if role is None:
+            if raise_on_violation:
+                raise MessagePolicyViolation("Cannot send message to client with unknown role")
+            return False
         role_enum = ClientRole(role) if isinstance(role, str) else role
         allowed = cls.RECEIVER_POLICY.get(role_enum, set())
 

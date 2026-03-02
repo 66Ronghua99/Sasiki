@@ -52,7 +52,7 @@ class WebSocketServer:
         self.sessions: dict[str, RecordingSession] = {}
 
         # Server state
-        self._server: asyncio.Server | None = None
+        self._server: Any | None = None
         self._shutdown_event = asyncio.Event()
 
         # Message handler registry: maps message types to handlers
@@ -114,7 +114,8 @@ class WebSocketServer:
         # Look up handler in registry
         handler = self._handlers.get(msg_type)
         if handler:
-            return await handler(websocket, message, client_type)
+            result = await handler(websocket, message, client_type)
+            return result if isinstance(result, str) else client_type
 
         # Unknown message type
         logger.warning("unknown_message_type", type=msg_type.value, data=message.model_dump())
@@ -269,12 +270,13 @@ class WebSocketServer:
             )
 
         else:
+            cmd_str = command if isinstance(command, str) else str(command) if command is not None else "unknown"
             logger.warning("unknown_control_command", command=command)
             await self._send_to_client(
                 source_ws,
                 WSMessageType.CONTROL_RESPONSE,
                 WSMessageCodec.build_control_response(
-                    command=command,
+                    command=cmd_str,
                     success=False,
                     error=f"Unknown command: {command}",
                 ),

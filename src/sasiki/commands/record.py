@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import uuid
+from typing import Any
 
 import typer
 import websockets
@@ -28,7 +29,7 @@ def record(
     """
     print_header()
 
-    async def run_recording():
+    async def run_recording() -> None:
         uri = f"ws://localhost:{ws_port}"
 
         try:
@@ -65,7 +66,7 @@ def record(
                 # Keep connection open, display incoming actions
                 stop_requested = False
 
-                def signal_handler(sig, frame):
+                def signal_handler(sig: int, frame: Any) -> None:
                     nonlocal stop_requested
                     stop_requested = True
                     console.print("\n[yellow]Stopping recording...[/yellow]")

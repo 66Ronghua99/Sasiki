@@ -173,6 +173,6 @@ class WSMessageCodec:
             raise WSMessageCodecError(f"Failed to encode message: {e}") from e
 
     @classmethod
-    def build_error(cls, message: str, details: dict | None = None) -> str:
+    def build_error(cls, message: str, details: dict[str, Any] | None = None) -> str:
         """Build an error message."""
         return cls.build_outgoing(WSMessage.error(message, details))
