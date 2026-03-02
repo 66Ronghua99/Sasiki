@@ -7,28 +7,27 @@ This server handles bidirectional communication between the Chrome Extension
 from __future__ import annotations
 
 import asyncio
-import json
 import uuid
-from datetime import datetime
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import structlog
 import websockets
 
 from sasiki.server.message_codec import WSMessageCodec, WSMessageCodecError
 from sasiki.server.message_policy import MessagePolicy, MessagePolicyViolation
+from sasiki.server.recording_session import RecordingSession
 from sasiki.server.websocket_protocol import (
     RecordedAction,
     WSMessage,
     WSMessageType,
 )
-from sasiki.server.recording_session import RecordingSession
 
 logger = structlog.get_logger(__name__)
 
 # Type alias for message handlers
-MessageHandler = Callable[[Any, WSMessage, Optional[str]], Any]
+MessageHandler = Callable[[Any, WSMessage, str | None], Any]
 
 
 class WebSocketServer:
@@ -38,22 +37,22 @@ class WebSocketServer:
         self,
         host: str = "localhost",
         port: int = 8766,
-        recordings_dir: Optional[Path] = None,
+        recordings_dir: Path | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.recordings_dir = recordings_dir or Path.home() / ".sasiki" / "recordings" / "browser"
 
         # Connected clients
-        self.extension_ws: Optional[Any] = None
-        self.cli_ws: Optional[Any] = None
+        self.extension_ws: Any | None = None
+        self.cli_ws: Any | None = None
 
         # Recording state
-        self.current_session: Optional[RecordingSession] = None
+        self.current_session: RecordingSession | None = None
         self.sessions: dict[str, RecordingSession] = {}
 
         # Server state
-        self._server: Optional[asyncio.Server] = None
+        self._server: asyncio.Server | None = None
         self._shutdown_event = asyncio.Event()
 
         # Message handler registry: maps message types to handlers
@@ -64,10 +63,10 @@ class WebSocketServer:
         }
 
     async def handle_client(
-        self, websocket: Any, path: Optional[str] = None
+        self, websocket: Any, path: str | None = None
     ) -> None:
         """Handle a WebSocket client connection."""
-        client_type: Optional[str] = None
+        client_type: str | None = None
         client_info = f"{websocket.remote_address}"
 
         logger.info("client_connected", client=client_info)
@@ -79,10 +78,10 @@ class WebSocketServer:
                     client_type = await self._handle_message(websocket, ws_message, client_type)
                 except WSMessageCodecError as e:
                     logger.error("invalid_message", error=str(e), client=client_info)
-                    await self._send_error(websocket, f"Invalid message: {e}")
+                    await self._send_error(websocket, f"Invalid message: {e}", client_type)
                 except Exception as e:
                     logger.error("message_handler_error", error=str(e), client=client_info)
-                    await self._send_error(websocket, f"Error processing message: {e}")
+                    await self._send_error(websocket, f"Error processing message: {e}", client_type)
 
         except websockets.exceptions.ConnectionClosed:
             logger.info("client_disconnected", client=client_info, type=client_type)
@@ -99,8 +98,8 @@ class WebSocketServer:
         self,
         websocket: Any,
         message: WSMessage,
-        client_type: Optional[str],
-    ) -> Optional[str]:
+        client_type: str | None,
+    ) -> str | None:
         """Handle a single message from a client using the handler registry."""
         msg_type = message.type
 
@@ -109,7 +108,7 @@ class WebSocketServer:
             MessagePolicy.validate_sender(client_type, msg_type)
         except MessagePolicyViolation as e:
             logger.warning("policy_violation", error=str(e), client_type=client_type)
-            await self._send_error(websocket, f"Policy violation: {e}")
+            await self._send_error(websocket, f"Policy violation: {e}", client_type)
             return client_type
 
         # Look up handler in registry
@@ -125,13 +124,13 @@ class WebSocketServer:
         self,
         websocket: Any,
         message: WSMessage,
-        client_type: Optional[str],
-    ) -> Optional[str]:
+        client_type: str | None,
+    ) -> str | None:
         """Handle REGISTER message from a client."""
         new_client_type = message.client
         if not MessagePolicy.is_valid_role(new_client_type):
             logger.warning("invalid_client_role", role=new_client_type)
-            await self._send_error(websocket, f"Invalid client role: {new_client_type}")
+            await self._send_error(websocket, f"Invalid client role: {new_client_type}", client_role=None)
             return None
         if new_client_type == "extension":
             self.extension_ws = websocket
@@ -145,8 +144,8 @@ class WebSocketServer:
         self,
         websocket: Any,
         message: WSMessage,
-        client_type: Optional[str],
-    ) -> Optional[str]:
+        client_type: str | None,
+    ) -> str | None:
         """Handle ACTION message from extension."""
         payload = message.payload if isinstance(message.payload, dict) else {}
         await self._handle_action(payload)
@@ -156,8 +155,8 @@ class WebSocketServer:
         self,
         websocket: Any,
         message: WSMessage,
-        client_type: Optional[str],
-    ) -> Optional[str]:
+        client_type: str | None,
+    ) -> str | None:
         """Handle CONTROL message from CLI."""
         payload = message.payload if isinstance(message.payload, dict) else {}
         await self._handle_control(payload, websocket)
@@ -185,15 +184,18 @@ class WebSocketServer:
                 url=action.page_context.url[:50] if action.page_context else None,
             )
 
-            # Forward to CLI for display
+            # Forward to CLI for display (with receiver policy validation)
             if self.cli_ws:
                 action_data = {
                     "type": action.type.value,
                     "target": target_name,
                     "timestamp": action.timestamp,
                 }
-                await self.cli_ws.send(
-                    WSMessageCodec.build_action_logged(action_data)
+                await self._send_to_client(
+                    self.cli_ws,
+                    WSMessageType.ACTION_LOGGED,
+                    WSMessageCodec.build_action_logged(action_data),
+                    client_role="cli",
                 )
 
         except Exception as e:
@@ -212,22 +214,28 @@ class WebSocketServer:
                 self.current_session.session_id if self.current_session else None
             )
 
-            # Forward to extension if connected
+            # Forward to extension if connected (with receiver policy validation)
             if self.extension_ws:
-                await self.extension_ws.send(
+                await self._send_to_client(
+                    self.extension_ws,
+                    WSMessageType.CONTROL,
                     WSMessageCodec.build_control(
                         command="START_RECORDING",
                         session_id=current_session_id,
-                    )
+                    ),
+                    client_role="extension",
                 )
 
-            # Confirm to CLI
-            await source_ws.send(
+            # Confirm to CLI (with receiver policy validation)
+            await self._send_to_client(
+                source_ws,
+                WSMessageType.CONTROL_RESPONSE,
                 WSMessageCodec.build_control_response(
                     command="start",
                     success=True,
                     session_id=current_session_id,
-                )
+                ),
+                client_role="cli",
             )
 
         elif command in ("stop", "STOP_RECORDING"):
@@ -238,33 +246,42 @@ class WebSocketServer:
             # Stop the recording
             filepath = await self._stop_recording()
 
-            # Forward to extension if connected
+            # Forward to extension if connected (with receiver policy validation)
             if self.extension_ws:
-                await self.extension_ws.send(
-                    WSMessageCodec.build_control(command="STOP_RECORDING")
+                await self._send_to_client(
+                    self.extension_ws,
+                    WSMessageType.CONTROL,
+                    WSMessageCodec.build_control(command="STOP_RECORDING"),
+                    client_role="extension",
                 )
 
-            # Confirm to CLI
-            await source_ws.send(
+            # Confirm to CLI (with receiver policy validation)
+            await self._send_to_client(
+                source_ws,
+                WSMessageType.CONTROL_RESPONSE,
                 WSMessageCodec.build_control_response(
                     command="stop",
                     success=True,
                     session_id=session_id,
                     filepath=str(filepath) if filepath else None,
-                )
+                ),
+                client_role="cli",
             )
 
         else:
             logger.warning("unknown_control_command", command=command)
-            await source_ws.send(
+            await self._send_to_client(
+                source_ws,
+                WSMessageType.CONTROL_RESPONSE,
                 WSMessageCodec.build_control_response(
                     command=command,
                     success=False,
                     error=f"Unknown command: {command}",
-                )
+                ),
+                client_role="cli",
             )
 
-    async def _start_recording(self, session_id: Optional[str] = None) -> None:
+    async def _start_recording(self, session_id: str | None = None) -> None:
         """Start a new recording session."""
         if self.current_session:
             logger.warning("recording_already_in_progress", session_id=self.current_session.session_id)
@@ -276,7 +293,7 @@ class WebSocketServer:
 
         logger.info("recording_started", session_id=session_id)
 
-    async def _stop_recording(self) -> Optional[Path]:
+    async def _stop_recording(self) -> Path | None:
         """Stop the current recording session and save it."""
         if not self.current_session:
             logger.warning("no_recording_in_progress")
@@ -296,12 +313,51 @@ class WebSocketServer:
         self.current_session = None
         return filepath
 
-    async def _send_error(self, websocket: Any, message: str) -> None:
-        """Send an error message to a client."""
+    async def _send_to_client(
+        self,
+        websocket: Any,
+        message_type: WSMessageType,
+        encoded_message: str,
+        client_role: str | None,
+    ) -> bool:
+        """Send a message to a client with receiver policy validation.
+
+        Args:
+            websocket: The client websocket
+            message_type: The type of message being sent
+            encoded_message: The encoded message to send
+            client_role: The role of the receiving client
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        # Validate receiver policy before sending
         try:
-            await websocket.send(WSMessageCodec.build_error(message))
-        except Exception:
-            pass
+            MessagePolicy.validate_receiver(client_role, message_type)
+        except MessagePolicyViolation as e:
+            logger.warning(
+                "receiver_policy_violation",
+                error=str(e),
+                client_role=client_role,
+                message_type=message_type.value,
+            )
+            return False
+
+        try:
+            await websocket.send(encoded_message)
+            return True
+        except Exception as e:
+            logger.error("send_failed", error=str(e), client_role=client_role)
+            return False
+
+    async def _send_error(self, websocket: Any, message: str, client_role: str | None = None) -> None:
+        """Send an error message to a client."""
+        await self._send_to_client(
+            websocket,
+            WSMessageType.ERROR,
+            WSMessageCodec.build_error(message),
+            client_role,
+        )
 
     async def start(self) -> None:
         """Start the WebSocket server."""

@@ -7,7 +7,7 @@ scattered hardcoded JSON dicts across the codebase.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -116,7 +116,7 @@ class WSMessageCodec:
 
     @classmethod
     def build_control(
-        cls, command: str, session_id: Optional[str] = None
+        cls, command: str, session_id: str | None = None
     ) -> str:
         """Build a control message."""
         return cls.build_outgoing(WSMessage.control(command, session_id))
@@ -126,26 +126,53 @@ class WSMessageCodec:
         cls,
         command: str,
         success: bool,
-        session_id: Optional[str] = None,
-        filepath: Optional[str] = None,
-        error: Optional[str] = None,
+        session_id: str | None = None,
+        filepath: str | None = None,
+        error: str | None = None,
     ) -> str:
-        """Build a control response message."""
-        message = WSMessage.control_response(
-            command=command,
-            success=success,
-            session_id=session_id,
-            filepath=filepath,
-            error=error,
-        )
-        return cls.build_outgoing(message)
+        """Build a control response message.
+
+        Note: control_response uses top-level fields (not nested in payload)
+        for backward compatibility with existing clients.
+        """
+        from sasiki.server.websocket_protocol import WSMessageType
+
+        data: dict[str, Any] = {
+            "type": WSMessageType.CONTROL_RESPONSE.value,
+            "command": command,
+            "success": success,
+        }
+        if session_id is not None:
+            data["session_id"] = session_id
+        if filepath is not None:
+            data["filepath"] = filepath
+        if error is not None:
+            data["error"] = error
+
+        try:
+            return json.dumps(data)
+        except (TypeError, ValueError) as e:
+            raise WSMessageCodecError(f"Failed to encode message: {e}") from e
 
     @classmethod
     def build_action_logged(cls, action: dict[str, Any]) -> str:
-        """Build an action_logged notification message."""
-        return cls.build_outgoing(WSMessage.action_logged(action))
+        """Build an action_logged notification message.
+
+        Note: action_logged uses top-level fields (not nested in payload)
+        for backward compatibility with existing clients.
+        """
+        from sasiki.server.websocket_protocol import WSMessageType
+
+        data: dict[str, Any] = {
+            "type": WSMessageType.ACTION_LOGGED.value,
+            "action": action,
+        }
+        try:
+            return json.dumps(data)
+        except (TypeError, ValueError) as e:
+            raise WSMessageCodecError(f"Failed to encode message: {e}") from e
 
     @classmethod
-    def build_error(cls, message: str, details: Optional[dict] = None) -> str:
+    def build_error(cls, message: str, details: dict | None = None) -> str:
         """Build an error message."""
         return cls.build_outgoing(WSMessage.error(message, details))
