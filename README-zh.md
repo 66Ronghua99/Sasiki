@@ -55,6 +55,38 @@ cp .env.example .env
 
 Sasiki 可以通过 Chrome 扩展录制用户在浏览器中的操作，自动生成可复用的工作流。
 
+### WebSocket 连接配置
+
+当前录制链路使用本地 WebSocket 服务，并结合 typed message codec 与角色消息策略。
+
+- 默认服务地址：`ws://localhost:8766`
+- CLI 角色：`cli`（允许发送 `register`、`control`）
+- Extension 角色：`extension`（允许发送 `register`、`action`）
+- 服务端会在转发前做接收方策略校验
+
+可配置项：
+
+| 参数 | 配置位置 | 默认值 | 说明 |
+|------|----------|--------|------|
+| Host | `sasiki server start --host <host>` | `localhost` | 建议本地回环地址 |
+| Port | `sasiki server start --port <port>` | `8766` | 服务端监听端口 |
+| CLI Port | `sasiki record --ws-port <port>` | `8766` | 必须与服务端端口一致 |
+
+示例：
+
+```bash
+# 终端 1
+sasiki server start --host localhost --port 8766
+
+# 终端 2
+sasiki record --name "my-task" --ws-port 8766
+```
+
+当前分支的安全状态：
+
+- 已启用消息级 sender/receiver policy。
+- 尚未提供可配置的 token 级 WebSocket 鉴权入口（即没有单独的 auth token 配置项）。
+
 ### 1. 构建并加载扩展
 
 ```bash

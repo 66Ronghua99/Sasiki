@@ -55,6 +55,38 @@ cp .env.example .env
 
 Sasiki can record user actions in the browser through a Chrome extension, automatically generating reusable workflows.
 
+### WebSocket Connection Configuration
+
+Current recording channel uses a local WebSocket server with typed message codec and role-based message policy.
+
+- Default server address: `ws://localhost:8766`
+- CLI role: `cli` (sends `register` and `control`)
+- Extension role: `extension` (sends `register` and `action`)
+- Outbound policy is validated on server side before forwarding
+
+Configuration parameters:
+
+| Parameter | Where to configure | Default | Notes |
+| --------- | ------------------ | ------- | ----- |
+| Host      | `sasiki server start --host <host>` | `localhost` | Keep local for safety |
+| Port      | `sasiki server start --port <port>` | `8766` | Server listen port |
+| CLI Port  | `sasiki record --ws-port <port>` | `8766` | Must match server port |
+
+Example:
+
+```bash
+# Terminal 1
+sasiki server start --host localhost --port 8766
+
+# Terminal 2
+sasiki record --name "my-task" --ws-port 8766
+```
+
+Security status in current branch:
+
+- Message-level sender/receiver policy is enabled.
+- Explicit token-based WebSocket authentication is not exposed as a user-facing config yet.
+
 ### 1. Build and Load Extension
 
 ```bash

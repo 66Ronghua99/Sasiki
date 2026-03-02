@@ -1,3 +1,8 @@
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-02
+> 本文档是 针对早起代码的结构化审查，用于重构基本盘，增加未来可扩展性与维护性。
+> 已于 2026-03-02 部分完成，本文档作为历史参考保留，不再主动维护。待修改部分已被整合至 ARCHITECTURE_DEFERRED_ITEMS.md
+
 # Sasiki Code Architecture Review (2026-03-02)
 
 ## 1. Review Scope
