@@ -1,7 +1,7 @@
 """Command for refining (rehearsing) a workflow."""
 
 import asyncio
-from typing import Optional
+from typing import Optional, Any
 
 import typer
 from rich.console import Console
@@ -16,7 +16,7 @@ from sasiki.commands.workflow_inputs import (
     validate_and_report_errors,
 )
 from sasiki.engine.handlers.auto import NonInteractiveHandler
-from sasiki.engine.human_interface import HumanDecision
+from sasiki.engine.human_interface import HumanDecision, HumanInteractionHandler
 from sasiki.engine.workflow_refiner import WorkflowRefiner
 from sasiki.utils.logger import get_logger
 from sasiki.workflow.storage import WorkflowStorage
@@ -86,6 +86,7 @@ def refine(
     console.print("\n[yellow]Press Ctrl+C at any time to stop execution.[/yellow]")
 
     # Create the appropriate handler based on options
+    handler: HumanInteractionHandler
     if no_interactive:
         try:
             hitl_default = HumanDecision(on_hitl)
@@ -97,7 +98,7 @@ def refine(
         handler = CLIInteractiveHandler()
 
     # Run the refiner
-    async def _run_refinement():
+    async def _run_refinement() -> Any:
         refiner = WorkflowRefiner(
             headless=headless,
             cdp_url=cdp_url,

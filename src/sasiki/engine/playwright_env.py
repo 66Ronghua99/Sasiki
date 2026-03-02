@@ -1,6 +1,6 @@
 import os
-from typing import Optional
-from playwright.async_api import async_playwright, Page, BrowserContext, Playwright
+from typing import Optional, Any
+from playwright.async_api import async_playwright, Page, BrowserContext, Playwright, Browser
 
 class PlaywrightEnvironment:
     """Manages the Playwright browser lifecycle, supporting personal Chrome profiles."""
@@ -25,10 +25,10 @@ class PlaywrightEnvironment:
         self.user_data_dir = os.path.expanduser(user_data_dir) if user_data_dir else None
         self.executable_path = executable_path
         self.headless = headless
-        
+
         self._playwright: Optional[Playwright] = None
         self.context: Optional[BrowserContext] = None
-        self.browser = None
+        self.browser: Optional[Browser] = None
         self.page: Optional[Page] = None
 
     async def start(self) -> Page:
@@ -37,6 +37,7 @@ class PlaywrightEnvironment:
         if self.cdp_url:
             # Connect to an existing running browser via CDP
             self.browser = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
+            assert self.browser is not None
             # Find the first active page, or create a new one
             contexts = self.browser.contexts
             if contexts:
@@ -61,21 +62,22 @@ class PlaywrightEnvironment:
         else:
             # Standard ephemeral launch
             self.browser = await self._playwright.chromium.launch(
-                headless=self.headless, 
+                headless=self.headless,
                 executable_path=self.executable_path
             )
+            assert self.browser is not None
             self.context = await self.browser.new_context()
             self.page = await self.context.new_page()
 
         return self.page
 
-    async def stop(self):
+    async def stop(self) -> None:
         # We don't close the context/browser if we attached via CDP
         if not self.cdp_url:
             if self.context:
                 await self.context.close()
             if self.browser:
                 await self.browser.close()
-                
+
         if self._playwright:
             await self._playwright.stop()

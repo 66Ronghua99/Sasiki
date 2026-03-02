@@ -60,9 +60,10 @@ class ActionFormatter:
             return f'{action_type.capitalize()} "{target_name}"'
 
         # Fallbacks
+        action_str = str(action_type) if action_type else "action"
         if url:
-            return f"{action_type.capitalize()} on page"
-        return action_type.capitalize()
+            return f"{action_str.capitalize()} on page"
+        return action_str.capitalize()
 
     def _looks_like_id(self, text: str | None) -> bool:
         """Check if text looks like an ID (hex string or very long alphanumeric)."""
@@ -156,14 +157,13 @@ class ActionFormatter:
     def remove_null_values(self, obj: Any) -> Any:
         """Recursively remove null/empty values from dict/list."""
         if isinstance(obj, dict):
-            result = {}
+            result_dict: dict[str, Any] = {}
             for k, v in obj.items():
                 cleaned = self.remove_null_values(v)
                 # Keep only non-null, non-empty values
                 if cleaned is not None and cleaned != "" and cleaned != []:
-                    result[k] = cleaned
-            return result
+                    result_dict[k] = cleaned
+            return result_dict
         elif isinstance(obj, list):
-            result = [self.remove_null_values(item) for item in obj if item is not None]
-            return result
+            return [self.remove_null_values(item) for item in obj if item is not None]
         return obj

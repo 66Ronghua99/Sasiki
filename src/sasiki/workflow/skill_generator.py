@@ -117,7 +117,9 @@ Important constraints:
     def _parse_llm_response(self, response: str) -> dict[str, Any]:
         """Parse and validate LLM response."""
         try:
-            return json.loads(response)
+            result = json.loads(response)
+            if isinstance(result, dict):
+                return result
         except json.JSONDecodeError:
             pass
 
@@ -126,7 +128,9 @@ Important constraints:
             json_end = response.find("```", json_start)
             if json_end > json_start:
                 try:
-                    return json.loads(response[json_start:json_end].strip())
+                    result = json.loads(response[json_start:json_end].strip())
+                    if isinstance(result, dict):
+                        return result
                 except json.JSONDecodeError:
                     pass
 
@@ -135,7 +139,9 @@ Important constraints:
             json_end = response.find("```", json_start)
             if json_end > json_start:
                 try:
-                    return json.loads(response[json_start:json_end].strip())
+                    result = json.loads(response[json_start:json_end].strip())
+                    if isinstance(result, dict):
+                        return result
                 except json.JSONDecodeError:
                     pass
 

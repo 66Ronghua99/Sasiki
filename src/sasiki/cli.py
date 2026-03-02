@@ -32,7 +32,7 @@ app.command(name="record")(record)
 app.command(name="server")(server)
 
 
-def main():
+def main() -> None:
     """Entry point for the CLI."""
     app()
 
