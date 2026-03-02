@@ -3,9 +3,9 @@
 from typing import Optional
 
 from sasiki.engine.human_interface import (
-    HumanInteractionHandler,
     HITLContext,
     HumanDecision,
+    HumanInteractionHandler,
 )
 
 
@@ -28,7 +28,7 @@ class CLIInteractiveHandler(HumanInteractionHandler):
             (用户决策, 可选的反馈信息)
         """
         print(f"\n{'='*60}")
-        print(f"⏸️  HUMAN INTERVENTION REQUIRED")
+        print("⏸️  HUMAN INTERVENTION REQUIRED")
         print(f"Stage: {context.stage_name} (Step {context.step_number})")
 
         if context.agent_message:

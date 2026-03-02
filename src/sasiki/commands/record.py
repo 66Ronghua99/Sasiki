@@ -4,6 +4,7 @@ import asyncio
 import json
 import signal
 import uuid
+
 import typer
 import websockets
 from rich.console import Console
@@ -13,7 +14,7 @@ app = typer.Typer()
 console = Console()
 
 
-def _print_header():
+def _print_header() -> None:
     """Print the application header."""
     console.print(Panel.fit(
         "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
@@ -26,7 +27,7 @@ def _print_header():
 def record(
     name: str = typer.Option(None, "--name", "-n", help="Recording name"),
     ws_port: int = typer.Option(8766, "--ws-port", help="WebSocket server port"),
-):
+) -> None:
     """Start a browser recording session.
 
     Records user interactions from the Chrome Extension and saves them
@@ -62,7 +63,7 @@ def record(
                     response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                     data = json.loads(response)
                     if data.get("type") == "control_response" and data.get("success"):
-                        console.print(f"[dim]Recording started successfully[/dim]\n")
+                        console.print("[dim]Recording started successfully[/dim]\n")
                     elif data.get("type") == "control_response" and not data.get("success"):
                         console.print(f"[red]Failed to start recording: {data.get('error')}[/red]")
                         return
@@ -116,11 +117,11 @@ def record(
                         if filepath:
                             console.print(f"\n[green]Recording saved to:[/green] {filepath}")
                         else:
-                            console.print(f"\n[green]Recording saved.[/green]")
+                            console.print("\n[green]Recording saved.[/green]")
                     else:
-                        console.print(f"\n[yellow]Recording stopped (no confirmation).[/yellow]")
+                        console.print("\n[yellow]Recording stopped (no confirmation).[/yellow]")
                 except asyncio.TimeoutError:
-                    console.print(f"\n[yellow]Recording stopped (timeout waiting for confirmation).[/yellow]")
+                    console.print("\n[yellow]Recording stopped (timeout waiting for confirmation).[/yellow]")
 
         except OSError:
             console.print("[red]Error: Cannot connect to WebSocket server.[/red]")

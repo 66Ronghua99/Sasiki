@@ -1,16 +1,19 @@
 """Command-line interface for Sasiki."""
 
 import typer
-from sasiki.utils.logger import configure_logging
-from sasiki.commands.workflows import list_workflows, show_workflow, delete_workflow
-from sasiki.commands.generate import generate
-from sasiki.commands.run import run
-from sasiki.commands.refine import refine
-from sasiki.commands.record import record
-from sasiki.commands.server import server
 
-# Configure logging
+from sasiki.commands.generate import generate
+from sasiki.commands.record import record
+from sasiki.commands.refine import refine
+from sasiki.commands.run import run
+from sasiki.commands.server import server
+from sasiki.commands.workflows import delete_workflow, list_workflows, show_workflow
+from sasiki.config import get_settings
+from sasiki.utils.logger import configure_logging
+
+# Configure logging and directories at CLI startup
 configure_logging()
+get_settings().ensure_directories()
 
 app = typer.Typer(
     name="sasiki",

@@ -9,13 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    
+
     # LLM Configuration
     openrouter_api_key: Optional[str] = Field(default=None, description="OpenRouter API key")
     dashscope_api_key: Optional[str] = Field(default=None, description="DashScope API key")
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
         if self.openrouter_api_key:
             return self.openrouter_api_key
         return "dummy_key"
-        
+
     @property
     def active_base_url(self) -> str:
         if self.dashscope_api_key:
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         if self.llm_base_url:
             return self.llm_base_url
         return "https://openrouter.ai/api/v1"
-    
+
     # Recording Settings
     recordings_dir: Path = Field(
         default=Path.home() / ".sasiki" / "recordings",
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
         default=60,
         description="Maximum recording duration in minutes"
     )
-    
+
     # Analysis Settings
     frame_sample_rate: int = Field(
         default=1,
@@ -83,17 +83,40 @@ class Settings(BaseSettings):
         default=100,
         description="Maximum frames to send to LLM in one batch"
     )
-    
+
     # Debug
     debug: bool = Field(default=False)
     log_level: str = Field(default="INFO")
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Ensure directories exist
+
+    def ensure_directories(self) -> None:
+        """Ensure configured directories exist.
+
+        This should be called explicitly after settings are initialized,
+        typically at application entry points.
+        """
         self.recordings_dir.mkdir(parents=True, exist_ok=True)
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
 
 
-# Global settings instance
-settings = Settings()
+# Global settings instance (lazy initialization)
+_settings: Optional[Settings] = None
+
+
+def get_settings() -> Settings:
+    """Get or create the global Settings instance.
+
+    This function uses lazy initialization to avoid side effects during import.
+    Directories are NOT created automatically; call ensure_directories() explicitly.
+
+    Returns:
+        Settings instance
+    """
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
+
+
+# Backwards compatibility: module-level settings instance
+# Deprecated: Use get_settings() instead for new code
+settings = get_settings()

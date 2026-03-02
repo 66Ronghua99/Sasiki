@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from sasiki.llm.client import LLMClient
-from sasiki.utils.logger import logger
+from sasiki.utils.logger import get_logger
 from sasiki.workflow.models import Checkpoint, VariableType, Workflow, WorkflowStage, WorkflowVariable
 from sasiki.workflow.recording_parser import RecordingParser
 from sasiki.workflow.storage import WorkflowStorage
@@ -227,7 +227,7 @@ Important constraints:
         structured_packet = parser.to_structured_packet(max_actions=max_actions)
         packet_json = json.dumps(structured_packet, ensure_ascii=False)
 
-        logger.info(
+        get_logger().info(
             "extracting_workflow",
             recording=str(recording_path),
             actions=metadata["action_count"],
@@ -265,7 +265,7 @@ Important constraints:
             structured_packet=structured_packet,
         )
 
-        logger.info(
+        get_logger().info(
             "workflow_extracted",
             name=workflow_data.get("workflow_name", "unknown"),
             stages=len(workflow_data.get("stages", [])),
@@ -370,7 +370,7 @@ Important constraints:
         if save:
             storage = WorkflowStorage()
             storage.save(workflow)
-            logger.info(
+            get_logger().info(
                 "workflow_saved",
                 workflow_id=str(workflow.id),
                 name=workflow.name,

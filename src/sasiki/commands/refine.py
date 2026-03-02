@@ -1,26 +1,26 @@
 """Command for refining (rehearsing) a workflow."""
 
 import asyncio
-from uuid import UUID
 from typing import Optional
+from uuid import UUID
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from sasiki.workflow.storage import WorkflowStorage
-from sasiki.engine.workflow_refiner import WorkflowRefiner
+from sasiki.commands.handlers import CLIInteractiveHandler
 from sasiki.engine.handlers.auto import NonInteractiveHandler
 from sasiki.engine.human_interface import HumanDecision
-from sasiki.commands.handlers import CLIInteractiveHandler
-from sasiki.utils.logger import logger
+from sasiki.engine.workflow_refiner import WorkflowRefiner
+from sasiki.utils.logger import get_logger
+from sasiki.workflow.storage import WorkflowStorage
 
 app = typer.Typer()
 console = Console()
 
 
-def _print_header():
+def _print_header() -> None:
     """Print the application header."""
     console.print(Panel.fit(
         "[bold blue]Sasiki[/bold blue] - Workflow Refiner\n"
@@ -42,7 +42,7 @@ def refine(
     output_suffix: str = typer.Option("final", "--output-suffix", help="Suffix for output workflow file"),
     no_interactive: bool = typer.Option(False, "--no-interactive", help="Disable interactive mode (for automation)"),
     on_hitl: str = typer.Option("abort", "--on-hitl", help="Default action when HITL is triggered in non-interactive mode: abort, continue, skip"),
-):
+) -> None:
     """试运行并提纯 Workflow，产出 *_final.yaml
 
     This is the Phase 3 "Rehearsal" execution engine. It runs the workflow
@@ -173,7 +173,7 @@ def refine(
         console.print("\n\n[yellow]Execution interrupted by user.[/yellow]")
         raise typer.Exit(130)
     except Exception as e:
-        logger.error("refinement_failed", error=str(e))
+        get_logger().error("refinement_failed", error=str(e))
         console.print(f"\n[red]Refinement failed: {e}[/red]")
         raise typer.Exit(1)
 
@@ -213,16 +213,16 @@ def refine(
 
     # Final status
     if result.status == "completed":
-        console.print(f"\n[green bold]✓ Refinement completed successfully![/green bold]")
+        console.print("\n[green bold]✓ Refinement completed successfully![/green bold]")
         if result.final_workflow_path:
             console.print(f"[dim]Final workflow saved to:[/dim] {result.final_workflow_path}")
     elif result.status == "paused":
-        console.print(f"\n[yellow bold]⏸️  Refinement paused at checkpoint[/yellow bold]")
+        console.print("\n[yellow bold]⏸️  Refinement paused at checkpoint[/yellow bold]")
         if result.final_workflow_path:
             console.print(f"[dim]Progress saved to:[/dim] {result.final_workflow_path}")
         console.print(f"[dim]Resume with: --start-stage {len([r for r in result.stage_results if r.status != 'skipped'])}[/dim]")
     else:  # failed
-        console.print(f"\n[red bold]✗ Refinement failed[/red bold]")
+        console.print("\n[red bold]✗ Refinement failed[/red bold]")
         # Find first failed stage
         for stage_result in result.stage_results:
             if stage_result.status == "failed" and stage_result.error:

@@ -19,7 +19,7 @@ from sasiki.engine.replay_models import AgentAction, RetryContext
 from sasiki.engine.human_interface import HumanInteractionHandler, HITLContext, HumanDecision
 from sasiki.workflow.models import Workflow
 from sasiki.workflow.storage import WorkflowStorage
-from sasiki.utils.logger import logger
+from sasiki.utils.logger import get_logger
 
 
 class StageResult(BaseModel):
@@ -99,7 +99,7 @@ class WorkflowRefiner:
         Returns:
             RefineResult containing the execution status and results
         """
-        logger.info(
+        get_logger().info(
             "workflow_refiner_start",
             workflow_id=str(workflow.id),
             workflow_name=workflow.name,
@@ -110,7 +110,7 @@ class WorkflowRefiner:
         try:
             plan = workflow.to_execution_plan(inputs)
         except ValueError as e:
-            logger.error("workflow_plan_failed", error=str(e))
+            get_logger().error("workflow_plan_failed", error=str(e))
             return RefineResult(
                 workflow_id=str(workflow.id),
                 workflow_name=workflow.name,
@@ -123,9 +123,9 @@ class WorkflowRefiner:
         # Start browser environment
         try:
             page = await self.env.start()
-            logger.info("browser_started", url=page.url)
+            get_logger().info("browser_started", url=page.url)
         except Exception as e:
-            logger.error("browser_start_failed", error=str(e))
+            get_logger().error("browser_start_failed", error=str(e))
             return RefineResult(
                 workflow_id=str(workflow.id),
                 workflow_name=workflow.name,
@@ -146,7 +146,7 @@ class WorkflowRefiner:
             for stage_index, stage in enumerate(stages):
                 # Skip stages before start_stage
                 if stage_index < start_stage:
-                    logger.info("skipping_stage", stage_index=stage_index, stage_name=stage["name"])
+                    get_logger().info("skipping_stage", stage_index=stage_index, stage_name=stage["name"])
                     stage_results.append(
                         StageResult(
                             stage_name=stage["name"],
@@ -164,7 +164,7 @@ class WorkflowRefiner:
 
                 # Handle stage failure or pause
                 if result.status == "failed":
-                    logger.error(
+                    get_logger().error(
                         "stage_failed",
                         stage_index=stage_index,
                         stage_name=stage["name"],
@@ -184,7 +184,7 @@ class WorkflowRefiner:
                     break
 
                 if result.status == "paused":
-                    logger.info(
+                    get_logger().info(
                         "stage_paused",
                         stage_index=stage_index,
                         stage_name=stage["name"],
@@ -255,7 +255,7 @@ class WorkflowRefiner:
             )
 
         except Exception as e:
-            logger.error("workflow_refiner_error", error=str(e))
+            get_logger().error("workflow_refiner_error", error=str(e))
             return RefineResult(
                 workflow_id=str(workflow.id),
                 workflow_name=workflow.name,
@@ -267,7 +267,7 @@ class WorkflowRefiner:
 
         finally:
             await self.env.stop()
-            logger.info("browser_stopped")
+            get_logger().info("browser_stopped")
 
     async def _execute_stage(
         self,
@@ -290,7 +290,7 @@ class WorkflowRefiner:
 
         # Build independent goal for this stage
         goal = self._build_stage_goal(stage)
-        logger.info(
+        get_logger().info(
             "stage_start",
             stage_index=stage_index,
             stage_name=stage_name,
@@ -343,7 +343,7 @@ class WorkflowRefiner:
 
                 # Check for done
                 if action.action_type == "done":
-                    logger.info(
+                    get_logger().info(
                         "stage_complete",
                         stage_index=stage_index,
                         stage_name=stage_name,
@@ -365,7 +365,7 @@ class WorkflowRefiner:
 
             except Exception as e:
                 # Retry with context on failure
-                logger.warning(
+                get_logger().warning(
                     "action_failed_retrying",
                     stage_index=stage_index,
                     step=steps_taken,
@@ -408,7 +408,7 @@ class WorkflowRefiner:
                         )
 
                 except Exception as e2:
-                    logger.error(
+                    get_logger().error(
                         "action_failed_after_retry",
                         stage_index=stage_index,
                         step=steps_taken,
@@ -420,7 +420,7 @@ class WorkflowRefiner:
                     )
 
         # Max steps reached
-        logger.error(
+        get_logger().error(
             "stage_max_steps_reached",
             stage_index=stage_index,
             stage_name=stage_name,
@@ -475,7 +475,7 @@ class WorkflowRefiner:
         Returns:
             StageResult based on user decision
         """
-        logger.info(
+        get_logger().info(
             "stage_paused_for_human",
             stage_index=stage_index,
             stage_name=stage_name,
@@ -704,7 +704,7 @@ class WorkflowRefiner:
         description = checkpoint.get("description", "Checkpoint")
         manual_confirmation = checkpoint.get("manual_confirmation", True)
 
-        logger.info(
+        get_logger().info(
             "checkpoint_reached",
             stage_index=stage_index,
             stage_name=stage_result.stage_name,
@@ -781,7 +781,7 @@ class WorkflowRefiner:
 
             json.dump(final_workflow.model_dump(mode="json"), f, indent=2)
 
-        logger.info(
+        get_logger().info(
             "final_workflow_saved",
             workflow_id=str(workflow.id),
             path=str(final_path),

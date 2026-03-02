@@ -1,11 +1,8 @@
 """Data models for the Replay Agent's actions."""
 
 from dataclasses import dataclass
-from typing import Optional, Literal, TYPE_CHECKING
+from typing import Optional, Literal
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from sasiki.engine.replay_models import AgentAction
 
 
 @dataclass

@@ -7,7 +7,7 @@ from playwright.async_api import Page
 from sasiki.engine.page_observer import AccessibilityObserver
 from sasiki.engine.replay_models import AgentAction, RetryContext
 from sasiki.llm.client import LLMClient
-from sasiki.utils.logger import logger
+from sasiki.utils.logger import get_logger
 
 
 # System prompt for normal execution
@@ -110,7 +110,7 @@ class ReplayAgent:
         Returns:
             AgentAction decided by the LLM
         """
-        logger.info(
+        get_logger().info(
             "replay_agent_step_start",
             goal=goal,
             is_retry=retry_context is not None,
@@ -154,10 +154,10 @@ class ReplayAgent:
 
             action_data = json.loads(clean_str.strip())
             action = AgentAction(**action_data)
-            logger.info("replay_agent_action_decided", action=action.model_dump())
+            get_logger().info("replay_agent_action_decided", action=action.model_dump())
             return action
         except Exception as e:
-            logger.error("Failed to parse LLM action", error=str(e), response=response_str)
+            get_logger().error("Failed to parse LLM action", error=str(e), response=response_str)
             raise
 
     def _build_normal_prompt(
@@ -232,11 +232,11 @@ class ReplayAgent:
         
         # Actions that don't require a target
         if action.action_type == "done":
-            logger.info("replay_agent_done", message=action.message)
+            get_logger().info("replay_agent_done", message=action.message)
             return action.message
             
         if action.action_type == "ask_human":
-            logger.info("replay_agent_ask_human", message=action.message)
+            get_logger().info("replay_agent_ask_human", message=action.message)
             # In a real CLI, we would use prompt/input here.
             # For now, we simulate pausing.
             print(f"\n[Agent Asks Human]: {action.message}")

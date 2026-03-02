@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -12,7 +13,7 @@ app = typer.Typer()
 console = Console()
 
 
-def _print_header():
+def _print_header() -> None:
     """Print the application header."""
     console.print(Panel.fit(
         "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
@@ -28,7 +29,7 @@ def generate(
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Workflow description"),
     preview: bool = typer.Option(False, "--preview", help="Preview LLM input without generating"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Generate but don't save"),
-):
+) -> None:
     """Generate a workflow (Skill) from a browser recording.
 
     Analyzes the recording using LLM to extract a structured, reusable workflow
@@ -50,12 +51,12 @@ def generate(
             generator = SkillGenerator()
             preview_data = generator.preview_generation(recording_file)
 
-            console.print(f"\n[bold]Recording Metadata:[/bold]")
+            console.print("\n[bold]Recording Metadata:[/bold]")
             console.print(f"  Session: {preview_data['metadata']['session_id']}")
             console.print(f"  Duration: {preview_data['metadata']['duration_seconds']:.1f}s")
             console.print(f"  Actions: {preview_data['action_count']}")
 
-            console.print(f"\n[bold]Narrative Preview (first 50 lines):[/bold]")
+            console.print("\n[bold]Narrative Preview (first 50 lines):[/bold]")
             lines = preview_data['narrative_preview'].split('\n')[:50]
             console.print("\n".join(lines))
             if len(preview_data['narrative_preview'].split('\n')) > 50:
@@ -104,7 +105,7 @@ def generate(
         if dry_run:
             console.print("[yellow]Dry run mode - workflow not saved[/yellow]")
         else:
-            console.print(f"[green]✓ Workflow generated and saved[/green]")
+            console.print("[green]✓ Workflow generated and saved[/green]")
 
         console.print(f"\n[bold]Workflow:[/bold] {workflow.name}")
         console.print(f"[dim]{workflow.description}[/dim]")

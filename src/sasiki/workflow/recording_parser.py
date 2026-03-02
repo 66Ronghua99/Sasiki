@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from sasiki.server.websocket_protocol import RecordedAction
-from sasiki.utils.logger import logger
+from sasiki.utils.logger import get_logger
 from sasiki.workflow.recording_models import RecordingMetadata
 
 
@@ -109,7 +109,7 @@ class RecordingParser:
             try:
                 data = json.loads(line)
             except json.JSONDecodeError as e:
-                logger.warning("json_parse_error", line=line_num, error=str(e))
+                get_logger().warning("json_parse_error", line=line_num, error=str(e))
                 continue
 
             # Skip metadata lines
@@ -120,11 +120,11 @@ class RecordingParser:
                 action = RecordedAction.model_validate(data)
                 actions.append(action)
             except Exception as e:
-                logger.warning("action_validation_error", line=line_num, error=str(e))
+                get_logger().warning("action_validation_error", line=line_num, error=str(e))
                 continue
 
         self._actions = actions
-        logger.info(
+        get_logger().info(
             "actions_parsed",
             filepath=str(self.filepath),
             count=len(actions),

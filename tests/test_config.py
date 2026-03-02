@@ -23,17 +23,25 @@ class TestSettings:
         assert settings.max_frames_per_analysis == 100
 
     def test_directories_created(self, monkeypatch, tmp_path):
-        """Test that data directories are created."""
+        """Test that data directories are created explicitly via ensure_directories()."""
         monkeypatch.setenv("OPENROUTER_API_KEY", "test_key")
-        
+
         # Use temp directories
         recordings_dir = tmp_path / "recordings"
         workflows_dir = tmp_path / "workflows"
-        
+
         settings = Settings(
             recordings_dir=recordings_dir,
             workflows_dir=workflows_dir,
         )
-        
+
+        # Directories should NOT exist until ensure_directories() is called
+        assert not recordings_dir.exists()
+        assert not workflows_dir.exists()
+
+        # Create directories explicitly
+        settings.ensure_directories()
+
+        # Now directories should exist
         assert recordings_dir.exists()
         assert workflows_dir.exists()

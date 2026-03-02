@@ -1,9 +1,10 @@
 """Command for managing the Sasiki WebSocket server."""
 
 import asyncio
-import websockets
 import json
+
 import typer
+import websockets
 from rich.console import Console
 from rich.panel import Panel
 
@@ -11,7 +12,7 @@ app = typer.Typer()
 console = Console()
 
 
-def _print_header():
+def _print_header() -> None:
     """Print the application header."""
     console.print(Panel.fit(
         "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
@@ -25,7 +26,7 @@ def server(
     action: str = typer.Argument("start", help="Action: start, status"),
     port: int = typer.Option(8766, "--port", "-p", help="Server port"),
     host: str = typer.Option("localhost", "--host", help="Server host"),
-):
+) -> None:
     """Manage the Sasiki WebSocket server.
 
     The WebSocket server facilitates communication between the Chrome Extension
@@ -50,7 +51,7 @@ def server(
 
     elif action == "status":
         # Quick check if server is running
-        async def check_status():
+        async def check_status() -> None:
             try:
                 async with websockets.connect(f"ws://{host}:{port}") as ws:
                     await ws.send(json.dumps({
