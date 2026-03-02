@@ -1,6 +1,6 @@
 # Sasiki
 
-> Observe user actions, automatically generate reusable workflow agents
+> TALK IS CHEAP, SHOW ME YOUR MOVES. Observe user actions, automatically generate reusable workflow agents
 
 Sasiki (Japanese "摩す" - to imitate, to copy) is a browser automation framework that records user interactions and generates reusable automation workflows through AI-powered skill generation and execution.
 
@@ -65,6 +65,7 @@ Sasiki can record user actions in the browser through a Chrome extension, automa
 ```
 
 Then load the extension in Chrome:
+
 1. Open Chrome and visit `chrome://extensions/`
 2. Enable "Developer mode" (toggle in top right)
 3. Click "Load unpacked"
@@ -84,15 +85,16 @@ sasiki record --name "my-task"
 
 Execute the actions you want to record in Chrome:
 
-| Action Type | Example | Description |
-|-------------|---------|-------------|
-| Click | Click buttons, links, cards | Automatic element fingerprinting |
-| Type | Enter text in search boxes | Supports native input and contenteditable |
-| Select | Dropdown menu selection | Records option value |
-| Scroll | Infinite scroll loading | Smart content loading detection |
-| Navigate | Page navigation, back/forward | Navigation source tracking |
+| Action Type | Example                       | Description                               |
+| ----------- | ----------------------------- | ----------------------------------------- |
+| Click       | Click buttons, links, cards   | Automatic element fingerprinting          |
+| Type        | Enter text in search boxes    | Supports native input and contenteditable |
+| Select      | Dropdown menu selection       | Records option value                      |
+| Scroll      | Infinite scroll loading       | Smart content loading detection           |
+| Navigate    | Page navigation, back/forward | Navigation source tracking                |
 
 Recorded event types:
+
 - `click` - Click element
 - `type` - Text input (supports `<input>`, `<textarea>`, `<div contenteditable>`)
 - `select` - Dropdown selection
