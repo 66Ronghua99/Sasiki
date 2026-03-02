@@ -17,7 +17,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 1 录制链路     | ✅ 已完成 | Extension + WebSocket + JSONL 落盘已打通                                                   |
 | Phase 1 真实场景验收 | 🔄 进行中 | 需持续补充站点级 E2E 验证                                                                  |
 | Phase 2 Skill 生成   | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代                |
-| Phase 3 执行引擎     | 🟢 进行中 | 已完成 Replay Engine 设计，Playwright 环境管理与 CDP DOM 观测器、Replay Agent 雏形实现完成 |
+| Phase 3 执行引擎     | 🟢 进行中 | WorkflowRefiner 核心调度器已完成，支持分 Stage 执行、Checkpoint 暂停、变量替换与最终 Workflow 产出 |
 
 ---
 
@@ -32,6 +32,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 实现 `AccessibilityObserver`，通过 CDP 获取 `Accessibility.getFullAXTree` 并高比例压缩生成适合 LLM 阅读的树状 `live_dom_snapshot.json`。
 - 实现 `ReplayAgent` 及 `AgentAction` Pydantic 模型，连通 LLM 推理与 Playwright `mouse.click` / `keyboard.type` 坐标级精准执行。
 - 打通 DashScope (MiniMax-M2.5) 与 OpenRouter 的灵活切换。
+- 实现 `WorkflowRefiner` 核心调度器，支持 Workflow 分 Stage 循环执行、变量解析、Checkpoint 暂停与 `*_final.yaml` 产出。
+- 新增 `sasiki refine <workflow_id>` CLI 命令，提供试运行提纯功能。
+- 编写 24 个单元测试覆盖 WorkflowRefiner 核心逻辑。
 
 ### Phase 2 Skill 生成
 
@@ -86,7 +89,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [X] 实现单步决策代理 (`ReplayAgent`) 并打通 Playwright 坐标执行。
 - [X] 实现独立浏览器上下文测试与持久化 Cookie 注入 (`SessionManager`)。
 - [X] 验证连续目标执行（Agent Loop）并识别出状态记忆问题。
-- [ ] 构建 `WorkflowRefiner` 读取 YAML 并拆分 Stage 执行。
+- [X] 构建 `WorkflowRefiner` 读取 YAML 并拆分 Stage 执行。
 - [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
@@ -131,6 +134,18 @@ sasiki run <workflow_id> --dry-run
 
 # 6) 运行 Phase 2 测试
 PYTHONPATH=src uv run --with pytest tests/test_recording_parser.py tests/test_skill_generator.py -v
+
+### Phase 3 - 执行引擎
+
+```bash
+# 1) 运行 WorkflowRefiner 单元测试
+PYTHONPATH=src uv run --with pytest --with pytest-asyncio pytest tests/engine/test_workflow_refiner.py -v
+
+# 2) 试运行 Workflow（产出 *_final.yaml）
+sasiki refine <workflow_id>
+
+# 3) 连接已有浏览器试运行
+sasiki refine <workflow_id> --cdp-url http://localhost:9222
 ```
 
 ---

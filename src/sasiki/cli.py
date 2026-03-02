@@ -5,6 +5,7 @@ from sasiki.utils.logger import configure_logging
 from sasiki.commands.workflows import list_workflows, show_workflow, delete_workflow
 from sasiki.commands.generate import generate
 from sasiki.commands.run import run
+from sasiki.commands.refine import refine
 from sasiki.commands.record import record
 from sasiki.commands.server import server
 
@@ -23,6 +24,7 @@ app.command(name="show")(show_workflow)
 app.command(name="delete")(delete_workflow)
 app.command(name="generate")(generate)
 app.command(name="run")(run)
+app.command(name="refine")(refine)
 app.command(name="record")(record)
 app.command(name="server")(server)
 

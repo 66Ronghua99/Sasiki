@@ -2,101 +2,62 @@
 
 **更新日期：2026-03-02**
 
-## 目标：构建 `WorkflowRefiner` 核心调度器
+## 目标：设计 Agent Prompt Cache 与 Message History 机制
 
-> **命名说明**：Phase 3 的目标是 **Rehearsal（试运行提纯）**——让 Agent 照着 Draft Workflow 跑一遍，剔除冗余、锚定 Locator、补全隐性步骤，最终产出 `*_final.yaml`。  
-> 这与未来 Phase 4 真正的 `WorkflowReplayer`（生产环境一键回放）是不同职责，故命名为 `WorkflowRefiner`。
-
----
-
-## 前置条件（✅ 全部就绪）
-
-| 依赖模块 | 文件 | 状态 |
-|---|---|---|
-| 单步 Agent | `src/sasiki/engine/replay_agent.py` | ✅ Observe→Think→Act 已打通 |
-| 页面观测器 | `src/sasiki/engine/page_observer.py` | ✅ CDP AXTree 压缩可用 |
-| 浏览器环境 | `src/sasiki/engine/playwright_env.py` | ✅ CDP/持久化/临时模式可用 |
-| Cookie 注入 | `src/sasiki/engine/cookie_manager.py` | ✅ JSON 注入已验证 |
-| Workflow 模型 | `src/sasiki/workflow/models.py` | ✅ `to_execution_plan()` 已实现 |
-| 原型验证 | `test_agent_loop.py` | ✅ 手动 YAML→Agent 循环已跑通 |
+Phase 3 的 `WorkflowRefiner` 已完成，下一个重点是优化 Agent 的记忆机制，以提升连续动作执行的稳定性和 LLM 响应速度。
 
 ---
 
-## Proposed Changes
+## 背景
 
-### [NEW] `src/sasiki/engine/workflow_refiner.py`
-
-核心调度器，职责：
-
-1. **加载 Workflow**：从 `WorkflowStorage` 读取 YAML → `to_execution_plan()` 解析变量
-2. **Stage 循环**：遍历 stages，为每个 Stage 构建独立的 Agent goal（含 stage name + actions）
-3. **Step 循环**：在 Stage 内调用 `ReplayAgent.step()` → `execute_action()`，收集结果
-4. **Checkpoint 处理**：指定 Stage 后暂停等待用户确认
-5. **终止条件**：Agent 返回 `done` / 达到 max_steps / 用户中断
-6. **产出 Final YAML**：将验证通过的步骤、锚定的 Locator 输出为 `*_final.yaml`
-
-核心类签名：
-
-```python
-class StageResult(BaseModel):
-    stage_name: str
-    status: Literal["success", "failed", "skipped", "paused"]
-    steps_taken: int
-    actions: list[AgentAction]
-    error: Optional[str] = None
-
-class RefineResult(BaseModel):
-    workflow_id: str
-    workflow_name: str
-    status: Literal["completed", "failed", "paused"]
-    stage_results: list[StageResult]
-    total_steps: int
-
-class WorkflowRefiner:
-    async def run(self, workflow, inputs, ...) -> RefineResult
-    async def _execute_stage(self, page, stage, ...) -> StageResult
-    async def _handle_checkpoint(self, checkpoint) -> bool
-```
-
-**关键设计决策**：
-
-- 每个 Stage 构建独立 goal（减少 token，提高精度），而非把整个 YAML 丢给 Agent
-- 首版简单 history：Stage 内累积 `action.thought`，Stage 间清零
-- 失败容错：单步失败重试 1 次，连续 N 步重复相同动作则标记 Stage 失败
-
-### [NEW] `src/sasiki/commands/refine.py`
-
-新增 `sasiki refine <workflow_id>` CLI 命令，调用 `WorkflowRefiner.run()`。  
-`sasiki run --execute` 保留给未来 Phase 4 的生产级回放，本阶段不动。
-
-| CLI 命令 | 阶段 | 职责 |
-|---|---|---|
-| `sasiki refine <workflow_id>` | Phase 3（本次） | 试运行提纯，产出 `*_final.yaml` |
-| `sasiki run <workflow_id> --execute` | Phase 4（未来） | 正式执行 Final Workflow |
+在测试 `ReplayAgent` 的自主循环时，发现必须注入动作历史（History）才能避免 Agent 死循环点击同一个元素。但如果将不断增长的 history text 直接拼接在 `User Prompt` 的尾部或中间，会导致每次请求的 Prompt 都在变化，**极大地降低了 LLM API 的 Cache 命中率**，增加成本与延迟。
 
 ---
 
-## 测试方案
+## 目标
 
-### 单元测试 — `tests/engine/test_workflow_refiner.py`
+设计一套 Prompt Cache 与 Message History 机制，确保：
 
-**完全 Mock 外部依赖**（不启动浏览器、不调用 LLM）：
+1. **稳定的系统提示（System Prompt）**可以被有效 Cache
+2. **高频变化的数据**（DOM Snapshot、最近步骤 History）合理分离
+3. **长文本（如 DOM Tree）**能够被有效 Cache
+4. **Action History** 既能指导 Agent 决策，又不破坏 Cache
 
-| 测试场景 | 覆盖内容 |
-|---|---|
-| 单 Stage 单步 done | Mock Agent 返回 `done` → `StageResult.status == "success"` |
-| 多 Stage 按序执行 | 每 Stage 1 步 done → 验证 stage_results 长度与顺序 |
-| 最大步数保护 | Agent 每步返回 click → 达到 max_steps 后标记 failed |
-| Checkpoint 暂停 | 验证指定 Stage 后暂停 |
-| 单步异常 + 重试 | 首次执行抛异常、第二次成功 → 验证重试逻辑 |
-| 变量解析传递 | `to_execution_plan` 的变量替换正确到达 Stage goal |
+---
+
+## 初步思路
+
+### 方案 A：分离 System Prompt 与 User Prompt
+
+- System Prompt: 包含固定的角色定义、输出格式要求（这部分可以被 Cache）
+- User Prompt: 包含当前目标、DOM Snapshot、Action History（这部分每次变化）
+
+### 方案 B：分页/窗口 History
+
+- 只保留最近 N 步的 Action History
+- 或者使用摘要（Summary）方式压缩早期历史
+
+### 方案 C：结构化 History
+
+- 将 Action History 作为独立的 JSON 数组传入，而非文本拼接
+- 依赖 LLM 对结构化数据的理解能力
+
+---
+
+## 验证计划
+
+1. 对比不同方案下的 Token 消耗和 Cache 命中率
+2. 在真实网站（如小红书）测试连续执行稳定性
+3. 验证长 DOM Snapshot 下的响应延迟
+
+---
+
+## 快速验证命令
 
 ```bash
+# 运行 Phase 3 单元测试
 PYTHONPATH=src uv run --with pytest --with pytest-asyncio pytest tests/engine/test_workflow_refiner.py -v
+
+# 手动验证 refine 命令
+sasiki refine <workflow_id> --cdp-url http://localhost:9222
 ```
-
-### 手动验证（单元测试通过后）
-
-1. `sasiki list` 选一个已有 Workflow
-2. `sasiki refine <workflow_id>`
-3. 观察浏览器逐 Stage 执行是否符合预期
