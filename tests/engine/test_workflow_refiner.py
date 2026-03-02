@@ -784,3 +784,58 @@ class TestBuildStageGoal:
         assert "Recent progress" in goal
         assert "Step 1 thought" in goal
         assert "Step 2 thought" in goal
+
+    def test_build_stage_goal_with_action_details(self):
+        """Test goal building prefers action_details over actions."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        stage = {
+            "name": "Test Stage",
+            "application": "Chrome",
+            "actions": ["Click button", "Type text"],
+            "action_details": [
+                {
+                    "action_type": "click",
+                    "target_hint": "submit-button",
+                    "page_context": {"url": "https://example.com"},
+                },
+                {
+                    "action_type": "fill",
+                    "target_hint": "search-input",
+                    "value": "test query",
+                },
+            ],
+        }
+        history: list[str] = []
+
+        goal = executor._build_stage_goal(stage, history)
+
+        assert "Test Stage" in goal
+        assert "Chrome" in goal
+        # Should use structured action details
+        assert "Structured actions" in goal
+        assert "click on submit-button" in goal
+        assert "fill on search-input" in goal
+        assert "Page: https://example.com" in goal
+
+    def test_build_stage_goal_prefers_action_details(self):
+        """Test that action_details are preferred over text actions."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        stage = {
+            "name": "Test Stage",
+            "actions": ["Old text action"],
+            "action_details": [
+                {"action_type": "click", "target_hint": "new-button"},
+            ],
+        }
+        history: list[str] = []
+
+        goal = executor._build_stage_goal(stage, history)
+
+        # Should use action_details, not fall back to actions
+        assert "Structured actions" in goal
+        assert "click on new-button" in goal
+        assert "Old text action" not in goal

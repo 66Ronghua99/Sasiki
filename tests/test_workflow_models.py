@@ -126,3 +126,66 @@ class TestWorkflow:
         workflow = Workflow(name="测试", variables=[var])
         with pytest.raises(ValueError, match="Invalid inputs"):
             workflow.to_execution_plan({})
+
+    def test_to_execution_plan_includes_action_details(self):
+        """Test execution plan includes structured action_details."""
+        stage = WorkflowStage(
+            name="登录",
+            actions=["点击登录按钮", "输入用户名"],
+            action_details=[
+                {
+                    "action_type": "click",
+                    "target_hint": "登录按钮",
+                    "page_context": {"url": "https://example.com/login"},
+                },
+                {
+                    "action_type": "fill",
+                    "target_hint": "用户名输入框",
+                    "value": "test_user",
+                },
+            ],
+        )
+        workflow = Workflow(name="测试", stages=[stage])
+        plan = workflow.to_execution_plan({})
+
+        assert "action_details" in plan["stages"][0]
+        assert len(plan["stages"][0]["action_details"]) == 2
+        assert plan["stages"][0]["action_details"][0]["action_type"] == "click"
+        assert plan["stages"][0]["action_details"][0]["target_hint"] == "登录按钮"
+
+    def test_to_execution_plan_substitutes_variables_in_action_details(self):
+        """Test variable substitution works in action_details."""
+        var = WorkflowVariable(name="username", required=True)
+        stage = WorkflowStage(
+            name="登录",
+            actions=["输入 {{username}}"],
+            action_details=[
+                {
+                    "action_type": "fill",
+                    "target_hint": "用户名输入框",
+                    "value": "{{username}}",
+                    "description": "填写 {{username}} 到输入框",
+                },
+            ],
+        )
+        workflow = Workflow(name="测试", variables=[var], stages=[stage])
+        plan = workflow.to_execution_plan({"username": "john_doe"})
+
+        detail = plan["stages"][0]["action_details"][0]
+        assert detail["value"] == "john_doe"
+        assert detail["description"] == "填写 john_doe 到输入框"
+        # Non-string fields should be preserved
+        assert detail["action_type"] == "fill"
+
+    def test_to_execution_plan_empty_action_details(self):
+        """Test execution plan handles empty action_details gracefully."""
+        stage = WorkflowStage(
+            name="简单阶段",
+            actions=["简单操作"],
+            action_details=[],
+        )
+        workflow = Workflow(name="测试", stages=[stage])
+        plan = workflow.to_execution_plan({})
+
+        assert "action_details" in plan["stages"][0]
+        assert len(plan["stages"][0]["action_details"]) == 0

@@ -1,24 +1,18 @@
 """Command for running a workflow."""
 
-from uuid import UUID
-
 import typer
 from rich.console import Console
-from rich.panel import Panel
 
+from sasiki.commands.ui import print_header, print_workflow_panel
+from sasiki.commands.workflow_inputs import (
+    collect_workflow_inputs,
+    load_workflow_by_id_or_name,
+    validate_and_report_errors,
+)
 from sasiki.workflow.storage import WorkflowStorage
 
 app = typer.Typer()
 console = Console()
-
-
-def _print_header() -> None:
-    """Print the application header."""
-    console.print(Panel.fit(
-        "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
-        "[dim]观察一次，永久复用[/dim]",
-        border_style="blue",
-    ))
 
 
 @app.command()
@@ -32,55 +26,14 @@ def run(
     (requires Phase 3 WorkflowReplayer, currently in development), or use --dry-run (default) to preview.
     """
     storage = WorkflowStorage()
+    workflow = load_workflow_by_id_or_name(storage, workflow_id, console)
 
-    # Try to load by ID first
-    try:
-        wf_id = UUID(workflow_id)
-        workflow = storage.load(wf_id)
-    except ValueError:
-        # Try by name
-        workflow = storage.get_by_name(workflow_id)
-
-    if not workflow:
-        console.print(f"[red]Workflow not found: {workflow_id}[/red]")
-        raise typer.Exit(1)
-
-    _print_header()
-
-    console.print(Panel.fit(
-        f"[bold]{workflow.name}[/bold]\n"
-        f"[dim]{workflow.description}[/dim]\n"
-        f"\nStages: {len(workflow.stages)} | Variables: {len(workflow.variables)}",
-        title="Workflow",
-        border_style="blue",
-    ))
+    print_header()
+    print_workflow_panel(workflow, console)
 
     # Collect variable inputs
-    inputs: dict[str, str] = {}
-    if workflow.variables:
-        console.print("\n[bold]Variables:[/bold]")
-        for var in workflow.variables:
-            req = " [red](required)[/red]" if var.required else " [dim](optional)[/dim]"
-            default = f" [{var.default_value}]" if var.default_value else ""
-            example = f" e.g. {var.example}" if var.example else ""
-
-            prompt_text = f"  {var.name}{req}{default}{example}: "
-            value = typer.prompt(prompt_text, default=var.default_value or "")
-
-            if var.required and not value:
-                console.print(f"[red]Error: {var.name} is required[/red]")
-                raise typer.Exit(1)
-
-            if value:
-                inputs[var.name] = value
-
-    # Validate inputs
-    is_valid, errors = workflow.validate_inputs(inputs)
-    if not is_valid:
-        console.print("[red]Validation errors:[/red]")
-        for error in errors:
-            console.print(f"  • {error}")
-        raise typer.Exit(1)
+    inputs = collect_workflow_inputs(workflow, console)
+    validate_and_report_errors(workflow, inputs, console)
 
     # Generate execution plan
     try:

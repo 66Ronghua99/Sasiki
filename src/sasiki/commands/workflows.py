@@ -8,19 +8,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from sasiki.commands.ui import print_header
+from sasiki.commands.workflow_inputs import load_workflow_by_id_or_name
 from sasiki.workflow.storage import WorkflowStorage
 
 app = typer.Typer(help="Manage workflows")
 console = Console()
-
-
-def _print_header() -> None:
-    """Print the application header."""
-    console.print(Panel.fit(
-        "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
-        "[dim]观察一次，永久复用[/dim]",
-        border_style="blue",
-    ))
 
 
 @app.command(name="list")
@@ -28,7 +21,7 @@ def list_workflows(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed info"),
 ) -> None:
     """List all saved workflows."""
-    _print_header()
+    print_header()
 
     storage = WorkflowStorage()
     workflows = storage.list_workflows()
@@ -70,18 +63,7 @@ def show_workflow(
 ) -> None:
     """Show detailed information about a workflow."""
     storage = WorkflowStorage()
-
-    # Try to load by ID first
-    try:
-        wf_id = UUID(workflow_id)
-        workflow = storage.load(wf_id)
-    except ValueError:
-        # Try by name
-        workflow = storage.get_by_name(workflow_id)
-
-    if not workflow:
-        console.print(f"[red]Workflow not found: {workflow_id}[/red]")
-        raise typer.Exit(1)
+    workflow = load_workflow_by_id_or_name(storage, workflow_id, console)
 
     console.print(Panel.fit(
         f"[bold]{workflow.name}[/bold]\n"

@@ -225,9 +225,13 @@ class StageExecutor:
 
         This creates a focused goal that includes the stage name and actions,
         without overwhelming the agent with the entire workflow.
+
+        If action_details are available (structured action data), they are
+        included to provide richer context for the agent.
         """
         stage_name = stage["name"]
         actions_list = stage.get("actions", [])
+        action_details = stage.get("action_details", [])
         application = stage.get("application")
 
         lines = [f"Complete stage: {stage_name}"]
@@ -235,7 +239,27 @@ class StageExecutor:
         if application:
             lines.append(f"Application/Context: {application}")
 
-        if actions_list:
+        # Prefer structured action_details if available
+        if action_details:
+            lines.append("\nStructured actions to perform:")
+            for i, detail in enumerate(action_details, 1):
+                action_type = detail.get("action_type", "unknown")
+                target_hint = detail.get("target_hint", "")
+                value = detail.get("value", "")
+
+                action_desc = f"  {i}. {action_type}"
+                if target_hint:
+                    action_desc += f" on {target_hint}"
+                if value:
+                    action_desc += f' with "{value}"'
+                lines.append(action_desc)
+
+                # Include additional context for better agent understanding
+                page_context = detail.get("page_context", {})
+                url = page_context.get("url", "") if isinstance(page_context, dict) else ""
+                if url:
+                    lines.append(f"     (Page: {url})")
+        elif actions_list:
             lines.append("\nActions to perform:")
             for i, action in enumerate(actions_list, 1):
                 lines.append(f"  {i}. {action}")

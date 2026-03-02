@@ -2,14 +2,19 @@
 
 import asyncio
 from typing import Optional
-from uuid import UUID
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from sasiki.commands.handlers import CLIInteractiveHandler
+from sasiki.commands.ui import print_header, print_workflow_panel
+from sasiki.commands.workflow_inputs import (
+    collect_workflow_inputs,
+    load_workflow_by_id_or_name,
+    parse_cli_inputs,
+    validate_and_report_errors,
+)
 from sasiki.engine.handlers.auto import NonInteractiveHandler
 from sasiki.engine.human_interface import HumanDecision
 from sasiki.engine.workflow_refiner import WorkflowRefiner
@@ -18,15 +23,6 @@ from sasiki.workflow.storage import WorkflowStorage
 
 app = typer.Typer()
 console = Console()
-
-
-def _print_header() -> None:
-    """Print the application header."""
-    console.print(Panel.fit(
-        "[bold blue]Sasiki[/bold blue] - Workflow Refiner\n"
-        "[dim]试运行并提纯 Workflow，产出 *_final.yaml[/dim]",
-        border_style="blue",
-    ))
 
 
 @app.command()
@@ -56,68 +52,19 @@ def refine(
         sasiki refine my-workflow --start-stage 2
     """
     storage = WorkflowStorage()
+    workflow = load_workflow_by_id_or_name(storage, workflow_id, console)
 
-    # Try to load by ID first
-    try:
-        wf_id = UUID(workflow_id)
-        workflow = storage.load(wf_id)
-    except ValueError:
-        # Try by name
-        workflow = storage.get_by_name(workflow_id)
+    print_header(
+        subtitle="Workflow Refiner",
+        tagline="试运行并提纯 Workflow，产出 *_final.yaml",
+        console=console,
+    )
+    print_workflow_panel(workflow, console)
 
-    if not workflow:
-        console.print(f"[red]Workflow not found: {workflow_id}[/red]")
-        raise typer.Exit(1)
-
-    _print_header()
-
-    console.print(Panel.fit(
-        f"[bold]{workflow.name}[/bold]\n"
-        f"[dim]{workflow.description}[/dim]\n"
-        f"\nStages: {len(workflow.stages)} | Variables: {len(workflow.variables)}",
-        title="Workflow",
-        border_style="blue",
-    ))
-
-    # Parse and collect variable inputs
-    parsed_inputs: dict[str, str] = {}
-    if inputs:
-        for input_str in inputs:
-            if "=" not in input_str:
-                console.print(f"[red]Invalid input format: {input_str}. Use key=value[/red]")
-                raise typer.Exit(1)
-            key, value = input_str.split("=", 1)
-            parsed_inputs[key] = value
-
-    # Collect remaining variables interactively
-    if workflow.variables:
-        console.print("\n[bold]Variables:[/bold]")
-        for var in workflow.variables:
-            if var.name in parsed_inputs:
-                # Already provided via --input
-                continue
-
-            req = " [red](required)[/red]" if var.required else " [dim](optional)[/dim]"
-            default = f" [{var.default_value}]" if var.default_value else ""
-            example = f" e.g. {var.example}" if var.example else ""
-
-            prompt_text = f"  {var.name}{req}{default}{example}: "
-            value = typer.prompt(prompt_text, default=var.default_value or "")
-
-            if var.required and not value:
-                console.print(f"[red]Error: {var.name} is required[/red]")
-                raise typer.Exit(1)
-
-            if value:
-                parsed_inputs[var.name] = value
-
-    # Validate inputs
-    is_valid, errors = workflow.validate_inputs(parsed_inputs)
-    if not is_valid:
-        console.print("[red]Validation errors:[/red]")
-        for error in errors:
-            console.print(f"  • {error}")
-        raise typer.Exit(1)
+    # Parse CLI inputs and collect remaining variables interactively
+    parsed_inputs = parse_cli_inputs(inputs, console)
+    parsed_inputs = collect_workflow_inputs(workflow, console, parsed_inputs)
+    validate_and_report_errors(workflow, parsed_inputs, console)
 
     # Show execution config
     console.print("\n[bold]Execution Configuration:[/bold]")

@@ -5,21 +5,13 @@ import asyncio
 import typer
 import websockets
 from rich.console import Console
+
 from rich.panel import Panel
 
 from sasiki.server.message_codec import WSMessageCodec
 
 app = typer.Typer()
 console = Console()
-
-
-def _print_header() -> None:
-    """Print the application header."""
-    console.print(Panel.fit(
-        "[bold blue]Sasiki[/bold blue] - 工作流摹刻 Agent\n"
-        "[dim]观察一次，永久复用[/dim]",
-        border_style="blue",
-    ))
 
 
 @app.command()
