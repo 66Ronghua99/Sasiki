@@ -4,11 +4,14 @@ import asyncio
 import json
 import signal
 import uuid
+from typing import Any
 
 import typer
 import websockets
 from rich.console import Console
 from rich.panel import Panel
+
+from sasiki.server.message_codec import WSMessageCodec
 
 app = typer.Typer()
 console = Console()
@@ -41,10 +44,7 @@ def record(
         try:
             async with websockets.connect(uri) as websocket:
                 # Register as CLI client
-                await websocket.send(json.dumps({
-                    "type": "register",
-                    "client": "cli"
-                }))
+                await websocket.send(WSMessageCodec.build_register(client="cli"))
 
                 session_id = name or str(uuid.uuid4())[:8]
                 console.print(f"\n[green]Starting recording session: {session_id}[/green]")
@@ -52,11 +52,10 @@ def record(
                 console.print("[dim]Press Ctrl+C to stop recording.[/dim]\n")
 
                 # Send start command
-                await websocket.send(json.dumps({
-                    "type": "control",
-                    "command": "start",
-                    "session_id": session_id
-                }))
+                await websocket.send(WSMessageCodec.build_control(
+                    command="start",
+                    session_id=session_id,
+                ))
 
                 # Wait for start confirmation
                 try:
@@ -103,10 +102,7 @@ def record(
                     return
 
                 # Send stop command
-                await websocket.send(json.dumps({
-                    "type": "control",
-                    "command": "stop"
-                }))
+                await websocket.send(WSMessageCodec.build_control(command="stop"))
 
                 # Wait for stop confirmation with filepath
                 try:

@@ -1,12 +1,13 @@
 """Command for managing the Sasiki WebSocket server."""
 
 import asyncio
-import json
 
 import typer
 import websockets
 from rich.console import Console
 from rich.panel import Panel
+
+from sasiki.server.message_codec import WSMessageCodec
 
 app = typer.Typer()
 console = Console()
@@ -54,10 +55,7 @@ def server(
         async def check_status() -> None:
             try:
                 async with websockets.connect(f"ws://{host}:{port}") as ws:
-                    await ws.send(json.dumps({
-                        "type": "register",
-                        "client": "cli"
-                    }))
+                    await ws.send(WSMessageCodec.build_register(client="cli"))
                     console.print("[green]Server is running[/green] at " + f"ws://{host}:{port}")
             except Exception:
                 console.print("[red]Server is not running[/red]")

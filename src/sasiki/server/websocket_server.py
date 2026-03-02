@@ -11,18 +11,24 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import structlog
 import websockets
 
+from sasiki.server.message_codec import WSMessageCodec, WSMessageCodecError
+from sasiki.server.message_policy import MessagePolicy, MessagePolicyViolation
 from sasiki.server.websocket_protocol import (
     RecordedAction,
+    WSMessage,
     WSMessageType,
 )
 from sasiki.server.recording_session import RecordingSession
 
 logger = structlog.get_logger(__name__)
+
+# Type alias for message handlers
+MessageHandler = Callable[[Any, WSMessage, Optional[str]], Any]
 
 
 class WebSocketServer:
@@ -50,6 +56,13 @@ class WebSocketServer:
         self._server: Optional[asyncio.Server] = None
         self._shutdown_event = asyncio.Event()
 
+        # Message handler registry: maps message types to handlers
+        self._handlers: dict[WSMessageType, MessageHandler] = {
+            WSMessageType.REGISTER: self._handle_register,
+            WSMessageType.ACTION: self._handle_action_message,
+            WSMessageType.CONTROL: self._handle_control_message,
+        }
+
     async def handle_client(
         self, websocket: Any, path: Optional[str] = None
     ) -> None:
@@ -62,11 +75,11 @@ class WebSocketServer:
         try:
             async for message in websocket:
                 try:
-                    data = json.loads(message)
-                    client_type = await self._handle_message(websocket, data, client_type)
-                except json.JSONDecodeError as e:
-                    logger.error("invalid_json", error=str(e), client=client_info)
-                    await self._send_error(websocket, "Invalid JSON message")
+                    ws_message = WSMessageCodec.parse_incoming(message)
+                    client_type = await self._handle_message(websocket, ws_message, client_type)
+                except WSMessageCodecError as e:
+                    logger.error("invalid_message", error=str(e), client=client_info)
+                    await self._send_error(websocket, f"Invalid message: {e}")
                 except Exception as e:
                     logger.error("message_handler_error", error=str(e), client=client_info)
                     await self._send_error(websocket, f"Error processing message: {e}")
@@ -85,36 +98,69 @@ class WebSocketServer:
     async def _handle_message(
         self,
         websocket: Any,
-        data: dict[str, Any],
+        message: WSMessage,
         client_type: Optional[str],
     ) -> Optional[str]:
-        """Handle a single message from a client."""
-        msg_type = data.get("type")
+        """Handle a single message from a client using the handler registry."""
+        msg_type = message.type
 
-        # Registration message
-        if msg_type == WSMessageType.REGISTER.value:
-            client_type = data.get("client")
-            if client_type == "extension":
-                self.extension_ws = websocket
-                logger.info("extension_registered", client=f"{websocket.remote_address}")
-            elif client_type == "cli":
-                self.cli_ws = websocket
-                logger.info("cli_registered", client=f"{websocket.remote_address}")
-            else:
-                logger.warning("unknown_client_type", client_type=client_type)
+        # Validate sender policy (before processing)
+        try:
+            MessagePolicy.validate_sender(client_type, msg_type)
+        except MessagePolicyViolation as e:
+            logger.warning("policy_violation", error=str(e), client_type=client_type)
+            await self._send_error(websocket, f"Policy violation: {e}")
             return client_type
 
-        # Action message from extension
-        if msg_type == WSMessageType.ACTION.value:
-            await self._handle_action(data.get("payload", data))
-            return client_type
+        # Look up handler in registry
+        handler = self._handlers.get(msg_type)
+        if handler:
+            return await handler(websocket, message, client_type)
 
-        # Control message from CLI
-        if msg_type == WSMessageType.CONTROL.value:
-            await self._handle_control(data.get("payload", data), websocket)
-            return client_type
+        # Unknown message type
+        logger.warning("unknown_message_type", type=msg_type.value, data=message.model_dump())
+        return client_type
 
-        logger.warning("unknown_message_type", type=msg_type, data=data)
+    async def _handle_register(
+        self,
+        websocket: Any,
+        message: WSMessage,
+        client_type: Optional[str],
+    ) -> Optional[str]:
+        """Handle REGISTER message from a client."""
+        new_client_type = message.client
+        if not MessagePolicy.is_valid_role(new_client_type):
+            logger.warning("invalid_client_role", role=new_client_type)
+            await self._send_error(websocket, f"Invalid client role: {new_client_type}")
+            return None
+        if new_client_type == "extension":
+            self.extension_ws = websocket
+            logger.info("extension_registered", client=f"{websocket.remote_address}")
+        elif new_client_type == "cli":
+            self.cli_ws = websocket
+            logger.info("cli_registered", client=f"{websocket.remote_address}")
+        return new_client_type
+
+    async def _handle_action_message(
+        self,
+        websocket: Any,
+        message: WSMessage,
+        client_type: Optional[str],
+    ) -> Optional[str]:
+        """Handle ACTION message from extension."""
+        payload = message.payload if isinstance(message.payload, dict) else {}
+        await self._handle_action(payload)
+        return client_type
+
+    async def _handle_control_message(
+        self,
+        websocket: Any,
+        message: WSMessage,
+        client_type: Optional[str],
+    ) -> Optional[str]:
+        """Handle CONTROL message from CLI."""
+        payload = message.payload if isinstance(message.payload, dict) else {}
+        await self._handle_control(payload, websocket)
         return client_type
 
     async def _handle_action(self, payload: dict[str, Any]) -> None:
@@ -141,15 +187,13 @@ class WebSocketServer:
 
             # Forward to CLI for display
             if self.cli_ws:
+                action_data = {
+                    "type": action.type.value,
+                    "target": target_name,
+                    "timestamp": action.timestamp,
+                }
                 await self.cli_ws.send(
-                    json.dumps({
-                        "type": "action_logged",
-                        "action": {
-                            "type": action.type.value,
-                            "target": target_name,
-                            "timestamp": action.timestamp,
-                        },
-                    })
+                    WSMessageCodec.build_action_logged(action_data)
                 )
 
         except Exception as e:
@@ -164,29 +208,32 @@ class WebSocketServer:
 
         if command in ("start", "START_RECORDING"):
             await self._start_recording(session_id)
+            current_session_id = (
+                self.current_session.session_id if self.current_session else None
+            )
 
             # Forward to extension if connected
             if self.extension_ws:
                 await self.extension_ws.send(
-                    json.dumps({
-                        "type": "control",
-                        "command": "START_RECORDING",
-                        "sessionId": self.current_session.session_id if self.current_session else None,
-                    })
+                    WSMessageCodec.build_control(
+                        command="START_RECORDING",
+                        session_id=current_session_id,
+                    )
                 )
 
             # Confirm to CLI
             await source_ws.send(
-                json.dumps({
-                    "type": "control_response",
-                    "command": "start",
-                    "success": True,
-                    "session_id": self.current_session.session_id if self.current_session else None,
-                })
+                WSMessageCodec.build_control_response(
+                    command="start",
+                    success=True,
+                    session_id=current_session_id,
+                )
             )
 
         elif command in ("stop", "STOP_RECORDING"):
-            session_id = self.current_session.session_id if self.current_session else None
+            session_id = (
+                self.current_session.session_id if self.current_session else None
+            )
 
             # Stop the recording
             filepath = await self._stop_recording()
@@ -194,32 +241,27 @@ class WebSocketServer:
             # Forward to extension if connected
             if self.extension_ws:
                 await self.extension_ws.send(
-                    json.dumps({
-                        "type": "control",
-                        "command": "STOP_RECORDING",
-                    })
+                    WSMessageCodec.build_control(command="STOP_RECORDING")
                 )
 
             # Confirm to CLI
             await source_ws.send(
-                json.dumps({
-                    "type": "control_response",
-                    "command": "stop",
-                    "success": True,
-                    "session_id": session_id,
-                    "filepath": str(filepath) if filepath else None,
-                })
+                WSMessageCodec.build_control_response(
+                    command="stop",
+                    success=True,
+                    session_id=session_id,
+                    filepath=str(filepath) if filepath else None,
+                )
             )
 
         else:
             logger.warning("unknown_control_command", command=command)
             await source_ws.send(
-                json.dumps({
-                    "type": "control_response",
-                    "command": command,
-                    "success": False,
-                    "error": f"Unknown command: {command}",
-                })
+                WSMessageCodec.build_control_response(
+                    command=command,
+                    success=False,
+                    error=f"Unknown command: {command}",
+                )
             )
 
     async def _start_recording(self, session_id: Optional[str] = None) -> None:
@@ -257,12 +299,7 @@ class WebSocketServer:
     async def _send_error(self, websocket: Any, message: str) -> None:
         """Send an error message to a client."""
         try:
-            await websocket.send(
-                json.dumps({
-                    "type": "error",
-                    "payload": {"message": message},
-                })
-            )
+            await websocket.send(WSMessageCodec.build_error(message))
         except Exception:
             pass
 

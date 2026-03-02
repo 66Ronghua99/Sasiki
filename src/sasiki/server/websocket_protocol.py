@@ -29,6 +29,7 @@ class WSMessageType(str, Enum):
     REGISTER = "register"
     ACTION = "action"
     CONTROL = "control"
+    CONTROL_RESPONSE = "control_response"
     ERROR = "error"
     ACTION_LOGGED = "action_logged"
 
