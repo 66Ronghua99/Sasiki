@@ -1,7 +1,22 @@
 """Data models for the Replay Agent's actions."""
 
-from typing import Optional, Literal
+from dataclasses import dataclass
+from typing import Optional, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from sasiki.engine.replay_models import AgentAction
+
+
+@dataclass
+class RetryContext:
+    """Retry 时的失败上下文"""
+    failed_action: Optional["AgentAction"]  # 失败的 action (forward reference)
+    error_message: str                      # 错误信息
+    error_type: str                         # "execution_error", "element_not_found", "navigation_error", "timeout"
+    attempt_number: int                     # 当前是第几次尝试（从1开始）
+    max_attempts: int                       # 最大尝试次数
+
 
 class AgentAction(BaseModel):
     thought: str = Field(..., description="Reasoning for the chosen action based on the current DOM and goal.")
