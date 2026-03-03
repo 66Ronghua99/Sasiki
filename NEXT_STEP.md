@@ -2,42 +2,77 @@
 
 **更新日期：2026-03-03**
 
-## 目标：E2E Refinement 稳定性验证 & Agent System 重构准备
+## 目标：AI-Native Pipeline 重构 — P0 第一步
 
 ---
 
 ## 背景
 
-本次 e2e 调试（`sasiki refine 60b002bc ... -i search_query="春季穿搭 男"`）定位并修复了两个根本问题：
-1. `_compress_tree` 丢弃兄弟节点，导致 LLM 只能看到 1 个节点（DOM 空）
-2. SPA 导航后未等待 JS 渲染，导致 Agent 误判页面未加载并陷入导航死循环
+完成了 AI-Native 重构设计（详见 `docs/AI_NATIVE_REDESIGN.md`）。
 
-两个 bug 已修复并通过 149 个单元测试。
+核心问题：当前架构把录制的微操作 actions list 当成 Agent 指令（本末倒置），导致 Agent 在任何页面偏差时失去自适应能力。
+
+重构方向已确定，分两条演化路径：
+- **Path A（当前）**：忠实复刻 + 流程优化（浏览器执行，semantic narrative，step 优化）
+- **Path B（未来）**：理解用户意图，最优实现（API/tool/browser 自主选择）
 
 ---
 
 ## 当前优先级
 
-### P0：在真实小红书场景重新验证 E2E Refinement
+### P0：WorkflowSpec model 扩展
 
-```bash
-uv run sasiki refine 60b002bc-a4c5-4695-9496-a1d9c7f4bc94 \
-  -i search_query="春季穿搭 男" \
-  --max-steps 30
+**任务描述**：
+在 `src/sasiki/workflow/models.py` 中，为 `WorkflowStage` 新增以下字段（向后兼容旧 YAML）：
+
+```python
+class WorkflowStage(BaseModel):
+    # 现有字段保留...
+    
+    # 新增 AI-native 字段
+    objective: str = ""                          # 本 Stage 的语义目标（高层次）
+    success_criteria: str = ""                   # 验证完成的条件
+    context_hints: list[str] = []               # 给 Agent 的提示（来自录制）
+    reference_actions: list[dict] = []          # 录制动作作为参考 hint（非指令）
 ```
 
-验收标准：
-- Agent 能看到完整 DOM（节点数 > 10）
-- 不再出现无意义的重复导航
-- Stage 能正常推进并产出 `*_final.yaml`
+同步更新 `SemanticStagePlan`（在 `skill_models.py`）：
+```python
+class SemanticStagePlan(BaseModel):
+    # 现有字段保留...
+    objective: str = ""
+    success_criteria: str = ""
+    context_hints: list[str] = []
+```
+
+**验收标准**：
+- 旧 YAML 文件（无新字段）仍可正常加载（字段有默认值）
+- 新字段出现在 `to_execution_plan()` 的输出中
+- 单元测试通过（`uv run pytest -q`）
 
 ---
 
-## 重要说明：Agent System 将有较大变动
+## 重构全景（见 docs/AI_NATIVE_REDESIGN.md）
 
-后续 Agent 架构将进行较大重构（具体方向 TBD），当前的 `WorkflowRefiner` / `ReplayAgent` / `StageExecutor` 可能会被重新设计。
+14 个 TODO，按 P0 → P2 优先级：
 
-在重构前，当前重点是：
-1. 用修复后的版本完成 E2E 验收，留存可用基线
-2. 记录现有 Agent 设计的边界和已知问题，为重构提供输入
+**P0（核心概念对齐）**：
+1. ✅ WorkflowSpec model 扩展（本次任务）
+2. SkillGenerator prompt 更新（产出 objective/success_criteria）
+3. AriaSnapshot 替代 CompressedNode（去 node_id，加 dom_hash）
+4. StageContext 类（替代 _build_stage_goal() 字符串）
+5. AgentDecision 替代 AgentAction（target 用 role+name）
+6. ActionExecutor（Playwright get_by_role 替代 CDP 坐标）
+
+**P1（稳定性提升）**：
+7. EpisodeMemory（结构化 step log 替代 history strings）
+8. SemanticNarrative 字段（semantic_meaning + progress_assessment）
+9. StagnationDetector（dom_hash 停滞检测）
+10. Multi-level retry（L1/L2/L3/L4）
+11. StageVerifier（evidence-based done）
+
+**P2（记忆与输出）**：
+12. WorldState 跨 Stage 传递
+13. ExecutionReport 输出格式
+14. ExecutionStrategy 接口预留（Path B）
 

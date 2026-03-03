@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-03-02** (Phase 2 正式完成，进入持续优化迭代；Phase 3 核心开发中)
+**最后更新：2026-03-03** (Phase 3 AI-Native 重构方案确定，进入实施阶段)
 
 ## 当前主线
 
@@ -19,13 +19,24 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 2 Skill 生成   | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代                |
 | Phase 3 执行引擎     | 🟢 进行中 | WorkflowRefiner 核心调度器已完成，支持分 Stage 执行、Checkpoint 暂停、变量替换与最终 Workflow 产出 |
 | Phase 3 Retry & HITL | ✅ 已完成 | Retry 上下文传递、HumanInteractionHandler 抽象接口、CLI/NonInteractive 双实现 |
+| Phase 3 AI-Native 重构 | 🔵 设计完成 | 架构重构方案确定，见 `docs/AI_NATIVE_REDESIGN.md`，P0 实施中 |
 
 ---
 
 ## 已完成（近期关键项）
 
-### Phase 3 执行引擎（新启动）
+### Phase 3 AI-Native 重构（设计阶段完成）
 
+- 识别并记录当前 WorkflowRefiner 的根本性架构问题：Agent 被当作脚本执行器（actions list 作为指令，而非目标）
+- 完成全链路 AI-Native Pipeline 设计（`docs/AI_NATIVE_REDESIGN.md`）：
+  - **WorkflowSpec 变更**：Stage 从 `actions list` → `objective + success_criteria + context_hints + reference_actions`
+  - **AriaSnapshot**：去掉 node_id，改用 role+name 寻址 + dom_hash 停滞检测
+  - **EpisodeMemory**：结构化步骤日志，含 semantic_meaning + progress_assessment 语义叙事
+  - **AgentDecision**：target 用 role+name，Playwright `get_by_role()` 执行
+  - **分层架构预留**：Layer 1（执行）/ Layer 2（语义理解）/ Layer 3（意图+API化，Path B 未来方向）
+- 定义两条演化路径：Path A（忠实复刻+优化）/ Path B（意图理解+革命性优化）
+- 制定 14 个 TODO，P0→P2 优先级分层
+### Previous Phase 3 design
 - 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
 - 引入 `playwright` 依赖，作为自动化执行基础。
 - 实现 `PlaywrightEnvironment` (支持 CDP 连接或指定独立 `user_data_dir` 保留登录态)。
@@ -77,9 +88,10 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P0：构建 `WorkflowReplayer` 核心调度器**（支持 YAML 解析与分阶段任务执行）
-2. **P0：优化 Agent Memory 与 Prompt Cache**（提升连续动作执行的稳定性和 LLM 响应速度）
-3. **P1：Phase 1 E2E 稳定性补齐**（至少覆盖 3 个真实站点场景）
+1. **P0：WorkflowSpec model 扩展**（新增 objective/success_criteria/context_hints/reference_actions，向后兼容）
+2. **P0：SkillGenerator prompt 更新**（产出新字段）
+3. **P0：AriaSnapshot 替代 CompressedNode**（去 node_id，加 dom_hash）
+4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---
 
