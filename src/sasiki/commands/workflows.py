@@ -1,5 +1,6 @@
 """Workflow management commands."""
 
+from typing import Any
 from uuid import UUID
 
 import typer
@@ -14,6 +15,37 @@ from sasiki.workflow.storage import WorkflowStorage
 
 app = typer.Typer(help="Manage workflows")
 console = Console()
+
+
+def _format_target_hint(target: Any) -> str:
+    """Format reference target into a concise, model-facing string."""
+    if not isinstance(target, dict):
+        return str(target) if target else ""
+
+    role = target.get("role")
+    name = target.get("name") or target.get("placeholder") or target.get("text")
+
+    if role and name:
+        return f"{role}:{name}"
+    if role:
+        return str(role)
+    if name:
+        return str(name)
+    return ""
+
+
+def _format_reference_action(reference_action: dict[str, Any]) -> str:
+    """Format a reference action for high-level display."""
+    action_type = str(reference_action.get("type", "action"))
+    target_text = _format_target_hint(reference_action.get("target"))
+    value = reference_action.get("value")
+
+    parts = [action_type]
+    if target_text:
+        parts.append(f"on {target_text}")
+    if value not in (None, ""):
+        parts.append(f'with "{value}"')
+    return " ".join(parts)
 
 
 @app.command(name="list")
@@ -71,21 +103,49 @@ def show_workflow(
         f"\nID: {workflow.id}"
     ))
 
-    console.print("\n[bold]Stages:[/bold]")
+    console.print("\n[bold]Stages (High-Level):[/bold]")
     for i, stage in enumerate(workflow.stages, 1):
-        console.print(f"\n  {i}. [cyan]{stage.name}[/cyan]", end="")
+        stage_title = f"{i}. {stage.name}"
         if stage.application:
-            console.print(f" ([dim]{stage.application}[/dim])")
-        else:
-            console.print()
-        if stage.description:
-            console.print(f"     {stage.description}")
-        if stage.actions:
-            console.print("     Actions:")
-            for action in stage.actions[:5]:  # Show first 5
-                console.print(f"       • {action}")
-            if len(stage.actions) > 5:
-                console.print(f"       ... and {len(stage.actions) - 5} more")
+            stage_title += f" ({stage.application})"
+
+        stage_lines: list[str] = []
+        if stage.objective:
+            stage_lines.append(f"[bold]Objective:[/bold] {stage.objective}")
+        elif stage.description:
+            stage_lines.append(f"[bold]Objective:[/bold] {stage.description}")
+
+        if stage.success_criteria:
+            stage_lines.append(f"[bold]Success Criteria:[/bold] {stage.success_criteria}")
+
+        if stage.context_hints:
+            stage_lines.append("[bold]Context Hints:[/bold]")
+            stage_lines.extend([f"  • {hint}" for hint in stage.context_hints[:4]])
+            if len(stage.context_hints) > 4:
+                stage_lines.append(f"  ... and {len(stage.context_hints) - 4} more")
+
+        if stage.reference_actions:
+            stage_lines.append("[bold]Reference Actions (hints):[/bold]")
+            stage_lines.extend(
+                [f"  • {_format_reference_action(action)}" for action in stage.reference_actions[:4]]
+            )
+            if len(stage.reference_actions) > 4:
+                stage_lines.append(f"  ... and {len(stage.reference_actions) - 4} more")
+        elif stage.actions:
+            stage_lines.append("[bold]Legacy Actions:[/bold]")
+            stage_lines.extend([f"  • {action}" for action in stage.actions[:4]])
+            if len(stage.actions) > 4:
+                stage_lines.append(f"  ... and {len(stage.actions) - 4} more")
+
+        if stage.inputs:
+            stage_lines.append(f"[bold]Inputs:[/bold] {', '.join(stage.inputs)}")
+        if stage.outputs:
+            stage_lines.append(f"[bold]Outputs:[/bold] {', '.join(stage.outputs)}")
+
+        if not stage_lines:
+            stage_lines.append("[dim]No stage details available.[/dim]")
+
+        console.print(Panel("\n".join(stage_lines), title=stage_title, border_style="cyan"))
 
     if workflow.variables:
         console.print("\n[bold]Variables:[/bold]")
