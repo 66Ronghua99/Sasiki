@@ -88,9 +88,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P1：SemanticNarrative 字段**（`semantic_meaning` + `progress_assessment`）
-2. **P1：StagnationDetector**（dom_hash 停滞检测）
-3. **P1：Multi-level retry**（L1/L2/L3/L4）
+1. **P1：StagnationDetector**（dom_hash 停滞检测）
+2. **P1：Multi-level retry**（L1/L2/L3/L4）
+3. **P1：StageVerifier**（evidence-based done）
 4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---

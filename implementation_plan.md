@@ -33,6 +33,13 @@ uv run mypy src
 uv run pytest -q
 ```
 
+**P1-8：SemanticNarrative 字段完善（semantic_meaning + progress_assessment）**
+
+### 结果
+- `ReplayAgent` 正常与重试 system prompt 均显式要求输出 `semantic_meaning` 和 `progress_assessment`。
+- `StageExecutor` 在模型未返回语义字段时提供确定性 fallback，保证 `episode_log` 中语义字段稳定可用。
+- 增加 prompt/schema 与 fallback 的回归断言测试。
+
 ## 下一步（最小可执行）
 
-**P1-8：SemanticNarrative 字段完善（semantic_meaning + progress_assessment）**
+**P1-9：StagnationDetector（dom_hash 停滞检测）**

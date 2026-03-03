@@ -84,6 +84,9 @@ class TestReplayAgentStepWithContext:
         messages = calls[0].kwargs.get("messages", calls[0][1].get("messages", []))
         # Verify it's a normal prompt (not retry)
         assert any("DOM Snapshot" in msg.get("content", "") for msg in messages)
+        system_message = messages[0]["content"] if messages else ""
+        assert "semantic_meaning" in system_message
+        assert "progress_assessment" in system_message
         user_message = messages[1]["content"] if len(messages) > 1 else ""
         assert "dom_hash" in user_message
         assert "deadbeef" in user_message
@@ -117,6 +120,9 @@ class TestReplayAgentStepWithContext:
         assert len(calls) == 1
         messages = calls[0].kwargs.get("messages", calls[0][1].get("messages", []))
         # Verify retry context is in the prompt
+        system_message = messages[0]["content"] if messages else ""
+        assert "semantic_meaning" in system_message
+        assert "progress_assessment" in system_message
         user_message = messages[1]["content"] if len(messages) > 1 else ""
         assert "PREVIOUS ACTION FAILED" in user_message
         assert "Element not found" in user_message

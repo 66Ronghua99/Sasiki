@@ -573,6 +573,12 @@ class StageExecutor:
         error: str | None = None,
     ) -> None:
         """Append one structured episode memory entry."""
+        semantic_meaning = action.semantic_meaning or self._default_semantic_meaning(action)
+        progress_assessment = action.progress_assessment or self._default_progress_assessment(
+            action,
+            result,
+            len(episode_log) + 1,
+        )
         episode_log.append(
             EpisodeEntry(
                 step=step,
@@ -585,7 +591,25 @@ class StageExecutor:
                 page_url_after=page_url_after,
                 page_changed=page_url_before != page_url_after,
                 thought=action.thought,
-                semantic_meaning=action.semantic_meaning,
-                progress_assessment=action.progress_assessment,
+                semantic_meaning=semantic_meaning,
+                progress_assessment=progress_assessment,
             )
         )
+
+    def _default_semantic_meaning(self, action: AgentAction) -> str:
+        """Provide deterministic semantic fallback when model omits it."""
+        target = self._target_description(action)
+        if target:
+            return f"{action.action_type} on {target}"
+        return action.action_type
+
+    def _default_progress_assessment(
+        self,
+        action: AgentAction,
+        result: Literal["success", "failed", "skipped"],
+        step_number: int,
+    ) -> str:
+        """Provide deterministic progress fallback when model omits it."""
+        if action.action_type == "done" and result == "success":
+            return "Stage objective achieved"
+        return f"Step {step_number}: {result}"

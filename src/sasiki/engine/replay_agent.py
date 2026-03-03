@@ -21,8 +21,11 @@ You MUST output your choice in a valid JSON format matching this schema:
   "target": {"role": "searchbox", "name": "Search"}, // Preferred target format
   "target_id": 12, // Legacy fallback target format
   "value": "text to fill or key to press", // Optional
-  "message": "Message to user if asking human or done" // Optional
+  "message": "Message to user if asking human or done", // Optional
+  "semantic_meaning": "What this step means at a semantic level",
+  "progress_assessment": "Short progress update toward completion"
 }
+Always include semantic_meaning and progress_assessment.
 Ensure the output is strictly parseable JSON."""
 
 # System prompt for retry execution
@@ -46,7 +49,9 @@ You MUST output your choice in valid JSON format:
   "target": {"role": "button", "name": "Submit"},
   "target_id": 12,
   "value": "...",
-  "message": "..."
+  "message": "...",
+  "semantic_meaning": "What this retry action means semantically",
+  "progress_assessment": "How this action changes stage progress"
 }"""
 
 

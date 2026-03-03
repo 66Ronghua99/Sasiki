@@ -289,7 +289,10 @@ class TestSingleStageExecution:
         assert len(result.stage_results[0].actions) == 4
         assert len(result.stage_results[0].episode_log) == 4
         assert result.stage_results[0].episode_log[0].action_type == "click"
+        assert result.stage_results[0].episode_log[0].semantic_meaning == "click on node_id:1"
+        assert result.stage_results[0].episode_log[0].progress_assessment == "Step 1: success"
         assert result.stage_results[0].episode_log[-1].action_type == "done"
+        assert result.stage_results[0].episode_log[-1].progress_assessment == "Stage objective achieved"
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
