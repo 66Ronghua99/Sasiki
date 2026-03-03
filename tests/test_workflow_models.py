@@ -56,6 +56,14 @@ class TestWorkflowStage:
         assert stage.application == "Chrome"
         assert len(stage.actions) == 2
 
+    def test_create_stage_ai_native_fields_default(self):
+        """Test AI-native stage fields have backward-compatible defaults."""
+        stage = WorkflowStage(name="兼容阶段")
+        assert stage.objective == ""
+        assert stage.success_criteria == ""
+        assert stage.context_hints == []
+        assert stage.reference_actions == []
+
 
 class TestWorkflow:
     """Tests for Workflow."""
@@ -189,3 +197,25 @@ class TestWorkflow:
 
         assert "action_details" in plan["stages"][0]
         assert len(plan["stages"][0]["action_details"]) == 0
+
+    def test_to_execution_plan_includes_ai_native_fields(self):
+        """Test execution plan includes AI-native fields with variable substitution."""
+        var = WorkflowVariable(name="query", required=True)
+        stage = WorkflowStage(
+            name="搜索",
+            objective="搜索 {{query}} 并打开结果页",
+            success_criteria="页面出现 {{query}} 的结果列表",
+            context_hints=["搜索框通常包含 {{query}} 相关提示"],
+            reference_actions=[
+                {"type": "fill", "value": "{{query}}"},
+                {"type": "press", "value": "Enter"},
+            ],
+        )
+        workflow = Workflow(name="测试", variables=[var], stages=[stage])
+        plan = workflow.to_execution_plan({"query": "AI Agent"})
+
+        stage_plan = plan["stages"][0]
+        assert stage_plan["objective"] == "搜索 AI Agent 并打开结果页"
+        assert stage_plan["success_criteria"] == "页面出现 AI Agent 的结果列表"
+        assert stage_plan["context_hints"] == ["搜索框通常包含 AI Agent 相关提示"]
+        assert stage_plan["reference_actions"][0]["value"] == "AI Agent"

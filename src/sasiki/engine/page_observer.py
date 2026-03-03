@@ -197,6 +197,7 @@ class AccessibilityObserver:
             root_node = nodes[0]  # Fallback to first node
 
         compressed_results = self._compress_tree(root_node, node_dict)
+        compressed_tree: CompressedNode | list[CompressedNode] | None
 
         if not compressed_results:
             compressed_tree = None

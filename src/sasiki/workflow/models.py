@@ -43,6 +43,10 @@ class WorkflowStage(BaseModel):
     # Actions in this stage
     actions: list[str] = Field(default_factory=list)
     action_details: list[dict[str, Any]] = Field(default_factory=list)
+    objective: str = ""
+    success_criteria: str = ""
+    context_hints: list[str] = Field(default_factory=list)
+    reference_actions: list[dict[str, Any]] = Field(default_factory=list)
 
     # Data flow
     inputs: list[str] = Field(default_factory=list)
@@ -134,37 +138,37 @@ class Workflow(BaseModel):
         if not is_valid:
             raise ValueError(f"Invalid inputs: {', '.join(errors)}")
 
-        # Substitute variables in actions and action_details
-        resolved_stages = []
-        for stage in self.stages:
-            resolved_actions = []
-            for action in stage.actions:
-                resolved = action
+        def _resolve_value(value: Any) -> Any:
+            if isinstance(value, str):
+                resolved_value = value
                 for var_name, var_value in inputs.items():
                     placeholder = f"{{{{{var_name}}}}}"
-                    resolved = resolved.replace(placeholder, str(var_value))
-                resolved_actions.append(resolved)
+                    resolved_value = resolved_value.replace(placeholder, str(var_value))
+                return resolved_value
+            if isinstance(value, list):
+                return [_resolve_value(item) for item in value]
+            if isinstance(value, dict):
+                return {key: _resolve_value(item) for key, item in value.items()}
+            return value
+
+        # Substitute variables in actions and AI-native stage fields
+        resolved_stages = []
+        for stage in self.stages:
+            resolved_actions = [_resolve_value(action) for action in stage.actions]
 
             # Resolve variables in action_details
-            resolved_action_details: list[dict[str, Any]] = []
-            for detail in stage.action_details:
-                resolved_detail: dict[str, Any] = {}
-                for key, value in detail.items():
-                    if isinstance(value, str):
-                        resolved_value = value
-                        for var_name, var_value in inputs.items():
-                            placeholder = f"{{{{{var_name}}}}}"
-                            resolved_value = resolved_value.replace(placeholder, str(var_value))
-                        resolved_detail[key] = resolved_value
-                    else:
-                        resolved_detail[key] = value
-                resolved_action_details.append(resolved_detail)
+            resolved_action_details = [_resolve_value(detail) for detail in stage.action_details]
+            resolved_reference_actions = [_resolve_value(detail) for detail in stage.reference_actions]
 
             resolved_stages.append({
                 "name": stage.name,
                 "application": stage.application,
                 "actions": resolved_actions,
                 "action_details": resolved_action_details,
+                "objective": _resolve_value(stage.objective),
+                "success_criteria": _resolve_value(stage.success_criteria),
+                "context_hints": _resolve_value(stage.context_hints),
+                "reference_actions": resolved_reference_actions,
                 "inputs": stage.inputs,
                 "outputs": stage.outputs,
             })

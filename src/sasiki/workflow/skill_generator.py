@@ -82,6 +82,9 @@ Important constraints:
             '      "name": "Stage name",',
             '      "description": "Optional stage summary",',
             '      "application": "Chrome",',
+            '      "objective": "High-level stage objective",',
+            '      "success_criteria": "How to verify stage completion",',
+            '      "context_hints": ["Optional hints from recording context"],',
             '      "action_ids": [1, 2, 3],',
             '      "inputs": ["input variable names"],',
             '      "outputs": ["output data produced"]',
@@ -155,6 +158,7 @@ Important constraints:
         """Build stage payload deterministically from action_ids."""
         action_details: list[dict[str, Any]] = []
         action_summaries: list[str] = []
+        reference_actions: list[dict[str, Any]] = []
 
         for action_id in stage_plan.action_ids:
             action = action_map.get(action_id)
@@ -180,10 +184,22 @@ Important constraints:
             action_details.append(cleaned_detail)
             action_summaries.append(self.formatter.format_action_text(detail))
 
+            reference_action = {
+                "type": detail.get("action_type"),
+                "target": detail.get("target_hint"),
+                "value": detail.get("value"),
+            }
+            cleaned_reference_action = self.formatter.remove_null_values(reference_action)
+            reference_actions.append(cleaned_reference_action)
+
         return {
             "name": stage_plan.name,
             "description": stage_plan.description,
             "application": stage_plan.application,
+            "objective": stage_plan.objective,
+            "success_criteria": stage_plan.success_criteria,
+            "context_hints": stage_plan.context_hints,
+            "reference_actions": reference_actions,
             "actions": action_summaries,
             "action_details": action_details,
             "inputs": stage_plan.inputs,
@@ -291,6 +307,10 @@ Important constraints:
                 name=stage_data["name"],
                 description=stage_data.get("description", ""),
                 application=stage_data.get("application", "Chrome"),
+                objective=stage_data.get("objective", ""),
+                success_criteria=stage_data.get("success_criteria", ""),
+                context_hints=stage_data.get("context_hints", []),
+                reference_actions=stage_data.get("reference_actions", []),
                 actions=stage_data.get("actions", []),
                 action_details=stage_data.get("action_details", []),
                 inputs=stage_data.get("inputs", []),

@@ -1,3 +1,9 @@
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-02
+> 本文档记录了 human in the loop 循环的重构计划
+> HITL 已经进行基本功能开发，此文档归档处理，不做参考
+> 
+
 # WorkflowRefiner Retry 机制与 HITL 循环重构计划
 
 ## 背景与问题

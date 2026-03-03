@@ -11,6 +11,9 @@ class SemanticStagePlan(BaseModel):
     action_ids: list[int] = Field(default_factory=list)
     description: str = ""
     application: str = "Chrome"
+    objective: str = ""
+    success_criteria: str = ""
+    context_hints: list[str] = Field(default_factory=list)
     inputs: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
 

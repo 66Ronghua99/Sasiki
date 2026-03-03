@@ -92,6 +92,9 @@ class TestSkillGenerator:
                     "name": "Navigate to site",
                     "description": "Open target website",
                     "application": "Chrome",
+                    "objective": "Open the target site homepage",
+                    "success_criteria": "Example site homepage is visible",
+                    "context_hints": ["Home page contains a search box"],
                     "action_ids": [1],
                     "inputs": [],
                     "outputs": [],
@@ -100,6 +103,9 @@ class TestSkillGenerator:
                     "name": "Perform search",
                     "description": "Use search box",
                     "application": "Chrome",
+                    "objective": "Search for {{search_query}} using the search input",
+                    "success_criteria": "Search results page is displayed",
+                    "context_hints": ["Search field label is Search"],
                     "action_ids": [2, 3],
                     "inputs": ["search_query"],
                     "outputs": ["search_results"],
@@ -168,6 +174,10 @@ class TestSkillGenerator:
                     "name": "Navigate to site",
                     "description": "Open target website",
                     "application": "Chrome",
+                    "objective": "Open the target site homepage",
+                    "success_criteria": "Example site homepage is visible",
+                    "context_hints": ["Home page contains a search box"],
+                    "reference_actions": [{"type": "navigate", "value": "https://example.com"}],
                     "actions": ['Navigate to "https://example.com"'],
                     "action_details": [
                         {
@@ -183,6 +193,13 @@ class TestSkillGenerator:
                     "name": "Perform search",
                     "description": "Use search box",
                     "application": "Chrome",
+                    "objective": "Search for {{search_query}} using the search input",
+                    "success_criteria": "Search results page is displayed",
+                    "context_hints": ["Search field label is Search"],
+                    "reference_actions": [
+                        {"type": "click", "target": {"role": "textbox", "name": "Search"}},
+                        {"type": "type", "value": "test query"},
+                    ],
                     "actions": ['Click "Search"', 'Type "test query" into "Search"'],
                     "action_details": [
                         {
@@ -219,6 +236,10 @@ class TestSkillGenerator:
         assert workflow.stages[1].name == "Perform search"
         assert workflow.stages[1].inputs == ["search_query"]
         assert len(workflow.stages[1].action_details) == 2
+        assert workflow.stages[1].objective == "Search for {{search_query}} using the search input"
+        assert workflow.stages[1].success_criteria == "Search results page is displayed"
+        assert workflow.stages[1].context_hints == ["Search field label is Search"]
+        assert len(workflow.stages[1].reference_actions) == 2
 
         # Check variable details
         var = workflow.variables[0]
@@ -281,6 +302,10 @@ class TestSkillGenerator:
         assert isinstance(workflow, Workflow)
         assert workflow.name == "Custom Name"  # Explicit name overrides
         assert workflow.description == "Custom Description"
+        assert workflow.stages[0].objective == "Open the target site homepage"
+        assert workflow.stages[0].success_criteria == "Example site homepage is visible"
+        assert workflow.stages[0].context_hints == ["Home page contains a search box"]
+        assert workflow.stages[1].reference_actions
         mock_storage.save.assert_called_once_with(workflow)
 
     @patch("sasiki.workflow.skill_generator.WorkflowStorage")
