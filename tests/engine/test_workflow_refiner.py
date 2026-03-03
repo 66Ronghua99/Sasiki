@@ -843,3 +843,27 @@ class TestBuildStageGoal:
         assert "Structured actions" in goal
         assert "click on new-button" in goal
         assert "Old text action" not in goal
+
+    def test_build_stage_goal_includes_stage_context_fields(self):
+        """Test goal includes objective/success criteria/context hints/reference actions."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        stage = {
+            "name": "Search Stage",
+            "objective": "Find {{query}} and open results",
+            "success_criteria": "Results list is visible",
+            "context_hints": ["Search box is near top", "Press Enter to submit"],
+            "reference_actions": [
+                {"type": "fill", "target": {"role": "searchbox", "name": "Search"}, "value": "python"},
+                {"type": "press", "value": "Enter"},
+            ],
+        }
+        goal = executor._build_stage_goal(stage, [])
+
+        assert "Objective: Find {{query}} and open results" in goal
+        assert "Success criteria: Results list is visible" in goal
+        assert "Context hints:" in goal
+        assert "Search box is near top" in goal
+        assert "Reference actions (hints, not strict script):" in goal
+        assert "fill on {'role': 'searchbox', 'name': 'Search'} with \"python\"" in goal

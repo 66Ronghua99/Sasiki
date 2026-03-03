@@ -1,11 +1,11 @@
 """The Replay Agent that executes tasks by observing the DOM and asking the LLM."""
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from playwright.async_api import Page
 
-from sasiki.engine.page_observer import AccessibilityObserver, CompressedNode
-from sasiki.engine.replay_models import AgentAction, RetryContext
+from sasiki.engine.page_observer import AccessibilityObserver, AriaSnapshot, CompressedNode
+from sasiki.engine.replay_models import AgentAction, AgentDecision, RetryContext
 from sasiki.llm.client import LLMClient
 from sasiki.utils.logger import get_logger
 
@@ -13,13 +13,13 @@ from sasiki.utils.logger import get_logger
 # System prompt for normal execution
 NORMAL_SYSTEM_PROMPT = """You are a highly capable web automation agent.
 You are given a compressed representation of the current page's Accessibility Tree.
-Each interactable or readable node has a unique 'id' (e.g., 12).
 Your task is to choose the single next action to take to progress towards the user's goal.
 You MUST output your choice in a valid JSON format matching this schema:
 {
   "thought": "Reasoning based on DOM and goal",
   "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
-  "target_id": 12, // Optional, required for click/fill/hover
+  "target": {"role": "searchbox", "name": "Search"}, // Preferred target format
+  "target_id": 12, // Legacy fallback target format
   "value": "text to fill or key to press", // Optional
   "message": "Message to user if asking human or done" // Optional
 }
@@ -43,6 +43,7 @@ You MUST output your choice in valid JSON format:
 {
   "thought": "Analysis of failure and new strategy",
   "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
+  "target": {"role": "button", "name": "Submit"},
   "target_id": 12,
   "value": "...",
   "message": "..."
@@ -122,15 +123,17 @@ class ReplayAgent:
         # 1. Observe the page (只在这里观测一次)
         observation = await self.observer.observe(page)
         compressed_tree = observation.compressed_tree
+        snapshot = observation.snapshot
         self.current_node_map = observation.node_map
+        observation_payload = snapshot if snapshot is not None else compressed_tree
 
         # 2. Build the prompt based on context
         if retry_context:
             system_prompt = RETRY_SYSTEM_PROMPT
-            user_prompt = self._build_retry_prompt(goal, retry_context, compressed_tree, action_history)
+            user_prompt = self._build_retry_prompt(goal, retry_context, observation_payload, action_history)
         else:
             system_prompt = NORMAL_SYSTEM_PROMPT
-            user_prompt = self._build_normal_prompt(goal, compressed_tree, action_history)
+            user_prompt = self._build_normal_prompt(goal, observation_payload, action_history)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -181,13 +184,15 @@ class ReplayAgent:
 
         return "\n".join(parts)
 
-    def _serialize_tree(self, compressed_tree: CompressedNode | list[CompressedNode] | dict[str, Any] | list[Any] | None) -> str:
+    def _serialize_tree(self, compressed_tree: AriaSnapshot | CompressedNode | list[CompressedNode] | dict[str, Any] | list[Any] | None) -> str:
         """Serialize compressed tree to JSON string.
 
         Handles both Pydantic models (new format) and plain dicts (legacy/tests).
         """
         if compressed_tree is None:
             return "{}"
+        if isinstance(compressed_tree, AriaSnapshot):
+            return compressed_tree.model_dump_json()
         if isinstance(compressed_tree, CompressedNode):
             return compressed_tree.model_dump_json()
         if isinstance(compressed_tree, dict):
@@ -278,25 +283,44 @@ class ReplayAgent:
             return True
 
         # Actions that DO require a target
+        locator = self._resolve_locator(page, action)
+        if locator is not None:
+            if action.action_type == "click":
+                await locator.click()
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=3000)
+                except Exception:
+                    pass
+                return True
+            if action.action_type == "hover":
+                await locator.hover()
+                return True
+            if action.action_type == "fill":
+                if not action.value:
+                    raise ValueError("Action 'fill' requires a 'value'")
+                await locator.fill(action.value)
+                return True
+            if action.action_type == "extract_text":
+                return await locator.inner_text()
+            if action.action_type == "assert_visible":
+                return await locator.is_visible()
+
         if not action.target_id:
-            raise ValueError(f"Action {action.action_type} requires a target_id")
-            
+            action.target_id = self._resolve_target_id(action)
+        if not action.target_id:
+            raise ValueError(f"Action {action.action_type} requires a target/target_id")
         if action.target_id not in self.current_node_map:
             raise ValueError(f"Target ID {action.target_id} not found in node map")
-            
+
         node_info = self.current_node_map[action.target_id]
         raw_node = node_info.raw_node
         backend_node_id = raw_node.get("backendDOMNodeId")
-        
         if not backend_node_id:
             raise ValueError(f"Target ID {action.target_id} has no backendDOMNodeId")
 
-        # Execute based on geometry
         x, y = await self._get_element_center(page, backend_node_id)
-        
         if action.action_type == "click":
             await page.mouse.click(x, y)
-            # Allow time for click-triggered navigation or dynamic content to settle
             try:
                 await page.wait_for_load_state("domcontentloaded", timeout=3000)
             except Exception:
@@ -306,16 +330,46 @@ class ReplayAgent:
         elif action.action_type == "fill":
             if not action.value:
                 raise ValueError("Action 'fill' requires a 'value'")
-            # To fill, we click to focus, then type.
             await page.mouse.click(x, y)
-            # Clear existing text first (simple heuristic: cmd+a, backspace)
-            await page.keyboard.press("Meta+A") # Mac
-            await page.keyboard.press("Control+A") # Windows/Linux
+            await page.keyboard.press("Meta+A")
+            await page.keyboard.press("Control+A")
             await page.keyboard.press("Backspace")
             await page.keyboard.type(action.value)
         elif action.action_type == "extract_text":
             return raw_node.get("name", {}).get("value", "")
         elif action.action_type == "assert_visible":
-            return True # If it's in the accessibility tree, it's generally visible
-            
+            return True
+
         return True
+
+    def _resolve_locator(self, page: Page, action: AgentDecision) -> Any | None:
+        """Resolve Playwright locator from semantic target or node map metadata."""
+        role: str | None = None
+        name: str | None = None
+
+        if action.target is not None:
+            role = action.target.role
+            name = action.target.name
+        elif action.target_id is not None and action.target_id in self.current_node_map:
+            locator_info = self.current_node_map[action.target_id].locator_args
+            role = locator_info.role
+            name = locator_info.name
+
+        if not role:
+            return None
+        if name:
+            return page.get_by_role(cast(Any, role), name=name)
+        return page.get_by_role(cast(Any, role))
+
+    def _resolve_target_id(self, action: AgentDecision) -> int | None:
+        """Resolve legacy target_id from semantic target for compatibility path."""
+        if action.target is None:
+            return None
+        for node_id, node_info in self.current_node_map.items():
+            locator = node_info.locator_args
+            if locator.role != action.target.role:
+                continue
+            if action.target.name and locator.name != action.target.name:
+                continue
+            return node_id
+        return None

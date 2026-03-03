@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sasiki.engine.replay_agent import ReplayAgent
 from sasiki.engine.replay_models import AgentAction, RetryContext
-from sasiki.engine.page_observer import ObservationResult, NodeMapping, CompressedNode, LocatorInfo
+from sasiki.engine.page_observer import (
+    AriaElement,
+    AriaSnapshot,
+    CompressedNode,
+    LocatorInfo,
+    NodeMapping,
+    ObservationResult,
+)
 
 
 class TestReplayAgentStepWithContext:
@@ -24,9 +31,17 @@ class TestReplayAgentStepWithContext:
                 raw_node={"backendDOMNodeId": 123},
                 locator_args=LocatorInfo(role="button", name="button"),
             )
+            snapshot = AriaSnapshot(
+                url="https://example.com",
+                title="Example",
+                dom_hash="deadbeef",
+                interactive=[AriaElement(role="button", name="button")],
+                readable=[AriaElement(role="text", text="Example")],
+            )
             mock.observe = AsyncMock(return_value=ObservationResult(
                 compressed_tree=compressed_node,
                 node_map={1: node_mapping},
+                snapshot=snapshot,
             ))
             MockObserver.return_value = mock
             yield mock
@@ -48,6 +63,10 @@ class TestReplayAgentStepWithContext:
     def mock_page(self):
         """Create a mock Playwright page."""
         page = AsyncMock()
+        locator = AsyncMock()
+        locator.inner_text = AsyncMock(return_value="mock text")
+        locator.is_visible = AsyncMock(return_value=True)
+        page.get_by_role = MagicMock(return_value=locator)
         return page
 
     @pytest.mark.asyncio
@@ -65,6 +84,9 @@ class TestReplayAgentStepWithContext:
         messages = calls[0].kwargs.get("messages", calls[0][1].get("messages", []))
         # Verify it's a normal prompt (not retry)
         assert any("DOM Snapshot" in msg.get("content", "") for msg in messages)
+        user_message = messages[1]["content"] if len(messages) > 1 else ""
+        assert "dom_hash" in user_message
+        assert "deadbeef" in user_message
 
     @pytest.mark.asyncio
     async def test_step_with_retry_context(self, mock_observer, mock_llm, mock_page):
@@ -180,6 +202,38 @@ class TestReplayAgentStepWithContext:
         assert "click" in user_message
         assert "42" in user_message
 
+    @pytest.mark.asyncio
+    async def test_step_with_semantic_target(self, mock_observer, mock_llm, mock_page):
+        """Test parsing semantic target schema without legacy target_id."""
+        mock_llm.complete_async.return_value = json.dumps({
+            "thought": "Use semantic target",
+            "action_type": "click",
+            "target": {"role": "button", "name": "button"},
+        })
+        agent = ReplayAgent()
+
+        action = await agent.step(mock_page, "Click the button")
+
+        assert action.action_type == "click"
+        assert action.target is not None
+        assert action.target.role == "button"
+        assert action.target_id is None
+
+    @pytest.mark.asyncio
+    async def test_execute_action_resolves_target_id_from_semantic_target(self, mock_observer, mock_llm, mock_page):
+        """Test semantic target executes via role-based locator path."""
+        agent = ReplayAgent()
+        action = AgentAction(
+            thought="Click semantic target",
+            action_type="click",
+            target={"role": "button", "name": "button"},
+        )
+        await agent.step(mock_page, "Click the button")
+
+        await agent.execute_action(mock_page, action)
+
+        mock_page.get_by_role.assert_called_with("button", name="button")
+
 
 class TestReplayAgentPromptBuilding:
     """Tests for ReplayAgent prompt building methods."""
@@ -204,6 +258,18 @@ class TestReplayAgentPromptBuilding:
         assert "Recent actions:" in prompt
         assert "Previous thought" in prompt
         assert json.dumps(compressed_tree) in prompt
+
+    def test_serialize_tree_with_snapshot(self, agent):
+        """Test serializing AI-native snapshot payload."""
+        snapshot = AriaSnapshot(
+            url="https://example.com",
+            title="Example",
+            dom_hash="abc123ff",
+            interactive=[AriaElement(role="button", name="Search")],
+            readable=[AriaElement(role="text", text="Results")],
+        )
+        serialized = agent._serialize_tree(snapshot)
+        assert '"dom_hash":"abc123ff"' in serialized
 
     def test_build_normal_prompt_without_history(self, agent):
         """Test building normal prompt without history."""

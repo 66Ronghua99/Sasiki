@@ -6,11 +6,12 @@ stages with step-by-step Agent control, retry logic, and HITL handling.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from sasiki.engine.hitl_decision_mapper import HITLDecisionMapper
 from sasiki.engine.refiner_state import StageResult
-from sasiki.engine.replay_models import AgentAction, RetryContext
+from sasiki.engine.replay_models import AgentAction, AgentDecision, RetryContext
 from sasiki.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -18,6 +19,81 @@ if TYPE_CHECKING:
 
     from sasiki.engine.human_interface import HumanInteractionHandler
     from sasiki.engine.replay_agent import ReplayAgent
+
+
+@dataclass
+class StageContext:
+    """Structured stage context for building agent prompts."""
+
+    stage_name: str
+    application: str | None = None
+    objective: str = ""
+    success_criteria: str = ""
+    context_hints: list[str] = field(default_factory=list)
+    reference_actions: list[dict[str, Any]] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
+    action_details: list[dict[str, Any]] = field(default_factory=list)
+    recent_history: list[str] = field(default_factory=list)
+
+    def build_prompt(self) -> str:
+        """Build prompt text for the stage with semantic and action-level guidance."""
+        lines = [f"Complete stage: {self.stage_name}"]
+
+        if self.application:
+            lines.append(f"Application/Context: {self.application}")
+
+        if self.objective:
+            lines.append(f"\nObjective: {self.objective}")
+        if self.success_criteria:
+            lines.append(f"Success criteria: {self.success_criteria}")
+
+        if self.context_hints:
+            lines.append("\nContext hints:")
+            for hint in self.context_hints:
+                lines.append(f"  - {hint}")
+
+        if self.reference_actions:
+            lines.append("\nReference actions (hints, not strict script):")
+            for i, reference_action in enumerate(self.reference_actions, 1):
+                action_type = reference_action.get("type", "unknown")
+                target = reference_action.get("target")
+                value = reference_action.get("value")
+                action_desc = f"  {i}. {action_type}"
+                if target:
+                    action_desc += f" on {target}"
+                if value:
+                    action_desc += f' with "{value}"'
+                lines.append(action_desc)
+
+        if self.action_details:
+            lines.append("\nStructured actions to perform:")
+            for i, detail in enumerate(self.action_details, 1):
+                action_type = detail.get("action_type", "unknown")
+                target_hint = detail.get("target_hint", "")
+                value = detail.get("value", "")
+
+                action_desc = f"  {i}. {action_type}"
+                if target_hint:
+                    action_desc += f" on {target_hint}"
+                if value:
+                    action_desc += f' with "{value}"'
+                lines.append(action_desc)
+
+                page_context = detail.get("page_context", {})
+                url = page_context.get("url", "") if isinstance(page_context, dict) else ""
+                if url:
+                    lines.append(f"     (Page: {url})")
+        elif self.actions:
+            lines.append("\nActions to perform:")
+            for i, plain_action in enumerate(self.actions, 1):
+                lines.append(f"  {i}. {plain_action}")
+
+        if self.recent_history:
+            lines.append("\nRecent progress:")
+            for thought in self.recent_history[-5:]:
+                lines.append(f"  - {thought[:100]}..." if len(thought) > 100 else f"  - {thought}")
+
+        return "\n".join(lines)
 
 
 class StageExecutor:
@@ -110,7 +186,7 @@ class StageExecutor:
                 steps_taken += 1
 
                 # Check for repetitive action patterns
-                action_key = f"{action.action_type}:{action.target_id}:{action.value}"
+                action_key = self._action_key(action)
                 if action_key == last_action_key:
                     repeat_count += 1
                     if repeat_count >= self.max_repeats:
@@ -233,56 +309,19 @@ class StageExecutor:
         )
 
     def _build_stage_goal(self, stage: dict[str, Any], history: list[str]) -> str:
-        """Build an independent goal string for a stage.
-
-        This creates a focused goal that includes the stage name and actions,
-        without overwhelming the agent with the entire workflow.
-
-        If action_details are available (structured action data), they are
-        included to provide richer context for the agent.
-        """
-        stage_name = stage["name"]
-        actions_list = stage.get("actions", [])
-        action_details = stage.get("action_details", [])
-        application = stage.get("application")
-
-        lines = [f"Complete stage: {stage_name}"]
-
-        if application:
-            lines.append(f"Application/Context: {application}")
-
-        # Prefer structured action_details if available
-        if action_details:
-            lines.append("\nStructured actions to perform:")
-            for i, detail in enumerate(action_details, 1):
-                action_type = detail.get("action_type", "unknown")
-                target_hint = detail.get("target_hint", "")
-                value = detail.get("value", "")
-
-                action_desc = f"  {i}. {action_type}"
-                if target_hint:
-                    action_desc += f" on {target_hint}"
-                if value:
-                    action_desc += f' with "{value}"'
-                lines.append(action_desc)
-
-                # Include additional context for better agent understanding
-                page_context = detail.get("page_context", {})
-                url = page_context.get("url", "") if isinstance(page_context, dict) else ""
-                if url:
-                    lines.append(f"     (Page: {url})")
-        elif actions_list:
-            lines.append("\nActions to perform:")
-            for i, action in enumerate(actions_list, 1):
-                lines.append(f"  {i}. {action}")
-
-        # Include recent history if available
-        if history:
-            lines.append("\nRecent progress:")
-            for thought in history[-5:]:  # Last 5 thoughts
-                lines.append(f"  - {thought[:100]}..." if len(thought) > 100 else f"  - {thought}")
-
-        return "\n".join(lines)
+        """Build stage goal prompt via structured StageContext."""
+        context = StageContext(
+            stage_name=stage["name"],
+            application=stage.get("application"),
+            objective=stage.get("objective", ""),
+            success_criteria=stage.get("success_criteria", ""),
+            context_hints=stage.get("context_hints", []),
+            reference_actions=stage.get("reference_actions", []),
+            actions=stage.get("actions", []),
+            action_details=stage.get("action_details", []),
+            recent_history=history,
+        )
+        return context.build_prompt()
 
     def _classify_error(self, error: Exception) -> str:
         """Classify error type for retry strategy."""
@@ -295,6 +334,16 @@ class StageExecutor:
             return "navigation_error"
         else:
             return "execution_error"
+
+    def _action_key(self, action: AgentDecision) -> str:
+        """Create a stable action key for repetition detection."""
+        if action.target_id is not None:
+            target_part = f"id:{action.target_id}"
+        elif action.target is not None:
+            target_part = f"semantic:{action.target.role}:{action.target.name or ''}"
+        else:
+            target_part = "none"
+        return f"{action.action_type}:{target_part}:{action.value or ''}"
 
     async def _handle_ask_human(
         self,
