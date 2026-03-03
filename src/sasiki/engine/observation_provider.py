@@ -123,6 +123,9 @@ class LegacyObservationProvider(ObservationProvider):
 class BrowserUseObservationProvider(ObservationProvider):
     """Provider that emits browser-use style compact element schema."""
 
+    def __init__(self, max_prompt_elements: int = 25) -> None:
+        self._max_prompt_elements = max_prompt_elements
+
     @property
     def snapshot_mode(self) -> Literal["legacy", "browser_use"]:
         return "browser_use"
@@ -186,6 +189,8 @@ class BrowserUseObservationProvider(ObservationProvider):
             for elem in elements
         ])
 
+        llm_elements = elements[: self._max_prompt_elements]
+
         llm_payload = {
             "url": url,
             "title": title,
@@ -194,26 +199,24 @@ class BrowserUseObservationProvider(ObservationProvider):
                 {
                     "idx": elem.idx,
                     "role": elem.role,
-                    "name": elem.name,
-                    "tag": elem.tag,
-                    "class": elem.class_name,
-                    "attrs": elem.attrs,
+                    "name": _truncate_text(elem.name, 50),
                 }
-                for elem in elements
+                for elem in llm_elements
             ],
-            "selector_map": {str(idx): selector for idx, selector in selector_map.items()},
         }
 
         available_actions = [
             {
                 "idx": elem.idx,
                 "role": elem.role,
-                "name": elem.name,
-                "tag": elem.tag,
-                "class": elem.class_name,
+                "name": _truncate_text(elem.name, 50),
             }
-            for elem in elements
+            for elem in llm_elements
         ]
+
+        debug_stats = _build_debug_stats(available_actions, llm_payload)
+        debug_stats["raw_interactive_count"] = len(elements)
+        debug_stats["llm_interactive_count"] = len(llm_elements)
 
         return ProviderObservation(
             snapshot_mode="browser_use",
@@ -225,7 +228,7 @@ class BrowserUseObservationProvider(ObservationProvider):
             node_map={},
             selector_map=selector_map,
             available_actions=available_actions,
-            debug_stats=_build_debug_stats(available_actions, llm_payload),
+            debug_stats=debug_stats,
         )
 
     async def _extract_browser_use_elements(self, page: Page) -> list[dict[str, Any]]:
@@ -399,6 +402,14 @@ def _normalize_optional_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text if text else None
+
+
+def _truncate_text(value: str | None, limit: int) -> str | None:
+    if value is None:
+        return None
+    if len(value) <= limit:
+        return value
+    return value[: max(0, limit - 3)] + "..."
 
 
 async def _safe_page_title(page: Page) -> str:

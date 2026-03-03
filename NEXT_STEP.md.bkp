@@ -68,3 +68,6 @@ ReplayAgent.step_with_context() 中：
   - 会先 observe() 拿到 AriaSnapshot
   - 然后 _build_normal_prompt/_build_retry_prompt 把 self._serialize_tree(observation_payload)整段拼到
     Current Page DOM Snapshot
+
+
+点击空白关闭一些窗口的时候无法将click和navigate关联起来

@@ -199,6 +199,7 @@ You receive a structured browser recording (JSON). Each action has a stable `act
                 if isinstance(target_strategy, dict)
                 else None
             )
+            target_hint = self._render_target_hint(preferred_target)
             detail = {
                 "action_id": action_id,
                 "canonical_action_id": action.get("canonical_action_id"),
@@ -207,7 +208,7 @@ You receive a structured browser recording (JSON). Each action has a stable `act
                 "intent_label": action.get("intent_label"),
                 "confidence": action.get("confidence"),
                 "action_type": action_type,
-                "target_hint": preferred_target,
+                "target_hint": target_hint,
                 "normalized_target_hint": preferred_target,
                 "value": action_value,
                 "url": action.get("page_url"),
@@ -248,6 +249,50 @@ You receive a structured browser recording (JSON). Each action has a stable `act
             "inputs": stage_plan.inputs,
             "outputs": stage_plan.outputs,
         }
+
+    def _render_target_hint(self, preferred_target: Any) -> str | None:
+        """Render stage prompt hint from canonical target locator.
+
+        Keep prompt-facing hints human-readable; avoid leaking opaque ids/hashes.
+        """
+        if not isinstance(preferred_target, dict):
+            return None
+
+        role = self._clean_text(preferred_target.get("role"))
+        name = self._clean_text(preferred_target.get("name"))
+        if name and not self._looks_like_opaque_identifier(name):
+            if role:
+                return f"{role} '{name}'"
+            return name
+        if role:
+            return role
+        return None
+
+    def _clean_text(self, value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    def _looks_like_opaque_identifier(self, value: str) -> bool:
+        """Detect id/hash-like strings that should not be used as semantic hints."""
+        stripped = value.strip()
+        if not stripped:
+            return True
+        if stripped.isdigit():
+            return True
+
+        lowered = stripped.lower()
+        if len(lowered) >= 24 and all(ch in "0123456789abcdef" for ch in lowered):
+            return True
+        if (
+            len(stripped) >= 12
+            and " " not in stripped
+            and all(ord(ch) < 128 for ch in stripped)
+            and any(ch.isdigit() for ch in stripped)
+        ):
+            return True
+        return False
 
     def _assemble_workflow_data(
         self,

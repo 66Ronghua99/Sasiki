@@ -9,8 +9,19 @@ from pydantic import BaseModel, Field
 class AgentTarget(BaseModel):
     """Semantic target descriptor for role-based interaction."""
 
-    role: str = Field(..., description="Accessible role, e.g. button/searchbox/link.")
+    role: str | None = Field(
+        None,
+        description="Accessible role, e.g. button/searchbox/link.",
+    )
     name: str | None = Field(None, description="Accessible name for role matching.")
+    element_id: str | None = Field(
+        None,
+        description="DOM element id fallback (e.g., search-input).",
+    )
+    test_id: str | None = Field(
+        None,
+        description="data-testid fallback.",
+    )
 
 
 class AgentDecision(BaseModel):

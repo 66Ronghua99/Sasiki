@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     @property
     def active_model(self) -> str:
         if self.dashscope_api_key:
-            return "MiniMax-M2.5"
+            return "MiniMax-M2.1"
         if self.llm_model:
             return self.llm_model
         return "minimax/minimax-m2.5"

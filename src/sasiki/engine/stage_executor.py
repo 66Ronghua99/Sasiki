@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import parse_qsl, unquote, urlparse
 
 from sasiki.engine.execution_strategy import (
     BrowserExecutionStrategy,
@@ -46,6 +47,9 @@ class StageContext:
     action_details: list[dict[str, Any]] = field(default_factory=list)
     recent_history: list[str] = field(default_factory=list)
     previous_world_state: str | None = None
+    max_context_hints: int = 2
+    max_action_details: int = 4
+    max_history_items: int = 3
 
     def build_prompt(self) -> str:
         """Build prompt text for the stage with semantic and action-level guidance."""
@@ -57,34 +61,25 @@ class StageContext:
             lines.append(f"World state from previous stage: {self.previous_world_state}")
 
         if self.objective:
-            lines.append(f"\nObjective: {self.objective}")
+            lines.append(f"\nObjective: {self._truncate(self.objective, 220)}")
         if self.success_criteria:
-            lines.append(f"Success criteria: {self.success_criteria}")
+            lines.append(f"Success criteria: {self._truncate(self.success_criteria, 220)}")
 
-        if self.context_hints:
+        filtered_hints = [h for h in self.context_hints if self._is_signal_hint(h)]
+        if filtered_hints:
             lines.append("\nContext hints:")
-            for hint in self.context_hints:
-                lines.append(f"  - {hint}")
-
-        if self.reference_actions:
-            lines.append("\nReference actions (hints, not strict script):")
-            for i, reference_action in enumerate(self.reference_actions, 1):
-                action_type = reference_action.get("type", "unknown")
-                target = reference_action.get("target")
-                value = reference_action.get("value")
-                action_desc = f"  {i}. {action_type}"
-                if target:
-                    action_desc += f" on {target}"
-                if value:
-                    action_desc += f' with "{value}"'
-                lines.append(action_desc)
+            for hint in filtered_hints[: self.max_context_hints]:
+                lines.append(f"  - {self._truncate(str(hint), 140)}")
+            remaining_hints = len(filtered_hints) - self.max_context_hints
+            if remaining_hints > 0:
+                lines.append(f"  - ... and {remaining_hints} more")
 
         if self.action_details:
             lines.append("\nStructured actions to perform:")
-            for i, detail in enumerate(self.action_details, 1):
+            for i, detail in enumerate(self.action_details[: self.max_action_details], 1):
                 action_type = detail.get("action_type", "unknown")
-                target_hint = detail.get("target_hint", "")
-                value = detail.get("value", "")
+                target_hint = self._format_target_hint(detail.get("target_hint", ""))
+                value = self._format_action_value(action_type, detail.get("value", ""))
 
                 action_desc = f"  {i}. {action_type}"
                 if target_hint:
@@ -92,22 +87,107 @@ class StageContext:
                 if value:
                     action_desc += f' with "{value}"'
                 lines.append(action_desc)
-
-                page_context = detail.get("page_context", {})
-                url = page_context.get("url", "") if isinstance(page_context, dict) else ""
-                if url:
-                    lines.append(f"     (Page: {url})")
+            remaining_details = len(self.action_details) - self.max_action_details
+            if remaining_details > 0:
+                lines.append(f"  ... and {remaining_details} more")
         elif self.actions:
             lines.append("\nActions to perform:")
-            for i, plain_action in enumerate(self.actions, 1):
-                lines.append(f"  {i}. {plain_action}")
+            for i, plain_action in enumerate(self.actions[: self.max_action_details], 1):
+                lines.append(f"  {i}. {self._truncate(plain_action, 140)}")
+            remaining_actions = len(self.actions) - self.max_action_details
+            if remaining_actions > 0:
+                lines.append(f"  ... and {remaining_actions} more")
 
         if self.recent_history:
             lines.append("\nRecent progress:")
-            for thought in self.recent_history[-5:]:
-                lines.append(f"  - {thought[:100]}..." if len(thought) > 100 else f"  - {thought}")
+            for thought in self.recent_history[-self.max_history_items :]:
+                lines.append(f"  - {self._truncate(str(thought), 100)}")
 
         return "\n".join(lines)
+
+    def _format_target_hint(self, target: Any) -> str:
+        """Format target hints into compact, human-readable text."""
+        if isinstance(target, str):
+            cleaned = target.strip()
+            if not cleaned:
+                return ""
+            return self._truncate(cleaned, 80)
+
+        if not isinstance(target, dict):
+            return ""
+
+        role = self._strip_text(target.get("role"))
+        name = self._strip_text(target.get("name"))
+        test_id = self._strip_text(target.get("test_id"))
+        element_id = self._strip_text(target.get("element_id"))
+
+        if role and name:
+            return f"{role} '{self._truncate(name, 40)}'"
+        if role:
+            return role
+        if test_id:
+            return f"test_id={self._truncate(test_id, 40)}"
+        if element_id:
+            return f"element_id={self._truncate(element_id, 40)}"
+        return ""
+
+    def _format_action_value(self, action_type: Any, value: Any) -> str:
+        """Format action value with URL-aware compacting to reduce prompt size."""
+        if not isinstance(value, str):
+            return ""
+        cleaned = value.strip()
+        if not cleaned:
+            return ""
+
+        normalized_type = str(action_type).strip().lower()
+        if normalized_type == "navigate" and cleaned.startswith(("http://", "https://")):
+            return self._compact_url(cleaned)
+        if len(cleaned) > 120:
+            return self._truncate(cleaned, 120)
+        return cleaned
+
+    def _compact_url(self, value: str) -> str:
+        """Keep only high-signal URL components for prompt readability."""
+        parsed = urlparse(value)
+        base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        query_items = parse_qsl(parsed.query, keep_blank_values=False)
+        if not query_items:
+            return self._truncate(base, 120)
+
+        picked: list[str] = []
+        for key, raw_val in query_items:
+            key_lower = key.lower()
+            if key_lower in {"keyword", "query", "q", "search_query"}:
+                decoded = raw_val
+                for _ in range(2):
+                    decoded = unquote(decoded)
+                picked.append(f"{key}={self._truncate(decoded.strip(), 40)}")
+                break
+        if not picked:
+            key, raw_val = query_items[0]
+            decoded = unquote(raw_val).strip()
+            picked.append(f"{key}={self._truncate(decoded, 40)}")
+        return self._truncate(f"{base}?{'&'.join(picked)}", 160)
+
+    def _strip_text(self, value: Any) -> str:
+        if isinstance(value, str):
+            return value.strip()
+        return ""
+
+    def _is_signal_hint(self, hint: Any) -> bool:
+        """Filter out low-signal implementation hints that bloat prompts."""
+        if not isinstance(hint, str):
+            return False
+        lowered = hint.strip().lower()
+        if not lowered:
+            return False
+        noise_tokens = ("element_id", "class ", "class_name", "class_names", "test_id", "css")
+        return not any(token in lowered for token in noise_tokens)
+
+    def _truncate(self, text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        return text[: max(0, limit - 3)] + "..."
 
 
 class StageExecutor:
@@ -246,10 +326,7 @@ class StageExecutor:
                     )
 
                     # Get next action from agent
-                    # Include observation summary in action history for better context
                     action_history = self._build_action_history(history, episode_log)
-                    if observation.summary:
-                        action_history.append(f"Current state: {observation.summary[:200]}")
                     provider_observation = self._provider_observation(observation)
 
                     action = await self.agent.step(
@@ -502,6 +579,26 @@ class StageExecutor:
             target_part = "none"
         return f"{action.action_type}:{target_part}:{action.value or ''}"
 
+    def _retry_equivalence_key(self, action: AgentDecision | None) -> str | None:
+        """Build retry equivalence key for repeated failure detection."""
+        if action is None:
+            return None
+        return self._action_key(action)
+
+    def _update_retry_failure_equivalence(
+        self,
+        *,
+        previous_key: str | None,
+        previous_count: int,
+        current_key: str | None,
+    ) -> tuple[str | None, int]:
+        """Update consecutive failure counter for equivalent retry actions."""
+        if not current_key:
+            return previous_key, previous_count
+        if current_key == previous_key:
+            return current_key, previous_count + 1 if previous_count else 1
+        return current_key, 1
+
     def _should_fail_on_repetition(self, action: AgentDecision) -> bool:
         """Return True when repeated actions should trigger immediate stage failure.
 
@@ -560,6 +657,8 @@ class StageExecutor:
 
         retry_error: Exception = initial_error
         retry_failed_action: AgentAction | None = failed_action
+        retry_last_failure_key = self._retry_equivalence_key(failed_action)
+        retry_same_failure_count = 1 if retry_last_failure_key else 0
 
         for attempt_number in range(2, self.max_retry_attempts + 1):
             retry_ctx = RetryContext(
@@ -713,6 +812,25 @@ class StageExecutor:
                         dom_hash_before=current_dom_hash,
                         dom_hash_after=current_dom_hash,
                     )
+                    current_failure_key = self._retry_equivalence_key(retry_action)
+                    (
+                        retry_last_failure_key,
+                        retry_same_failure_count,
+                    ) = self._update_retry_failure_equivalence(
+                        previous_key=retry_last_failure_key,
+                        previous_count=retry_same_failure_count,
+                        current_key=current_failure_key,
+                    )
+                    if retry_same_failure_count >= 2:
+                        get_logger().warning(
+                            "retry_equivalent_failure_limit_reached",
+                            stage_index=stage_index,
+                            step=steps_taken,
+                            attempt=attempt_number,
+                            action_key=current_failure_key,
+                            consecutive_failures=retry_same_failure_count,
+                        )
+                        break
                 get_logger().warning(
                     "action_retry_attempt_failed",
                     stage_index=stage_index,
@@ -961,9 +1079,10 @@ class StageExecutor:
     def _target_description(self, action: AgentAction) -> str:
         """Build a short target description for episode logging."""
         if action.target is not None:
+            role = action.target.role or action.target.element_id or action.target.test_id or "target"
             if action.target.name:
-                return f"{action.target.role} '{action.target.name}'"
-            return action.target.role
+                return f"{role} '{action.target.name}'"
+            return role
         if action.target_id is not None:
             return f"node_id:{action.target_id}"
         return ""

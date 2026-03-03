@@ -148,12 +148,16 @@ class WorkflowRefiner:
                     continue
 
                 # Execute the stage
+                if hasattr(self.agent, "reset_debug_rounds"):
+                    self.agent.reset_debug_rounds()
                 result = await self._execute_stage(
                     page,
                     stage,
                     stage_index,
                     previous_world_state=self._world_state_summary,
                 )
+                if hasattr(self.agent, "consume_debug_rounds"):
+                    result.llm_debug_rounds = self.agent.consume_debug_rounds()
                 state.add_stage_result(result)
 
                 # Handle stage failure or pause

@@ -6,6 +6,7 @@ the execution state of a WorkflowRefiner run.
 
 from __future__ import annotations
 
+from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -21,6 +22,7 @@ class StageResult(BaseModel):
     steps_taken: int
     actions: list[AgentAction] = Field(default_factory=list)
     episode_log: list[EpisodeEntry] = Field(default_factory=list)
+    llm_debug_rounds: list[dict[str, Any]] = Field(default_factory=list)
     verified: bool = False
     verification_evidence: str | None = None
     world_state_summary: str | None = None
@@ -37,6 +39,7 @@ class ExecutionStageReport(BaseModel):
     verification_evidence: str | None = None
     world_state_summary: str | None = None
     episode_log: list[EpisodeEntry] = Field(default_factory=list)
+    llm_debug_rounds: list[dict[str, Any]] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -197,6 +200,7 @@ class RefinerState:
                     verification_evidence=result.verification_evidence,
                     world_state_summary=result.world_state_summary,
                     episode_log=result.episode_log.copy(),
+                    llm_debug_rounds=result.llm_debug_rounds.copy(),
                     error=result.error,
                 )
                 for result in self._stage_results

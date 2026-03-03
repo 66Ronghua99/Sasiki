@@ -192,6 +192,76 @@ class TestSkillGenerator:
         assert stage["action_details"][0]["value"] == "https://example.com/search?q=test"
         assert stage["reference_actions"][0]["value"] == "https://example.com/search?q=test"
 
+    def test_build_stage_from_action_ids_renders_readable_target_hint(self):
+        """Stage prompt hint should be readable text, not raw locator dict."""
+        generator = SkillGenerator(llm_client=MagicMock())
+        stage_plan = SemanticStagePlan(
+            name="Open result",
+            action_ids=[1],
+        )
+        action_map = {
+            1: {
+                "action_id": 1,
+                "canonical_action_id": "can_001",
+                "source_event_ids": [1],
+                "intent_category": "open",
+                "intent_label": "open_content_item",
+                "confidence": 0.9,
+                "action_type": "click",
+                "target_strategy": {
+                    "preferred": {
+                        "role": "link",
+                        "name": "春季穿搭男生合集",
+                    }
+                },
+                "input": None,
+                "page_url": "https://example.com/search",
+                "postconditions": [],
+            }
+        }
+
+        stage = generator._build_stage_from_action_ids(stage_plan, action_map)
+        detail = stage["action_details"][0]
+
+        assert detail["target_hint"] == "link '春季穿搭男生合集'"
+        assert detail["normalized_target_hint"]["role"] == "link"
+        assert detail["normalized_target_hint"]["name"] == "春季穿搭男生合集"
+
+    def test_build_stage_from_action_ids_avoids_opaque_id_target_hint(self):
+        """ID/hash-like target names should not be injected into stage prompt hint."""
+        generator = SkillGenerator(llm_client=MagicMock())
+        stage_plan = SemanticStagePlan(
+            name="Open result",
+            action_ids=[1],
+        )
+        action_map = {
+            1: {
+                "action_id": 1,
+                "canonical_action_id": "can_001",
+                "source_event_ids": [1],
+                "intent_category": "open",
+                "intent_label": "open_content_item",
+                "confidence": 0.9,
+                "action_type": "click",
+                "target_strategy": {
+                    "preferred": {
+                        "role": "link",
+                        "name": "67c42e99000000000e005734",
+                        "element_id": "note-link-1",
+                    }
+                },
+                "input": None,
+                "page_url": "https://example.com/search",
+                "postconditions": [],
+            }
+        }
+
+        stage = generator._build_stage_from_action_ids(stage_plan, action_map)
+        detail = stage["action_details"][0]
+
+        assert detail["target_hint"] == "link"
+        assert "67c42e99000000000e005734" not in detail["target_hint"]
+
     def test_convert_to_workflow(self, mock_llm_response):
         """Test converting LLM data to Workflow model."""
         generator = SkillGenerator(llm_client=MagicMock())

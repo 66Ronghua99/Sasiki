@@ -136,6 +136,7 @@ class TestStageResult:
         assert result.status == "success"
         assert result.steps_taken == 3
         assert result.episode_log == []
+        assert result.llm_debug_rounds == []
         assert result.verified is False
         assert result.verification_evidence is None
         assert result.world_state_summary is None
@@ -152,6 +153,7 @@ class TestStageResult:
         )
         assert result.status == "failed"
         assert result.episode_log == []
+        assert result.llm_debug_rounds == []
         assert result.verified is False
         assert result.verification_evidence is None
         assert result.world_state_summary is None
@@ -262,6 +264,41 @@ class TestSingleStageExecution:
         assert len(result.execution_report.stages) == 2
         assert result.execution_report.stages[0].stage_name == "Search"
         assert result.execution_report.stages[0].steps_taken == 1
+
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_refiner_persists_agent_debug_rounds_in_stage_result(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """WorkflowRefiner should write agent LLM debug rounds into stage results/report."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.side_effect = [
+            AgentAction(thought="done stage1", action_type="done"),
+            AgentAction(thought="done stage2", action_type="done"),
+        ]
+        mock_agent.reset_debug_rounds = MagicMock()
+        mock_agent.consume_debug_rounds = MagicMock(
+            side_effect=[
+                [{"round_index": 1, "user_prompt": "stage1"}],
+                [{"round_index": 2, "user_prompt": "stage2"}],
+            ]
+        )
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "python"},
+        )
+
+        assert result.status == "completed"
+        assert result.stage_results[0].llm_debug_rounds == [{"round_index": 1, "user_prompt": "stage1"}]
+        assert result.stage_results[1].llm_debug_rounds == [{"round_index": 2, "user_prompt": "stage2"}]
+        assert result.execution_report is not None
+        assert result.execution_report.stages[0].llm_debug_rounds == [{"round_index": 1, "user_prompt": "stage1"}]
+        assert result.execution_report.stages[1].llm_debug_rounds == [{"round_index": 2, "user_prompt": "stage2"}]
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
@@ -1164,7 +1201,6 @@ class TestBuildStageGoal:
         assert "Structured actions" in goal
         assert "click on submit-button" in goal
         assert "fill on search-input" in goal
-        assert "Page: https://example.com" in goal
 
     def test_build_stage_goal_prefers_action_details(self):
         """Test that action_details are preferred over text actions."""
@@ -1208,8 +1244,26 @@ class TestBuildStageGoal:
         assert "Success criteria: Results list is visible" in goal
         assert "Context hints:" in goal
         assert "Search box is near top" in goal
-        assert "Reference actions (hints, not strict script):" in goal
-        assert "fill on {'role': 'searchbox', 'name': 'Search'} with \"python\"" in goal
+        assert "Reference actions (hints, not strict script):" not in goal
+        assert "Structured actions to perform:" not in goal
+
+    def test_build_stage_goal_filters_noisy_context_hints(self):
+        """Implementation-detail hints should be dropped from stage goal."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        stage = {
+            "name": "Search Stage",
+            "objective": "Search content",
+            "context_hints": [
+                "Search box is near top",
+                "Search input has element_id 'search-input' and class 'search-input'",
+            ],
+        }
+        goal = executor._build_stage_goal(stage, [])
+
+        assert "Search box is near top" in goal
+        assert "element_id 'search-input'" not in goal
 
     def test_build_stage_goal_includes_previous_world_state(self):
         """Test goal includes world state transferred from previous stage."""
@@ -1254,3 +1308,35 @@ class TestStagnationPolicy:
 
         assert last_hash == "samehash"
         assert stagnant == 1
+
+
+class TestRetryEquivalencePolicy:
+    """Tests for retry equivalence detection helpers."""
+
+    def test_update_retry_failure_equivalence_increments_on_same_key(self):
+        """Equivalent consecutive failures should increase the counter."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        key, count = executor._update_retry_failure_equivalence(
+            previous_key="click:semantic:link:foo:",
+            previous_count=1,
+            current_key="click:semantic:link:foo:",
+        )
+
+        assert key == "click:semantic:link:foo:"
+        assert count == 2
+
+    def test_update_retry_failure_equivalence_resets_on_new_key(self):
+        """Different failure strategy should reset consecutive counter to 1."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        key, count = executor._update_retry_failure_equivalence(
+            previous_key="click:semantic:link:foo:",
+            previous_count=2,
+            current_key="navigate:none:https://example.com",
+        )
+
+        assert key == "navigate:none:https://example.com"
+        assert count == 1
