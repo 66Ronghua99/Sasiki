@@ -55,9 +55,15 @@
   - 具体实现（`CLIInteractiveHandler`）放在 `commands/` 或未来的 `server/`、`client/` 目录。
   - Checkpoint 返回 `(should_continue, should_repeat)` tuple，支持"重复当前 stage"的决策。
 
----
+### 10) `_compress_tree` 丢弃兄弟节点导致 DOM 树几乎为空 (2026-03-03)
+- **根因**：`AccessibilityObserver._compress_tree` 返回类型为 `CompressedNode | None`。当一个结构容器节点（如 `WebArea`、`div`、`nav`）不被保留但有多个子节点时，代码只返回 `compressed_children[0]`，其余所有兄弟节点被静默丢弃。对于小红书等 SPA，每一层容器节点都只保留第一个子分支，导致 LLM 最终只能看到整棵树的 1 个叶节点，表现为 "DOM snapshot is empty"。
+- **做法**：将 `_compress_tree` 返回类型改为 `list[CompressedNode]`；节点被保留时返回 `[clean_node]`；节点不被保留时将所有子节点列表向上平铺（flatten）传递。`observe()` 相应更新，将列表结果折叠回单节点或保持为列表。
 
-## 排查清单（按顺序）
+### 11) SPA 导航后 DOM 仍为空（JS 渲染延迟）(2026-03-03)
+- **根因**：`page.goto()` 等待的是 `load` 事件，但对 SPA（如小红书）来说，`load` 触发后 JavaScript 框架才开始渲染可访问性树（Accessibility Tree）。此时立即调用 `Accessibility.getFullAXTree` 仍返回空树，Agent 误认为页面未加载并开始重复导航。
+- **做法**：在 `execute_action` 的 `navigate` 分支后加 `wait_for_load_state("networkidle", timeout=5000)`，`click` 后加 `wait_for_load_state("domcontentloaded", timeout=3000)`，均用 try-except 容错超时。
+
+
 
 1. Chrome 扩展后台页是否收到 WebSocket 控制消息。  
 2. 目标页面 console 是否出现录制监听挂载日志。  

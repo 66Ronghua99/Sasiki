@@ -1,63 +1,43 @@
 # 当前最高优先级任务
 
-**更新日期：2026-03-02**
+**更新日期：2026-03-03**
 
-## 目标：设计 Agent Prompt Cache 与 Message History 机制
-
-Phase 3 的 `WorkflowRefiner` 已完成，下一个重点是优化 Agent 的记忆机制，以提升连续动作执行的稳定性和 LLM 响应速度。
+## 目标：E2E Refinement 稳定性验证 & Agent System 重构准备
 
 ---
 
 ## 背景
 
-在测试 `ReplayAgent` 的自主循环时，发现必须注入动作历史（History）才能避免 Agent 死循环点击同一个元素。但如果将不断增长的 history text 直接拼接在 `User Prompt` 的尾部或中间，会导致每次请求的 Prompt 都在变化，**极大地降低了 LLM API 的 Cache 命中率**，增加成本与延迟。
+本次 e2e 调试（`sasiki refine 60b002bc ... -i search_query="春季穿搭 男"`）定位并修复了两个根本问题：
+1. `_compress_tree` 丢弃兄弟节点，导致 LLM 只能看到 1 个节点（DOM 空）
+2. SPA 导航后未等待 JS 渲染，导致 Agent 误判页面未加载并陷入导航死循环
+
+两个 bug 已修复并通过 149 个单元测试。
 
 ---
 
-## 目标
+## 当前优先级
 
-设计一套 Prompt Cache 与 Message History 机制，确保：
-
-1. **稳定的系统提示（System Prompt）**可以被有效 Cache
-2. **高频变化的数据**（DOM Snapshot、最近步骤 History）合理分离
-3. **长文本（如 DOM Tree）**能够被有效 Cache
-4. **Action History** 既能指导 Agent 决策，又不破坏 Cache
-
----
-
-## 初步思路
-
-### 方案 A：分离 System Prompt 与 User Prompt
-
-- System Prompt: 包含固定的角色定义、输出格式要求（这部分可以被 Cache）
-- User Prompt: 包含当前目标、DOM Snapshot、Action History（这部分每次变化）
-
-### 方案 B：分页/窗口 History
-
-- 只保留最近 N 步的 Action History
-- 或者使用摘要（Summary）方式压缩早期历史
-
-### 方案 C：结构化 History
-
-- 将 Action History 作为独立的 JSON 数组传入，而非文本拼接
-- 依赖 LLM 对结构化数据的理解能力
-
----
-
-## 验证计划
-
-1. 对比不同方案下的 Token 消耗和 Cache 命中率
-2. 在真实网站（如小红书）测试连续执行稳定性
-3. 验证长 DOM Snapshot 下的响应延迟
-
----
-
-## 快速验证命令
+### P0：在真实小红书场景重新验证 E2E Refinement
 
 ```bash
-# 运行 Phase 3 单元测试
-PYTHONPATH=src uv run --with pytest --with pytest-asyncio pytest tests/engine/test_workflow_refiner.py -v
-
-# 手动验证 refine 命令
-sasiki refine <workflow_id> --cdp-url http://localhost:9222
+uv run sasiki refine 60b002bc-a4c5-4695-9496-a1d9c7f4bc94 \
+  -i search_query="春季穿搭 男" \
+  --max-steps 30
 ```
+
+验收标准：
+- Agent 能看到完整 DOM（节点数 > 10）
+- 不再出现无意义的重复导航
+- Stage 能正常推进并产出 `*_final.yaml`
+
+---
+
+## 重要说明：Agent System 将有较大变动
+
+后续 Agent 架构将进行较大重构（具体方向 TBD），当前的 `WorkflowRefiner` / `ReplayAgent` / `StageExecutor` 可能会被重新设计。
+
+在重构前，当前重点是：
+1. 用修复后的版本完成 E2E 验收，留存可用基线
+2. 记录现有 Agent 设计的边界和已知问题，为重构提供输入
+
