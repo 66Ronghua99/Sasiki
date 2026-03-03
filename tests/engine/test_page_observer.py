@@ -53,6 +53,8 @@ async def test_accessibility_observer():
         print("\n=== Compressed Tree ===")
         if isinstance(compressed_tree, CompressedNode):
             print(compressed_tree.model_dump_json(indent=2))
+        elif isinstance(compressed_tree, list):
+            print(json.dumps([n.model_dump() for n in compressed_tree], indent=2))
         else:
             print(json.dumps(compressed_tree, indent=2))
 

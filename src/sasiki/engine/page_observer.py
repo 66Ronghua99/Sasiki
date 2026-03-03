@@ -91,19 +91,21 @@ class AccessibilityObserver:
         self,
         node: dict[str, Any],
         node_dict: dict[str, Any],
-    ) -> CompressedNode | None:
+    ) -> list[CompressedNode]:
         """Recursively compress the accessibility tree from a flat CDP representation.
 
-        Returns a CompressedNode if this node or its descendants should be kept,
-        or None if neither this node nor any descendants are relevant.
+        Returns a list of CompressedNodes that should be kept from this subtree.
+        The list may contain a single node (if this node is kept) or multiple
+        flattened children (if this node is a structural container that is not kept).
+        Returns an empty list if neither this node nor any descendants are relevant.
         """
-        # Collect compressed children first
+        # Collect compressed children first by flattening all subtrees
         compressed_children: list[CompressedNode] = []
         for child_id in node.get("childIds", []):
             if child_id in node_dict:
-                compressed_child = self._compress_tree(node_dict[child_id], node_dict)
-                if compressed_child is not None:
-                    compressed_children.append(compressed_child)
+                compressed_children.extend(
+                    self._compress_tree(node_dict[child_id], node_dict)
+                )
 
         should_keep = self._should_keep_node(node)
 
@@ -154,18 +156,10 @@ class AccessibilityObserver:
                 ),
             )
 
-            return clean_node
+            return [clean_node]
 
-        # Not keeping this node - return children if any (flattening)
-        if not compressed_children:
-            return None
-        if len(compressed_children) == 1:
-            return compressed_children[0]
-        # When there are multiple children but parent is not kept,
-        # we return the first child. This maintains type consistency
-        # while still providing useful information.
-        # Alternative: could create a wrapper group node here.
-        return compressed_children[0]
+        # Not keeping this node - propagate all children upward (flatten)
+        return compressed_children
 
     async def observe(self, page: Page) -> ObservationResult:
         """Capture the accessibility snapshot using CDP.
@@ -202,7 +196,14 @@ class AccessibilityObserver:
         if not root_node:
             root_node = nodes[0]  # Fallback to first node
 
-        compressed_tree = self._compress_tree(root_node, node_dict)
+        compressed_results = self._compress_tree(root_node, node_dict)
+
+        if not compressed_results:
+            compressed_tree = None
+        elif len(compressed_results) == 1:
+            compressed_tree = compressed_results[0]
+        else:
+            compressed_tree = compressed_results
 
         return ObservationResult(
             compressed_tree=compressed_tree,

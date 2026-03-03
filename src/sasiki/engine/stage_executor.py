@@ -77,11 +77,16 @@ class StageExecutor:
 
         # Build independent goal for this stage
         goal = self._build_stage_goal(stage, history)
+
+        # Build concise summary for logging
+        action_count = len(stage.get("actions", []))
+        action_details_count = len(stage.get("action_details", []))
         get_logger().info(
             "stage_start",
             stage_index=stage_index,
             stage_name=stage_name,
-            goal=goal,
+            action_count=action_details_count or action_count,
+            application=stage.get("application"),
         )
 
         # Clear history at start of each stage

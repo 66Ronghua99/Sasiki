@@ -110,9 +110,11 @@ class ReplayAgent:
         Returns:
             AgentAction decided by the LLM
         """
+        # Log concise goal summary (first line only)
+        goal_summary = goal.split('\n')[0] if goal else ""
         get_logger().info(
             "replay_agent_step_start",
-            goal=goal,
+            goal_summary=goal_summary,
             is_retry=retry_context is not None,
             attempt=retry_context.attempt_number if retry_context else 1,
         )
@@ -268,6 +270,11 @@ class ReplayAgent:
             if not action.value:
                 raise ValueError("Action 'navigate' requires a 'value' (URL)")
             await page.goto(action.value)
+            # Wait for JS-rendered SPAs to finish rendering after navigation
+            try:
+                await page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass  # Timeout is acceptable; continue with current page state
             return True
 
         # Actions that DO require a target
@@ -289,6 +296,11 @@ class ReplayAgent:
         
         if action.action_type == "click":
             await page.mouse.click(x, y)
+            # Allow time for click-triggered navigation or dynamic content to settle
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=3000)
+            except Exception:
+                pass
         elif action.action_type == "hover":
             await page.mouse.move(x, y)
         elif action.action_type == "fill":
