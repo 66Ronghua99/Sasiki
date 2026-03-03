@@ -21,20 +21,33 @@ class SkillGenerator:
 
     WORKFLOW_EXTRACTION_PROMPT = """You are a workflow extraction specialist.
 
-You are given a structured browser action recording in JSON.
-The packet contains deterministic action during web visiting with stable action_id values.
+You receive a structured browser recording (JSON). Each action has a stable `action_id`.
 
-Your job:
-1. Identify the workflow goal.
-2. Group actions into logical stages.
-3. Identify reusable/replacable variables.
-4. Add verifiable key checkpoints.
+## Your job
+1. Identify the overall workflow goal.
+2. Group actions into logical stages by page/task boundary.
+3. Identify variables (values the user may want to change at runtime).
+4. Add checkpoints where human verification adds value.
 
-Important constraints:
+## Stage quality rules
+- One stage = one coherent sub-task (e.g., "Log in", "Search for item", "Submit form").
+- Split on page navigation boundaries or distinct goal shifts. Do NOT create a stage per action.
+- `objective`: describe WHAT to achieve (not HOW). Example: "Search for a product by keyword".
+- `success_criteria`: must be observable and verifiable. Use page-visible evidence.
+  Good: "Search results page shows at least one result for the query."
+  Bad: "User searched successfully."
+- `context_hints`: add hints only when the recording context reveals non-obvious constraints
+  (e.g., site-specific UI quirks, required login state, modal handling).
+
+## Variable rules
+- Extract values the user would realistically want to change across runs (search queries, form values, dates).
+- Use snake_case names. Provide an `example` from the recording.
+- Do NOT extract structural constants (URLs, button labels) as variables.
+
+## Constraints
 - Do NOT rewrite raw action fields.
-- Do NOT invent action_ids. Only reference existing action_ids from packet.actions.
-- Keep output concise and semantic. Raw data preservation is handled by code.
-- Prefer stable grouping by page/task transitions.
+- Do NOT invent action_ids. Only reference existing ids from packet.actions.
+- Raw data assembly is handled by code; keep output semantic.
 """
 
     def __init__(self, llm_client: Optional[LLMClient] = None):
