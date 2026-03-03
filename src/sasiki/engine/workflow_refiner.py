@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from playwright.async_api import Page
 
@@ -36,6 +36,8 @@ class WorkflowRefiner:
         human_handler: HumanInteractionHandler | None = None,
         auto_load_cookies: bool = True,
         cookies_dir: str | None = None,
+        observation_mode: Literal["legacy", "browser_use"] = "browser_use",
+        observation_compare_log: bool = False,
     ):
         """Initialize the WorkflowRefiner.
 
@@ -51,6 +53,8 @@ class WorkflowRefiner:
                               cookies_dir on startup. Ignored when using CDP.
             cookies_dir: Directory containing cookie JSON files. Defaults to
                         ~/.sasiki/cookies/
+            observation_mode: Observation schema mode for browser execution.
+            observation_compare_log: Emit legacy-vs-new observation compare logs.
         """
         self.env = PlaywrightEnvironment(
             cdp_url=cdp_url,
@@ -63,6 +67,8 @@ class WorkflowRefiner:
         self.max_steps_per_stage = max_steps_per_stage
         self.enable_checkpoints = enable_checkpoints
         self.human_handler = human_handler
+        self.observation_mode = observation_mode
+        self.observation_compare_log = observation_compare_log
         self._history: list[str] = []
         self._world_state_summary: str | None = None
 
@@ -256,6 +262,8 @@ class WorkflowRefiner:
             human_handler=self.human_handler,
             max_steps=self.max_steps_per_stage,
             max_repeats=3,
+            observation_mode=self.observation_mode,
+            observation_compare_log=self.observation_compare_log,
         )
         return await executor.execute(
             page,

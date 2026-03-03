@@ -1,0 +1,6872 @@
+{
+  "generated_at": "2026-03-03T07:01:40.835223+00:00",
+  "source": {
+    "cdp_url": null,
+    "user_data_dir": null,
+    "url": "https://www.xiaohongshu.com/search_result/?keyword=%E6%98%A5%E5%AD%A3%E7%A9%BF%E6%90%AD+%E7%94%B7&type=51",
+    "title": "春季穿搭 男 - 小红书搜索"
+  },
+  "agent_visible_summary": {
+    "dom_hash": "ea07f32b",
+    "interactive_count": 98,
+    "readable_count": 157,
+    "node_map_size": 255
+  },
+  "agent_payload_type": "snapshot",
+  "agent_payload": {
+    "url": "https://www.xiaohongshu.com/search_result/?keyword=%E6%98%A5%E5%AD%A3%E7%A9%BF%E6%90%AD+%E7%94%B7&type=51",
+    "title": "春季穿搭 男 - 小红书搜索",
+    "dom_hash": "ea07f32b",
+    "interactive": [
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "textbox",
+        "name": "搜索小红书",
+        "value": "春季穿搭 男",
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "创作中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "业务合作",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "发现",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "直播",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "发布",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "通知",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "我",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "营业执照",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网上有害信息举报专区",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "自营经营者信息",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "营业执照",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网上有害信息举报专区",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "自营经营者信息",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "综合",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "大学生",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "二十多岁",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "小个子款",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "简单大方",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "少年感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "英伦风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "轻商务风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "成熟稳重",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "休闲风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "松弛感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "高级感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "秋季色系",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "阳光帅气",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "清冷感风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "干净清爽",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "早春就让男朋友这样穿，少年感满满*8⃣️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小野要早睡 01-28",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "建议一米七男生直接复制这几套（入春18套）",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "乌龙茶 02-12",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "Nick Tian 02-24",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生穿搭｜一周春季搭配不重样✌️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "阿kong 2025-03-13",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "一周情侣穿搭合集",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "温度差 2025-03-09",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生穿搭要知道的“四大原则”❗❗",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "三W的穿搭分享 2025-03-27",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生变帅逆袭第二步！丢掉你的“廉价感”",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "ManBo 🗽 2025-03-11",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "165-180男生春季穿搭|显高帅气男友力穿搭",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "ER先森 02-12",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "不会穿搭的男生|记住这三个口诀✓爆改",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "花念安【穿搭推荐版】 2025-03-19",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "连眠眠不绝 01-09",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小野要早睡 2025-03-23",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "蔡不肉 2025-04-04",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "女生希望看到的男生浅色穿搭｜一周穿搭合集",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "森煜穿搭 2025-03-18",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生必看｜春季叠穿法则‼️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小刘的穿搭日记 2025-04-03",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "春季男生轻熟风穿搭|男友穿搭改造计划",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "SPT穿搭 2025-03-13",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "长期主义｜早春夹克通勤穿搭*2",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "鱼生NicK 02-10",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      }
+    ],
+    "readable": [
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "春季穿搭 男"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "创作中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "业务合作"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "发现"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "直播"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "发布"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "通知"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "我"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "沪ICP备13030189号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "营业执照"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2024沪公网安备31010102002533号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "增值电信业务经营许可证：沪B2-20150021"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "违法不良信息举报电话：4006676810"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "上海市互联网举报中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网上有害信息举报专区"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "自营经营者信息"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网络文化经营许可证：沪网文(2024)1344-086号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "个性化推荐算法 网信算备310101216601302230019号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "© 2014-2024"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "行吟信息科技（上海）有限公司"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "地址：上海市黄浦区马当路388号C座"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "电话：9501-3888"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "更多"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "沪ICP备13030189号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "营业执照"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2024沪公网安备31010102002533号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "增值电信业务经营许可证：沪B2-20150021"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "违法不良信息举报电话：4006676810"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "上海市互联网举报中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网上有害信息举报专区"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "自营经营者信息"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网络文化经营许可证：沪网文(2024)1344-086号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "个性化推荐算法 网信算备310101216601302230019号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "© 2014-2024"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "行吟信息科技（上海）有限公司"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "地址：上海市黄浦区马当路388号C座"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "电话：9501-3888"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "全部"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "图文"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "视频"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "用户"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "筛选"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "综合"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大学生"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "二十多岁"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小个子款"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "简单大方"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "少年感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "英伦风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "轻商务风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "成熟稳重"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "休闲风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "松弛感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "高级感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "秋季色系"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "阳光帅气"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "清冷感风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "干净清爽"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "早春就让男朋友这样穿，少年感满满*8⃣️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小野要早睡"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "01-28"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1768"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "建议一米七男生直接复制这几套（入春18套）"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "乌龙茶"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-12"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "452"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "Nick Tian"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-24"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "339"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭｜一周春季搭配不重样✌️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "阿kong"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-13"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "610"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "一周情侣穿搭合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "温度差"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-09"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1332"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭要知道的“四大原则”❗❗"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "三W的穿搭分享"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-27"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "16"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大家都在搜"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "青春男大学生穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男性初春穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2026男士穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生高级ootd"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生变帅逆袭第二步！丢掉你的“廉价感”"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "ManBo 🗽"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-11"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "896"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "165-180男生春季穿搭|显高帅气男友力穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "ER先森"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-12"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "45"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "不会穿搭的男生|记住这三个口诀✓爆改"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "花念安【穿搭推荐版】"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-19"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "17"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "连眠眠不绝"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "01-09"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "269"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小野要早睡"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-23"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1.9万"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "蔡不肉"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-04-04"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1万"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "女生希望看到的男生浅色穿搭｜一周穿搭合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "森煜穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-18"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "436"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生必看｜春季叠穿法则‼️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小刘的穿搭日记"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-04-03"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "51"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "春季男生轻熟风穿搭|男友穿搭改造计划"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "SPT穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-13"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "59"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大家都在搜"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男高春天穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生秋冬外套合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "靠谱的男装店铺"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭抄作业"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "长期主义｜早春夹克通勤穿搭*2"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "鱼生NicK"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-10"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "729"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "活动"
+      }
+    ]
+  },
+  "agent_payload_json": "{\"url\":\"https://www.xiaohongshu.com/search_result/?keyword=%E6%98%A5%E5%AD%A3%E7%A9%BF%E6%90%AD+%E7%94%B7&type=51\",\"title\":\"春季穿搭 男 - 小红书搜索\",\"dom_hash\":\"ea07f32b\",\"interactive\":[{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"textbox\",\"name\":\"搜索小红书\",\"value\":\"春季穿搭 男\",\"text\":null},{\"role\":\"button\",\"name\":\"创作中心\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"业务合作\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"发现\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"直播\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"发布\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"通知\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"我\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"沪ICP备13030189号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"营业执照\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"2024沪公网安备31010102002533号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"增值电信业务经营许可证：沪B2-20150021\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"互联网药品信息服务资格证书：(沪)-经营性-2023-0144\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"违法不良信息举报电话：4006676810\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"上海市互联网举报中心\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"网上有害信息举报专区\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"自营经营者信息\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"网络文化经营许可证：沪网文(2024)1344-086号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"个性化推荐算法 网信算备310101216601302230019号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"沪ICP备13030189号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"营业执照\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"2024沪公网安备31010102002533号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"增值电信业务经营许可证：沪B2-20150021\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"互联网药品信息服务资格证书：(沪)-经营性-2023-0144\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"违法不良信息举报电话：4006676810\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"上海市互联网举报中心\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"网上有害信息举报专区\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"自营经营者信息\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"网络文化经营许可证：沪网文(2024)1344-086号\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"个性化推荐算法 网信算备310101216601302230019号\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"综合\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"大学生\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"二十多岁\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"小个子款\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"简单大方\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"少年感\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"英伦风\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"轻商务风\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"成熟稳重\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"休闲风\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"松弛感\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"高级感\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"秋季色系\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"阳光帅气\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"清冷感风\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":\"干净清爽\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"早春就让男朋友这样穿，少年感满满*8⃣️\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"小野要早睡 01-28\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"建议一米七男生直接复制这几套（入春18套）\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"乌龙茶 02-12\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男生春季穿搭｜谁能拒绝干净简单的毛衣搭配\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"Nick Tian 02-24\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男生穿搭｜一周春季搭配不重样✌️\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"阿kong 2025-03-13\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"一周情侣穿搭合集\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"温度差 2025-03-09\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男生穿搭要知道的“四大原则”❗❗\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"三W的穿搭分享 2025-03-27\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男生变帅逆袭第二步！丢掉你的“廉价感”\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"ManBo 🗽 2025-03-11\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"165-180男生春季穿搭|显高帅气男友力穿搭\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"ER先森 02-12\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"不会穿搭的男生|记住这三个口诀✓爆改\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"花念安【穿搭推荐版】 2025-03-19\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"连眠眠不绝 01-09\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"小野要早睡 2025-03-23\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"蔡不肉 2025-04-04\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"女生希望看到的男生浅色穿搭｜一周穿搭合集\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"森煜穿搭 2025-03-18\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"男生必看｜春季叠穿法则‼️\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"小刘的穿搭日记 2025-04-03\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"春季男生轻熟风穿搭|男友穿搭改造计划\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"SPT穿搭 2025-03-13\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"长期主义｜早春夹克通勤穿搭*2\",\"value\":null,\"text\":null},{\"role\":\"link\",\"name\":\"鱼生NicK 02-10\",\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":null,\"value\":null,\"text\":null},{\"role\":\"button\",\"name\":null,\"value\":null,\"text\":null}],\"readable\":[{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"春季穿搭 男\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"创作中心\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"业务合作\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"发现\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"直播\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"发布\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"通知\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"我\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"沪ICP备13030189号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"营业执照\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2024沪公网安备31010102002533号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"增值电信业务经营许可证：沪B2-20150021\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"互联网药品信息服务资格证书：(沪)-经营性-2023-0144\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"违法不良信息举报电话：4006676810\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"上海市互联网举报中心\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"网上有害信息举报专区\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"自营经营者信息\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"网络文化经营许可证：沪网文(2024)1344-086号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"个性化推荐算法 网信算备310101216601302230019号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"© 2014-2024\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"行吟信息科技（上海）有限公司\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"地址：上海市黄浦区马当路388号C座\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"电话：9501-3888\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"更多\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"沪ICP备13030189号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"营业执照\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2024沪公网安备31010102002533号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"增值电信业务经营许可证：沪B2-20150021\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"互联网药品信息服务资格证书：(沪)-经营性-2023-0144\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"违法不良信息举报电话：4006676810\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"上海市互联网举报中心\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"网上有害信息举报专区\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"自营经营者信息\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"网络文化经营许可证：沪网文(2024)1344-086号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"|\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"个性化推荐算法 网信算备310101216601302230019号\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"© 2014-2024\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"行吟信息科技（上海）有限公司\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"地址：上海市黄浦区马当路388号C座\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"电话：9501-3888\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"全部\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"图文\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"视频\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"用户\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"筛选\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"综合\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"大学生\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"二十多岁\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"小个子款\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"简单大方\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"少年感\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"英伦风\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"轻商务风\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"成熟稳重\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"休闲风\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"松弛感\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"高级感\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"秋季色系\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"阳光帅气\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"清冷感风\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"干净清爽\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"早春就让男朋友这样穿，少年感满满*8⃣️\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"小野要早睡\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"01-28\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"1768\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"建议一米七男生直接复制这几套（入春18套）\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"乌龙茶\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"02-12\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"452\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生春季穿搭｜谁能拒绝干净简单的毛衣搭配\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"Nick Tian\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"02-24\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"339\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生穿搭｜一周春季搭配不重样✌️\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"阿kong\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-13\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"610\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"一周情侣穿搭合集\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"温度差\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-09\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"1332\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生穿搭要知道的“四大原则”❗❗\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"三W的穿搭分享\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-27\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"16\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"大家都在搜\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"青春男大学生穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男性初春穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2026男士穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生高级ootd\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生变帅逆袭第二步！丢掉你的“廉价感”\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"ManBo 🗽\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-11\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"896\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"165-180男生春季穿搭|显高帅气男友力穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"ER先森\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"02-12\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"45\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"不会穿搭的男生|记住这三个口诀✓爆改\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"花念安【穿搭推荐版】\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-19\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"17\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"连眠眠不绝\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"01-09\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"269\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"小野要早睡\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-23\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"1.9万\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"蔡不肉\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-04-04\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"1万\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"女生希望看到的男生浅色穿搭｜一周穿搭合集\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"森煜穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-18\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"436\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生必看｜春季叠穿法则‼️\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"小刘的穿搭日记\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-04-03\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"51\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"春季男生轻熟风穿搭|男友穿搭改造计划\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"SPT穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"2025-03-13\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"59\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"大家都在搜\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男高春天穿搭\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生秋冬外套合集\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"靠谱的男装店铺\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"男生穿搭抄作业\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"长期主义｜早春夹克通勤穿搭*2\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"鱼生NicK\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"02-10\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"729\"},{\"role\":\"text\",\"name\":null,\"value\":null,\"text\":\"活动\"}]}",
+  "snapshot": {
+    "url": "https://www.xiaohongshu.com/search_result/?keyword=%E6%98%A5%E5%AD%A3%E7%A9%BF%E6%90%AD+%E7%94%B7&type=51",
+    "title": "春季穿搭 男 - 小红书搜索",
+    "dom_hash": "ea07f32b",
+    "interactive": [
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "textbox",
+        "name": "搜索小红书",
+        "value": "春季穿搭 男",
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "创作中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "业务合作",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "发现",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "直播",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "发布",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "通知",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "我",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "营业执照",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网上有害信息举报专区",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "自营经营者信息",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "营业执照",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网上有害信息举报专区",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "自营经营者信息",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "综合",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "大学生",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "二十多岁",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "小个子款",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "简单大方",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "少年感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "英伦风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "轻商务风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "成熟稳重",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "休闲风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "松弛感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "高级感",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "秋季色系",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "阳光帅气",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "清冷感风",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": "干净清爽",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "早春就让男朋友这样穿，少年感满满*8⃣️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小野要早睡 01-28",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "建议一米七男生直接复制这几套（入春18套）",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "乌龙茶 02-12",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "Nick Tian 02-24",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生穿搭｜一周春季搭配不重样✌️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "阿kong 2025-03-13",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "一周情侣穿搭合集",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "温度差 2025-03-09",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生穿搭要知道的“四大原则”❗❗",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "三W的穿搭分享 2025-03-27",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生变帅逆袭第二步！丢掉你的“廉价感”",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "ManBo 🗽 2025-03-11",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "165-180男生春季穿搭|显高帅气男友力穿搭",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "ER先森 02-12",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "不会穿搭的男生|记住这三个口诀✓爆改",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "花念安【穿搭推荐版】 2025-03-19",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "连眠眠不绝 01-09",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小野要早睡 2025-03-23",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "蔡不肉 2025-04-04",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "女生希望看到的男生浅色穿搭｜一周穿搭合集",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "森煜穿搭 2025-03-18",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "男生必看｜春季叠穿法则‼️",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "小刘的穿搭日记 2025-04-03",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "春季男生轻熟风穿搭|男友穿搭改造计划",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "SPT穿搭 2025-03-13",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "长期主义｜早春夹克通勤穿搭*2",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "link",
+        "name": "鱼生NicK 02-10",
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      },
+      {
+        "role": "button",
+        "name": null,
+        "value": null,
+        "text": null
+      }
+    ],
+    "readable": [
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "春季穿搭 男"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "创作中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "业务合作"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "发现"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "直播"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "发布"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "通知"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "我"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "沪ICP备13030189号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "营业执照"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2024沪公网安备31010102002533号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "增值电信业务经营许可证：沪B2-20150021"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "违法不良信息举报电话：4006676810"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "上海市互联网举报中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网上有害信息举报专区"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "自营经营者信息"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网络文化经营许可证：沪网文(2024)1344-086号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "个性化推荐算法 网信算备310101216601302230019号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "© 2014-2024"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "行吟信息科技（上海）有限公司"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "地址：上海市黄浦区马当路388号C座"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "电话：9501-3888"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "更多"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "沪ICP备13030189号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "营业执照"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2024沪公网安备31010102002533号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "增值电信业务经营许可证：沪B2-20150021"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "违法不良信息举报电话：4006676810"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "上海市互联网举报中心"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网上有害信息举报专区"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "自营经营者信息"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "网络文化经营许可证：沪网文(2024)1344-086号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "|"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "个性化推荐算法 网信算备310101216601302230019号"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "© 2014-2024"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "行吟信息科技（上海）有限公司"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "地址：上海市黄浦区马当路388号C座"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "电话：9501-3888"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "全部"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "图文"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "视频"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "用户"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "筛选"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "综合"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大学生"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "二十多岁"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小个子款"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "简单大方"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "少年感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "英伦风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "轻商务风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "成熟稳重"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "休闲风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "松弛感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "高级感"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "秋季色系"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "阳光帅气"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "清冷感风"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "干净清爽"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "早春就让男朋友这样穿，少年感满满*8⃣️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小野要早睡"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "01-28"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1768"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "建议一米七男生直接复制这几套（入春18套）"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "乌龙茶"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-12"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "452"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "Nick Tian"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-24"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "339"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭｜一周春季搭配不重样✌️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "阿kong"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-13"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "610"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "一周情侣穿搭合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "温度差"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-09"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1332"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭要知道的“四大原则”❗❗"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "三W的穿搭分享"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-27"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "16"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大家都在搜"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "青春男大学生穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男性初春穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2026男士穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生高级ootd"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生变帅逆袭第二步！丢掉你的“廉价感”"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "ManBo 🗽"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-11"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "896"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "165-180男生春季穿搭|显高帅气男友力穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "ER先森"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-12"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "45"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "不会穿搭的男生|记住这三个口诀✓爆改"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "花念安【穿搭推荐版】"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-19"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "17"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "连眠眠不绝"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "01-09"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "269"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小野要早睡"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-23"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1.9万"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "蔡不肉"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-04-04"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "1万"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "女生希望看到的男生浅色穿搭｜一周穿搭合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "森煜穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-18"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "436"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生必看｜春季叠穿法则‼️"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "小刘的穿搭日记"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-04-03"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "51"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "春季男生轻熟风穿搭|男友穿搭改造计划"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "SPT穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "2025-03-13"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "59"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "大家都在搜"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男高春天穿搭"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生秋冬外套合集"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "靠谱的男装店铺"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "男生穿搭抄作业"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "长期主义｜早春夹克通勤穿搭*2"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "鱼生NicK"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "02-10"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "729"
+      },
+      {
+        "role": "text",
+        "name": null,
+        "value": null,
+        "text": "活动"
+      }
+    ]
+  },
+  "compressed_tree": [
+    {
+      "node_id": 1,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 3,
+      "role": "textbox",
+      "name": "搜索小红书",
+      "disabled": null,
+      "value": "春季穿搭 男",
+      "description": null,
+      "children": [
+        {
+          "node_id": 2,
+          "role": "StaticText",
+          "name": "春季穿搭 男",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 5,
+      "role": "button",
+      "name": "创作中心",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 4,
+          "role": "StaticText",
+          "name": "创作中心",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 7,
+      "role": "button",
+      "name": "业务合作",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 6,
+          "role": "StaticText",
+          "name": "业务合作",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 9,
+      "role": "link",
+      "name": "发现",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 8,
+          "role": "StaticText",
+          "name": "发现",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 11,
+      "role": "link",
+      "name": "直播",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 10,
+          "role": "StaticText",
+          "name": "直播",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 13,
+      "role": "link",
+      "name": "发布",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 12,
+          "role": "StaticText",
+          "name": "发布",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 15,
+      "role": "link",
+      "name": "通知",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 14,
+          "role": "StaticText",
+          "name": "通知",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 17,
+      "role": "link",
+      "name": "我",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 16,
+          "role": "StaticText",
+          "name": "我",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 19,
+      "role": "link",
+      "name": "沪ICP备13030189号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪ICP备",
+      "children": [
+        {
+          "node_id": 18,
+          "role": "StaticText",
+          "name": "沪ICP备13030189号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 20,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 22,
+      "role": "link",
+      "name": "营业执照",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_营业执照",
+      "children": [
+        {
+          "node_id": 21,
+          "role": "StaticText",
+          "name": "营业执照",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 23,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 25,
+      "role": "link",
+      "name": "2024沪公网安备31010102002533号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪公网安备",
+      "children": [
+        {
+          "node_id": 24,
+          "role": "StaticText",
+          "name": "2024沪公网安备31010102002533号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 26,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 28,
+      "role": "link",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_网文",
+      "children": [
+        {
+          "node_id": 27,
+          "role": "StaticText",
+          "name": "增值电信业务经营许可证：沪B2-20150021",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 29,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 31,
+      "role": "link",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_医疗器械网络交易服务",
+      "children": [
+        {
+          "node_id": 30,
+          "role": "StaticText",
+          "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 32,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 34,
+      "role": "link",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_互联网药品信息服务",
+      "children": [
+        {
+          "node_id": 33,
+          "role": "StaticText",
+          "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 35,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 37,
+      "role": "link",
+      "name": "违法不良信息举报电话：4006676810",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_上海市互联网举报中心",
+      "children": [
+        {
+          "node_id": 36,
+          "role": "StaticText",
+          "name": "违法不良信息举报电话：4006676810",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 38,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 40,
+      "role": "link",
+      "name": "上海市互联网举报中心",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_上海市互联网举报中心",
+      "children": [
+        {
+          "node_id": 39,
+          "role": "StaticText",
+          "name": "上海市互联网举报中心",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 41,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 43,
+      "role": "link",
+      "name": "网上有害信息举报专区",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 42,
+          "role": "StaticText",
+          "name": "网上有害信息举报专区",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 44,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 46,
+      "role": "link",
+      "name": "自营经营者信息",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪公网安备",
+      "children": [
+        {
+          "node_id": 45,
+          "role": "StaticText",
+          "name": "自营经营者信息",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 47,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 49,
+      "role": "link",
+      "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_网络文化经营许可",
+      "children": [
+        {
+          "node_id": 48,
+          "role": "StaticText",
+          "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 50,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 52,
+      "role": "link",
+      "name": "个性化推荐算法 网信算备310101216601302230019号",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 51,
+          "role": "StaticText",
+          "name": "个性化推荐算法 网信算备310101216601302230019号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 53,
+      "role": "StaticText",
+      "name": "© 2014-2024",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 54,
+      "role": "StaticText",
+      "name": "行吟信息科技（上海）有限公司",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 55,
+      "role": "StaticText",
+      "name": "地址：上海市黄浦区马当路388号C座",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 56,
+      "role": "StaticText",
+      "name": "电话：9501-3888",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 57,
+      "role": "StaticText",
+      "name": "更多",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 59,
+      "role": "link",
+      "name": "沪ICP备13030189号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪ICP备",
+      "children": [
+        {
+          "node_id": 58,
+          "role": "StaticText",
+          "name": "沪ICP备13030189号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 60,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 62,
+      "role": "link",
+      "name": "营业执照",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_营业执照",
+      "children": [
+        {
+          "node_id": 61,
+          "role": "StaticText",
+          "name": "营业执照",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 63,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 65,
+      "role": "link",
+      "name": "2024沪公网安备31010102002533号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪公网安备",
+      "children": [
+        {
+          "node_id": 64,
+          "role": "StaticText",
+          "name": "2024沪公网安备31010102002533号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 66,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 68,
+      "role": "link",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_网文",
+      "children": [
+        {
+          "node_id": 67,
+          "role": "StaticText",
+          "name": "增值电信业务经营许可证：沪B2-20150021",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 69,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 71,
+      "role": "link",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_医疗器械网络交易服务",
+      "children": [
+        {
+          "node_id": 70,
+          "role": "StaticText",
+          "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 72,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 74,
+      "role": "link",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_互联网药品信息服务",
+      "children": [
+        {
+          "node_id": 73,
+          "role": "StaticText",
+          "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 75,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 77,
+      "role": "link",
+      "name": "违法不良信息举报电话：4006676810",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_上海市互联网举报中心",
+      "children": [
+        {
+          "node_id": 76,
+          "role": "StaticText",
+          "name": "违法不良信息举报电话：4006676810",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 78,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 80,
+      "role": "link",
+      "name": "上海市互联网举报中心",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_上海市互联网举报中心",
+      "children": [
+        {
+          "node_id": 79,
+          "role": "StaticText",
+          "name": "上海市互联网举报中心",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 81,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 83,
+      "role": "link",
+      "name": "网上有害信息举报专区",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 82,
+          "role": "StaticText",
+          "name": "网上有害信息举报专区",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 84,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 86,
+      "role": "link",
+      "name": "自营经营者信息",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_沪公网安备",
+      "children": [
+        {
+          "node_id": 85,
+          "role": "StaticText",
+          "name": "自营经营者信息",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 87,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 89,
+      "role": "link",
+      "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+      "disabled": null,
+      "value": null,
+      "description": "小红书_网络文化经营许可",
+      "children": [
+        {
+          "node_id": 88,
+          "role": "StaticText",
+          "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 90,
+      "role": "StaticText",
+      "name": "|",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 92,
+      "role": "link",
+      "name": "个性化推荐算法 网信算备310101216601302230019号",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 91,
+          "role": "StaticText",
+          "name": "个性化推荐算法 网信算备310101216601302230019号",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 93,
+      "role": "StaticText",
+      "name": "© 2014-2024",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 94,
+      "role": "StaticText",
+      "name": "行吟信息科技（上海）有限公司",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 95,
+      "role": "StaticText",
+      "name": "地址：上海市黄浦区马当路388号C座",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 96,
+      "role": "StaticText",
+      "name": "电话：9501-3888",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 97,
+      "role": "StaticText",
+      "name": "全部",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 98,
+      "role": "StaticText",
+      "name": "图文",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 99,
+      "role": "StaticText",
+      "name": "视频",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 100,
+      "role": "StaticText",
+      "name": "用户",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 101,
+      "role": "StaticText",
+      "name": "筛选",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 103,
+      "role": "button",
+      "name": "综合",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 102,
+          "role": "StaticText",
+          "name": "综合",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 105,
+      "role": "button",
+      "name": "大学生",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 104,
+          "role": "StaticText",
+          "name": "大学生",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 107,
+      "role": "button",
+      "name": "二十多岁",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 106,
+          "role": "StaticText",
+          "name": "二十多岁",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 109,
+      "role": "button",
+      "name": "小个子款",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 108,
+          "role": "StaticText",
+          "name": "小个子款",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 111,
+      "role": "button",
+      "name": "简单大方",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 110,
+          "role": "StaticText",
+          "name": "简单大方",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 113,
+      "role": "button",
+      "name": "少年感",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 112,
+          "role": "StaticText",
+          "name": "少年感",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 115,
+      "role": "button",
+      "name": "英伦风",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 114,
+          "role": "StaticText",
+          "name": "英伦风",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 117,
+      "role": "button",
+      "name": "轻商务风",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 116,
+          "role": "StaticText",
+          "name": "轻商务风",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 119,
+      "role": "button",
+      "name": "成熟稳重",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 118,
+          "role": "StaticText",
+          "name": "成熟稳重",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 121,
+      "role": "button",
+      "name": "休闲风",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 120,
+          "role": "StaticText",
+          "name": "休闲风",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 123,
+      "role": "button",
+      "name": "松弛感",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 122,
+          "role": "StaticText",
+          "name": "松弛感",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 125,
+      "role": "button",
+      "name": "高级感",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 124,
+          "role": "StaticText",
+          "name": "高级感",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 127,
+      "role": "button",
+      "name": "秋季色系",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 126,
+          "role": "StaticText",
+          "name": "秋季色系",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 129,
+      "role": "button",
+      "name": "阳光帅气",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 128,
+          "role": "StaticText",
+          "name": "阳光帅气",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 131,
+      "role": "button",
+      "name": "清冷感风",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 130,
+          "role": "StaticText",
+          "name": "清冷感风",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 133,
+      "role": "button",
+      "name": "干净清爽",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 132,
+          "role": "StaticText",
+          "name": "干净清爽",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 134,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 136,
+      "role": "link",
+      "name": "早春就让男朋友这样穿，少年感满满*8⃣️",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 135,
+          "role": "StaticText",
+          "name": "早春就让男朋友这样穿，少年感满满*8⃣️",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 139,
+      "role": "link",
+      "name": "小野要早睡 01-28",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 137,
+          "role": "StaticText",
+          "name": "小野要早睡",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 138,
+          "role": "StaticText",
+          "name": "01-28",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 140,
+      "role": "StaticText",
+      "name": "1768",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 141,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 143,
+      "role": "link",
+      "name": "建议一米七男生直接复制这几套（入春18套）",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 142,
+          "role": "StaticText",
+          "name": "建议一米七男生直接复制这几套（入春18套）",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 146,
+      "role": "link",
+      "name": "乌龙茶 02-12",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 144,
+          "role": "StaticText",
+          "name": "乌龙茶",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 145,
+          "role": "StaticText",
+          "name": "02-12",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 147,
+      "role": "StaticText",
+      "name": "452",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 148,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 150,
+      "role": "link",
+      "name": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 149,
+          "role": "StaticText",
+          "name": "男生春季穿搭｜谁能拒绝干净简单的毛衣搭配",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 153,
+      "role": "link",
+      "name": "Nick Tian 02-24",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 151,
+          "role": "StaticText",
+          "name": "Nick Tian",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 152,
+          "role": "StaticText",
+          "name": "02-24",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 154,
+      "role": "StaticText",
+      "name": "339",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 155,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 157,
+      "role": "link",
+      "name": "男生穿搭｜一周春季搭配不重样✌️",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 156,
+          "role": "StaticText",
+          "name": "男生穿搭｜一周春季搭配不重样✌️",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 160,
+      "role": "link",
+      "name": "阿kong 2025-03-13",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 158,
+          "role": "StaticText",
+          "name": "阿kong",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 159,
+          "role": "StaticText",
+          "name": "2025-03-13",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 161,
+      "role": "StaticText",
+      "name": "610",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 162,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 164,
+      "role": "link",
+      "name": "一周情侣穿搭合集",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 163,
+          "role": "StaticText",
+          "name": "一周情侣穿搭合集",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 167,
+      "role": "link",
+      "name": "温度差 2025-03-09",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 165,
+          "role": "StaticText",
+          "name": "温度差",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 166,
+          "role": "StaticText",
+          "name": "2025-03-09",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 168,
+      "role": "StaticText",
+      "name": "1332",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 169,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 171,
+      "role": "link",
+      "name": "男生穿搭要知道的“四大原则”❗❗",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 170,
+          "role": "StaticText",
+          "name": "男生穿搭要知道的“四大原则”❗❗",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 174,
+      "role": "link",
+      "name": "三W的穿搭分享 2025-03-27",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 172,
+          "role": "StaticText",
+          "name": "三W的穿搭分享",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 173,
+          "role": "StaticText",
+          "name": "2025-03-27",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 175,
+      "role": "StaticText",
+      "name": "16",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 176,
+      "role": "StaticText",
+      "name": "大家都在搜",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 177,
+      "role": "StaticText",
+      "name": "青春男大学生穿搭",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 178,
+      "role": "StaticText",
+      "name": "男性初春穿搭",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 179,
+      "role": "StaticText",
+      "name": "2026男士穿搭",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 180,
+      "role": "StaticText",
+      "name": "男生高级ootd",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 181,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 183,
+      "role": "link",
+      "name": "男生变帅逆袭第二步！丢掉你的“廉价感”",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 182,
+          "role": "StaticText",
+          "name": "男生变帅逆袭第二步！丢掉你的“廉价感”",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 186,
+      "role": "link",
+      "name": "ManBo 🗽 2025-03-11",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 184,
+          "role": "StaticText",
+          "name": "ManBo 🗽",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 185,
+          "role": "StaticText",
+          "name": "2025-03-11",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 187,
+      "role": "StaticText",
+      "name": "896",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 188,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 190,
+      "role": "link",
+      "name": "165-180男生春季穿搭|显高帅气男友力穿搭",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 189,
+          "role": "StaticText",
+          "name": "165-180男生春季穿搭|显高帅气男友力穿搭",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 193,
+      "role": "link",
+      "name": "ER先森 02-12",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 191,
+          "role": "StaticText",
+          "name": "ER先森",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 192,
+          "role": "StaticText",
+          "name": "02-12",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 194,
+      "role": "StaticText",
+      "name": "45",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 195,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 197,
+      "role": "link",
+      "name": "不会穿搭的男生|记住这三个口诀✓爆改",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 196,
+          "role": "StaticText",
+          "name": "不会穿搭的男生|记住这三个口诀✓爆改",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 200,
+      "role": "link",
+      "name": "花念安【穿搭推荐版】 2025-03-19",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 198,
+          "role": "StaticText",
+          "name": "花念安【穿搭推荐版】",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 199,
+          "role": "StaticText",
+          "name": "2025-03-19",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 201,
+      "role": "StaticText",
+      "name": "17",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 202,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 205,
+      "role": "link",
+      "name": "连眠眠不绝 01-09",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 203,
+          "role": "StaticText",
+          "name": "连眠眠不绝",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 204,
+          "role": "StaticText",
+          "name": "01-09",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 206,
+      "role": "StaticText",
+      "name": "269",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 207,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 209,
+      "role": "link",
+      "name": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 208,
+          "role": "StaticText",
+          "name": "男朋友这么会穿 能笑醒吧🙈开春约会*1️⃣8️⃣",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 212,
+      "role": "link",
+      "name": "小野要早睡 2025-03-23",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 210,
+          "role": "StaticText",
+          "name": "小野要早睡",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 211,
+          "role": "StaticText",
+          "name": "2025-03-23",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 213,
+      "role": "StaticText",
+      "name": "1.9万",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 214,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 217,
+      "role": "link",
+      "name": "蔡不肉 2025-04-04",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 215,
+          "role": "StaticText",
+          "name": "蔡不肉",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 216,
+          "role": "StaticText",
+          "name": "2025-04-04",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 218,
+      "role": "StaticText",
+      "name": "1万",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 219,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 221,
+      "role": "link",
+      "name": "女生希望看到的男生浅色穿搭｜一周穿搭合集",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 220,
+          "role": "StaticText",
+          "name": "女生希望看到的男生浅色穿搭｜一周穿搭合集",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 224,
+      "role": "link",
+      "name": "森煜穿搭 2025-03-18",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 222,
+          "role": "StaticText",
+          "name": "森煜穿搭",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 223,
+          "role": "StaticText",
+          "name": "2025-03-18",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 225,
+      "role": "StaticText",
+      "name": "436",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 226,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 228,
+      "role": "link",
+      "name": "男生必看｜春季叠穿法则‼️",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 227,
+          "role": "StaticText",
+          "name": "男生必看｜春季叠穿法则‼️",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 231,
+      "role": "link",
+      "name": "小刘的穿搭日记 2025-04-03",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 229,
+          "role": "StaticText",
+          "name": "小刘的穿搭日记",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 230,
+          "role": "StaticText",
+          "name": "2025-04-03",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 232,
+      "role": "StaticText",
+      "name": "51",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 233,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 235,
+      "role": "link",
+      "name": "春季男生轻熟风穿搭|男友穿搭改造计划",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 234,
+          "role": "StaticText",
+          "name": "春季男生轻熟风穿搭|男友穿搭改造计划",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 238,
+      "role": "link",
+      "name": "SPT穿搭 2025-03-13",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 236,
+          "role": "StaticText",
+          "name": "SPT穿搭",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 237,
+          "role": "StaticText",
+          "name": "2025-03-13",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 239,
+      "role": "StaticText",
+      "name": "59",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 240,
+      "role": "StaticText",
+      "name": "大家都在搜",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 241,
+      "role": "StaticText",
+      "name": "男高春天穿搭",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 242,
+      "role": "StaticText",
+      "name": "男生秋冬外套合集",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 243,
+      "role": "StaticText",
+      "name": "靠谱的男装店铺",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 244,
+      "role": "StaticText",
+      "name": "男生穿搭抄作业",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 245,
+      "role": "link",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 247,
+      "role": "link",
+      "name": "长期主义｜早春夹克通勤穿搭*2",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 246,
+          "role": "StaticText",
+          "name": "长期主义｜早春夹克通勤穿搭*2",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 250,
+      "role": "link",
+      "name": "鱼生NicK 02-10",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": [
+        {
+          "node_id": 248,
+          "role": "StaticText",
+          "name": "鱼生NicK",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        },
+        {
+          "node_id": 249,
+          "role": "StaticText",
+          "name": "02-10",
+          "disabled": null,
+          "value": null,
+          "description": null,
+          "children": []
+        }
+      ]
+    },
+    {
+      "node_id": 251,
+      "role": "StaticText",
+      "name": "729",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 252,
+      "role": "button",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 253,
+      "role": "StaticText",
+      "name": "活动",
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 254,
+      "role": "button",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    },
+    {
+      "node_id": 255,
+      "role": "button",
+      "name": null,
+      "disabled": null,
+      "value": null,
+      "description": null,
+      "children": []
+    }
+  ],
+  "node_map_preview": [
+    {
+      "node_id": 1,
+      "role": "link",
+      "name": null,
+      "clean_node": {
+        "node_id": 1,
+        "role": "link",
+        "name": null,
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 2,
+      "role": "text",
+      "name": "春季穿搭 男",
+      "clean_node": {
+        "node_id": 2,
+        "role": "StaticText",
+        "name": "春季穿搭 男",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 3,
+      "role": "textbox",
+      "name": "搜索小红书",
+      "clean_node": {
+        "node_id": 3,
+        "role": "textbox",
+        "name": "搜索小红书",
+        "disabled": null,
+        "value": "春季穿搭 男",
+        "description": null,
+        "children": [
+          {
+            "node_id": 2,
+            "role": "StaticText",
+            "name": "春季穿搭 男",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 4,
+      "role": "text",
+      "name": "创作中心",
+      "clean_node": {
+        "node_id": 4,
+        "role": "StaticText",
+        "name": "创作中心",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 5,
+      "role": "button",
+      "name": "创作中心",
+      "clean_node": {
+        "node_id": 5,
+        "role": "button",
+        "name": "创作中心",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 4,
+            "role": "StaticText",
+            "name": "创作中心",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 6,
+      "role": "text",
+      "name": "业务合作",
+      "clean_node": {
+        "node_id": 6,
+        "role": "StaticText",
+        "name": "业务合作",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 7,
+      "role": "button",
+      "name": "业务合作",
+      "clean_node": {
+        "node_id": 7,
+        "role": "button",
+        "name": "业务合作",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 6,
+            "role": "StaticText",
+            "name": "业务合作",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 8,
+      "role": "text",
+      "name": "发现",
+      "clean_node": {
+        "node_id": 8,
+        "role": "StaticText",
+        "name": "发现",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 9,
+      "role": "link",
+      "name": "发现",
+      "clean_node": {
+        "node_id": 9,
+        "role": "link",
+        "name": "发现",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 8,
+            "role": "StaticText",
+            "name": "发现",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 10,
+      "role": "text",
+      "name": "直播",
+      "clean_node": {
+        "node_id": 10,
+        "role": "StaticText",
+        "name": "直播",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 11,
+      "role": "link",
+      "name": "直播",
+      "clean_node": {
+        "node_id": 11,
+        "role": "link",
+        "name": "直播",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 10,
+            "role": "StaticText",
+            "name": "直播",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 12,
+      "role": "text",
+      "name": "发布",
+      "clean_node": {
+        "node_id": 12,
+        "role": "StaticText",
+        "name": "发布",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 13,
+      "role": "link",
+      "name": "发布",
+      "clean_node": {
+        "node_id": 13,
+        "role": "link",
+        "name": "发布",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 12,
+            "role": "StaticText",
+            "name": "发布",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 14,
+      "role": "text",
+      "name": "通知",
+      "clean_node": {
+        "node_id": 14,
+        "role": "StaticText",
+        "name": "通知",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 15,
+      "role": "link",
+      "name": "通知",
+      "clean_node": {
+        "node_id": 15,
+        "role": "link",
+        "name": "通知",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 14,
+            "role": "StaticText",
+            "name": "通知",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 16,
+      "role": "text",
+      "name": "我",
+      "clean_node": {
+        "node_id": 16,
+        "role": "StaticText",
+        "name": "我",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 17,
+      "role": "link",
+      "name": "我",
+      "clean_node": {
+        "node_id": 17,
+        "role": "link",
+        "name": "我",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 16,
+            "role": "StaticText",
+            "name": "我",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 18,
+      "role": "text",
+      "name": "沪ICP备13030189号",
+      "clean_node": {
+        "node_id": 18,
+        "role": "StaticText",
+        "name": "沪ICP备13030189号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 19,
+      "role": "link",
+      "name": "沪ICP备13030189号",
+      "clean_node": {
+        "node_id": 19,
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_沪ICP备",
+        "children": [
+          {
+            "node_id": 18,
+            "role": "StaticText",
+            "name": "沪ICP备13030189号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 20,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 20,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 21,
+      "role": "text",
+      "name": "营业执照",
+      "clean_node": {
+        "node_id": 21,
+        "role": "StaticText",
+        "name": "营业执照",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 22,
+      "role": "link",
+      "name": "营业执照",
+      "clean_node": {
+        "node_id": 22,
+        "role": "link",
+        "name": "营业执照",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_营业执照",
+        "children": [
+          {
+            "node_id": 21,
+            "role": "StaticText",
+            "name": "营业执照",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 23,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 23,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 24,
+      "role": "text",
+      "name": "2024沪公网安备31010102002533号",
+      "clean_node": {
+        "node_id": 24,
+        "role": "StaticText",
+        "name": "2024沪公网安备31010102002533号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 25,
+      "role": "link",
+      "name": "2024沪公网安备31010102002533号",
+      "clean_node": {
+        "node_id": 25,
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_沪公网安备",
+        "children": [
+          {
+            "node_id": 24,
+            "role": "StaticText",
+            "name": "2024沪公网安备31010102002533号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 26,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 26,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 27,
+      "role": "text",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "clean_node": {
+        "node_id": 27,
+        "role": "StaticText",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 28,
+      "role": "link",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "clean_node": {
+        "node_id": 28,
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_网文",
+        "children": [
+          {
+            "node_id": 27,
+            "role": "StaticText",
+            "name": "增值电信业务经营许可证：沪B2-20150021",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 29,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 29,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 30,
+      "role": "text",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "clean_node": {
+        "node_id": 30,
+        "role": "StaticText",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 31,
+      "role": "link",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "clean_node": {
+        "node_id": 31,
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_医疗器械网络交易服务",
+        "children": [
+          {
+            "node_id": 30,
+            "role": "StaticText",
+            "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 32,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 32,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 33,
+      "role": "text",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "clean_node": {
+        "node_id": 33,
+        "role": "StaticText",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 34,
+      "role": "link",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "clean_node": {
+        "node_id": 34,
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_互联网药品信息服务",
+        "children": [
+          {
+            "node_id": 33,
+            "role": "StaticText",
+            "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 35,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 35,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 36,
+      "role": "text",
+      "name": "违法不良信息举报电话：4006676810",
+      "clean_node": {
+        "node_id": 36,
+        "role": "StaticText",
+        "name": "违法不良信息举报电话：4006676810",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 37,
+      "role": "link",
+      "name": "违法不良信息举报电话：4006676810",
+      "clean_node": {
+        "node_id": 37,
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_上海市互联网举报中心",
+        "children": [
+          {
+            "node_id": 36,
+            "role": "StaticText",
+            "name": "违法不良信息举报电话：4006676810",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 38,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 38,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 39,
+      "role": "text",
+      "name": "上海市互联网举报中心",
+      "clean_node": {
+        "node_id": 39,
+        "role": "StaticText",
+        "name": "上海市互联网举报中心",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 40,
+      "role": "link",
+      "name": "上海市互联网举报中心",
+      "clean_node": {
+        "node_id": 40,
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_上海市互联网举报中心",
+        "children": [
+          {
+            "node_id": 39,
+            "role": "StaticText",
+            "name": "上海市互联网举报中心",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 41,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 41,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 42,
+      "role": "text",
+      "name": "网上有害信息举报专区",
+      "clean_node": {
+        "node_id": 42,
+        "role": "StaticText",
+        "name": "网上有害信息举报专区",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 43,
+      "role": "link",
+      "name": "网上有害信息举报专区",
+      "clean_node": {
+        "node_id": 43,
+        "role": "link",
+        "name": "网上有害信息举报专区",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 42,
+            "role": "StaticText",
+            "name": "网上有害信息举报专区",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 44,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 44,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 45,
+      "role": "text",
+      "name": "自营经营者信息",
+      "clean_node": {
+        "node_id": 45,
+        "role": "StaticText",
+        "name": "自营经营者信息",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 46,
+      "role": "link",
+      "name": "自营经营者信息",
+      "clean_node": {
+        "node_id": 46,
+        "role": "link",
+        "name": "自营经营者信息",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_沪公网安备",
+        "children": [
+          {
+            "node_id": 45,
+            "role": "StaticText",
+            "name": "自营经营者信息",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 47,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 47,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 48,
+      "role": "text",
+      "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+      "clean_node": {
+        "node_id": 48,
+        "role": "StaticText",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 49,
+      "role": "link",
+      "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+      "clean_node": {
+        "node_id": 49,
+        "role": "link",
+        "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_网络文化经营许可",
+        "children": [
+          {
+            "node_id": 48,
+            "role": "StaticText",
+            "name": "网络文化经营许可证：沪网文(2024)1344-086号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 50,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 50,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 51,
+      "role": "text",
+      "name": "个性化推荐算法 网信算备310101216601302230019号",
+      "clean_node": {
+        "node_id": 51,
+        "role": "StaticText",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 52,
+      "role": "link",
+      "name": "个性化推荐算法 网信算备310101216601302230019号",
+      "clean_node": {
+        "node_id": 52,
+        "role": "link",
+        "name": "个性化推荐算法 网信算备310101216601302230019号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": [
+          {
+            "node_id": 51,
+            "role": "StaticText",
+            "name": "个性化推荐算法 网信算备310101216601302230019号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 53,
+      "role": "text",
+      "name": "© 2014-2024",
+      "clean_node": {
+        "node_id": 53,
+        "role": "StaticText",
+        "name": "© 2014-2024",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 54,
+      "role": "text",
+      "name": "行吟信息科技（上海）有限公司",
+      "clean_node": {
+        "node_id": 54,
+        "role": "StaticText",
+        "name": "行吟信息科技（上海）有限公司",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 55,
+      "role": "text",
+      "name": "地址：上海市黄浦区马当路388号C座",
+      "clean_node": {
+        "node_id": 55,
+        "role": "StaticText",
+        "name": "地址：上海市黄浦区马当路388号C座",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 56,
+      "role": "text",
+      "name": "电话：9501-3888",
+      "clean_node": {
+        "node_id": 56,
+        "role": "StaticText",
+        "name": "电话：9501-3888",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 57,
+      "role": "text",
+      "name": "更多",
+      "clean_node": {
+        "node_id": 57,
+        "role": "StaticText",
+        "name": "更多",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 58,
+      "role": "text",
+      "name": "沪ICP备13030189号",
+      "clean_node": {
+        "node_id": 58,
+        "role": "StaticText",
+        "name": "沪ICP备13030189号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 59,
+      "role": "link",
+      "name": "沪ICP备13030189号",
+      "clean_node": {
+        "node_id": 59,
+        "role": "link",
+        "name": "沪ICP备13030189号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_沪ICP备",
+        "children": [
+          {
+            "node_id": 58,
+            "role": "StaticText",
+            "name": "沪ICP备13030189号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 60,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 60,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 61,
+      "role": "text",
+      "name": "营业执照",
+      "clean_node": {
+        "node_id": 61,
+        "role": "StaticText",
+        "name": "营业执照",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 62,
+      "role": "link",
+      "name": "营业执照",
+      "clean_node": {
+        "node_id": 62,
+        "role": "link",
+        "name": "营业执照",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_营业执照",
+        "children": [
+          {
+            "node_id": 61,
+            "role": "StaticText",
+            "name": "营业执照",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 63,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 63,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 64,
+      "role": "text",
+      "name": "2024沪公网安备31010102002533号",
+      "clean_node": {
+        "node_id": 64,
+        "role": "StaticText",
+        "name": "2024沪公网安备31010102002533号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 65,
+      "role": "link",
+      "name": "2024沪公网安备31010102002533号",
+      "clean_node": {
+        "node_id": 65,
+        "role": "link",
+        "name": "2024沪公网安备31010102002533号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_沪公网安备",
+        "children": [
+          {
+            "node_id": 64,
+            "role": "StaticText",
+            "name": "2024沪公网安备31010102002533号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 66,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 66,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 67,
+      "role": "text",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "clean_node": {
+        "node_id": 67,
+        "role": "StaticText",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 68,
+      "role": "link",
+      "name": "增值电信业务经营许可证：沪B2-20150021",
+      "clean_node": {
+        "node_id": 68,
+        "role": "link",
+        "name": "增值电信业务经营许可证：沪B2-20150021",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_网文",
+        "children": [
+          {
+            "node_id": 67,
+            "role": "StaticText",
+            "name": "增值电信业务经营许可证：沪B2-20150021",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 69,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 69,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 70,
+      "role": "text",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "clean_node": {
+        "node_id": 70,
+        "role": "StaticText",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 71,
+      "role": "link",
+      "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+      "clean_node": {
+        "node_id": 71,
+        "role": "link",
+        "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_医疗器械网络交易服务",
+        "children": [
+          {
+            "node_id": 70,
+            "role": "StaticText",
+            "name": "医疗器械网络交易服务第三方平台备案：(沪)网械平台备字[2019]第00006号",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 72,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 72,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 73,
+      "role": "text",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "clean_node": {
+        "node_id": 73,
+        "role": "StaticText",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 74,
+      "role": "link",
+      "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+      "clean_node": {
+        "node_id": 74,
+        "role": "link",
+        "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_互联网药品信息服务",
+        "children": [
+          {
+            "node_id": 73,
+            "role": "StaticText",
+            "name": "互联网药品信息服务资格证书：(沪)-经营性-2023-0144",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 75,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 75,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 76,
+      "role": "text",
+      "name": "违法不良信息举报电话：4006676810",
+      "clean_node": {
+        "node_id": 76,
+        "role": "StaticText",
+        "name": "违法不良信息举报电话：4006676810",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 77,
+      "role": "link",
+      "name": "违法不良信息举报电话：4006676810",
+      "clean_node": {
+        "node_id": 77,
+        "role": "link",
+        "name": "违法不良信息举报电话：4006676810",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_上海市互联网举报中心",
+        "children": [
+          {
+            "node_id": 76,
+            "role": "StaticText",
+            "name": "违法不良信息举报电话：4006676810",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "node_id": 78,
+      "role": "text",
+      "name": "|",
+      "clean_node": {
+        "node_id": 78,
+        "role": "StaticText",
+        "name": "|",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 79,
+      "role": "text",
+      "name": "上海市互联网举报中心",
+      "clean_node": {
+        "node_id": 79,
+        "role": "StaticText",
+        "name": "上海市互联网举报中心",
+        "disabled": null,
+        "value": null,
+        "description": null,
+        "children": []
+      }
+    },
+    {
+      "node_id": 80,
+      "role": "link",
+      "name": "上海市互联网举报中心",
+      "clean_node": {
+        "node_id": 80,
+        "role": "link",
+        "name": "上海市互联网举报中心",
+        "disabled": null,
+        "value": null,
+        "description": "小红书_上海市互联网举报中心",
+        "children": [
+          {
+            "node_id": 79,
+            "role": "StaticText",
+            "name": "上海市互联网举报中心",
+            "disabled": null,
+            "value": null,
+            "description": null,
+            "children": []
+          }
+        ]
+      }
+    }
+  ]
+}

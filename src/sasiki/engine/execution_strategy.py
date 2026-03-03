@@ -25,6 +25,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from sasiki.engine.observation_provider import (
+    LegacyObservationProvider,
+    ObservationProvider,
+    create_observation_provider,
+)
 from sasiki.engine.replay_models import AgentDecision
 from sasiki.utils.logger import get_logger
 
@@ -244,6 +249,9 @@ class BrowserExecutionStrategy(ExecutionStrategy):
         self,
         dom_hash_attr: str = "data-sasiki-dom-hash",
         agent: Any | None = None,
+        observation_provider: ObservationProvider | None = None,
+        observation_mode: Literal["legacy", "browser_use"] = "browser_use",
+        enable_compare_log: bool = False,
     ) -> None:
         """Initialize browser execution strategy.
 
@@ -252,11 +260,19 @@ class BrowserExecutionStrategy(ExecutionStrategy):
             agent: Optional ReplayAgent for executing browser actions.
                   If provided, execute() delegates to agent.execute_action().
                   If None, execute() must be implemented by subclasses.
+            observation_provider: Optional observation provider override.
+            observation_mode: Provider mode used when observation_provider is not set.
+            enable_compare_log: Whether to emit legacy-vs-new snapshot stats.
         """
         super().__init__()
         self._dom_hash_attr = dom_hash_attr
         self._agent = agent
         self._last_dom_hash: str | None = None
+        self._observation_mode = observation_mode
+        self._observation_provider = observation_provider or create_observation_provider(
+            mode=observation_mode
+        )
+        self._enable_compare_log = enable_compare_log
 
     @property
     def strategy_type(self) -> Literal["browser", "api", "tool", "hybrid"]:
@@ -279,21 +295,8 @@ class BrowserExecutionStrategy(ExecutionStrategy):
         page: Page | None,
         context: ExecutionContext,
     ) -> ObservationResult:
-        """Observe browser state via AriaSnapshot.
-
-        Captures:
-        - Page URL and title
-        - Interactive elements (role, name, value)
-        - DOM hash for stagnation detection
-        - Readable content (headings, text)
-
-        Args:
-            page: Playwright page
-            context: Execution context (unused but kept for interface consistency)
-
-        Returns:
-            ObservationResult with AriaSnapshot-style state
-        """
+        """Observe browser state through the configured observation provider."""
+        _ = context  # kept for interface compatibility
         if page is None:
             return ObservationResult(
                 strategy_type="browser",
@@ -304,53 +307,48 @@ class BrowserExecutionStrategy(ExecutionStrategy):
             )
 
         try:
-            # Get basic page info
-            # Handle both sync property (real page) and mock return value
-            url = page.url
-            if callable(url):
-                url = await url() if hasattr(url, '__await__') else str(url)
-            url = str(url) if url else ""
-
-            title = await page.title() if hasattr(page, 'title') else ""
-
-            # Build interactive elements list using accessibility tree
-            # This mirrors the AriaSnapshot concept from AI_NATIVE_REDESIGN.md
-            interactive_elements = await self._extract_interactive_elements(page)
-
-            # Generate DOM hash for stagnation detection
-            # Skip stagnation detection in mock environments (empty elements + mock URL)
-            if not interactive_elements and "AsyncMock" in url:
-                dom_hash = None  # Disable stagnation detection for mocks
-            else:
-                dom_hash = self._compute_dom_hash(interactive_elements, url)
+            provider_observation = await self._observation_provider.observe(page)
+            dom_hash = provider_observation.dom_hash
             self._last_dom_hash = dom_hash
+
+            if self._enable_compare_log and self._observation_mode == "browser_use":
+                try:
+                    legacy_obs = await LegacyObservationProvider().observe(page)
+                    self._logger.info(
+                        "observation_compare",
+                        legacy_mode=legacy_obs.snapshot_mode,
+                        legacy_count=legacy_obs.debug_stats.get("interactive_count"),
+                        legacy_payload_bytes=legacy_obs.debug_stats.get("payload_bytes"),
+                        new_mode=provider_observation.snapshot_mode,
+                        new_count=provider_observation.debug_stats.get("interactive_count"),
+                        new_payload_bytes=provider_observation.debug_stats.get("payload_bytes"),
+                    )
+                except Exception as compare_error:
+                    self._logger.warning(
+                        "observation_compare_failed",
+                        error=str(compare_error),
+                    )
 
             # Build state representation
             state = {
-                "url": url,
-                "title": title,
+                "url": provider_observation.url,
+                "title": provider_observation.title,
                 "dom_hash": dom_hash,
-                "interactive": interactive_elements,
+                "interactive": provider_observation.available_actions,
+                "snapshot_mode": provider_observation.snapshot_mode,
+                "llm_payload": provider_observation.llm_payload,
+                "node_map": provider_observation.node_map,
+                "selector_map": provider_observation.selector_map,
+                "provider_observation": provider_observation,
+                "debug_stats": provider_observation.debug_stats,
             }
-
-            # Build human-readable summary for LLM
-            summary_lines = [f"Page: {title}", f"URL: {url}"]
-            if interactive_elements:
-                summary_lines.append("Interactive elements:")
-                for elem in interactive_elements[:10]:  # Limit to first 10
-                    role = elem.get("role", "unknown")
-                    name = elem.get("name", "")
-                    name_str = f" '{name}'" if name else ""
-                    summary_lines.append(f"  - {role}{name_str}")
-                if len(interactive_elements) > 10:
-                    summary_lines.append(f"  ... and {len(interactive_elements) - 10} more")
 
             return ObservationResult(
                 strategy_type="browser",
                 state=state,
-                summary="\n".join(summary_lines),
+                summary=provider_observation.summary,
                 state_hash=dom_hash,
-                available_actions=interactive_elements,
+                available_actions=provider_observation.available_actions,
             )
 
         except Exception as e:
@@ -602,102 +600,6 @@ class BrowserExecutionStrategy(ExecutionStrategy):
         elif role:
             return str(role)
         return "element"
-
-    async def _extract_interactive_elements(self, page: Page) -> list[dict[str, Any]]:
-        """Extract interactive elements from page using accessibility tree.
-
-        Args:
-            page: Playwright page
-
-        Returns:
-            List of interactive element descriptors
-        """
-        try:
-            # Use page evaluation to extract interactive elements
-            # This is a simplified version - production could use CDP Accessibility domain
-            elements = await page.evaluate("""
-                () => {
-                    const interactive = [];
-                    const roles = ['button', 'link', 'textbox', 'searchbox', 'checkbox',
-                                  'radio', 'combobox', 'listbox', 'menuitem', 'tab',
-                                  'treeitem', 'slider', 'spinbutton', 'switch'];
-
-                    roles.forEach(role => {
-                        document.querySelectorAll(`[role="${role}"], ${role}`).forEach(el => {
-                            const name = el.getAttribute('aria-label') ||
-                                        el.getAttribute('aria-labelledby') ||
-                                        el.textContent?.trim()?.substring(0, 50) ||
-                                        el.placeholder ||
-                                        '';
-                            interactive.push({
-                                role: role,
-                                name: name,
-                                tag: el.tagName?.toLowerCase(),
-                                visible: el.offsetParent !== null
-                            });
-                        });
-                    });
-
-                    // Also find inputs without explicit roles
-                    document.querySelectorAll('input, textarea, select').forEach(el => {
-                        if (!el.getAttribute('role')) {
-                            const name = el.getAttribute('placeholder') ||
-                                        el.getAttribute('name') ||
-                                        el.getAttribute('id') ||
-                                        '';
-                            interactive.push({
-                                role: 'textbox',
-                                name: name,
-                                tag: el.tagName?.toLowerCase(),
-                                visible: el.offsetParent !== null
-                            });
-                        }
-                    });
-
-                    return interactive.filter(el => el.visible);
-                }
-            """)
-            # Handle mock environments where evaluate returns AsyncMock
-            if not isinstance(elements, list):
-                return []
-            return elements
-
-        except Exception as e:
-            self._logger.warning("extract_interactive_failed", error=str(e))
-            return []
-
-    def _compute_dom_hash(self, elements: list[dict[str, Any]], url: str = "") -> str:
-        """Compute hash of interactive elements for stagnation detection.
-
-        Args:
-            elements: List of interactive elements
-            url: Page URL for fallback when elements is empty
-
-        Returns:
-            Hash string
-        """
-        import hashlib
-
-        if not elements:
-            # When no interactive elements found, use URL-based hash
-            # This prevents false stagnation in mock tests or empty pages
-            if url:
-                return hashlib.md5(f"url:{url}".encode()).hexdigest()[:8]
-            return "empty"
-
-        # Create stable string from role+name pairs
-        element_strs = []
-        for el in elements:
-            role = el.get("role", "")
-            name = el.get("name", "")
-            element_strs.append(f"{role}:{name}")
-
-        # Sort for stability
-        element_strs.sort()
-        combined = "|".join(element_strs)
-
-        # Return short hash
-        return hashlib.md5(combined.encode()).hexdigest()[:8]
 
 
 class ApiExecutionStrategy(ExecutionStrategy):

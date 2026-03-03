@@ -214,6 +214,16 @@ class TestWorkflowRefinerInit:
                 cookies_dir=None,
             )
 
+    def test_initialization_with_observation_options(self):
+        """Test refiner observation mode configuration."""
+        with patch("sasiki.engine.workflow_refiner.PlaywrightEnvironment"):
+            refiner = WorkflowRefiner(
+                observation_mode="legacy",
+                observation_compare_log=True,
+            )
+            assert refiner.observation_mode == "legacy"
+            assert refiner.observation_compare_log is True
+
 
 class TestSingleStageExecution:
     """Tests for single stage execution scenarios."""

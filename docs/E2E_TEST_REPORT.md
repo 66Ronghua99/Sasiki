@@ -1,258 +1,311 @@
 > [!NOTE]
-> **归档文档** | 归档日期：2026-03-02
-> 本文档是 Phase 2 Skill 生成阶段的端到端测试报告，记录了 xhs_e2e 场景的测试结果与问题分析。
-> Phase 2 已于 2026-03-02 正式完成，本文档作为历史参考保留，不再主动维护。
+> **活跃文档** | 最后更新：2026-03-03
+> Phase 3 AI-Native 重构已完成，本文档已从「历史分析报告」升级为「E2E 测试指南」。
+> 涵盖：环境搭建 → 录制数据 → 生成 Workflow → 执行验证 → 故障排查。
 
-# Sasiki 端到端测试报告
+# 小红书 E2E 测试指南
 
-**测试时间**: 2026-03-01
-**测试文件**: `/Users/cory/.sasiki/recordings/browser/xhs_e2e.jsonl`
-**测试场景**: 小红书搜索并浏览笔记
+**适用阶段**: Phase 3 执行引擎（WorkflowRefiner）  
+**测试目标**: 在真实小红书网站上验证 Agent Loop 的端到端执行稳定性与准确率
+
+---
+
+## 1. 测试概览
+
+### 1.1 可用录制数据
+
+| 录制文件 | 录制日期 | 时长 | 动作数 | 测试场景 | 状态 |
+|----------|----------|------|--------|----------|------|
+| `xhs_e2e.jsonl` | 2026-02-28 | 95s | 18 | 搜索"通勤穿搭 春季"，浏览两篇笔记后返回首页 | ✅ 可用 |
+| `xhs_e2e2.md.jsonl` | 2026-03-01 | 54s | 17 | 搜索"春季穿搭 男"，点赞、排序过滤、收藏操作 | ✅ 可用（推荐）|
+| `xhs-e2e-01.jsonl` | 2026-02-27 | 62s | 0 | — | ❌ 录制失败（0 动作）|
+
+### 1.2 已生成 Workflow
+
+| Workflow ID | 名称 | 来源录制 | Stages | 有 final? |
+|-------------|------|----------|--------|-----------|
+| `15126d7e` | 小红书搜索测试 | `xhs_e2e` | 4 | ❌ |
+| `95553d90` | Xiaohongshu Fashion Search | `xhs_e2e2.md` | 5 | ❌ |
+| `60b002bc` | xhs_e2e2 | `xhs_e2e2.md` | 5 | ✅ `workflow_final.yaml` 已产出 |
+
+**推荐优先使用** `60b002bc`（已有 final workflow，来自最新录制，交互更丰富）。
+
+---
+
+## 2. 环境准备
+
+### 2.1 必要条件
+
+```bash
+# 确认 Python 环境与依赖
+cd /Users/cory/codes/Sasiki
+uv run sasiki --help
+
+# 确认 Cookie 文件存在（用于绕过小红书登录）
+ls ~/.sasiki/cookies/
+# 应包含从 Chrome 导出的 xiaohongshu cookie JSON
+```
+
+### 2.2 启动带 CDP 的 Chrome
+
+```bash
+# 方式一：用独立 user_data_dir（推荐，避免锁冲突）
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/sasiki-chrome-test \
+  --no-first-run \
+  --no-default-browser-check \
+  "https://www.xiaohongshu.com"
+
+# 方式二：连接已有 Chrome（需先开启远程调试）
+# 确认 Chrome 已启动并监听 9222
+curl -s http://localhost:9222/json | python3 -m json.tool | grep url | head -5
+```
+
+### 2.3 登录状态验证
+
+小红书对未登录用户有严格限制，执行前须确认：
+
+```bash
+# 手动验证：打开 Chrome，访问 https://www.xiaohongshu.com
+# 确认右上角显示用户头像（而非"登录"按钮）
+# 若未登录，通过 SessionManager 注入 Cookie：
+# Cookie JSON 可用 EditThisCookie 浏览器扩展从已登录 Chrome 导出
+```
+
+---
+
+## 3. 测试场景一：搜索"通勤穿搭 春季"并浏览笔记
+
+**来源录制**: `~/.sasiki/recordings/browser/xhs_e2e.jsonl`  
 **Workflow ID**: `15126d7e-241f-46f4-80bf-4d2ca0195fd8`
 
----
+### 3.1 场景描述
 
-## 1. 测试执行摘要
-
-### 1.1 命令执行结果
-
-| 命令 | 结果 | 耗时 |
-|------|------|------|
-| `generate --preview` | ✅ 成功 | ~2s |
-| `generate` (LLM生成) | ✅ 成功 | ~27s |
-| `show <workflow_id>` | ✅ 成功 | ~1s |
-| `run --dry-run` | ⚠️ 需要交互输入 | N/A |
-
-### 1.2 录制数据概览
-
-- **Session ID**: `xhs_e2e`
-- **录制时长**: 95.1s
-- **总动作数**: 18
-- **选中动作数**: 18 (未截断)
-- **页面分组**: 6 个不同 URL
-
-### 1.3 生成的 Workflow 概览
-
-- **Workflow 名称**: 小红书搜索测试
-- **Stages**: 4 个阶段
-- **Variables**: 4 个变量 (1个必需)
-- **Checkpoints**: 3 个检查点
-
----
-
-## 2. 详细分析
-
-### 2.1 阶段划分 (Stages) 分析
-
-| 阶段 | 名称 | 动作数 | 评价 |
-|------|------|--------|------|
-| 1 | 搜索关键词 | 4 | ✅ 逻辑清晰 |
-| 2 | 浏览第一个笔记 | 5 | ⚠️ 包含返回动作，边界模糊 |
-| 3 | 浏览第二个笔记 | 5 | ⚠️ 同样包含返回动作 |
-| 4 | 返回首页 | 4 | ⚠️ 包含无关的 tab_switch |
-
-**问题发现**:
-- Stage 2 和 3 的返回搜索结果页动作被包含在同一阶段内，阶段边界不够清晰
-- Stage 4 包含了一个 `tab_switch` 到 `chrome://extensions/`，这是录制结束时切换回扩展页面的动作，不应包含在工作流中
-
-### 2.2 动作保留分析
-
-**成功保留的关键字段**:
 ```
-✅ page_context: 18/18 (100%)
-✅ target_hint_raw: 9/18 (50%)
-✅ DOM context (class/id/testid/sibling): 5/18 (28%)
+阶段 1 搜索关键词  → navigate → click 搜索框 → type "通勤穿搭 春季" → navigate 搜索结果页
+阶段 2 浏览第一个笔记 → click 笔记链接 → navigate 详情页 → click 返回
+阶段 3 浏览第二个笔记 → click 笔记链接 → navigate 详情页 → click 点赞 → click 返回
+阶段 4 返回首页    → navigate 发现页
 ```
 
-**动作详情示例** (Stage 1 - 搜索关键词):
+### 3.2 执行命令
 
-| # | 动作类型 | target_hint | 评价 |
-|---|----------|-------------|------|
-| 1 | navigate | - | ✅ 保留完整 URL |
-| 2 | click | role=textbox, name=搜索小红书, tag=input | ✅ 语义清晰 |
-| 3 | type | role=textbox, name=搜索小红书, value=通勤穿搭 春季 | ✅ 包含输入值 |
-| 4 | navigate | - | ✅ 搜索结果页 URL |
+```bash
+# Step 1: 重新生成 Workflow（可选，已有则跳过）
+sasiki generate ~/.sasiki/recordings/browser/xhs_e2e.jsonl \
+  --name "小红书搜索测试" \
+  --description "搜索通勤穿搭并浏览笔记"
 
-### 2.3 变量提取分析
+# Step 2: 查看 Workflow
+sasiki show 15126d7e-241f-46f4-80bf-4d2ca0195fd8
 
-| 变量名 | 类型 | 必需 | 示例值 | 评价 |
-|--------|------|------|--------|------|
-| search_keyword | text | ✅ | 通勤穿搭 春季 | ✅ 正确识别关键输入 |
-| initial_search_term | text | ❌ | 深信服x-star面试 | ⚠️ 初始页面 URL 中的关键词，实用性低 |
-| first_note_url | url | ❌ | .../6774ab0a... | ⚠️ 硬编码 URL，执行时可能失效 |
-| second_note_url | url | ❌ | .../68aeb6aa... | ⚠️ 同上 |
+# Step 3: 执行（连接已有 CDP Chrome）
+sasiki refine 15126d7e-241f-46f4-80bf-4d2ca0195fd8 \
+  --cdp-url http://localhost:9222
 
-**问题发现**:
-1. `initial_search_term` 实用性较低，因为初始页面是录制时的状态，不应作为可配置变量
-2. 笔记 URL 变量是硬编码的，实际执行时应该动态获取搜索结果中的链接
-
-### 2.4 Checkpoint 分析
-
-| 位置 | 描述 | 评价 |
-|------|------|------|
-| After Stage 1 | 验证搜索结果页面正常加载并显示相关内容 | ✅ 合理 |
-| After Stage 2 | 验证第一个笔记内容页面正常显示 | ✅ 合理 |
-| After Stage 3 | 验证第二个笔记内容页面正常显示 | ✅ 合理 |
-
-Checkpoints 设置合理，但缺少具体的验证标准（`expected_state` 为 null）。
-
-### 2.5 问题动作识别
-
-#### 问题 1: 点击动作的 target_hint 不够精确
-
-```yaml
-# Action 5 - 执行搜索后的点击
-action_type: click
-target_hint:
-  role: generic
-  tag_name: span
-  name: ''
+# Step 4: 非交互模式（CI/自动化）
+sasiki refine 15126d7e-241f-46f4-80bf-4d2ca0195fd8 \
+  --cdp-url http://localhost:9222 \
+  --no-interactive \
+  --on-hitl=abort
 ```
-**问题**: 这个点击动作的 target_hint 只有 `role=generic, tag_name=span`，没有更具体的标识（如 class、id、或文本内容）。这会导致执行引擎难以准确定位元素。
 
-#### 问题 2: 返回动作识别混乱
+### 3.3 验收标准
 
-录制中用户点击了返回按钮，但系统记录为:
-```yaml
-# Action 8 - 应该是返回搜索结果页
-action_type: click
-target_hint:
-  role: generic
-  tag_name: div
-  sibling_texts: ["window.__SSR__=true", "创作服务直播管理电脑直播助手", ...]
-```
-**问题**: sibling_texts 包含了页面底部的 footer 内容，而不是返回按钮的标识。这表明 target_hint 的提取可能需要改进。
-
-#### 问题 3: 包含无关动作
-
-```yaml
-# Action 18 - 最后一个动作
-action_type: tab_switch
-page_context:
-  url: chrome://extensions/
-  title: Extensions
-```
-**问题**: 这是录制结束时切换回扩展页面的动作，不应包含在工作流中。需要添加过滤逻辑排除浏览器内部页面动作。
+| 阶段 | 成功条件 | 失败信号 |
+|------|----------|----------|
+| 搜索关键词 | URL 变为 `search_result?keyword=通勤穿搭` | DOM stagnation / 搜索框未找到 |
+| 浏览第一篇笔记 | URL 含 `/explore/` 路径 | 点击后无导航 |
+| 浏览第二篇笔记 | 笔记详情页加载完成 | element_not_found（笔记 ID 已变化）|
+| 返回首页 | URL 含 `/explore?channel_id=homefeed` | 导航超时 |
 
 ---
 
-## 3. 代码结构问题
+## 4. 测试场景二：搜索"春季穿搭 男"，点赞 + 排序过滤（推荐）
 
-### 3.1 `action_details` vs `actions` 重复
+**来源录制**: `~/.sasiki/recordings/browser/xhs_e2e2.md.jsonl`  
+**Workflow ID**: `60b002bc-a4c5-4695-9496-a1d9c7f4bc94`（已有 `workflow_final.yaml`）
 
-Workflow YAML 中同时保留了:
-- `actions`: 人类可读的文本描述列表
-- `action_details`: 详细的结构化动作数据
+### 4.1 场景描述
 
-这导致数据冗余，文件体积增大。
-
-### 3.2 URL 编码问题
-
-```yaml
-# 录制中的 URL 被 URL-encoded 了两次
-url: https://www.xiaohongshu.com/search_result/?keyword=%25E6%25B7%25B1...
-# 实际应该是:
-url: https://www.xiaohongshu.com/search_result/?keyword=深信服x-star面试
+```
+阶段 1 Initial Search and Navigation    → 从已有搜索页清空并输入新关键词
+阶段 2 First Post Interaction           → 点击第一篇笔记 → 点赞 → 查看作者主页
+阶段 3 Filter and Browse Results        → 返回 → 点击"最多点赞"排序过滤
+阶段 4 Second Post Interaction          → 点击热门笔记 → 收藏 → 查看作者主页
+阶段 5 Return to Discovery Feed         → 点击"发现"导航 → 返回首页
 ```
 
-**问题**: URL 显示为 double-encoded 格式（`%25E6` 应该是 `%E6`），影响可读性。
+### 4.2 执行命令
 
-### 3.3 变量与动作关联不足
+```bash
+# 使用已有 final workflow 继续测试
+sasiki show 60b002bc-a4c5-4695-9496-a1d9c7f4bc94
 
-虽然提取了 `search_keyword` 变量，但在 `action_details` 中并没有明确的占位符或模板标记来指示这个变量应该替换哪个动作的值。
+# 执行（连接 CDP Chrome）
+sasiki refine 60b002bc-a4c5-4695-9496-a1d9c7f4bc94 \
+  --cdp-url http://localhost:9222
+
+# 或重新生成最新版本 Workflow
+sasiki generate ~/.sasiki/recordings/browser/xhs_e2e2.md.jsonl \
+  --name "小红书春季穿搭男" \
+  --description "搜索春季穿搭男内容，点赞收藏互动"
+```
+
+### 4.3 变量覆盖
+
+```bash
+# 若支持变量注入（未来功能），可指定自定义搜索词：
+# sasiki refine <workflow_id> --var search_query="夏季穿搭 男"
+```
+
+### 4.4 验收标准
+
+| 阶段 | 成功条件 | 常见问题 |
+|------|----------|----------|
+| Initial Search | 搜索框清空并填入新词，URL 跳转至新结果页 | 初始页面 cookie 弹窗导致点击失败（见故障排查 5.1）|
+| First Post Interaction | 笔记详情页加载，点赞数变化可见 | SPA 渲染延迟导致 DOM 为空（见 5.2）|
+| Filter and Browse | 搜索结果页切换为"最多点赞"排序 | filter 按钮 role 为 generic，name 不稳定 |
+| Second Post Interaction | 第二篇笔记详情页加载，收藏数可见 | 笔记内容因时效性变化，ID 可能过期 |
+| Return to Discovery | URL 变为 `/explore?channel_id=homefeed_recommend` | — |
 
 ---
 
-## 4. 改进建议
+## 5. 故障排查指南
 
-### 4.1 高优先级 (P0)
+### 5.1 Cookie 弹窗 / 申诉提示遮挡内容
 
-1. **过滤无关动作**
-   - 排除 `chrome://` 和 `edge://` 等浏览器内部页面动作
-   - 排除录制开始/结束的 tab_switch 动作
+**症状**: Agent 第一步 click 失败，DOM snapshot 包含 `我要申诉我知道了` 文本  
+**原因**: 小红书有时显示隐私提示或活动弹窗，遮挡搜索框  
+**处置**:
+1. 手动关闭弹窗后重新执行
+2. 或在 `context_hints` 中加入提示：`"如果有弹窗出现，先关闭弹窗"`
 
-2. **改进 target_hint 提取**
-   - 对于返回按钮等常见 UI 元素，增强识别逻辑
-   - 考虑使用视觉位置信息作为辅助定位手段
+### 5.2 DOM Snapshot 为空 / SPA 渲染延迟
 
-3. **修复 URL 显示**
-   - 确保 URL 只进行一次 decode，提高可读性
+**症状**: `observe()` 返回空树，Agent 决策 navigate 到原地址反复循环  
+**原因**: 导航触发后 JS 框架尚未完成渲染（已知问题，见 Memory.md #11）  
+**处置**: 已在 `execute_action` 中加入 `wait_for_load_state("networkidle")` 容错，若仍失败：
+```bash
+# 增大超时（修改 page_observer.py 或 replay_agent.py 中的 timeout 值）
+```
 
-### 4.2 中优先级 (P1)
+### 5.3 笔记 ID 过期（element_not_found）
 
-4. **阶段边界优化**
-   - 在阶段划分时识别 "返回" 类型的 navigate 动作
-   - 将 "浏览笔记 -> 返回搜索结果" 拆分为两个独立阶段
+**症状**: `click on link 6774ab0a000000000800fca4` 失败  
+**原因**: 录制中的笔记链接是硬编码 ID，小红书笔记可能下架  
+**处置**: 这是 SPA 动态内容的固有风险。测试时关注 Stage 级别完成（是否成功浏览某篇笔记），而非特定笔记 ID  
+**长期方案**: Phase B 时 Agent 应理解意图（浏览第一篇笔记），而非固定 ID
 
-5. **变量模板化**
-   - 在 `action_details` 中添加变量引用标记
-   - 例如: `value: "{{search_keyword}}"` 而不是硬编码值
+### 5.4 搜索结果页 URL double-encoded
 
-6. **减少冗余数据**
-   - 考虑只保留 `action_details`，动态生成 `actions` 描述
+**症状**: URL 显示为 `keyword=%25E6%25B7%25B1` 而非 `keyword=深信服`  
+**原因**: 录制时 URL 被二次编码（已知问题，见 E2E_TEST_REPORT v1）  
+**影响**: 不影响执行，Agent 通过 navigate action 使用完整 URL；不影响稳定性
 
-### 4.3 低优先级 (P2)
+### 5.5 DOM stagnation（dom_hash 连续不变）
 
-7. **Checkpoint 增强**
-   - 基于页面内容自动生成 `expected_state`
-   - 例如：搜索结果页应包含 "搜索结果" 关键字
-
-8. **元素定位策略优化**
-   - 当 `target_hint` 信息不足时，考虑使用 CSS selector 或 XPath 作为 fallback
+**症状**: StageExecutor 返回 `DOM stagnation detected: dom_hash xxx unchanged for 3 steps`  
+**原因**: Agent 反复选择同一操作，页面无变化  
+**处置**:
+1. 查看 episode_log 确认哪个元素被反复点击
+2. 若是点击返回按钮问题：小红书返回按钮 role=generic，尝试用 `navigate` 替代 `click` 返回
+3. 如确实卡住，HITL 介入后继续
 
 ---
 
-## 5. 结论
+## 6. 回归测试清单
 
-### 5.1 整体评价
+每次 engine/prompt 改动后，执行以下检查：
 
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 录制完整性 | ⭐⭐⭐⭐⭐ | 所有关键动作都被正确记录 |
-| 阶段划分 | ⭐⭐⭐☆☆ | 基本合理，但边界需要优化 |
-| 变量提取 | ⭐⭐⭐⭐☆ | 识别了关键变量，但有冗余 |
-| 可执行性 | ⭐⭐☆☆☆ | 部分 target_hint 不足以支撑可靠回放 |
-
-### 5.2 当前状态
-
-**Phase 2 Skill 生成已基本可用**，能够:
-- ✅ 正确解析录制文件
-- ✅ 提取语义化的 workflow 结构
-- ✅ 识别关键变量
-- ✅ 生成可保存/查看的 workflow YAML
-
-**但存在以下阻碍执行的问题**:
-- ⚠️ 部分动作 target_hint 信息不足
-- ⚠️ 包含录制相关的无关动作
-- ⚠️ 变量未与动作关联（模板化）
-
-### 5.3 下一步建议
-
-1. **短期**: 修复 P0 问题，使 workflow 可用于 Phase 3 执行引擎测试
-2. **中期**: 优化 target_hint 提取逻辑，提高元素定位成功率
-3. **长期**: 结合执行反馈持续优化 Prompt 和阶段划分算法
+- [ ] **Stage 1 搜索定位**：能否找到搜索框 (`role=searchbox, name=搜索小红书`) 并成功 fill
+- [ ] **Page navigation 等待**：navigate 后 DOM snapshot 非空（SPA 渲染完成）
+- [ ] **笔记链接点击**：`role=link` 笔记 ID 点击成功并跳转到 `/explore/` 路径
+- [ ] **返回操作**：是否能通过 role+name 或 navigate 成功返回搜索结果页
+- [ ] **done 声明质量**：evidence 字段包含具体页面状态（URL / 可见文本）
+- [ ] **多 Stage 串联**：前一 Stage 的 world_state 是否正确传递给下一 Stage
+- [ ] **单元测试**：`uv run pytest -q tests/` 全部通过（当前基线：190 tests）
 
 ---
 
-## 附录: 原始录制动作序列
+## 7. 性能与成本基线
+
+> 以下数据来自 2026-03-02 `xhs_e2e2` 场景的实际运行记录（参考值）
+
+| 指标 | 参考值 | 备注 |
+|------|--------|------|
+| 单 Stage 平均步数 | 3–6 步 | 含 navigate + interact |
+| 单步 LLM 调用耗时 | ~2–4s | DashScope / OpenRouter |
+| 单 Stage 成功率 | ~70%（当前） | 目标 >90% |
+| Retry 触发率 | ~30% | 主要因 element_not_found |
+| 整体 Workflow 完成率 | ~50%（当前） | 目标 >80% |
+
+---
+
+## 附录 A：录制动作序列对比
+
+### xhs_e2e（2026-02-28）— 18 动作
 
 ```
-1. navigate  -> 搜索页(深信服x-star面试)
-2. click     -> 搜索框
-3. type      -> "通勤穿搭 春季"
-4. navigate  -> 搜索结果页
-5. click     -> span (执行搜索)
-6. click     -> 第一个笔记链接
-7. navigate  -> 笔记详情页
-8. click     -> div (返回按钮)
-9. navigate  -> 返回搜索结果页
-10. click    -> 第二个笔记链接
-11. navigate -> 笔记详情页
-12. click    -> svg (点赞按钮)
-13. click    -> div (返回按钮)
-14. navigate -> 返回搜索结果页
-15. navigate -> 原搜索页
-16. click    -> "发现" 导航
-17. navigate -> 发现页
-18. tab_switch -> chrome://extensions/
+ 1. navigate  → xiaohongshu.com/search_result（已有关键词页）
+ 2. click     → 搜索框（role=textbox, name=搜索小红书）
+ 3. type      → "通勤穿搭 春季"
+ 4. navigate  → 搜索结果页
+ 5. click     → span（执行搜索，role=generic）⚠️ target_hint 较弱
+ 6. click     → 第一篇笔记链接（role=link, name=6774ab0a...）
+ 7. navigate  → 笔记详情页
+ 8. click     → div（返回按钮）⚠️ role=generic
+ 9. navigate  → 返回搜索结果
+10. click     → 第二篇笔记链接（role=link, name=68aeb6aa...）
+11. navigate  → 笔记详情页
+12. click     → svg（点赞按钮）⚠️ role=generic
+13. click     → div（返回按钮）⚠️ role=generic
+14. navigate  → 返回搜索结果
+15. navigate  → 返回原搜索页
+16. click     → 发现（role=link, name=发现）✅
+17. navigate  → 发现页
+18. tab_switch → chrome://extensions/  ← 应过滤
 ```
+
+### xhs_e2e2.md（2026-03-01）— 17 动作（推荐）
+
+```
+ 1. click     → header（搜索框区域入口，role=generic）
+ 2. type      → "春季穿搭 男"（role=textbox, name=搜索小红书）✅
+ 3. navigate  → 搜索结果页
+ 4. click     → 第一篇笔记（role=link）✅
+ 5. navigate  → 笔记详情页
+ 6. click     → 点赞（name=83，role=generic）
+ 7. click     → 作者主页滑动区域（role=generic）
+ 8. navigate  → 返回搜索结果
+ 9. click     → "最新"排序（role=generic, name=最新）
+10. click     → "最多点赞"排序（role=generic, name=最多点赞）✅
+11. click     → 第二篇笔记（role=link）✅
+12. navigate  → 笔记详情页
+13. click     → 收藏（name=1万，role=generic）
+14. click     → 作者主页区域（role=generic）
+15. navigate  → 返回搜索结果
+16. click     → 发现（role=link, name=发现）✅
+17. navigate  → 发现页
+```
+
+---
+
+## 附录 B：Phase 2 分析归档（2026-03-01）
+
+> 以下保留 Phase 2 Skill 生成阶段的主要发现，供历史参考。
+
+**整体评价（Phase 2 完成时）**：
+- 录制完整性 ⭐⭐⭐⭐⭐ — 关键动作均被正确记录
+- 阶段划分 ⭐⭐⭐☆☆ — 基本合理，边界有改进空间
+- 变量提取 ⭐⭐⭐⭐☆ — 识别了关键变量，有少量冗余
+- 可执行性 ⭐⭐☆☆☆（Phase 2 结束时）→ ⭐⭐⭐☆☆（Phase 3 AI-Native 重构后）
+
+**Phase 2 遗留问题（已在 AI-Native 重构中解决）**：
+- ✅ role+name 语义寻址替代 node_id（AgentDecision 改造）
+- ✅ EpisodeMemory 结构化步骤日志（避免 history 字符串 clear）
+- ✅ StageVerifier evidence-based done（避免虚假完成声明）
+- ⏳ 笔记链接 ID 硬编码问题 → Path B 意图理解方向
+- ⏳ 返回按钮 target_hint 弱 → get_by_role fallback 改善中
+

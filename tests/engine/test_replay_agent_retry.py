@@ -271,6 +271,62 @@ class TestReplayAgentStepWithContext:
         page.get_by_text.assert_called_with("早春就让男朋友这样穿", exact=False)
         fallback_locator.click.assert_called_once_with(timeout=5000)
 
+    @pytest.mark.asyncio
+    async def test_step_uses_external_observation_without_reobserve(self, mock_observer, mock_llm, mock_page):
+        """When external observation is passed, observer.observe should not run again."""
+        agent = ReplayAgent()
+
+        external_observation = {
+            "dom_hash": "ext12345",
+            "llm_payload": {
+                "url": "https://example.com",
+                "title": "Example",
+                "dom_hash": "ext12345",
+                "elements": [{"idx": 7, "role": "button", "name": "Submit"}],
+                "selector_map": {"7": "[data-testid='submit']"},
+            },
+            "node_map": {},
+            "selector_map": {7: "[data-testid='submit']"},
+        }
+
+        await agent.step(
+            mock_page,
+            "Click the button",
+            observation=external_observation,
+        )
+
+        mock_observer.observe.assert_not_called()
+        assert agent.last_dom_hash == "ext12345"
+
+    @pytest.mark.asyncio
+    async def test_execute_action_resolves_target_id_via_selector_map(self, mock_observer, mock_llm):
+        """Selector map should provide a fallback locator when node_map is empty."""
+        page = AsyncMock()
+        page.wait_for_load_state = AsyncMock()
+        page.get_by_text = MagicMock()
+
+        css_locator = AsyncMock()
+        css_locator.click = AsyncMock()
+        css_locator.inner_text = AsyncMock(return_value="ok")
+        css_locator.is_visible = AsyncMock(return_value=True)
+        css_query = MagicMock()
+        css_query.first = css_locator
+        page.locator = MagicMock(return_value=css_query)
+
+        agent = ReplayAgent()
+        agent.current_selector_map = {7: "[data-testid='submit']"}
+
+        action = AgentAction(
+            thought="click target",
+            action_type="click",
+            target_id=7,
+        )
+
+        await agent.execute_action(page, action)
+
+        page.locator.assert_called_with("[data-testid='submit']")
+        css_locator.click.assert_called_once()
+
 
 class TestReplayAgentPromptBuilding:
     """Tests for ReplayAgent prompt building methods."""

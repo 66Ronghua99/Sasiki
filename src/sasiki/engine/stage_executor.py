@@ -134,6 +134,8 @@ class StageExecutor:
         max_retry_attempts: int = 3,
         stage_verifier: StageVerifier | None = None,
         execution_strategy: ExecutionStrategy | None = None,
+        observation_mode: Literal["legacy", "browser_use"] = "browser_use",
+        observation_compare_log: bool = False,
     ):
         """Initialize the stage executor.
 
@@ -148,6 +150,8 @@ class StageExecutor:
             execution_strategy: Optional custom execution strategy. Defaults to
                 BrowserExecutionStrategy for browser-first behavior (Path A).
                 Use custom strategy for Path B (api/hybrid) execution modes.
+            observation_mode: Observation schema mode for default browser strategy.
+            observation_compare_log: Emit legacy-vs-new snapshot compare logs.
         """
         self.agent = agent
         self.human_handler = human_handler
@@ -158,7 +162,11 @@ class StageExecutor:
         self.stage_verifier = stage_verifier or StageVerifier()
         # Path B Extension Point: Use custom strategy for api/hybrid execution
         # Pass agent to BrowserExecutionStrategy for backward compatibility
-        self.execution_strategy = execution_strategy or BrowserExecutionStrategy(agent=agent)
+        self.execution_strategy = execution_strategy or BrowserExecutionStrategy(
+            agent=agent,
+            observation_mode=observation_mode,
+            enable_compare_log=observation_compare_log,
+        )
 
     async def execute(
         self,
@@ -185,7 +193,6 @@ class StageExecutor:
             StageResult containing the execution outcome
         """
         stage_name = stage["name"]
-        actions_list = stage.get("actions", [])
         success_criteria = stage.get("success_criteria", "")
 
         # Build independent goal for this stage
@@ -243,11 +250,13 @@ class StageExecutor:
                     action_history = self._build_action_history(history, episode_log)
                     if observation.summary:
                         action_history.append(f"Current state: {observation.summary[:200]}")
+                    provider_observation = self._provider_observation(observation)
 
                     action = await self.agent.step(
                         page,
                         goal,
                         action_history=action_history,
+                        observation=provider_observation,
                     )
                     taken_actions.append(action)
                     steps_taken += 1
@@ -546,12 +555,14 @@ class StageExecutor:
                 # Observe current state
                 observation = await self.execution_strategy.observe(page, execution_context)
                 current_dom_hash = observation.state_hash
+                provider_observation = self._provider_observation(observation)
 
                 retry_action = await self.agent.step_with_context(
                     page,
                     goal,
                     retry_context=retry_ctx,
                     action_history=self._build_action_history(history, episode_log),
+                    observation=provider_observation,
                 )
                 taken_actions.append(retry_action)
                 steps_taken += 1
@@ -848,6 +859,13 @@ class StageExecutor:
             error=error,
             is_ask_human=False,
         )
+
+    def _provider_observation(self, observation: Any) -> Any | None:
+        """Extract provider observation from execution strategy state payload."""
+        state = getattr(observation, "state", None)
+        if isinstance(state, dict):
+            return state.get("provider_observation")
+        return None
 
     def _safe_page_url(self, page: Page) -> str:
         """Get page url safely for mocks and real pages."""

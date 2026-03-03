@@ -17,6 +17,7 @@ from sasiki.engine.execution_strategy import (
     ExecutionContext,
     create_execution_strategy,
 )
+from sasiki.engine.observation_provider import ProviderObservation
 from sasiki.engine.replay_models import AgentDecision, AgentTarget
 
 
@@ -76,6 +77,36 @@ class TestBrowserExecutionStrategy:
         assert result.state["url"] == "https://example.com"
         assert result.summary is not None
         assert isinstance(result.summary, str)
+        assert result.state["provider_observation"] is not None
+        assert result.state["snapshot_mode"] in {"legacy", "browser_use"}
+
+    @pytest.mark.asyncio
+    async def test_observe_uses_injected_provider(
+        self, mock_agent, mock_page, execution_context
+    ):
+        """Test custom observation provider injection."""
+        provider = AsyncMock()
+        provider.observe = AsyncMock(
+            return_value=ProviderObservation(
+                snapshot_mode="legacy",
+                url="https://injected.example",
+                title="Injected",
+                dom_hash="deadbeef",
+                summary="Injected observation",
+                llm_payload={"mock": True},
+                node_map={},
+                selector_map={},
+                available_actions=[],
+                debug_stats={"interactive_count": 0, "payload_bytes": 2},
+            )
+        )
+        strategy = BrowserExecutionStrategy(agent=mock_agent, observation_provider=provider)
+
+        result = await strategy.observe(mock_page, execution_context)
+
+        provider.observe.assert_called_once_with(mock_page)
+        assert result.state_hash == "deadbeef"
+        assert result.state["url"] == "https://injected.example"
 
     @pytest.mark.asyncio
     async def test_observe_handles_mock_environment(

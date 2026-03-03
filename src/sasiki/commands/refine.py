@@ -1,7 +1,7 @@
 """Command for refining (rehearsing) a workflow."""
 
 import asyncio
-from typing import Optional, Any
+from typing import Optional, Any, Literal, cast
 
 import typer
 from rich.console import Console
@@ -40,6 +40,16 @@ def refine(
     on_hitl: str = typer.Option("abort", "--on-hitl", help="Default action when HITL is triggered in non-interactive mode: abort, continue, skip"),
     cookies_dir: Optional[str] = typer.Option(None, "--cookies-dir", help="Directory with cookie JSON files to inject (default: ~/.sasiki/cookies/)"),
     no_cookies: bool = typer.Option(False, "--no-cookies", help="Disable automatic cookie injection"),
+    observation_mode: str = typer.Option(
+        "browser_use",
+        "--observation-mode",
+        help="Observation schema mode: browser_use or legacy",
+    ),
+    observation_compare_log: bool = typer.Option(
+        False,
+        "--observation-compare-log",
+        help="Enable legacy vs current observation compare logs",
+    ),
 ) -> None:
     """试运行并提纯 Workflow，产出 *_final.yaml
 
@@ -68,6 +78,13 @@ def refine(
     parsed_inputs = collect_workflow_inputs(workflow, console, parsed_inputs)
     validate_and_report_errors(workflow, parsed_inputs, console)
 
+    if observation_mode not in {"legacy", "browser_use"}:
+        console.print(
+            f"[red]Invalid --observation-mode value: {observation_mode}. Use: legacy or browser_use[/red]"
+        )
+        raise typer.Exit(1)
+    observation_mode_value = cast(Literal["legacy", "browser_use"], observation_mode)
+
     # Show execution config
     console.print("\n[bold]Execution Configuration:[/bold]")
     config_table = Table(show_header=False, box=None)
@@ -78,6 +95,8 @@ def refine(
     config_table.add_row("  Checkpoints:", "Skipped" if skip_checkpoints else "Enabled")
     config_table.add_row("  Output Suffix:", output_suffix)
     config_table.add_row("  Interactive:", "No" if no_interactive else "Yes")
+    config_table.add_row("  Observation Mode:", observation_mode_value)
+    config_table.add_row("  Observation Compare Log:", "Enabled" if observation_compare_log else "Disabled")
     if no_interactive:
         config_table.add_row("  On HITL:", on_hitl)
     if no_cookies:
@@ -114,6 +133,8 @@ def refine(
             human_handler=handler,
             auto_load_cookies=not no_cookies,
             cookies_dir=cookies_dir,
+            observation_mode=observation_mode_value,
+            observation_compare_log=observation_compare_log,
         )
 
         return await refiner.run(

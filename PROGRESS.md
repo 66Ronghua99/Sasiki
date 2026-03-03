@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-03-03** (Phase 3 AI-Native 重构完成，进入 E2E 实战测试阶段)
+**最后更新：2026-03-03** (统一观测入口最小 PR 已落地，进入 E2E 对照验证阶段)
 
 ## 当前主线
 
@@ -20,6 +20,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 3 执行引擎     | 🟢 进行中 | WorkflowRefiner 核心调度器已完成，支持分 Stage 执行、Checkpoint 暂停、变量替换与最终 Workflow 产出 |
 | Phase 3 Retry & HITL | ✅ 已完成 | Retry 上下文传递、HumanInteractionHandler 抽象接口、CLI/NonInteractive 双实现 |
 | Phase 3 AI-Native 重构 | ✅ 已完成 | 全部 14 个 TODO 已完成，包括 ExecutionStrategy 接口预留（Path B） |
+| Phase 3 观测统一最小 PR | ✅ 已实现 | ObservationProvider 抽象、browser_use schema、单次观测复用、CLI 开关与对比日志已接入 |
 
 ---
 
@@ -98,7 +99,8 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 1. **真实复杂网站执行稳定性验证（小红书等）**
 2. **Agent Prompt Cache / Message History 成本优化**
 3. **Phase 4 设计（CLI 管理、批量执行、体验优化）**
-4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
+4. **观测层清理：E2E 稳定后移除 legacy provider**
+5. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---
 
@@ -121,6 +123,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [X] 实现 Retry 上下文传递与失败信息分类 (`_classify_error`)。
 - [X] 实现 HITL 抽象接口与 CLI/NonInteractive 双模式支持。
 - [X] ExecutionStrategy 接口预留（P2）— 已完成
+- [X] 最小 PR：统一观测入口 + browser-use 风格 snapshot 试点（ObservationProvider、schema、开关、对比日志）— 已实现并完成回归单测
 - [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
@@ -178,6 +181,9 @@ sasiki refine <workflow_id>
 # 3) 连接已有浏览器试运行
 sasiki refine <workflow_id> --cdp-url http://localhost:9222
 
+# 3.1) 使用新观测模式（默认）并输出对比日志
+sasiki refine <workflow_id> --cdp-url http://localhost:9222 --observation-mode browser_use --observation-compare-log
+
 # 4) 非交互式模式（用于自动化/CI）
 sasiki refine <workflow_id> --no-interactive --on-hitl=abort
 
@@ -191,6 +197,8 @@ PYTHONPATH=src uv run --with pytest --with pytest-asyncio pytest tests/engine/te
 
 - `click.triggers_navigation` 目前依赖短时间窗口，慢网络下可能误判。
   方向：改为事后关联或可配置窗口。
+- 全量 `ruff` 基线仍有历史遗留错误（当前约 195 项，分布在旧模块），与本次最小 PR 无直接行为耦合。
+  方向：单独开“lint debt cleanup”任务，分批修复后再恢复全量 lint 门禁。
 
 ---
 

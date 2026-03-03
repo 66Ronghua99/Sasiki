@@ -1,7 +1,7 @@
 """The Replay Agent that executes tasks by observing the DOM and asking the LLM."""
 
 import json
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 from playwright.async_api import Page
 
 from sasiki.engine.page_observer import AccessibilityObserver, AriaSnapshot, CompressedNode
@@ -58,6 +58,8 @@ class ReplayAgent:
         self.observer = AccessibilityObserver()
         self.llm = LLMClient()
         self.last_dom_hash: str | None = None
+        self.current_node_map: dict[int, Any] = {}
+        self.current_selector_map: dict[int, str] = {}
 
     async def _get_element_center(self, page: Page, backend_node_id: int) -> tuple[float, float]:
         """Gets the center coordinates of an element using CDP."""
@@ -78,7 +80,8 @@ class ReplayAgent:
         self,
         page: Page,
         goal: str,
-        action_history: Optional[list[str]] = None,
+        action_history: list[str] | None = None,
+        observation: Any | None = None,
     ) -> AgentAction:
         """Takes a single step towards the goal.
 
@@ -95,14 +98,16 @@ class ReplayAgent:
             goal=goal,
             retry_context=None,
             action_history=action_history,
+            observation=observation,
         )
 
     async def step_with_context(
         self,
         page: Page,
         goal: str,
-        retry_context: Optional[RetryContext] = None,
-        action_history: Optional[list[str]] = None,
+        retry_context: RetryContext | None = None,
+        action_history: list[str] | None = None,
+        observation: Any | None = None,
     ) -> AgentAction:
         """执行单步，支持 retry 上下文和 action history。
 
@@ -124,13 +129,17 @@ class ReplayAgent:
             attempt=retry_context.attempt_number if retry_context else 1,
         )
 
-        # 1. Observe the page (只在这里观测一次)
-        observation = await self.observer.observe(page)
-        compressed_tree = observation.compressed_tree
-        snapshot = observation.snapshot
-        self.current_node_map = observation.node_map
-        self.last_dom_hash = snapshot.dom_hash if snapshot is not None else None
-        observation_payload = snapshot if snapshot is not None else compressed_tree
+        # 1. Observe once unless the caller provides an observation payload
+        if observation is None:
+            observer_result = await self.observer.observe(page)
+            compressed_tree = observer_result.compressed_tree
+            snapshot = observer_result.snapshot
+            self.current_node_map = observer_result.node_map
+            self.current_selector_map = {}
+            self.last_dom_hash = snapshot.dom_hash if snapshot is not None else None
+            observation_payload = snapshot if snapshot is not None else compressed_tree
+        else:
+            observation_payload = self._consume_external_observation(observation)
 
         # 2. Build the prompt based on context
         if retry_context:
@@ -170,6 +179,40 @@ class ReplayAgent:
         except Exception as e:
             get_logger().error("Failed to parse LLM action", error=str(e), response=response_str)
             raise
+
+    def _consume_external_observation(self, observation: Any) -> Any:
+        """Load externally provided observation into local runtime state."""
+        llm_payload: Any = None
+
+        if hasattr(observation, "llm_payload"):
+            llm_payload = getattr(observation, "llm_payload", None)
+            node_map = getattr(observation, "node_map", {}) or {}
+            selector_map = getattr(observation, "selector_map", {}) or {}
+            dom_hash = getattr(observation, "dom_hash", None)
+        elif isinstance(observation, dict):
+            llm_payload = observation.get("llm_payload")
+            node_map = observation.get("node_map", {}) or {}
+            selector_map = observation.get("selector_map", {}) or {}
+            dom_hash = observation.get("dom_hash")
+        else:
+            node_map = {}
+            selector_map = {}
+            dom_hash = None
+
+        if isinstance(node_map, dict):
+            self.current_node_map = {int(key): value for key, value in node_map.items()}
+        else:
+            self.current_node_map = {}
+
+        if isinstance(selector_map, dict):
+            self.current_selector_map = {
+                int(key): str(value) for key, value in selector_map.items() if value
+            }
+        else:
+            self.current_selector_map = {}
+
+        self.last_dom_hash = dom_hash if isinstance(dom_hash, str) else None
+        return llm_payload if llm_payload is not None else {}
 
     def _normalize_action_data(self, action_data: Any) -> dict[str, Any]:
         """Normalize common LLM output variants to AgentAction schema."""
@@ -220,7 +263,7 @@ class ReplayAgent:
         self,
         goal: str,
         compressed_tree: Any,
-        action_history: Optional[list[str]] = None,
+        action_history: list[str] | None = None,
     ) -> str:
         """构建正常的 prompt。"""
         parts = [f"Goal: {goal}"]
@@ -258,7 +301,7 @@ class ReplayAgent:
         goal: str,
         retry_context: RetryContext,
         compressed_tree: Any,
-        action_history: Optional[list[str]] = None,
+        action_history: list[str] | None = None,
     ) -> str:
         """构建 retry 时的 prompt。
 
@@ -423,6 +466,8 @@ class ReplayAgent:
             locator_info = self.current_node_map[action.target_id].locator_args
             role = locator_info.role
             name = locator_info.name
+        elif action.target_id is not None and action.target_id in self.current_selector_map:
+            return page.locator(self.current_selector_map[action.target_id]).first
 
         if not role:
             return None
