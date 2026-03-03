@@ -6,9 +6,54 @@ from pathlib import Path
 from typing import Any
 from playwright.async_api import BrowserContext
 
+
 class SessionManager:
     """Manages moving session state (cookies) between profiles or from raw JSON."""
-    
+
+    DEFAULT_COOKIES_DIR: Path = Path.home() / ".sasiki" / "cookies"
+
+    @staticmethod
+    def get_cookies_dir() -> Path:
+        """Get the default cookies storage directory."""
+        return SessionManager.DEFAULT_COOKIES_DIR
+
+    @staticmethod
+    async def inject_all_cookies(
+        context: BrowserContext,
+        cookies_dir: str | Path | None = None,
+    ) -> tuple[int, int]:
+        """Inject all cookie files from the specified directory.
+
+        Automatically discovers and loads all .json cookie files from the
+        cookies directory. This is useful for restoring multiple sessions
+        (e.g., login state for various websites).
+
+        Args:
+            context: The Playwright browser context
+            cookies_dir: Directory containing cookie JSON files.
+                        Defaults to ~/.sasiki/cookies/
+
+        Returns:
+            Tuple of (number of files loaded, total cookies injected)
+        """
+        cookies_path = Path(cookies_dir or SessionManager.DEFAULT_COOKIES_DIR).expanduser()
+
+        if not cookies_path.exists():
+            return 0, 0
+
+        cookie_files = list(cookies_path.glob("*.json"))
+        total_cookies = 0
+
+        for cookie_file in cookie_files:
+            try:
+                count = await SessionManager.inject_cookies_from_file(context, cookie_file)
+                total_cookies += count
+            except Exception:
+                # Skip invalid cookie files, continue loading others
+                continue
+
+        return len(cookie_files), total_cookies
+
     @staticmethod
     async def inject_cookies_from_file(
         context: BrowserContext, cookie_file_path: str | Path

@@ -38,6 +38,8 @@ def refine(
     output_suffix: str = typer.Option("final", "--output-suffix", help="Suffix for output workflow file"),
     no_interactive: bool = typer.Option(False, "--no-interactive", help="Disable interactive mode (for automation)"),
     on_hitl: str = typer.Option("abort", "--on-hitl", help="Default action when HITL is triggered in non-interactive mode: abort, continue, skip"),
+    cookies_dir: Optional[str] = typer.Option(None, "--cookies-dir", help="Directory with cookie JSON files to inject (default: ~/.sasiki/cookies/)"),
+    no_cookies: bool = typer.Option(False, "--no-cookies", help="Disable automatic cookie injection"),
 ) -> None:
     """试运行并提纯 Workflow，产出 *_final.yaml
 
@@ -78,6 +80,10 @@ def refine(
     config_table.add_row("  Interactive:", "No" if no_interactive else "Yes")
     if no_interactive:
         config_table.add_row("  On HITL:", on_hitl)
+    if no_cookies:
+        config_table.add_row("  Cookies:", "Disabled")
+    else:
+        config_table.add_row("  Cookies Dir:", cookies_dir or "~/.sasiki/cookies/ (default)")
     console.print(config_table)
 
     # Confirm execution
@@ -106,6 +112,8 @@ def refine(
             max_steps_per_stage=max_steps,
             enable_checkpoints=not skip_checkpoints,
             human_handler=handler,
+            auto_load_cookies=not no_cookies,
+            cookies_dir=cookies_dir,
         )
 
         return await refiner.run(

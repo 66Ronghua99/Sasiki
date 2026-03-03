@@ -179,6 +179,8 @@ class TestWorkflowRefinerInit:
                 cdp_url=None,
                 user_data_dir=None,
                 headless=False,
+                auto_load_cookies=True,
+                cookies_dir=None,
             )
 
     def test_custom_initialization(self):
@@ -197,6 +199,8 @@ class TestWorkflowRefinerInit:
                 cdp_url="http://localhost:9222",
                 user_data_dir="/tmp/chrome",
                 headless=True,
+                auto_load_cookies=True,
+                cookies_dir=None,
             )
 
 

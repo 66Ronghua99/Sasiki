@@ -34,6 +34,8 @@ class WorkflowRefiner:
         max_steps_per_stage: int = 20,
         enable_checkpoints: bool = True,
         human_handler: HumanInteractionHandler | None = None,
+        auto_load_cookies: bool = True,
+        cookies_dir: str | None = None,
     ):
         """Initialize the WorkflowRefiner.
 
@@ -45,11 +47,17 @@ class WorkflowRefiner:
             enable_checkpoints: Whether to pause at checkpoints for user confirmation
             human_handler: Handler for human-in-the-loop interactions.
                           If None, HITL/checkpoint will raise an error.
+            auto_load_cookies: If True (default), automatically load all cookies from
+                              cookies_dir on startup. Ignored when using CDP.
+            cookies_dir: Directory containing cookie JSON files. Defaults to
+                        ~/.sasiki/cookies/
         """
         self.env = PlaywrightEnvironment(
             cdp_url=cdp_url,
             user_data_dir=user_data_dir,
             headless=headless,
+            auto_load_cookies=auto_load_cookies,
+            cookies_dir=cookies_dir,
         )
         self.agent = ReplayAgent()
         self.max_steps_per_stage = max_steps_per_stage
