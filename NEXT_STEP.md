@@ -2,7 +2,7 @@
 
 **更新日期：2026-03-03**
 
-## 目标：AI-Native Pipeline 重构 — P2 ExecutionStrategy
+## 目标：进入 E2E 实战测试阶段（小红书等复杂站点）
 
 ---
 
@@ -18,18 +18,50 @@
 
 ---
 
-## 当前优先级
+## 已完成：P2 ExecutionStrategy 接口预留（Path B）
 
-### P2：ExecutionStrategy 接口预留（Path B）
+**实现内容**：
+1. 新增 `ExecutionStrategy` 抽象接口（`src/sasiki/engine/execution_strategy.py`）
+   - `observe()`: 观察环境状态（browser: AriaSnapshot, api: endpoint state）
+   - `execute()`: 执行 AgentDecision（browser: Playwright, api: HTTP call）
+   - `check_completion()`: 验证完成状态
+   - `cleanup()`: 资源清理
 
-**任务描述**：
-为未来 Path B（browser/api/tool/hybrid）预留统一执行策略接口，在不改变现有 browser-first 行为前提下抽象执行层边界。
+2. `BrowserExecutionStrategy` 默认实现（Path A）
+   - 使用 Playwright 执行浏览器操作
+   - 支持 AriaSnapshot 观察（accessibility tree）
+   - DOM hash 用于停滞检测
+   - 通过 agent.execute_action 保持向后兼容
 
-**验收标准**：
-- 新增策略抽象接口与默认 browser 实现占位
-- 当前执行路径行为保持不变（回归测试通过）
-- 代码中新增清晰的扩展点注释或接口文档
-- 单元测试通过（`uv run pytest -q`）
+3. `ApiExecutionStrategy` / `HybridExecutionStrategy` 占位（Path B）
+   - 为未来 API-only 和混合执行预留
+   - 清晰的扩展点注释
+
+4. `StageExecutor` 集成
+   - 支持通过 `execution_strategy` 参数注入策略
+   - 默认保持 browser-first 行为
+   - 所有 189 个单元测试通过
+
+5. 新增 26 个单元测试覆盖策略接口
+
+---
+
+## 下一步任务（当前主线）
+
+1. **E2E 实战测试（进行中）**
+   - 目标：在小红书等真实复杂网站验证执行稳定性与准确率。
+   - 验收：形成可复现测试流程、失败样例归档、关键成功率指标。
+2. **Agent Prompt Cache / Message History 成本优化**
+3. **Phase 4 设计**：CLI 管理、批量执行、体验优化
+
+---
+
+## Review 回收问题（2026-03-03）
+
+1. ✅ **P0（已处理）**：修复 `BrowserExecutionStrategy.execute()` 对 mock `page.url` 的未 await 调用，避免 RuntimeWarning 与元数据异常。
+2. ✅ **P1（已处理）**：修复 `StageExecutor` 中 `ExecutionContext.episode_log` 赋值的类型不兼容（mypy 报错）。
+3. ✅ **P1（已处理）**：修复 `execution_strategy._describe_target()` 返回 `Any` 的类型问题（mypy 报错）。
+4. ⏳ **P2（待处理）**：清理本次改动相关的 lint 问题（如未使用变量/导入与 import 排序）。
 
 ---
 
@@ -38,7 +70,7 @@
 14 个 TODO，按 P0 → P2 优先级：
 
 **P0（核心概念对齐）**：
-1. ✅ WorkflowSpec model 扩展（本次任务）
+1. ✅ WorkflowSpec model 扩展
 2. ✅ SkillGenerator prompt 更新（产出 objective/success_criteria）
 3. ✅ AriaSnapshot 替代 CompressedNode（去 node_id，加 dom_hash）
 4. ✅ StageContext 类（替代 _build_stage_goal() 字符串）
@@ -55,4 +87,6 @@
 **P2（记忆与输出）**：
 12. ✅ WorldState 跨 Stage 传递
 13. ✅ ExecutionReport 输出格式
-14. ExecutionStrategy 接口预留（Path B）
+14. ✅ ExecutionStrategy 接口预留（Path B）
+
+**🎉 AI-Native Pipeline 重构全部完成！**

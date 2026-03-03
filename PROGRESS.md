@@ -1,6 +1,6 @@
 # Sasiki - 精简进度看板
 
-**最后更新：2026-03-03** (Phase 3 AI-Native 重构方案确定，进入实施阶段)
+**最后更新：2026-03-03** (Phase 3 AI-Native 重构完成，进入 E2E 实战测试阶段)
 
 ## 当前主线
 
@@ -19,13 +19,13 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 | Phase 2 Skill 生成   | ✅ 已完成 | Parser + Generator + CLI + LLM 集成全部打通，E2E 验收通过；后续持续优化迭代                |
 | Phase 3 执行引擎     | 🟢 进行中 | WorkflowRefiner 核心调度器已完成，支持分 Stage 执行、Checkpoint 暂停、变量替换与最终 Workflow 产出 |
 | Phase 3 Retry & HITL | ✅ 已完成 | Retry 上下文传递、HumanInteractionHandler 抽象接口、CLI/NonInteractive 双实现 |
-| Phase 3 AI-Native 重构 | 🔵 设计完成 | 架构重构方案确定，见 `docs/AI_NATIVE_REDESIGN.md`，P0 实施中 |
+| Phase 3 AI-Native 重构 | ✅ 已完成 | 全部 14 个 TODO 已完成，包括 ExecutionStrategy 接口预留（Path B） |
 
 ---
 
 ## 已完成（近期关键项）
 
-### Phase 3 AI-Native 重构（设计阶段完成）
+### Phase 3 AI-Native 重构（已完成）
 
 - 识别并记录当前 WorkflowRefiner 的根本性架构问题：Agent 被当作脚本执行器（actions list 作为指令，而非目标）
 - 完成全链路 AI-Native Pipeline 设计（`docs/AI_NATIVE_REDESIGN.md`）：
@@ -37,6 +37,12 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - 定义两条演化路径：Path A（忠实复刻+优化）/ Path B（意图理解+革命性优化）
 - 制定 14 个 TODO，P0→P2 优先级分层
 - P1 StageVerifier（evidence-based done）、P2 WorldState（跨 Stage 状态传递）与 P2 ExecutionReport（结构化执行输出）已落地并完成回归测试
+- **P2 ExecutionStrategy 接口预留已完成**：
+  - 新增 `ExecutionStrategy` 抽象接口（`src/sasiki/engine/execution_strategy.py`）
+  - `BrowserExecutionStrategy` 默认实现（Path A，保持 browser-first 行为）
+  - `ApiExecutionStrategy` / `HybridExecutionStrategy` 占位（Path B 未来扩展）
+  - `StageExecutor` 集成策略接口，支持依赖注入
+  - 新增 26 个单元测试，所有 189 个测试通过
 ### Previous Phase 3 design
 - 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
 - 引入 `playwright` 依赖，作为自动化执行基础。
@@ -89,9 +95,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P2：ExecutionStrategy 接口预留（Path B）**
-2. **真实复杂网站执行稳定性验证（小红书等）**
-3. **Agent Prompt Cache / Message History 成本优化**
+1. **真实复杂网站执行稳定性验证（小红书等）**
+2. **Agent Prompt Cache / Message History 成本优化**
+3. **Phase 4 设计（CLI 管理、批量执行、体验优化）**
 4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---
@@ -114,6 +120,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 - [X] 构建 `WorkflowRefiner` 读取 YAML 并拆分 Stage 执行。
 - [X] 实现 Retry 上下文传递与失败信息分类 (`_classify_error`)。
 - [X] 实现 HITL 抽象接口与 CLI/NonInteractive 双模式支持。
+- [X] ExecutionStrategy 接口预留（P2）— 已完成
 - [ ] 设计 Agent Prompt Cache 与 Message History 机制以降低长上下文成本。
 - [ ] 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 

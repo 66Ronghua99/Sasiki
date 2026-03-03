@@ -2,6 +2,11 @@
 
 This module provides the StageExecutor class for executing individual workflow
 stages with step-by-step Agent control, retry logic, and HITL handling.
+
+Extension Point (Path B):
+StageExecutor now supports pluggable ExecutionStrategy for different
+execution modes (browser/api/hybrid). The default strategy is BrowserExecutionStrategy
+which preserves existing browser-first behavior.
 """
 
 from __future__ import annotations
@@ -9,6 +14,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from sasiki.engine.execution_strategy import (
+    BrowserExecutionStrategy,
+    ExecutionContext,
+    ExecutionStrategy,
+)
 from sasiki.engine.hitl_decision_mapper import HITLDecisionMapper
 from sasiki.engine.refiner_state import StageResult
 from sasiki.engine.replay_models import AgentAction, AgentDecision, EpisodeEntry, RetryContext
@@ -123,6 +133,7 @@ class StageExecutor:
         max_stagnant_steps: int = 3,
         max_retry_attempts: int = 3,
         stage_verifier: StageVerifier | None = None,
+        execution_strategy: ExecutionStrategy | None = None,
     ):
         """Initialize the stage executor.
 
@@ -134,6 +145,9 @@ class StageExecutor:
             max_stagnant_steps: Maximum consecutive identical dom_hash snapshots
             max_retry_attempts: Maximum attempts including initial try (L1/L2 escalation)
             stage_verifier: Optional verifier for done-evidence checks
+            execution_strategy: Optional custom execution strategy. Defaults to
+                BrowserExecutionStrategy for browser-first behavior (Path A).
+                Use custom strategy for Path B (api/hybrid) execution modes.
         """
         self.agent = agent
         self.human_handler = human_handler
@@ -142,6 +156,9 @@ class StageExecutor:
         self.max_stagnant_steps = max_stagnant_steps
         self.max_retry_attempts = max_retry_attempts
         self.stage_verifier = stage_verifier or StageVerifier()
+        # Path B Extension Point: Use custom strategy for api/hybrid execution
+        # Pass agent to BrowserExecutionStrategy for backward compatibility
+        self.execution_strategy = execution_strategy or BrowserExecutionStrategy(agent=agent)
 
     async def execute(
         self,
@@ -152,6 +169,10 @@ class StageExecutor:
         previous_world_state: str | None = None,
     ) -> StageResult:
         """Execute a single stage.
+
+        Uses the configured execution_strategy (default: BrowserExecutionStrategy)
+        to observe environment state and execute AgentDecisions. This abstraction
+        enables Path B extensions (API/hybrid execution modes).
 
         Args:
             page: The Playwright page to interact with
@@ -179,6 +200,19 @@ class StageExecutor:
             stage_name=stage_name,
             action_count=action_details_count or action_count,
             application=stage.get("application"),
+            strategy_type=self.execution_strategy.strategy_type,
+        )
+
+        # Initialize execution strategy
+        await self.execution_strategy.initialize(page)
+
+        # Build execution context for strategy
+        execution_context = ExecutionContext(
+            stage_name=stage_name,
+            objective=stage.get("objective", ""),
+            success_criteria=success_criteria,
+            context_hints=stage.get("context_hints", []),
+            previous_world_state=previous_world_state,
         )
 
         # Clear history at start of each stage
@@ -194,150 +228,192 @@ class StageExecutor:
         last_dom_hash: str | None = None
         stagnant_count = 0
 
-        while steps_taken < self.max_steps:
-            action: AgentAction | None = None
-            try:
-                # Get next action from agent
-                action = await self.agent.step(
-                    page,
-                    goal,
-                    action_history=self._build_action_history(history, episode_log),
-                )
-                taken_actions.append(action)
-                steps_taken += 1
-                current_dom_hash = self._safe_dom_hash()
-
-                # Check for repetitive action patterns
-                action_key = self._action_key(action)
-                if action_key == last_action_key:
-                    repeat_count += 1
-                    if repeat_count >= self.max_repeats:
-                        return StageResult(
-                            stage_name=stage_name,
-                            status="failed",
-                            steps_taken=steps_taken,
-                            actions=taken_actions,
-                            episode_log=episode_log.copy(),
-                            error=f"Action repetition detected: {action.action_type} repeated {self.max_repeats} times",
-                        )
-                else:
-                    repeat_count = 0
-                    last_action_key = action_key
-
-                # Execute the action and record structured memory
-                page_url_before = self._safe_page_url(page)
-                await self.agent.execute_action(page, action)
-                page_url_after = self._safe_page_url(page)
-                self._record_episode(
-                    episode_log=episode_log,
-                    step=steps_taken,
-                    action=action,
-                    result="success",
-                    page_url_before=page_url_before,
-                    page_url_after=page_url_after,
-                    dom_hash_before=current_dom_hash,
-                    dom_hash_after=current_dom_hash,
-                )
-
-                last_dom_hash, stagnant_count = self._update_stagnation(
-                    current_dom_hash,
-                    last_dom_hash,
-                    stagnant_count,
-                )
-                if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
-                    return StageResult(
-                        stage_name=stage_name,
-                        status="failed",
-                        steps_taken=steps_taken,
-                        actions=taken_actions,
-                        episode_log=episode_log.copy(),
-                        error=(
-                            "DOM stagnation detected: "
-                            f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
-                        ),
+        try:
+            while steps_taken < self.max_steps:
+                action: AgentAction | None = None
+                try:
+                    # Observe current state using execution strategy
+                    # Path B Extension: Strategy observes environment (browser/api/hybrid)
+                    observation = await self.execution_strategy.observe(
+                        page, execution_context
                     )
 
-                # Check for done
-                if action.action_type == "done":
-                    verification = self.stage_verifier.verify_done(success_criteria, action)
-                    if not verification.verified:
-                        return StageResult(
-                            stage_name=stage_name,
-                            status="failed",
-                            steps_taken=steps_taken,
-                            actions=taken_actions,
-                            episode_log=episode_log.copy(),
-                            verification_evidence=verification.evidence,
-                            error=f"Done rejected by StageVerifier: {verification.reason}",
-                        )
-                    get_logger().info(
-                        "stage_complete",
-                        stage_index=stage_index,
-                        stage_name=stage_name,
-                        steps=steps_taken,
-                        message=action.message,
-                    )
-                    return StageResult(
-                        stage_name=stage_name,
-                        status="success",
-                        steps_taken=steps_taken,
-                        actions=taken_actions,
-                        episode_log=episode_log.copy(),
-                        verified=verification.verified,
-                        verification_evidence=verification.evidence,
-                        world_state_summary=self._build_world_state_summary(page, verification.evidence),
-                    )
+                    # Get next action from agent
+                    # Include observation summary in action history for better context
+                    action_history = self._build_action_history(history, episode_log)
+                    if observation.summary:
+                        action_history.append(f"Current state: {observation.summary[:200]}")
 
-                # Check for human pause request
-                if action.action_type == "ask_human":
-                    result = await self._handle_ask_human(
-                        stage_name,
-                        stage_index,
-                        steps_taken,
-                        taken_actions,
-                        episode_log,
-                        action,
+                    action = await self.agent.step(
+                        page,
                         goal,
-                        history,
+                        action_history=action_history,
                     )
-                    if result == "continue":
-                        # Human provided input, continue execution
-                        continue
-                    return result
+                    taken_actions.append(action)
+                    steps_taken += 1
 
-            except Exception as e:
-                # Retry with context on failure
-                get_logger().warning(
-                    "action_failed_retrying",
-                    stage_index=stage_index,
-                    step=steps_taken,
-                    error=str(e),
-                )
-                (
-                    steps_taken,
-                    last_dom_hash,
-                    stagnant_count,
-                    retry_result,
-                    should_continue,
-                ) = await self._run_retry_attempts(
-                    page=page,
-                    goal=goal,
-                    success_criteria=success_criteria,
-                    stage_name=stage_name,
-                    stage_index=stage_index,
-                    history=history,
-                    taken_actions=taken_actions,
-                    episode_log=episode_log,
-                    steps_taken=steps_taken,
-                    last_dom_hash=last_dom_hash,
-                    stagnant_count=stagnant_count,
-                    failed_action=action,
-                    initial_error=e,
-                )
-                if should_continue:
-                    continue
-                if retry_result is not None:
-                    return retry_result
+                    # Get dom_hash from observation for stagnation detection
+                    # Fallback to _safe_dom_hash() for backward compatibility (tests)
+                    current_dom_hash = observation.state_hash or self._safe_dom_hash()
+
+                    # Check for repetitive action patterns
+                    action_key = self._action_key(action)
+                    if action_key == last_action_key:
+                        repeat_count += 1
+                        if repeat_count >= self.max_repeats:
+                            return StageResult(
+                                stage_name=stage_name,
+                                status="failed",
+                                steps_taken=steps_taken,
+                                actions=taken_actions,
+                                episode_log=episode_log.copy(),
+                                error=f"Action repetition detected: {action.action_type} repeated {self.max_repeats} times",
+                            )
+                    else:
+                        repeat_count = 0
+                        last_action_key = action_key
+
+                    # Execute the action using execution strategy
+                    # Path B Extension: Strategy handles execution (browser/api/hybrid)
+                    page_url_before = self._safe_page_url(page)
+                    exec_result = await self.execution_strategy.execute(
+                        page, action, execution_context
+                    )
+                    page_url_after = self._safe_page_url(page)
+
+                    if not exec_result.success:
+                        # Execution failed, raise for retry handling
+                        raise RuntimeError(
+                            f"Execution failed: {exec_result.error or 'unknown error'}"
+                        )
+
+                    # Update execution context with latest episode log for next observation
+                    execution_context.episode_log = [
+                        entry.model_dump()
+                        for entry in episode_log
+                    ]
+
+                    self._record_episode(
+                        episode_log=episode_log,
+                        step=steps_taken,
+                        action=action,
+                        result="success",
+                        page_url_before=page_url_before,
+                        page_url_after=page_url_after,
+                        dom_hash_before=current_dom_hash,
+                        dom_hash_after=current_dom_hash,
+                    )
+
+                    last_dom_hash, stagnant_count = self._update_stagnation(
+                        current_dom_hash,
+                        last_dom_hash,
+                        stagnant_count,
+                    )
+                    if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
+                        return StageResult(
+                            stage_name=stage_name,
+                            status="failed",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                            error=(
+                                "DOM stagnation detected: "
+                                f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
+                            ),
+                        )
+
+                    # Check for done using execution strategy's completion check
+                    if action.action_type == "done":
+                        is_complete, evidence = await self.execution_strategy.check_completion(
+                            page, success_criteria, action
+                        )
+                        # Also verify with stage_verifier for backward compatibility
+                        verification = self.stage_verifier.verify_done(success_criteria, action)
+
+                        if not is_complete or not verification.verified:
+                            return StageResult(
+                                stage_name=stage_name,
+                                status="failed",
+                                steps_taken=steps_taken,
+                                actions=taken_actions,
+                                episode_log=episode_log.copy(),
+                                verification_evidence=verification.evidence or evidence,
+                                error=f"Done rejected by StageVerifier: {verification.reason or 'completion criteria not met'}",
+                            )
+                        get_logger().info(
+                            "stage_complete",
+                            stage_index=stage_index,
+                            stage_name=stage_name,
+                            steps=steps_taken,
+                            message=action.message,
+                        )
+                        return StageResult(
+                            stage_name=stage_name,
+                            status="success",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                            verified=verification.verified,
+                            verification_evidence=verification.evidence or evidence,
+                            world_state_summary=self._build_world_state_summary(
+                                page, verification.evidence or evidence
+                            ),
+                        )
+
+                    # Check for human pause request
+                    if action.action_type == "ask_human":
+                        result = await self._handle_ask_human(
+                            stage_name,
+                            stage_index,
+                            steps_taken,
+                            taken_actions,
+                            episode_log,
+                            action,
+                            goal,
+                            history,
+                        )
+                        if result == "continue":
+                            # Human provided input, continue execution
+                            continue
+                        return result
+
+                except Exception as e:
+                    # Retry with context on failure
+                    get_logger().warning(
+                        "action_failed_retrying",
+                        stage_index=stage_index,
+                        step=steps_taken,
+                        error=str(e),
+                    )
+                    (
+                        steps_taken,
+                        last_dom_hash,
+                        stagnant_count,
+                        retry_result,
+                        should_continue,
+                    ) = await self._run_retry_attempts(
+                        page=page,
+                        goal=goal,
+                        success_criteria=success_criteria,
+                        stage_name=stage_name,
+                        stage_index=stage_index,
+                        history=history,
+                        taken_actions=taken_actions,
+                        episode_log=episode_log,
+                        steps_taken=steps_taken,
+                        last_dom_hash=last_dom_hash,
+                        stagnant_count=stagnant_count,
+                        failed_action=action,
+                        initial_error=e,
+                    )
+                    if should_continue:
+                        continue
+                    if retry_result is not None:
+                        return retry_result
+
+        finally:
+            # Cleanup execution strategy resources
+            await self.execution_strategy.cleanup()
 
         # Max steps reached
         get_logger().error(
@@ -421,9 +497,25 @@ class StageExecutor:
         failed_action: AgentAction | None,
         initial_error: Exception,
     ) -> tuple[int, str | None, int, StageResult | None, bool]:
-        """Run multi-level retries and return updated loop state."""
+        """Run multi-level retries and return updated loop state.
+
+        Uses execution_strategy for action execution to support Path B extensions
+        (api/hybrid execution modes).
+        """
+        # Build execution context for strategy
+        execution_context = ExecutionContext(
+            stage_name=stage_name,
+            objective="",
+            success_criteria=success_criteria,
+            context_hints=[],
+            episode_log=[entry.model_dump() for entry in episode_log],
+        )
+
         if failed_action is not None:
             current_url = self._safe_page_url(page)
+            # Get dom_hash from strategy observation if available
+            observation = await self.execution_strategy.observe(page, execution_context)
+            current_dom_hash = observation.state_hash
             self._record_episode(
                 episode_log=episode_log,
                 step=steps_taken + 1,
@@ -432,8 +524,8 @@ class StageExecutor:
                 error=str(initial_error),
                 page_url_before=current_url,
                 page_url_after=current_url,
-                dom_hash_before=self._safe_dom_hash(),
-                dom_hash_after=self._safe_dom_hash(),
+                dom_hash_before=current_dom_hash,
+                dom_hash_after=current_dom_hash,
             )
 
         retry_error: Exception = initial_error
@@ -449,6 +541,10 @@ class StageExecutor:
             )
             retry_action: AgentAction | None = None
             try:
+                # Observe current state
+                observation = await self.execution_strategy.observe(page, execution_context)
+                current_dom_hash = observation.state_hash
+
                 retry_action = await self.agent.step_with_context(
                     page,
                     goal,
@@ -457,9 +553,18 @@ class StageExecutor:
                 )
                 taken_actions.append(retry_action)
                 steps_taken += 1
-                current_dom_hash = self._safe_dom_hash()
                 page_url_before = self._safe_page_url(page)
-                await self.agent.execute_action(page, retry_action)
+
+                # Execute using execution_strategy (Path B extension point)
+                exec_result = await self.execution_strategy.execute(
+                    page, retry_action, execution_context
+                )
+
+                if not exec_result.success:
+                    raise RuntimeError(
+                        f"Retry execution failed: {exec_result.error or 'unknown error'}"
+                    )
+
                 page_url_after = self._safe_page_url(page)
                 self._record_episode(
                     episode_log=episode_log,
@@ -497,8 +602,13 @@ class StageExecutor:
                     )
 
                 if retry_action.action_type == "done":
+                    # Check completion using execution_strategy
+                    is_complete, evidence = await self.execution_strategy.check_completion(
+                        page, success_criteria, retry_action
+                    )
                     verification = self.stage_verifier.verify_done(success_criteria, retry_action)
-                    if not verification.verified:
+
+                    if not is_complete or not verification.verified:
                         return (
                             steps_taken,
                             last_dom_hash,
@@ -509,8 +619,8 @@ class StageExecutor:
                                 steps_taken=steps_taken,
                                 actions=taken_actions,
                                 episode_log=episode_log.copy(),
-                                verification_evidence=verification.evidence,
-                                error=f"Done rejected by StageVerifier: {verification.reason}",
+                                verification_evidence=verification.evidence or evidence,
+                                error=f"Done rejected by StageVerifier: {verification.reason or 'completion criteria not met'}",
                             ),
                             False,
                         )
@@ -525,9 +635,9 @@ class StageExecutor:
                             actions=taken_actions,
                             episode_log=episode_log.copy(),
                             verified=verification.verified,
-                            verification_evidence=verification.evidence,
+                            verification_evidence=verification.evidence or evidence,
                             world_state_summary=self._build_world_state_summary(
-                                page, verification.evidence
+                                page, verification.evidence or evidence
                             ),
                         ),
                         False,
@@ -555,6 +665,8 @@ class StageExecutor:
                 if retry_action is not None:
                     retry_failed_action = retry_action
                     current_url = self._safe_page_url(page)
+                    observation = await self.execution_strategy.observe(page, execution_context)
+                    current_dom_hash = observation.state_hash
                     self._record_episode(
                         episode_log=episode_log,
                         step=steps_taken + 1,
@@ -563,8 +675,8 @@ class StageExecutor:
                         error=str(retry_exc),
                         page_url_before=current_url,
                         page_url_after=current_url,
-                        dom_hash_before=self._safe_dom_hash(),
-                        dom_hash_after=self._safe_dom_hash(),
+                        dom_hash_before=current_dom_hash,
+                        dom_hash_after=current_dom_hash,
                     )
                 get_logger().warning(
                     "action_retry_attempt_failed",
@@ -726,9 +838,22 @@ class StageExecutor:
         return page_url if isinstance(page_url, str) else str(page_url)
 
     def _safe_dom_hash(self) -> str | None:
-        """Get latest dom_hash from agent observation, if available."""
-        dom_hash = getattr(self.agent, "last_dom_hash", None)
-        return dom_hash if isinstance(dom_hash, str) and dom_hash else None
+        """Get latest dom_hash from execution strategy observation, if available.
+
+        Path B Extension: For browser strategies, returns DOM hash for stagnation
+        detection. For API/hybrid strategies, may return state hash or None.
+
+        Backward Compatibility: Falls back to agent.last_dom_hash for tests.
+        """
+        # Get dom_hash from execution_strategy (supports both browser and Path B strategies)
+        if hasattr(self.execution_strategy, "last_dom_hash"):
+            dom_hash = self.execution_strategy.last_dom_hash
+            if isinstance(dom_hash, str) and dom_hash:
+                return dom_hash
+
+        # Backward compatibility: fall back to agent.last_dom_hash (used in tests)
+        agent_dom_hash = getattr(self.agent, "last_dom_hash", None)
+        return agent_dom_hash if isinstance(agent_dom_hash, str) and agent_dom_hash else None
 
     def _update_stagnation(
         self,
