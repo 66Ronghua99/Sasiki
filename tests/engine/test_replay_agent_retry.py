@@ -338,3 +338,46 @@ class TestReplayAgentPromptBuilding:
         assert "Step 1" in prompt
         assert "Step 2" in prompt
         assert "Step 3" in prompt
+
+    def test_normalize_action_data_maps_navigate_target_url_and_missing_thought(self, agent):
+        """Test normalization for navigate action with URL in target and missing thought."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "navigate",
+                "target": {"url": "https://example.com"},
+                "semantic_meaning": "Navigate to example",
+            }
+        )
+
+        assert normalized["action_type"] == "navigate"
+        assert normalized["value"] == "https://example.com"
+        assert normalized["target"] is None
+        assert normalized["thought"] == "Navigate to example"
+
+    def test_normalize_action_data_maps_press_key_and_key_field(self, agent):
+        """Test normalization for press_key alias and key->value mapping."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "press_key",
+                "target": {"role": "textbox", "name": "Search"},
+                "key": "Enter",
+                "progress_assessment": "Submit search",
+            }
+        )
+
+        assert normalized["action_type"] == "press"
+        assert normalized["value"] == "Enter"
+        assert normalized["thought"] == "Submit search"
+
+    def test_normalize_action_data_maps_element_identifier_to_target(self, agent):
+        """Test normalization for element_identifier fallback."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "fill",
+                "element_identifier": {"role": "textbox", "name": "搜索小红书"},
+                "value": "春季穿搭 男",
+                "thought": "fill input",
+            }
+        )
+
+        assert normalized["target"] == {"role": "textbox", "name": "搜索小红书"}

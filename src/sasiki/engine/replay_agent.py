@@ -11,51 +11,46 @@ from sasiki.utils.logger import get_logger
 
 
 # System prompt for normal execution
-NORMAL_SYSTEM_PROMPT = """You are a highly capable web automation agent.
-You are given a compressed representation of the current page's Accessibility Tree.
-Your task is to choose the single next action to take to progress towards the user's goal.
-You MUST output your choice in a valid JSON format matching this schema:
-{
-  "thought": "Reasoning based on DOM and goal",
-  "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
-  "target": {"role": "searchbox", "name": "Search"}, // Preferred target format
-  "target_id": 12, // Legacy fallback target format
-  "value": "text to fill or key to press", // Optional
-  "message": "Message to user if asking human or done", // Optional
-  "evidence": "Concrete evidence proving done criteria", // Required when action_type is done
-  "semantic_meaning": "What this step means at a semantic level",
-  "progress_assessment": "Short progress update toward completion"
-}
-Always include semantic_meaning and progress_assessment.
-When action_type is "done", always include evidence.
-Ensure the output is strictly parseable JSON."""
+NORMAL_SYSTEM_PROMPT = """You are a web automation agent. Given a compressed Accessibility Tree snapshot of the current page, choose the single best next action to progress toward the goal.
+
+## Targeting (priority order)
+1. Use `target` with `role` + `name` (maps to Playwright get_by_role — most reliable).
+2. Fall back to `target_id` only when role/name are unavailable in the snapshot.
+
+## Action guidelines
+- `click` / `fill` / `hover` / `press`: interact with a specific element.
+- `navigate`: go to a URL (use only when a direct navigation is needed and not achievable by clicking).
+- `extract_text` / `assert_visible`: read or verify content.
+- `ask_human`: use ONLY when genuinely blocked and cannot proceed autonomously (e.g., CAPTCHA, ambiguous goal, missing credential).
+- `done`: declare only when success_criteria is concretely met. Provide specific `evidence` (e.g., visible text, URL, element state) that proves completion.
+
+## Handling dynamic pages (SPA)
+- If the DOM snapshot looks empty or incomplete, prefer `navigate` or `press` Enter to trigger a reload rather than clicking invisible elements.
+- If an element is expected but missing, try scrolling (`press` ArrowDown / End) or waiting by re-observing before acting.
+
+## Avoiding loops
+- Do NOT repeat the same action if the DOM hash did not change after the previous step.
+- If stuck (same element, same result), try an alternative element, a different action type, or `ask_human`.
+
+## Output format
+Respond with a single JSON object. Always include `semantic_meaning` and `progress_assessment`. Include `evidence` when `action_type` is `done`."""
 
 # System prompt for retry execution
-RETRY_SYSTEM_PROMPT = """You are a highly capable web automation agent handling a RETRY scenario.
-The previous action failed. Analyze the error and try a DIFFERENT approach.
+RETRY_SYSTEM_PROMPT = """You are a web automation agent handling a RETRY. The previous action failed — choose a genuinely DIFFERENT strategy.
 
-You are given:
-1. The goal you're trying to achieve
-2. Information about what went wrong
-3. Current page state (Accessibility Tree)
+## Error-specific recovery
+- `element_not_found`: The target was not in the DOM. Try an alternative selector (different role/name), scroll first, or wait for content to load.
+- `timeout`: Page or element took too long. Use `navigate` to reload, or try a lighter interaction.
+- `navigation_error`: Page transition failed or is still loading. Re-observe before acting; consider navigating directly to the target URL.
+- `execution_error`: Generic failure. Inspect the current DOM carefully; pick a completely different element or approach.
 
-CRITICAL: Choose a different strategy than before. Consider:
-- If element not found: Wait for page to load, scroll, or look for alternative elements
-- If action failed: Check if element is visible, enabled, or try a different element
-- If navigation error: Wait for page to stabilize
+## Critical rules
+- Do NOT repeat the exact same action that just failed.
+- Prefer `target` (role + name) over `target_id` for reliability.
+- If all reasonable alternatives are exhausted, use `ask_human` with a clear explanation.
 
-You MUST output your choice in valid JSON format:
-{
-  "thought": "Analysis of failure and new strategy",
-  "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
-  "target": {"role": "button", "name": "Submit"},
-   "target_id": 12,
-   "value": "...",
-   "message": "...",
-   "evidence": "...",
-   "semantic_meaning": "What this retry action means semantically",
-   "progress_assessment": "How this action changes stage progress"
- }"""
+## Output format
+Respond with a single JSON object. Always include `semantic_meaning`, `progress_assessment`, and `thought` (explaining why the new strategy differs). Include `evidence` when `action_type` is `done`."""
 
 
 class ReplayAgent:
@@ -168,12 +163,58 @@ class ReplayAgent:
                 clean_str = clean_str[:-3]
 
             action_data = json.loads(clean_str.strip())
+            action_data = self._normalize_action_data(action_data)
             action = AgentAction(**action_data)
             get_logger().info("replay_agent_action_decided", action=action.model_dump())
             return action
         except Exception as e:
             get_logger().error("Failed to parse LLM action", error=str(e), response=response_str)
             raise
+
+    def _normalize_action_data(self, action_data: Any) -> dict[str, Any]:
+        """Normalize common LLM output variants to AgentAction schema."""
+        if not isinstance(action_data, dict):
+            return {"thought": "Invalid action payload", "action_type": "ask_human", "message": str(action_data)}
+
+        normalized = dict(action_data)
+
+        # Normalize common action aliases
+        action_type = normalized.get("action_type")
+        action_alias_map = {
+            "type": "fill",
+            "input": "fill",
+            "press_key": "press",
+            "key_press": "press",
+        }
+        if isinstance(action_type, str):
+            normalized["action_type"] = action_alias_map.get(action_type, action_type)
+
+        # Backward/variant fields from LLM outputs
+        if normalized.get("target") is None and isinstance(normalized.get("element_identifier"), dict):
+            normalized["target"] = normalized["element_identifier"]
+
+        if normalized.get("value") is None and isinstance(normalized.get("key"), str):
+            normalized["value"] = normalized["key"]
+
+        # Some models put URL in target.url for navigate; AgentAction expects value
+        target = normalized.get("target")
+        if isinstance(target, dict) and target.get("role") is None:
+            target_url = target.get("url")
+            if normalized.get("action_type") == "navigate" and isinstance(target_url, str):
+                normalized["value"] = normalized.get("value") or target_url
+                normalized["target"] = None
+
+        # Fill missing thought with a deterministic fallback
+        thought = normalized.get("thought")
+        if not isinstance(thought, str) or not thought.strip():
+            fallback = (
+                normalized.get("progress_assessment")
+                or normalized.get("semantic_meaning")
+                or f"Proceed with {normalized.get('action_type', 'next')} action."
+            )
+            normalized["thought"] = str(fallback)
+
+        return normalized
 
     def _build_normal_prompt(
         self,
