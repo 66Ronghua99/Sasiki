@@ -67,7 +67,7 @@ class SemanticStagePlan(BaseModel):
 **P1（稳定性提升）**：
 7. ✅ EpisodeMemory（结构化 step log 替代 history strings）
 8. ✅ SemanticNarrative 字段（semantic_meaning + progress_assessment）
-9. StagnationDetector（dom_hash 停滞检测）
+9. ✅ StagnationDetector（dom_hash 停滞检测）
 10. Multi-level retry（L1/L2/L3/L4）
 11. StageVerifier（evidence-based done）
 

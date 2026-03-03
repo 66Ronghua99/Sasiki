@@ -59,6 +59,7 @@ class ReplayAgent:
     def __init__(self) -> None:
         self.observer = AccessibilityObserver()
         self.llm = LLMClient()
+        self.last_dom_hash: str | None = None
 
     async def _get_element_center(self, page: Page, backend_node_id: int) -> tuple[float, float]:
         """Gets the center coordinates of an element using CDP."""
@@ -130,6 +131,7 @@ class ReplayAgent:
         compressed_tree = observation.compressed_tree
         snapshot = observation.snapshot
         self.current_node_map = observation.node_map
+        self.last_dom_hash = snapshot.dom_hash if snapshot is not None else None
         observation_payload = snapshot if snapshot is not None else compressed_tree
 
         # 2. Build the prompt based on context

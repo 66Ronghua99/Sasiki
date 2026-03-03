@@ -40,6 +40,13 @@ uv run pytest -q
 - `StageExecutor` 在模型未返回语义字段时提供确定性 fallback，保证 `episode_log` 中语义字段稳定可用。
 - 增加 prompt/schema 与 fallback 的回归断言测试。
 
+**P1-9：StagnationDetector（dom_hash 停滞检测）**
+
+### 结果
+- `ReplayAgent` 暴露 `last_dom_hash`，由每步 observation 更新。
+- `StageExecutor` 新增 dom_hash 连续检测逻辑，触发时返回明确的 stagnation failure。
+- `EpisodeEntry` 记录 `dom_hash_before/dom_hash_after`，并新增停滞检测回归测试。
+
 ## 下一步（最小可执行）
 
-**P1-9：StagnationDetector（dom_hash 停滞检测）**
+**P1-10：Multi-level retry（L1/L2/L3/L4）**

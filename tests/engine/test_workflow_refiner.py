@@ -740,6 +740,36 @@ class TestActionRepetitionDetection:
         assert "repetition" not in result.stage_results[0].error.lower()
         assert "Maximum steps" in result.stage_results[0].error
 
+    @pytest.mark.asyncio
+    async def test_dom_hash_stagnation_detection(
+        self, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test unchanged dom_hash triggers stagnation failure."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        click_count = [0]
+
+        async def stagnant_dom(*args, **kwargs):
+            click_count[0] += 1
+            mock_agent.last_dom_hash = "samehash"
+            return AgentAction(
+                thought=f"Click {click_count[0]}",
+                action_type="click",
+                target_id=click_count[0],  # avoid repetition detection
+            )
+
+        mock_agent.step.side_effect = stagnant_dom
+
+        refiner = WorkflowRefiner(max_steps_per_stage=10)
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "test"},
+        )
+
+        assert result.status == "failed"
+        assert "stagnation" in result.stage_results[0].error.lower()
+
 
 class TestAskHumanPause:
     """Tests for ask_human action type."""

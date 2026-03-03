@@ -116,6 +116,7 @@ class StageExecutor:
         human_handler: HumanInteractionHandler | None = None,
         max_steps: int = 20,
         max_repeats: int = 3,
+        max_stagnant_steps: int = 3,
     ):
         """Initialize the stage executor.
 
@@ -124,11 +125,13 @@ class StageExecutor:
             human_handler: Handler for HITL interactions
             max_steps: Maximum steps before failing the stage
             max_repeats: Maximum repetitions of same action before failing
+            max_stagnant_steps: Maximum consecutive identical dom_hash snapshots
         """
         self.agent = agent
         self.human_handler = human_handler
         self.max_steps = max_steps
         self.max_repeats = max_repeats
+        self.max_stagnant_steps = max_stagnant_steps
 
     async def execute(
         self,
@@ -175,6 +178,8 @@ class StageExecutor:
         # Track last action for detecting repetition
         last_action_key: str | None = None
         repeat_count = 0
+        last_dom_hash: str | None = None
+        stagnant_count = 0
 
         while steps_taken < self.max_steps:
             action: AgentAction | None = None
@@ -187,6 +192,7 @@ class StageExecutor:
                 )
                 taken_actions.append(action)
                 steps_taken += 1
+                current_dom_hash = self._safe_dom_hash()
 
                 # Check for repetitive action patterns
                 action_key = self._action_key(action)
@@ -216,7 +222,27 @@ class StageExecutor:
                     result="success",
                     page_url_before=page_url_before,
                     page_url_after=page_url_after,
+                    dom_hash_before=current_dom_hash,
+                    dom_hash_after=current_dom_hash,
                 )
+
+                last_dom_hash, stagnant_count = self._update_stagnation(
+                    current_dom_hash,
+                    last_dom_hash,
+                    stagnant_count,
+                )
+                if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
+                    return StageResult(
+                        stage_name=stage_name,
+                        status="failed",
+                        steps_taken=steps_taken,
+                        actions=taken_actions,
+                        episode_log=episode_log.copy(),
+                        error=(
+                            "DOM stagnation detected: "
+                            f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
+                        ),
+                    )
 
                 # Check for done
                 if action.action_type == "done":
@@ -279,6 +305,8 @@ class StageExecutor:
                         error=str(e),
                         page_url_before=current_url,
                         page_url_after=current_url,
+                        dom_hash_before=self._safe_dom_hash(),
+                        dom_hash_after=self._safe_dom_hash(),
                     )
 
                 retry_action: AgentAction | None = None
@@ -291,6 +319,7 @@ class StageExecutor:
                     )
                     taken_actions.append(retry_action)
                     steps_taken += 1
+                    current_dom_hash = self._safe_dom_hash()
                     page_url_before = self._safe_page_url(page)
                     await self.agent.execute_action(page, retry_action)
                     page_url_after = self._safe_page_url(page)
@@ -301,7 +330,27 @@ class StageExecutor:
                         result="success",
                         page_url_before=page_url_before,
                         page_url_after=page_url_after,
+                        dom_hash_before=current_dom_hash,
+                        dom_hash_after=current_dom_hash,
                     )
+
+                    last_dom_hash, stagnant_count = self._update_stagnation(
+                        current_dom_hash,
+                        last_dom_hash,
+                        stagnant_count,
+                    )
+                    if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
+                        return StageResult(
+                            stage_name=stage_name,
+                            status="failed",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                            error=(
+                                "DOM stagnation detected: "
+                                f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
+                            ),
+                        )
 
                     if retry_action.action_type == "done":
                         return StageResult(
@@ -338,6 +387,8 @@ class StageExecutor:
                             error=str(e2),
                             page_url_before=current_url,
                             page_url_after=current_url,
+                            dom_hash_before=self._safe_dom_hash(),
+                            dom_hash_after=self._safe_dom_hash(),
                         )
                     get_logger().error(
                         "action_failed_after_retry",
@@ -542,6 +593,24 @@ class StageExecutor:
         page_url = getattr(page, "url", "")
         return page_url if isinstance(page_url, str) else str(page_url)
 
+    def _safe_dom_hash(self) -> str | None:
+        """Get latest dom_hash from agent observation, if available."""
+        dom_hash = getattr(self.agent, "last_dom_hash", None)
+        return dom_hash if isinstance(dom_hash, str) and dom_hash else None
+
+    def _update_stagnation(
+        self,
+        current_dom_hash: str | None,
+        last_dom_hash: str | None,
+        stagnant_count: int,
+    ) -> tuple[str | None, int]:
+        """Update stagnation counters based on dom_hash continuity."""
+        if not current_dom_hash:
+            return last_dom_hash, 0
+        if current_dom_hash == last_dom_hash:
+            return last_dom_hash, stagnant_count + 1
+        return current_dom_hash, 1
+
     def _target_description(self, action: AgentAction) -> str:
         """Build a short target description for episode logging."""
         if action.target is not None:
@@ -570,6 +639,8 @@ class StageExecutor:
         result: Literal["success", "failed", "skipped"],
         page_url_before: str,
         page_url_after: str,
+        dom_hash_before: str | None = None,
+        dom_hash_after: str | None = None,
         error: str | None = None,
     ) -> None:
         """Append one structured episode memory entry."""
@@ -589,6 +660,8 @@ class StageExecutor:
                 error=error,
                 page_url_before=page_url_before,
                 page_url_after=page_url_after,
+                dom_hash_before=dom_hash_before,
+                dom_hash_after=dom_hash_after,
                 page_changed=page_url_before != page_url_after,
                 thought=action.thought,
                 semantic_meaning=semantic_meaning,

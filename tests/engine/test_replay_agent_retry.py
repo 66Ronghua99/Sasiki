@@ -78,6 +78,7 @@ class TestReplayAgentStepWithContext:
 
         assert action.action_type == "click"
         assert action.target_id == 1
+        assert agent.last_dom_hash == "deadbeef"
         # Should use normal system prompt
         calls = mock_llm.complete_async.call_args_list
         assert len(calls) == 1
