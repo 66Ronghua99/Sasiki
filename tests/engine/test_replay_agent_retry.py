@@ -243,6 +243,34 @@ class TestReplayAgentStepWithContext:
 
         mock_page.get_by_role.assert_called_with("button", name="button")
 
+    @pytest.mark.asyncio
+    async def test_execute_action_click_falls_back_to_text_when_role_click_times_out(self, mock_observer, mock_llm):
+        """Test click fallback to get_by_text when role-based click fails."""
+        page = AsyncMock()
+        page.wait_for_load_state = AsyncMock()
+
+        primary_locator = AsyncMock()
+        primary_locator.click = AsyncMock(side_effect=Exception("click timeout"))
+        page.get_by_role = MagicMock(return_value=primary_locator)
+
+        fallback_locator = AsyncMock()
+        fallback_locator.click = AsyncMock()
+        fallback_query = MagicMock()
+        fallback_query.first = fallback_locator
+        page.get_by_text = MagicMock(return_value=fallback_query)
+
+        agent = ReplayAgent()
+        action = AgentAction(
+            thought="Click post link",
+            action_type="click",
+            target={"role": "link", "name": "早春就让男朋友这样穿"},
+        )
+
+        await agent.execute_action(page, action)
+
+        page.get_by_text.assert_called_with("早春就让男朋友这样穿", exact=False)
+        fallback_locator.click.assert_called_once_with(timeout=5000)
+
 
 class TestReplayAgentPromptBuilding:
     """Tests for ReplayAgent prompt building methods."""

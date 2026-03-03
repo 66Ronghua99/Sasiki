@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from sasiki.engine.workflow_refiner import WorkflowRefiner
 from sasiki.engine.refiner_state import StageResult, RefineResult
+from sasiki.engine.human_interface import HumanDecision
 from sasiki.engine.replay_models import AgentAction
 from sasiki.engine.handlers.auto import NonInteractiveHandler
 from sasiki.workflow.models import Workflow, WorkflowStage, WorkflowVariable, VariableType
@@ -957,6 +958,57 @@ class TestAskHumanPause:
         assert result.stage_results[0].status == "paused"
         assert result.stage_results[1].status == "skipped"
 
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_step_failure_continue_keeps_agent_loop_running(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """On step failure, CONTINUE decision should resume loop instead of pausing run."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        # Stage 1: first decision fails; after HITL continue, agent can finish.
+        # Stage 2: finish immediately.
+        mock_agent.step.side_effect = [
+            AgentAction(
+                thought="Try click",
+                action_type="click",
+                target={"role": "button", "name": "Search"},
+            ),
+            AgentAction(
+                thought="Recovered after human continue",
+                action_type="done",
+            ),
+            AgentAction(
+                thought="Stage 2 complete",
+                action_type="done",
+            ),
+        ]
+        mock_agent.step_with_context.side_effect = [
+            AgentAction(
+                thought="Retry 1",
+                action_type="click",
+                target={"role": "button", "name": "Search"},
+            ),
+            AgentAction(
+                thought="Retry 2",
+                action_type="click",
+                target={"role": "button", "name": "Search"},
+            ),
+        ]
+        mock_agent.execute_action.side_effect = Exception("Element not found")
+
+        handler = NonInteractiveHandler(hitl_default=HumanDecision.CONTINUE)
+        refiner = WorkflowRefiner(human_handler=handler)
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "test"},
+        )
+
+        assert result.status == "completed"
+        assert all(stage.status == "success" for stage in result.stage_results)
+
 
 class TestExecutionPlanErrors:
     """Tests for execution plan creation errors."""
@@ -1116,3 +1168,29 @@ class TestBuildStageGoal:
 
         assert "World state from previous stage:" in goal
         assert "https://example.com/results" in goal
+
+
+class TestStagnationPolicy:
+    """Tests for stagnation counter policy."""
+
+    def test_stage_executor_uses_relaxed_default_stagnation_threshold(self):
+        """Default threshold should be 5 to avoid false positives on same-page flows."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        assert executor.max_stagnant_steps == 5
+
+    def test_update_stagnation_resets_when_page_changed(self):
+        """URL/page change should reset stagnation even with same dom_hash."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        last_hash, stagnant = executor._update_stagnation(
+            current_dom_hash="samehash",
+            last_dom_hash="samehash",
+            stagnant_count=3,
+            page_changed=True,
+        )
+
+        assert last_hash == "samehash"
+        assert stagnant == 1

@@ -337,7 +337,7 @@ class ReplayAgent:
         locator = self._resolve_locator(page, action)
         if locator is not None:
             if action.action_type == "click":
-                await locator.click()
+                await self._click_with_fallback(page, locator, action)
                 try:
                     await page.wait_for_load_state("domcontentloaded", timeout=3000)
                 except Exception:
@@ -392,6 +392,24 @@ class ReplayAgent:
             return True
 
         return True
+
+    async def _click_with_fallback(self, page: Page, locator: Any, action: AgentDecision) -> None:
+        """Click locator with conservative text fallback for unstable accessibility names."""
+        try:
+            await locator.click()
+            return
+        except Exception:
+            if (
+                action.target is None
+                or action.target.role not in {"link", "button"}
+                or not action.target.name
+            ):
+                raise
+
+        fallback_name = action.target.name.strip()
+        if not fallback_name:
+            raise
+        await page.get_by_text(fallback_name, exact=False).first.click(timeout=5000)
 
     def _resolve_locator(self, page: Page, action: AgentDecision) -> Any | None:
         """Resolve Playwright locator from semantic target or node map metadata."""
