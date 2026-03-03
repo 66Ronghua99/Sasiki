@@ -40,16 +40,119 @@ function log(level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG', message: string, data?:
 interface GlobalRecordingState {
     isRecording: boolean;
     sessionId: string | null;
+    traceId: string | null;
     startedAt: number | null;
+    eventSeq: number;
     tabIds: Set<number>;
 }
 
 const globalRecording: GlobalRecordingState = {
     isRecording: false,
     sessionId: null,
+    traceId: null,
     startedAt: null,
+    eventSeq: 0,
     tabIds: new Set()
 };
+
+type RecordedActionType = 'click' | 'type' | 'select' | 'press' | 'submit' | 'navigate' | 'scroll' | 'tab_switch' | 'page_enter';
+
+interface ExtensionActionPayload {
+    type: RecordedActionType | string;
+    timestamp?: number;
+    eventId?: string;
+    traceId?: string;
+    sessionId?: string | null;
+    parentEventId?: string;
+    value?: string;
+    valueBefore?: string;
+    valueAfter?: string;
+    inputMasked?: boolean;
+    url?: string;
+    triggersNavigation?: boolean;
+    triggeredBy?: string;
+    isSameTab?: boolean;
+    targetHint?: unknown;
+    rawTargetHint?: unknown;
+    normalizedTargetHint?: unknown;
+    trigger?: 'infinite_scroll' | 'lazy_load';
+    loadedContentHint?: string;
+    pageContext?: {
+        url?: string;
+        title?: string;
+        tabId?: number;
+        frameId?: string;
+    };
+}
+
+function generateTraceId(sessionId: string): string {
+    return `trace_${sessionId.replace(/[^a-zA-Z0-9_]/g, '')}`;
+}
+
+function nextEventId(): string {
+    globalRecording.eventSeq += 1;
+    const sessionSeed = (globalRecording.sessionId || 'sess').replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'sess';
+    return `evt_${sessionSeed}_${globalRecording.eventSeq.toString().padStart(6, '0')}`;
+}
+
+function mapActionType(actionType: string): string {
+    if (actionType === 'scroll_load') {
+        return 'scroll';
+    }
+    const allowed: Record<string, string> = {
+        click: 'click',
+        type: 'type',
+        select: 'select',
+        press: 'press',
+        submit: 'submit',
+        navigate: 'navigate',
+        scroll: 'scroll',
+        tab_switch: 'tab_switch',
+        page_enter: 'page_enter',
+    };
+    return allowed[actionType] || actionType;
+}
+
+function mapNavigationTriggeredBy(
+    transitionType?: string
+): 'direct' | 'click' | 'submit' | 'url_change' | 'redirect' {
+    if (!transitionType) {
+        return 'url_change';
+    }
+    if (transitionType === 'form_submit') {
+        return 'submit';
+    }
+    if (transitionType === 'link') {
+        return 'click';
+    }
+    if (transitionType === 'typed' || transitionType === 'generated' || transitionType === 'auto_bookmark' || transitionType === 'reload') {
+        return 'direct';
+    }
+    if (transitionType === 'auto_subframe' || transitionType === 'manual_subframe') {
+        return 'redirect';
+    }
+    return 'url_change';
+}
+
+function enrichActionPayload(payload: ExtensionActionPayload, tabId?: number): ExtensionActionPayload {
+    const pageContext = {
+        url: payload.pageContext?.url || payload.url || '',
+        title: payload.pageContext?.title || '',
+        tabId: payload.pageContext?.tabId ?? tabId,
+        frameId: payload.pageContext?.frameId || 'main',
+    };
+
+    return {
+        ...payload,
+        type: mapActionType(payload.type || 'click'),
+        timestamp: payload.timestamp || Date.now(),
+        eventId: payload.eventId || nextEventId(),
+        traceId: payload.traceId || globalRecording.traceId || undefined,
+        sessionId: payload.sessionId || globalRecording.sessionId,
+        pageContext,
+        value: payload.value ?? payload.valueAfter,
+    };
+}
 
 // ============================================================================
 // WebSocket Connection
@@ -161,7 +264,9 @@ async function startRecording(sessionId?: string) {
 
     globalRecording.isRecording = true;
     globalRecording.sessionId = sessionId || generateSessionId();
+    globalRecording.traceId = generateTraceId(globalRecording.sessionId);
     globalRecording.startedAt = Date.now();
+    globalRecording.eventSeq = 0;
     globalRecording.tabIds.clear();
 
     log('INFO', `Recording started: ${globalRecording.sessionId}`);
@@ -177,6 +282,7 @@ async function startRecording(sessionId?: string) {
             log('ERROR', 'Failed to inject content script, recording aborted');
             globalRecording.isRecording = false;
             globalRecording.sessionId = null;
+            globalRecording.traceId = null;
             return;
         }
         
@@ -188,6 +294,7 @@ async function startRecording(sessionId?: string) {
             await chrome.tabs.sendMessage(tab.id, {
                 action: 'START_RECORDING',
                 sessionId: globalRecording.sessionId,
+                traceId: globalRecording.traceId,
                 tabId: tab.id
             });
         } catch (err) {
@@ -202,6 +309,7 @@ async function startRecording(sessionId?: string) {
                 await chrome.tabs.sendMessage(tab.id, {
                     action: 'START_RECORDING',
                     sessionId: globalRecording.sessionId,
+                    traceId: globalRecording.traceId,
                     tabId: tab.id
                 });
             } catch (retryErr) {
@@ -254,7 +362,9 @@ async function stopRecording() {
     // Reset state
     globalRecording.isRecording = false;
     globalRecording.sessionId = null;
+    globalRecording.traceId = null;
     globalRecording.startedAt = null;
+    globalRecording.eventSeq = 0;
     globalRecording.tabIds.clear();
 }
 
@@ -283,22 +393,24 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     chrome.tabs.sendMessage(activeInfo.tabId, {
         action: 'START_RECORDING',
         sessionId: globalRecording.sessionId,
+        traceId: globalRecording.traceId,
         isTabSwitch: true
     }).catch(() => {});
 
     // Record tab switch action
+    const tabSwitchPayload = enrichActionPayload({
+        type: 'tab_switch',
+        timestamp: Date.now(),
+        pageContext: {
+            url: tab.url,
+            title: tab.title,
+            tabId: activeInfo.tabId,
+            frameId: 'main',
+        },
+    }, activeInfo.tabId);
     sendToWebSocket({
         type: 'action',
-        payload: {
-            type: 'tab_switch',
-            timestamp: Date.now(),
-            sessionId: globalRecording.sessionId,
-            pageContext: {
-                url: tab.url,
-                title: tab.title,
-                tabId: activeInfo.tabId
-            }
-        }
+        payload: tabSwitchPayload
     });
 });
 
@@ -336,30 +448,26 @@ chrome.webNavigation?.onCompleted.addListener((details) => {
     // Determine trigger source
     // Note: Background script can't reliably detect click-triggered vs URL-change
     // Content script will override this with more accurate info
-    let triggeredBy: 'url_change' | 'redirect' = 'url_change';
-    // Type assertion for transitionType which exists on WebNavigationTransitionCallbackDetails
     const transitionDetails = details as chrome.webNavigation.WebNavigationTransitionCallbackDetails;
-    if (transitionDetails.transitionType === 'auto_subframe' ||
-        transitionDetails.transitionType === 'form_submit' ||
-        transitionDetails.transitionType === 'link') {
-        triggeredBy = 'redirect';
-    }
+    const triggeredBy = mapNavigationTriggeredBy(transitionDetails.transitionType);
 
     // Record navigation action
+    const navigatePayload = enrichActionPayload({
+        type: 'navigate',
+        timestamp: Date.now(),
+        url: details.url,
+        triggeredBy,
+        isSameTab,
+        pageContext: {
+            url: details.url,
+            title: '',
+            tabId: details.tabId,
+            frameId: 'main',
+        },
+    }, details.tabId);
     sendToWebSocket({
         type: 'action',
-        payload: {
-            type: 'navigate',
-            timestamp: Date.now(),
-            sessionId: globalRecording.sessionId,
-            url: details.url,
-            triggeredBy: triggeredBy,
-            isSameTab: isSameTab,
-            pageContext: {
-                url: details.url,
-                tabId: details.tabId
-            }
-        }
+        payload: navigatePayload
     });
 }, { url: [{ schemes: ['http', 'https'] }] });
 
@@ -410,6 +518,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
             isRecording: globalRecording.isRecording,
             sessionId: globalRecording.sessionId,
+            traceId: globalRecording.traceId,
             tabId: sender.tab?.id
         });
         return false;
@@ -417,16 +526,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Handle action messages from content script
     if (message.type === 'action') {
-        // Add session ID and tab info to the action
-        const enrichedMessage = {
-            ...message,
-            sessionId: globalRecording.sessionId,
-            tabId: sender.tab?.id,
-            timestamp: Date.now()
-        };
+        const payload = enrichActionPayload(
+            (message.payload || {}) as ExtensionActionPayload,
+            sender.tab?.id
+        );
 
         // Forward to WebSocket
-        sendToWebSocket(enrichedMessage);
+        sendToWebSocket({
+            type: 'action',
+            payload,
+        });
         return false;
     }
 

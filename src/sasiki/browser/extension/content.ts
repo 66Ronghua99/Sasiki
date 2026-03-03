@@ -25,13 +25,17 @@ if (document.readyState === 'loading') {
 interface RecordingState {
     isRecording: boolean;
     sessionId: string | undefined;
+    traceId: string | undefined;
     tabId: number | undefined;
+    eventSeq: number;
 }
 
 let recordingState: RecordingState = {
     isRecording: false,
     sessionId: undefined,
-    tabId: undefined
+    traceId: undefined,
+    tabId: undefined,
+    eventSeq: 0
 };
 
 // Recording listeners (attached only when recording)
@@ -48,14 +52,178 @@ let isScrollIntended = false;
 // ============================================================================
 
 interface PendingActions {
-    input: { timeout: number | null; target: HTMLElement | null };
+    input: {
+        timeout: number | null;
+        target: HTMLElement | null;
+        valueBefore: string | null;
+        inputMasked: boolean;
+    };
     scroll: { timeout: number | null };
 }
 
 const pendingActions: PendingActions = {
-    input: { timeout: null, target: null },
+    input: { timeout: null, target: null, valueBefore: null, inputMasked: false },
     scroll: { timeout: null }
 };
+
+const SUBMIT_KEYWORD_REGEX = /(search|submit|confirm|send|go|搜索|提交|确认|发送)/i;
+const SENSITIVE_KEYWORD_REGEX = /(password|passcode|otp|token|secret|验证码|密码)/i;
+
+function getFrameId(): string {
+    if (window.top === window) {
+        return 'main';
+    }
+
+    const frameElement = window.frameElement as HTMLElement | null;
+    if (!frameElement) {
+        return 'subframe';
+    }
+    const frameHint = frameElement.getAttribute('id') ||
+        frameElement.getAttribute('name') ||
+        frameElement.getAttribute('data-testid');
+    return frameHint ? `frame:${frameHint}` : 'subframe';
+}
+
+function buildPageContext(): { url: string; title: string; tabId?: number; frameId: string } {
+    return {
+        url: window.location.href,
+        title: document.title,
+        tabId: recordingState.tabId,
+        frameId: getFrameId()
+    };
+}
+
+function isEditableElement(target: HTMLElement): boolean {
+    const tag = target.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+}
+
+function getEditableValue(target: HTMLElement): string | null {
+    const tag = target.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return (target as HTMLInputElement).value ?? '';
+    }
+    if (target.isContentEditable) {
+        return target.textContent ?? '';
+    }
+    return null;
+}
+
+function isSensitiveInput(target: HTMLElement): boolean {
+    const input = target as HTMLInputElement;
+    const type = (input.type || '').toLowerCase();
+    if (type === 'password') {
+        return true;
+    }
+
+    const attrs = [
+        input.name || '',
+        input.id || '',
+        input.autocomplete || '',
+        input.placeholder || '',
+        target.getAttribute('aria-label') || ''
+    ].join(' ');
+    return SENSITIVE_KEYWORD_REGEX.test(attrs);
+}
+
+function maskValue(value: string | null): string | null {
+    if (value === null) {
+        return null;
+    }
+    return value.length > 0 ? '[MASKED]' : '';
+}
+
+function ensureTraceId(): string {
+    if (!recordingState.traceId) {
+        const seed = recordingState.sessionId || Date.now().toString(36);
+        recordingState.traceId = `trace_${seed.replace(/[^a-zA-Z0-9_]/g, '')}`;
+    }
+    return recordingState.traceId;
+}
+
+function nextEventId(): string {
+    recordingState.eventSeq += 1;
+    const sessionSeed = (recordingState.sessionId || 'sess').replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'sess';
+    return `evt_${sessionSeed}_${recordingState.eventSeq.toString().padStart(6, '0')}`;
+}
+
+function resolveElementFingerprint(target: HTMLElement): ElementFingerprint {
+    const refId = axTreeManager.getRefIdForElement(target);
+    if (refId) {
+        const fingerprint = axTreeManager.getElementFingerprint(refId);
+        if (fingerprint) {
+            return fingerprint;
+        }
+    }
+    return axTreeManager.createFingerprintFromElement(target);
+}
+
+function isSubmitLikeElement(target: Element, fingerprint: ElementFingerprint): boolean {
+    const tag = target.tagName.toLowerCase();
+    const htmlTarget = target as HTMLInputElement;
+    const inputType = (htmlTarget.type || '').toLowerCase();
+    if (tag === 'button' && (htmlTarget.type || '').toLowerCase() === 'submit') {
+        return true;
+    }
+    if (tag === 'input' && inputType === 'submit') {
+        return true;
+    }
+    if (target.closest('form') && (
+        tag === 'button' ||
+        (tag === 'input' && ['submit', 'image', 'button'].includes(inputType)) ||
+        fingerprint.role === 'button'
+    )) {
+        return true;
+    }
+
+    const searchSpace = [
+        fingerprint.name || '',
+        fingerprint.className || '',
+        ...(fingerprint.classNames || []),
+        fingerprint.elementId || '',
+        fingerprint.testId || ''
+    ].join(' ');
+    return SUBMIT_KEYWORD_REGEX.test(searchSpace);
+}
+
+function recordEnterPressAndSubmit(target: HTMLElement): void {
+    const fingerprint = resolveElementFingerprint(target);
+    const pressEventId = recordAction({
+        timestamp: Date.now(),
+        type: 'press',
+        value: 'Enter',
+        targetHint: fingerprint,
+        rawTargetHint: fingerprint,
+        normalizedTargetHint: fingerprint,
+        pageContext: buildPageContext()
+    });
+
+    const tag = target.tagName.toLowerCase();
+    const inputType = ((target as HTMLInputElement).type || '').toLowerCase();
+    const isMultiline = tag === 'textarea' || target.isContentEditable;
+    const isInputEnterSubmit = tag === 'input' && !['button', 'submit', 'image'].includes(inputType);
+    const isSearchRole = fingerprint.role === 'searchbox';
+    const isSubmitIntent = !isMultiline && (isInputEnterSubmit || isSearchRole || !!target.closest('form'));
+    if (!isSubmitIntent) {
+        return;
+    }
+
+    const submitEventId = recordAction({
+        timestamp: Date.now(),
+        type: 'submit',
+        targetHint: fingerprint,
+        rawTargetHint: fingerprint,
+        normalizedTargetHint: fingerprint,
+        triggeredBy: 'press_enter',
+        parentEventId: pressEventId,
+        pageContext: buildPageContext()
+    });
+
+    recentSubmit = {
+        timestamp: Date.now(),
+        eventId: submitEventId
+    };
+}
 
 /**
  * Force flush all pending actions (input and scroll)
@@ -65,8 +233,12 @@ function flushAllPendingActions() {
     // Flush input
     if (pendingActions.input.timeout && pendingActions.input.target) {
         window.clearTimeout(pendingActions.input.timeout);
-        recordInputAction(pendingActions.input.target);
-        pendingActions.input = { timeout: null, target: null };
+        recordInputAction(
+            pendingActions.input.target,
+            pendingActions.input.valueBefore,
+            pendingActions.input.inputMasked
+        );
+        pendingActions.input = { timeout: null, target: null, valueBefore: null, inputMasked: false };
     }
     // Flush scroll - just clear the timeout, the scroll check will happen immediately
     if (pendingActions.scroll.timeout) {
@@ -81,60 +253,50 @@ function flushAllPendingActions() {
  * Extracted input recording logic for reuse in debounce and flush
  * Supports both native input elements and contenteditable divs (e.g., Gemini, Notion)
  */
-function recordInputAction(target: HTMLElement) {
-    const refId = axTreeManager.getRefIdForElement(target);
-
-    // Get value: native inputs use .value, contenteditable uses .textContent
-    let value: string;
-    const tag = target.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-        value = (target as HTMLInputElement).value;
-    } else if (target.isContentEditable) {
-        value = target.textContent || '';
-    } else {
-        return; // Not an input element
+function recordInputAction(
+    target: HTMLElement,
+    valueBefore: string | null = null,
+    inputMasked = false
+) {
+    const valueAfter = getEditableValue(target);
+    if (valueAfter === null) {
+        return;
     }
 
-    if (refId) {
-        const fingerprint = axTreeManager.getElementFingerprint(refId);
-        recordAction({
-            timestamp: Date.now(),
-            type: 'type',
-            targetHint: fingerprint!,
-            value: value,
-            pageContext: {
-                url: window.location.href,
-                title: document.title,
-                tabId: recordingState.tabId
-            }
-        });
-    } else {
-        // Fallback: directly create fingerprint for input elements
-        const isInputElement = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
-        if (isInputElement) {
-            const fingerprint = axTreeManager.createFingerprintFromElement(target);
-            recordAction({
-                timestamp: Date.now(),
-                type: 'type',
-                targetHint: fingerprint,
-                value: value,
-                pageContext: {
-                    url: window.location.href,
-                    title: document.title,
-                    tabId: recordingState.tabId
-                }
-            });
-        }
-    }
+    const fingerprint = resolveElementFingerprint(target);
+    const maskedValueBefore = inputMasked ? maskValue(valueBefore) : valueBefore;
+    const maskedValueAfter = inputMasked ? maskValue(valueAfter) : valueAfter;
+
+    recordAction({
+        timestamp: Date.now(),
+        type: 'type',
+        targetHint: fingerprint,
+        value: maskedValueAfter ?? undefined,
+        valueBefore: maskedValueBefore ?? undefined,
+        valueAfter: maskedValueAfter ?? undefined,
+        inputMasked,
+        triggeredBy: 'user_input',
+        pageContext: buildPageContext()
+    });
+
+    inputValueSnapshots.set(target, valueAfter);
 }
 
 // Click tracking for navigation detection
 interface RecentClickInfo {
     timestamp: number;
     fingerprint: ElementFingerprint;
+    eventId?: string;
 }
 let recentClick: RecentClickInfo | null = null;
 const CLICK_NAVIGATION_THRESHOLD = 200; // ms - time window to consider a click as triggering navigation
+
+interface RecentSubmitInfo {
+    timestamp: number;
+    eventId: string;
+}
+let recentSubmit: RecentSubmitInfo | null = null;
+const inputValueSnapshots = new WeakMap<HTMLElement, string>();
 
 // Pending navigation queue to ensure event order (click before navigate)
 let pendingNavigate: RecordedAction | null = null;
@@ -272,7 +434,9 @@ chrome.runtime.sendMessage({ action: 'QUERY_RECORDING_STATE' }, (response) => {
         recordingState = {
             isRecording: true,
             sessionId: response.sessionId,
-            tabId: response.tabId
+            traceId: response.traceId || `trace_${(response.sessionId || Date.now().toString(36)).toString().replace(/[^a-zA-Z0-9_]/g, '')}`,
+            tabId: response.tabId,
+            eventSeq: 0
         };
         attachRecordingListeners();
         console.log('[Sasiki] Auto-started recording from background state');
@@ -315,7 +479,7 @@ function attachRecordingListeners() {
             const navigationOccurred = !!(recentClick &&
                 (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD));
 
-            recordAction({
+            const clickEventId = recordAction({
                 timestamp: recentClick?.timestamp || Date.now(),
                 type: 'click',
                 targetHint: clickTarget.targetHint,
@@ -323,11 +487,37 @@ function attachRecordingListeners() {
                 normalizedTargetHint: clickTarget.normalizedTargetHint,
                 triggersNavigation: navigationOccurred,
                 pageContext: {
-                    url: currentUrl,
-                    title: document.title,
-                    tabId: recordingState.tabId
+                    ...buildPageContext(),
+                    url: currentUrl
                 }
             });
+            if (recentClick) {
+                recentClick.eventId = clickEventId;
+            }
+            if (pendingNavigate && !pendingNavigate.parentEventId) {
+                pendingNavigate.parentEventId = clickEventId;
+            }
+
+            if (isSubmitLikeElement(target, clickTarget.targetHint)) {
+                const submitEventId = recordAction({
+                    timestamp: Date.now(),
+                    type: 'submit',
+                    targetHint: clickTarget.targetHint,
+                    rawTargetHint: clickTarget.rawTargetHint,
+                    normalizedTargetHint: clickTarget.normalizedTargetHint,
+                    triggeredBy: 'click_submit_button',
+                    parentEventId: clickEventId,
+                    pageContext: buildPageContext()
+                });
+                recentSubmit = {
+                    timestamp: Date.now(),
+                    eventId: submitEventId
+                };
+                if (pendingNavigate && pendingNavigate.triggeredBy === 'click') {
+                    pendingNavigate.triggeredBy = 'submit';
+                    pendingNavigate.parentEventId = submitEventId;
+                }
+            }
 
             // Flush any pending navigation to ensure click comes before navigate
             flushPendingNavigate();
@@ -344,12 +534,17 @@ function attachRecordingListeners() {
     // Supports both native input elements and contenteditable divs
     inputListener = (e: Event) => {
         const target = e.target as HTMLElement;
+        if (!(target instanceof HTMLElement) || !isEditableElement(target)) {
+            return;
+        }
 
-        // Check if element is editable (native input or contenteditable)
-        const tag = target.tagName.toLowerCase();
-        const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
-
-        if (!isEditable) return;
+        const currentValue = getEditableValue(target);
+        if (currentValue === null) {
+            return;
+        }
+        const previousValue = inputValueSnapshots.get(target) ?? null;
+        const targetChanged = pendingActions.input.target !== target;
+        const inputMasked = isSensitiveInput(target);
 
         // Clear old pending timeout
         if (pendingActions.input.timeout) {
@@ -359,15 +554,36 @@ function attachRecordingListeners() {
         // Set new pending action with 2000ms debounce
         // This reduces intermediate state recording for normal typing
         pendingActions.input.target = target;
+        if (targetChanged) {
+            pendingActions.input.valueBefore = previousValue;
+            pendingActions.input.inputMasked = inputMasked;
+        }
+        inputValueSnapshots.set(target, currentValue);
         pendingActions.input.timeout = window.setTimeout(() => {
-            recordInputAction(target);
-            pendingActions.input = { timeout: null, target: null };
+            recordInputAction(
+                target,
+                pendingActions.input.valueBefore,
+                pendingActions.input.inputMasked
+            );
+            pendingActions.input = { timeout: null, target: null, valueBefore: null, inputMasked: false };
         }, 2000); // 2000ms debounce - records only when user pauses typing
     };
     document.addEventListener('input', inputListener, true);
 
     // Additional listener for contenteditable elements that may not trigger 'input' reliably
     document.addEventListener('keyup', inputListener, true);
+
+    // Prime value snapshot before user edits.
+    document.addEventListener('focusin', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement) || !isEditableElement(target)) {
+            return;
+        }
+        const currentValue = getEditableValue(target);
+        if (currentValue !== null) {
+            inputValueSnapshots.set(target, currentValue);
+        }
+    }, true);
 
     // Force flush trigger: blur event (user leaves input field)
     document.addEventListener('blur', (e) => {
@@ -377,11 +593,19 @@ function attachRecordingListeners() {
         }
     }, true);
 
-    // Force flush trigger: Enter key (form submission)
-    document.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && pendingActions.input.target) {
+    // Force flush + explicit press/submit capture for Enter key.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') {
+            return;
+        }
+        if (pendingActions.input.target) {
             flushAllPendingActions();
         }
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+        recordEnterPressAndSubmit(target);
     }, true);
 
     // Smart scroll detection - only record when scroll triggers content loading
@@ -495,17 +719,13 @@ function checkForContentLoading() {
             contentHint = `Height increased by ${currentScrollHeight - lastScrollHeight}px`;
         }
 
-        // Record the scroll_load event
+        // Record the scroll event when it corresponds to meaningful content change.
         recordAction({
             timestamp: Date.now(),
-            type: 'scroll_load',
+            type: 'scroll',
             trigger: triggerType,
             loadedContentHint: contentHint,
-            pageContext: {
-                url: window.location.href,
-                title: document.title,
-                tabId: recordingState.tabId
-            }
+            pageContext: buildPageContext()
         });
 
         console.log('[Sasiki] Smart scroll detected:', triggerType, contentHint);
@@ -532,7 +752,7 @@ function detachRecordingListeners() {
     if (pendingActions.input.timeout) {
         window.clearTimeout(pendingActions.input.timeout);
     }
-    pendingActions.input = { timeout: null, target: null };
+    pendingActions.input = { timeout: null, target: null, valueBefore: null, inputMasked: false };
 
     if (pendingActions.scroll.timeout) {
         window.clearTimeout(pendingActions.scroll.timeout);
@@ -552,32 +772,52 @@ function detachRecordingListeners() {
 
 interface RecordedAction {
     timestamp: number;
-    type: string;
+    type: 'click' | 'type' | 'select' | 'press' | 'submit' | 'navigate' | 'scroll' | 'tab_switch' | 'page_enter';
+    eventId?: string;
+    traceId?: string;
+    sessionId?: string;
+    parentEventId?: string;
     targetHint?: ElementFingerprint;
     rawTargetHint?: ElementFingerprint;
     normalizedTargetHint?: ElementFingerprint;
     value?: string;
+    valueBefore?: string;
+    valueAfter?: string;
+    inputMasked?: boolean;
     url?: string;
     scrollDirection?: string;
     pageContext: {
         url: string;
         title: string;
         tabId?: number;
+        frameId?: string;
     };
     // Navigation tracking fields
     triggersNavigation?: boolean;
-    triggeredBy?: 'click' | 'url_change' | 'redirect';
+    triggeredBy?: 'direct' | 'click' | 'submit' | 'url_change' | 'redirect' |
+    'press_enter' | 'click_submit_button' | 'programmatic_submit' |
+    'user_input' | 'autofill' | 'paste' | 'user_click' | 'programmatic_click';
     isSameTab?: boolean;
     // Smart scroll fields
     trigger?: 'infinite_scroll' | 'lazy_load';
     loadedContentHint?: string;
 }
 
-function recordAction(action: RecordedAction) {
-    // Add session ID to every action
+function recordAction(action: RecordedAction): string {
+    const eventId = action.eventId || nextEventId();
+    const traceId = action.traceId || ensureTraceId();
+    const pageContext = {
+        ...buildPageContext(),
+        ...action.pageContext
+    };
+
+    // Add protocol identity fields to every action.
     const enrichedAction = {
         ...action,
-        sessionId: recordingState.sessionId
+        eventId,
+        traceId,
+        sessionId: recordingState.sessionId,
+        pageContext
     };
 
     console.log('[Sasiki] Recording action:', enrichedAction.type, enrichedAction.targetHint?.name || '');
@@ -587,6 +827,7 @@ function recordAction(action: RecordedAction) {
         type: 'action',
         payload: enrichedAction
     });
+    return eventId;
 }
 
 // Flush pending navigation after click is recorded (ensures click comes before navigate)
@@ -606,14 +847,22 @@ new MutationObserver(() => {
         const previousUrl = lastUrl;
         lastUrl = currentUrl;
 
-        // Check if this navigation was triggered by a recent click
+        // Check if this navigation was triggered by recent submit/click actions.
+        const now = Date.now();
+        const isSubmitTriggered = recentSubmit !== null &&
+            (now - recentSubmit.timestamp < CLICK_NAVIGATION_THRESHOLD + 300);
         const isClickTriggered = recentClick !== null &&
-            (Date.now() - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD + 100);
+            (now - recentClick.timestamp < CLICK_NAVIGATION_THRESHOLD + 300);
 
         // Determine trigger source
-        let triggeredBy: 'click' | 'url_change' | 'redirect';
-        if (isClickTriggered) {
+        let triggeredBy: 'direct' | 'click' | 'submit' | 'url_change' | 'redirect';
+        let parentEventId: string | undefined;
+        if (isSubmitTriggered) {
+            triggeredBy = 'submit';
+            parentEventId = recentSubmit?.eventId;
+        } else if (isClickTriggered) {
             triggeredBy = 'click';
+            parentEventId = recentClick?.eventId;
         } else if (document.referrer && document.referrer.includes(previousUrl)) {
             triggeredBy = 'redirect';
         } else {
@@ -625,11 +874,11 @@ new MutationObserver(() => {
             type: 'navigate',
             url: currentUrl,
             triggeredBy: triggeredBy,
+            parentEventId,
             isSameTab: true, // Content script runs in same tab
             pageContext: {
-                url: currentUrl,
-                title: document.title,
-                tabId: recordingState.tabId
+                ...buildPageContext(),
+                url: currentUrl
             }
         };
 
@@ -644,6 +893,9 @@ new MutationObserver(() => {
         // Clear recent click after navigation is recorded
         if (isClickTriggered) {
             recentClick = null;
+        }
+        if (isSubmitTriggered) {
+            recentSubmit = null;
         }
     }
 }).observe(document, { subtree: true, childList: true });
@@ -661,7 +913,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         recordingState = {
             isRecording: true,
             sessionId: message.sessionId,
-            tabId: message.tabId || sender.tab?.id
+            traceId: message.traceId || `trace_${(message.sessionId || Date.now().toString(36)).toString().replace(/[^a-zA-Z0-9_]/g, '')}`,
+            tabId: message.tabId || sender.tab?.id,
+            eventSeq: 0
         };
         attachRecordingListeners();
 
@@ -670,11 +924,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             recordAction({
                 type: 'page_enter',
                 timestamp: Date.now(),
-                pageContext: {
-                    url: window.location.href,
-                    title: document.title,
-                    tabId: recordingState.tabId
-                }
+                pageContext: buildPageContext()
             });
         }
 
@@ -684,7 +934,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.action === 'STOP_RECORDING') {
         detachRecordingListeners();
-        recordingState = { isRecording: false, sessionId: undefined, tabId: undefined };
+        recordingState = {
+            isRecording: false,
+            sessionId: undefined,
+            traceId: undefined,
+            tabId: undefined,
+            eventSeq: 0
+        };
+        recentClick = null;
+        recentSubmit = null;
         sendResponse({ success: true, recording: false });
         return false;
     }
