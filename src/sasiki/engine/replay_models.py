@@ -37,6 +37,10 @@ class AgentDecision(BaseModel):
         None,
         description="Message for ask_human or done.",
     )
+    evidence: str | None = Field(
+        None,
+        description="Concrete evidence when declaring done.",
+    )
     semantic_meaning: str | None = Field(
         None,
         description="Semantic narrative of this step.",

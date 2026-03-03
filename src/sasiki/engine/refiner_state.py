@@ -21,6 +21,8 @@ class StageResult(BaseModel):
     steps_taken: int
     actions: list[AgentAction] = Field(default_factory=list)
     episode_log: list[EpisodeEntry] = Field(default_factory=list)
+    verified: bool = False
+    verification_evidence: str | None = None
     error: str | None = None
 
 

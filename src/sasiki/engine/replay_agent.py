@@ -22,10 +22,12 @@ You MUST output your choice in a valid JSON format matching this schema:
   "target_id": 12, // Legacy fallback target format
   "value": "text to fill or key to press", // Optional
   "message": "Message to user if asking human or done", // Optional
+  "evidence": "Concrete evidence proving done criteria", // Required when action_type is done
   "semantic_meaning": "What this step means at a semantic level",
   "progress_assessment": "Short progress update toward completion"
 }
 Always include semantic_meaning and progress_assessment.
+When action_type is "done", always include evidence.
 Ensure the output is strictly parseable JSON."""
 
 # System prompt for retry execution
@@ -47,12 +49,13 @@ You MUST output your choice in valid JSON format:
   "thought": "Analysis of failure and new strategy",
   "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
   "target": {"role": "button", "name": "Submit"},
-  "target_id": 12,
-  "value": "...",
-  "message": "...",
-  "semantic_meaning": "What this retry action means semantically",
-  "progress_assessment": "How this action changes stage progress"
-}"""
+   "target_id": 12,
+   "value": "...",
+   "message": "...",
+   "evidence": "...",
+   "semantic_meaning": "What this retry action means semantically",
+   "progress_assessment": "How this action changes stage progress"
+ }"""
 
 
 class ReplayAgent:

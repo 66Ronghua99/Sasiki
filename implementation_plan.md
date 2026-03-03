@@ -54,6 +54,14 @@ uv run pytest -q
 - 每层重试通过 `RetryContext.attempt_number/max_attempts` 显式传递到 Agent，失败后继续升级到下一层，最终再进入 HITL。
 - 新增回归测试覆盖“第二层重试成功”路径，并校验 attempt 编号。
 
+**P1-11：StageVerifier（evidence-based done）**
+
+### 结果
+- 新增 `StageVerifier`，对 `done` 决策执行 evidence-based 校验。
+- `StageResult` 新增 `verified` 与 `verification_evidence`，在成功/拒绝路径中明确记录验证结果。
+- `ReplayAgent` prompt schema 增加 `evidence` 字段要求，补充对应回归断言。
+- 增加 verified/unverified 两条回归测试，覆盖 `done` 的成功与失败分支。
+
 ## 下一步（最小可执行）
 
-**P1-11：StageVerifier（evidence-based done）**
+**P2-12：WorldState 跨 Stage 传递**

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from sasiki.engine.hitl_decision_mapper import HITLDecisionMapper
 from sasiki.engine.refiner_state import StageResult
 from sasiki.engine.replay_models import AgentAction, AgentDecision, EpisodeEntry, RetryContext
+from sasiki.engine.stage_verifier import StageVerifier
 from sasiki.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -118,6 +119,7 @@ class StageExecutor:
         max_repeats: int = 3,
         max_stagnant_steps: int = 3,
         max_retry_attempts: int = 3,
+        stage_verifier: StageVerifier | None = None,
     ):
         """Initialize the stage executor.
 
@@ -128,6 +130,7 @@ class StageExecutor:
             max_repeats: Maximum repetitions of same action before failing
             max_stagnant_steps: Maximum consecutive identical dom_hash snapshots
             max_retry_attempts: Maximum attempts including initial try (L1/L2 escalation)
+            stage_verifier: Optional verifier for done-evidence checks
         """
         self.agent = agent
         self.human_handler = human_handler
@@ -135,6 +138,7 @@ class StageExecutor:
         self.max_repeats = max_repeats
         self.max_stagnant_steps = max_stagnant_steps
         self.max_retry_attempts = max_retry_attempts
+        self.stage_verifier = stage_verifier or StageVerifier()
 
     async def execute(
         self,
@@ -156,6 +160,7 @@ class StageExecutor:
         """
         stage_name = stage["name"]
         actions_list = stage.get("actions", [])
+        success_criteria = stage.get("success_criteria", "")
 
         # Build independent goal for this stage
         goal = self._build_stage_goal(stage, history)
@@ -249,6 +254,17 @@ class StageExecutor:
 
                 # Check for done
                 if action.action_type == "done":
+                    verification = self.stage_verifier.verify_done(success_criteria, action)
+                    if not verification.verified:
+                        return StageResult(
+                            stage_name=stage_name,
+                            status="failed",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                            verification_evidence=verification.evidence,
+                            error=f"Done rejected by StageVerifier: {verification.reason}",
+                        )
                     get_logger().info(
                         "stage_complete",
                         stage_index=stage_index,
@@ -262,6 +278,8 @@ class StageExecutor:
                         steps_taken=steps_taken,
                         actions=taken_actions,
                         episode_log=episode_log.copy(),
+                        verified=verification.verified,
+                        verification_evidence=verification.evidence,
                     )
 
                 # Check for human pause request
@@ -298,6 +316,7 @@ class StageExecutor:
                 ) = await self._run_retry_attempts(
                     page=page,
                     goal=goal,
+                    success_criteria=success_criteria,
                     stage_name=stage_name,
                     stage_index=stage_index,
                     history=history,
@@ -371,6 +390,7 @@ class StageExecutor:
         self,
         page: Page,
         goal: str,
+        success_criteria: str,
         stage_name: str,
         stage_index: int,
         history: list[str],
@@ -458,6 +478,23 @@ class StageExecutor:
                     )
 
                 if retry_action.action_type == "done":
+                    verification = self.stage_verifier.verify_done(success_criteria, retry_action)
+                    if not verification.verified:
+                        return (
+                            steps_taken,
+                            last_dom_hash,
+                            stagnant_count,
+                            StageResult(
+                                stage_name=stage_name,
+                                status="failed",
+                                steps_taken=steps_taken,
+                                actions=taken_actions,
+                                episode_log=episode_log.copy(),
+                                verification_evidence=verification.evidence,
+                                error=f"Done rejected by StageVerifier: {verification.reason}",
+                            ),
+                            False,
+                        )
                     return (
                         steps_taken,
                         last_dom_hash,
@@ -468,6 +505,8 @@ class StageExecutor:
                             steps_taken=steps_taken,
                             actions=taken_actions,
                             episode_log=episode_log.copy(),
+                            verified=verification.verified,
+                            verification_evidence=verification.evidence,
                         ),
                         False,
                     )

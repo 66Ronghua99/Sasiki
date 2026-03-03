@@ -88,9 +88,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P1：StageVerifier**（evidence-based done）
-2. **P2：WorldState 跨 Stage 传递**
-3. **P2：ExecutionReport 输出格式**
+1. **P2：WorldState 跨 Stage 传递**
+2. **P2：ExecutionReport 输出格式**
+3. **P2：ExecutionStrategy 接口预留（Path B）**
 4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---

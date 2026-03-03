@@ -2,7 +2,7 @@
 
 **更新日期：2026-03-03**
 
-## 目标：AI-Native Pipeline 重构 — P0 第一步
+## 目标：AI-Native Pipeline 重构 — P2 WorldState
 
 ---
 
@@ -20,34 +20,14 @@
 
 ## 当前优先级
 
-### P0：WorkflowSpec model 扩展
+### P2：WorldState 跨 Stage 传递
 
 **任务描述**：
-在 `src/sasiki/workflow/models.py` 中，为 `WorkflowStage` 新增以下字段（向后兼容旧 YAML）：
-
-```python
-class WorkflowStage(BaseModel):
-    # 现有字段保留...
-    
-    # 新增 AI-native 字段
-    objective: str = ""                          # 本 Stage 的语义目标（高层次）
-    success_criteria: str = ""                   # 验证完成的条件
-    context_hints: list[str] = []               # 给 Agent 的提示（来自录制）
-    reference_actions: list[dict] = []          # 录制动作作为参考 hint（非指令）
-```
-
-同步更新 `SemanticStagePlan`（在 `skill_models.py`）：
-```python
-class SemanticStagePlan(BaseModel):
-    # 现有字段保留...
-    objective: str = ""
-    success_criteria: str = ""
-    context_hints: list[str] = []
-```
+在 Stage 执行结束后生成简短 `world_state_summary`（URL + 关键页面状态），并在下一 Stage 作为上下文输入，避免 `history.clear()` 后的信息断层。
 
 **验收标准**：
-- 旧 YAML 文件（无新字段）仍可正常加载（字段有默认值）
-- 新字段出现在 `to_execution_plan()` 的输出中
+- Stage 间可读取前一阶段 `world_state_summary`
+- Prompt 中包含 `World state from previous stage`（或等价语义段落）
 - 单元测试通过（`uv run pytest -q`）
 
 ---
@@ -69,7 +49,7 @@ class SemanticStagePlan(BaseModel):
 8. ✅ SemanticNarrative 字段（semantic_meaning + progress_assessment）
 9. ✅ StagnationDetector（dom_hash 停滞检测）
 10. ✅ Multi-level retry（L1/L2/L3/L4）
-11. StageVerifier（evidence-based done）
+11. ✅ StageVerifier（evidence-based done）
 
 **P2（记忆与输出）**：
 12. WorldState 跨 Stage 传递

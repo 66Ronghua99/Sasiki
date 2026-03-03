@@ -135,6 +135,8 @@ class TestStageResult:
         assert result.status == "success"
         assert result.steps_taken == 3
         assert result.episode_log == []
+        assert result.verified is False
+        assert result.verification_evidence is None
         assert result.error is None
 
     def test_stage_result_with_error(self):
@@ -148,6 +150,8 @@ class TestStageResult:
         )
         assert result.status == "failed"
         assert result.episode_log == []
+        assert result.verified is False
+        assert result.verification_evidence is None
         assert result.error == "Something went wrong"
 
 
@@ -335,6 +339,74 @@ class TestSingleStageExecution:
         assert log[0].semantic_meaning == "Focus the search input"
         assert log[0].progress_assessment == "Stage started"
         assert log[1].progress_assessment == "Stage objective achieved"
+
+
+class TestStageVerifier:
+    """Tests for evidence-based done verification."""
+
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_done_with_matching_evidence_is_verified(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test done action succeeds when evidence matches success criteria."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+        workflow = sample_workflow.model_copy(deep=True)
+        workflow.stages[0].success_criteria = "Results list is visible"
+
+        mock_agent.step.side_effect = [
+            AgentAction(
+                thought="Search completed",
+                action_type="done",
+                evidence="Results list is visible with 10 cards",
+            ),
+            AgentAction(thought="Stage 2 done", action_type="done"),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=workflow,
+            inputs={"query": "python"},
+        )
+
+        assert result.stage_results[0].status == "success"
+        assert result.stage_results[0].verified is True
+        assert result.stage_results[0].verification_evidence == "Results list is visible with 10 cards"
+
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_done_with_mismatched_evidence_fails_stage(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test done action fails when evidence does not satisfy success criteria."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+        workflow = sample_workflow.model_copy(deep=True)
+        workflow.stages[0].success_criteria = "Results list is visible"
+
+        mock_agent.step.side_effect = [
+            AgentAction(
+                thought="I think done",
+                action_type="done",
+                evidence="Clicked search button only",
+            ),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=workflow,
+            inputs={"query": "python"},
+        )
+
+        assert result.status == "failed"
+        assert result.stage_results[0].status == "failed"
+        assert result.stage_results[0].verified is False
+        assert result.stage_results[0].verification_evidence == "Clicked search button only"
+        assert "StageVerifier" in (result.stage_results[0].error or "")
+        assert result.stage_results[1].status == "skipped"
 
 
 class TestMultipleStages:

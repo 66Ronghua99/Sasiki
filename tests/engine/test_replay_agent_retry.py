@@ -88,6 +88,7 @@ class TestReplayAgentStepWithContext:
         system_message = messages[0]["content"] if messages else ""
         assert "semantic_meaning" in system_message
         assert "progress_assessment" in system_message
+        assert "evidence" in system_message
         user_message = messages[1]["content"] if len(messages) > 1 else ""
         assert "dom_hash" in user_message
         assert "deadbeef" in user_message
@@ -124,6 +125,7 @@ class TestReplayAgentStepWithContext:
         system_message = messages[0]["content"] if messages else ""
         assert "semantic_meaning" in system_message
         assert "progress_assessment" in system_message
+        assert "evidence" in system_message
         user_message = messages[1]["content"] if len(messages) > 1 else ""
         assert "PREVIOUS ACTION FAILED" in user_message
         assert "Element not found" in user_message
