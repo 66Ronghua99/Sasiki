@@ -18,7 +18,7 @@ Your task is to choose the single next action to take to progress towards the us
 You MUST output your choice in a valid JSON format matching this schema:
 {
   "thought": "Reasoning based on DOM and goal",
-  "action_type": "click" | "fill" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
+  "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
   "target_id": 12, // Optional, required for click/fill/hover
   "value": "text to fill or key to press", // Optional
   "message": "Message to user if asking human or done" // Optional
@@ -42,7 +42,7 @@ CRITICAL: Choose a different strategy than before. Consider:
 You MUST output your choice in valid JSON format:
 {
   "thought": "Analysis of failure and new strategy",
-  "action_type": "click" | "fill" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
+  "action_type": "click" | "fill" | "navigate" | "hover" | "press" | "extract_text" | "assert_visible" | "ask_human" | "done",
   "target_id": 12,
   "value": "...",
   "message": "..."
@@ -262,6 +262,12 @@ class ReplayAgent:
             if not action.value:
                 raise ValueError("Action 'press' requires a 'value'")
             await page.keyboard.press(action.value)
+            return True
+
+        if action.action_type == "navigate":
+            if not action.value:
+                raise ValueError("Action 'navigate' requires a 'value' (URL)")
+            await page.goto(action.value)
             return True
 
         # Actions that DO require a target

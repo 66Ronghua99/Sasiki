@@ -18,7 +18,7 @@ class RetryContext:
 class AgentAction(BaseModel):
     thought: str = Field(..., description="Reasoning for the chosen action based on the current DOM and goal.")
     action_type: Literal[
-        "click", "fill", "hover", "press", "extract_text", 
+        "click", "fill", "navigate", "hover", "press", "extract_text",
         "assert_visible", "ask_human", "done"
     ] = Field(..., description="The type of action to perform.")
     target_id: Optional[int] = Field(
