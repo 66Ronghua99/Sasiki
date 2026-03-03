@@ -88,9 +88,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P0：WorkflowSpec model 扩展**（新增 objective/success_criteria/context_hints/reference_actions，向后兼容）
-2. **P0：SkillGenerator prompt 更新**（产出新字段）
-3. **P0：AriaSnapshot 替代 CompressedNode**（去 node_id，加 dom_hash）
+1. **P1：EpisodeMemory**（结构化 step log 替代 history strings）
+2. **P1：SemanticNarrative 字段**（`semantic_meaning` + `progress_assessment`）
+3. **P1：StagnationDetector**（dom_hash 停滞检测）
 4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---

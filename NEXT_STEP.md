@@ -58,11 +58,11 @@ class SemanticStagePlan(BaseModel):
 
 **P0（核心概念对齐）**：
 1. ✅ WorkflowSpec model 扩展（本次任务）
-2. SkillGenerator prompt 更新（产出 objective/success_criteria）
-3. AriaSnapshot 替代 CompressedNode（去 node_id，加 dom_hash）
-4. StageContext 类（替代 _build_stage_goal() 字符串）
-5. AgentDecision 替代 AgentAction（target 用 role+name）
-6. ActionExecutor（Playwright get_by_role 替代 CDP 坐标）
+2. ✅ SkillGenerator prompt 更新（产出 objective/success_criteria）
+3. ✅ AriaSnapshot 替代 CompressedNode（去 node_id，加 dom_hash）
+4. ✅ StageContext 类（替代 _build_stage_goal() 字符串）
+5. ✅ AgentDecision 替代 AgentAction（target 用 role+name）
+6. ✅ ActionExecutor（Playwright get_by_role 替代 CDP 坐标）
 
 **P1（稳定性提升）**：
 7. EpisodeMemory（结构化 step log 替代 history strings）
@@ -75,4 +75,3 @@ class SemanticStagePlan(BaseModel):
 12. WorldState 跨 Stage 传递
 13. ExecutionReport 输出格式
 14. ExecutionStrategy 接口预留（Path B）
-
