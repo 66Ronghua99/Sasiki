@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from sasiki.engine.hitl_decision_mapper import HITLDecisionMapper
 from sasiki.engine.refiner_state import StageResult
-from sasiki.engine.replay_models import AgentAction, AgentDecision, RetryContext
+from sasiki.engine.replay_models import AgentAction, AgentDecision, EpisodeEntry, RetryContext
 from sasiki.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -169,6 +169,7 @@ class StageExecutor:
         history.clear()
 
         taken_actions: list[AgentAction] = []
+        episode_log: list[EpisodeEntry] = []
         steps_taken = 0
 
         # Track last action for detecting repetition
@@ -176,11 +177,13 @@ class StageExecutor:
         repeat_count = 0
 
         while steps_taken < self.max_steps:
+            action: AgentAction | None = None
             try:
                 # Get next action from agent
                 action = await self.agent.step(
-                    page, goal,
-                    action_history=history[-5:]  # Last 5 steps
+                    page,
+                    goal,
+                    action_history=self._build_action_history(history, episode_log),
                 )
                 taken_actions.append(action)
                 steps_taken += 1
@@ -195,18 +198,25 @@ class StageExecutor:
                             status="failed",
                             steps_taken=steps_taken,
                             actions=taken_actions,
+                            episode_log=episode_log.copy(),
                             error=f"Action repetition detected: {action.action_type} repeated {self.max_repeats} times",
                         )
                 else:
                     repeat_count = 0
                     last_action_key = action_key
 
-                # Execute the action
+                # Execute the action and record structured memory
+                page_url_before = self._safe_page_url(page)
                 await self.agent.execute_action(page, action)
-
-                # Accumulate thought to history
-                if action.thought:
-                    history.append(action.thought)
+                page_url_after = self._safe_page_url(page)
+                self._record_episode(
+                    episode_log=episode_log,
+                    step=steps_taken,
+                    action=action,
+                    result="success",
+                    page_url_before=page_url_before,
+                    page_url_after=page_url_after,
+                )
 
                 # Check for done
                 if action.action_type == "done":
@@ -222,12 +232,20 @@ class StageExecutor:
                         status="success",
                         steps_taken=steps_taken,
                         actions=taken_actions,
+                        episode_log=episode_log.copy(),
                     )
 
                 # Check for human pause request
                 if action.action_type == "ask_human":
                     result = await self._handle_ask_human(
-                        stage_name, stage_index, steps_taken, taken_actions, action, goal, history
+                        stage_name,
+                        stage_index,
+                        steps_taken,
+                        taken_actions,
+                        episode_log,
+                        action,
+                        goal,
+                        history,
                     )
                     if result == "continue":
                         # Human provided input, continue execution
@@ -245,43 +263,82 @@ class StageExecutor:
 
                 # Build retry context
                 retry_ctx = RetryContext(
-                    failed_action=action if 'action' in locals() else None,
+                    failed_action=action,
                     error_message=str(e),
                     error_type=self._classify_error(e),
                     attempt_number=2,
                     max_attempts=2,
                 )
-
-                try:
-                    action = await self.agent.step_with_context(
-                        page, goal,
-                        retry_context=retry_ctx,
-                        action_history=history[-5:]
+                if action is not None:
+                    current_url = self._safe_page_url(page)
+                    self._record_episode(
+                        episode_log=episode_log,
+                        step=steps_taken + 1,
+                        action=action,
+                        result="failed",
+                        error=str(e),
+                        page_url_before=current_url,
+                        page_url_after=current_url,
                     )
-                    taken_actions.append(action)
+
+                retry_action: AgentAction | None = None
+                try:
+                    retry_action = await self.agent.step_with_context(
+                        page,
+                        goal,
+                        retry_context=retry_ctx,
+                        action_history=self._build_action_history(history, episode_log),
+                    )
+                    taken_actions.append(retry_action)
                     steps_taken += 1
-                    await self.agent.execute_action(page, action)
+                    page_url_before = self._safe_page_url(page)
+                    await self.agent.execute_action(page, retry_action)
+                    page_url_after = self._safe_page_url(page)
+                    self._record_episode(
+                        episode_log=episode_log,
+                        step=steps_taken,
+                        action=retry_action,
+                        result="success",
+                        page_url_before=page_url_before,
+                        page_url_after=page_url_after,
+                    )
 
-                    if action.thought:
-                        history.append(action.thought)
-
-                    if action.action_type == "done":
+                    if retry_action.action_type == "done":
                         return StageResult(
                             stage_name=stage_name,
                             status="success",
                             steps_taken=steps_taken,
                             actions=taken_actions,
+                            episode_log=episode_log.copy(),
                         )
 
-                    if action.action_type == "ask_human":
+                    if retry_action.action_type == "ask_human":
                         result = await self._handle_ask_human(
-                            stage_name, stage_index, steps_taken, taken_actions, action, goal, history
+                            stage_name,
+                            stage_index,
+                            steps_taken,
+                            taken_actions,
+                            episode_log,
+                            retry_action,
+                            goal,
+                            history,
                         )
                         if result == "continue":
                             continue
                         return result
 
                 except Exception as e2:
+                    if retry_action is not None:
+                        current_url = self._safe_page_url(page)
+                        self._record_episode(
+                            episode_log=episode_log,
+                            step=steps_taken + 1,
+                            action=retry_action,
+                            result="failed",
+                            error=str(e2),
+                            page_url_before=current_url,
+                            page_url_after=current_url,
+                        )
                     get_logger().error(
                         "action_failed_after_retry",
                         stage_index=stage_index,
@@ -290,7 +347,14 @@ class StageExecutor:
                     )
                     # Retry failed, enter HITL
                     return await self._handle_step_failure(
-                        stage_name, stage_index, steps_taken, taken_actions, e2, goal, history
+                        stage_name,
+                        stage_index,
+                        steps_taken,
+                        taken_actions,
+                        episode_log,
+                        e2,
+                        goal,
+                        history,
                     )
 
         # Max steps reached
@@ -305,6 +369,7 @@ class StageExecutor:
             status="failed",
             steps_taken=steps_taken,
             actions=taken_actions,
+            episode_log=episode_log.copy(),
             error=f"Maximum steps ({self.max_steps}) reached",
         )
 
@@ -351,6 +416,7 @@ class StageExecutor:
         stage_index: int,
         steps_taken: int,
         taken_actions: list[AgentAction],
+        episode_log: list[EpisodeEntry],
         action: AgentAction,
         goal: str,
         history: list[str],
@@ -373,7 +439,11 @@ class StageExecutor:
         # If no handler, return paused status (backwards compatible)
         if self.human_handler is None:
             return HITLDecisionMapper().map_no_handler_result(
-                stage_name, steps_taken, taken_actions, error=None
+                stage_name,
+                steps_taken,
+                taken_actions,
+                episode_log=episode_log,
+                error=None,
             )
 
         # Build HITL context
@@ -410,6 +480,7 @@ class StageExecutor:
             steps_taken=steps_taken,
             taken_actions=taken_actions,
             history=history,
+            episode_log=episode_log,
             feedback=feedback,
             error=None,
             is_ask_human=True,
@@ -421,6 +492,7 @@ class StageExecutor:
         stage_index: int,
         steps_taken: int,
         taken_actions: list[AgentAction],
+        episode_log: list[EpisodeEntry],
         error: Exception,
         goal: str,
         history: list[str],
@@ -431,7 +503,11 @@ class StageExecutor:
         # If no handler, return failed status (backwards compatible)
         if self.human_handler is None:
             return HITLDecisionMapper().map_no_handler_result(
-                stage_name, steps_taken, taken_actions, error=error
+                stage_name,
+                steps_taken,
+                taken_actions,
+                episode_log=episode_log,
+                error=error,
             )
 
         # Build HITL context with error information
@@ -455,7 +531,61 @@ class StageExecutor:
             steps_taken=steps_taken,
             taken_actions=taken_actions,
             history=history,
+            episode_log=episode_log,
             feedback=feedback,
             error=error,
             is_ask_human=False,
+        )
+
+    def _safe_page_url(self, page: Page) -> str:
+        """Get page url safely for mocks and real pages."""
+        page_url = getattr(page, "url", "")
+        return page_url if isinstance(page_url, str) else str(page_url)
+
+    def _target_description(self, action: AgentAction) -> str:
+        """Build a short target description for episode logging."""
+        if action.target is not None:
+            if action.target.name:
+                return f"{action.target.role} '{action.target.name}'"
+            return action.target.role
+        if action.target_id is not None:
+            return f"node_id:{action.target_id}"
+        return ""
+
+    def _build_action_history(self, history: list[str], episode_log: list[EpisodeEntry]) -> list[str]:
+        """Build prompt history from structured episode memory plus human notes."""
+        episode_lines: list[str] = []
+        for entry in episode_log[-5:]:
+            summary = entry.progress_assessment or entry.semantic_meaning or entry.thought
+            if not summary:
+                summary = f"{entry.action_type} {entry.target_description}".strip()
+            episode_lines.append(f"Step {entry.step}: {summary}")
+        return (episode_lines + history[-3:])[-5:]
+
+    def _record_episode(
+        self,
+        episode_log: list[EpisodeEntry],
+        step: int,
+        action: AgentAction,
+        result: Literal["success", "failed", "skipped"],
+        page_url_before: str,
+        page_url_after: str,
+        error: str | None = None,
+    ) -> None:
+        """Append one structured episode memory entry."""
+        episode_log.append(
+            EpisodeEntry(
+                step=step,
+                action_type=action.action_type,
+                target_description=self._target_description(action),
+                value=action.value,
+                result=result,
+                error=error,
+                page_url_before=page_url_before,
+                page_url_after=page_url_after,
+                page_changed=page_url_before != page_url_after,
+                thought=action.thought,
+                semantic_meaning=action.semantic_meaning,
+                progress_assessment=action.progress_assessment,
+            )
         )

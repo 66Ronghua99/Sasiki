@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from sasiki.engine.human_interface import HumanDecision
 from sasiki.engine.refiner_state import StageResult
-from sasiki.engine.replay_models import AgentAction
+from sasiki.engine.replay_models import AgentAction, EpisodeEntry
 
 
 class HITLDecisionMapper:
@@ -32,6 +32,7 @@ class HITLDecisionMapper:
         steps_taken: int,
         taken_actions: list[AgentAction],
         history: list[str],
+        episode_log: list[EpisodeEntry] | None = None,
         feedback: str | None = None,
         error: Exception | None = None,
         is_ask_human: bool = False,
@@ -62,6 +63,7 @@ class HITLDecisionMapper:
                 status="failed",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
                 error=error_prefix,
             )
 
@@ -71,6 +73,7 @@ class HITLDecisionMapper:
                 status="skipped",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
             )
 
         elif decision == HumanDecision.RETRY:
@@ -79,6 +82,7 @@ class HITLDecisionMapper:
                 status="paused",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
                 error=f"{retry_prefix} - resume with --start-stage",
             )
 
@@ -90,6 +94,7 @@ class HITLDecisionMapper:
                 status="paused",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
                 error=f"{continue_prefix} - manual intervention required",
             )
 
@@ -101,6 +106,7 @@ class HITLDecisionMapper:
                 status="paused",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
                 error=f"{input_prefix} - manual intervention required",
             )
 
@@ -110,6 +116,7 @@ class HITLDecisionMapper:
             status="paused",
             steps_taken=steps_taken,
             actions=taken_actions,
+            episode_log=episode_log or [],
         )
 
     def map_no_handler_result(
@@ -117,6 +124,7 @@ class HITLDecisionMapper:
         stage_name: str,
         steps_taken: int,
         taken_actions: list[AgentAction],
+        episode_log: list[EpisodeEntry] | None = None,
         error: Exception | None = None,
     ) -> StageResult:
         """Get default result when no handler is configured.
@@ -136,6 +144,7 @@ class HITLDecisionMapper:
                 status="failed",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
                 error=f"Action failed after retry: {error}",
             )
         else:
@@ -144,4 +153,5 @@ class HITLDecisionMapper:
                 status="paused",
                 steps_taken=steps_taken,
                 actions=taken_actions,
+                episode_log=episode_log or [],
             )

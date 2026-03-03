@@ -134,6 +134,7 @@ class TestStageResult:
         assert result.stage_name == "Test Stage"
         assert result.status == "success"
         assert result.steps_taken == 3
+        assert result.episode_log == []
         assert result.error is None
 
     def test_stage_result_with_error(self):
@@ -146,6 +147,7 @@ class TestStageResult:
             error="Something went wrong",
         )
         assert result.status == "failed"
+        assert result.episode_log == []
         assert result.error == "Something went wrong"
 
 
@@ -285,6 +287,51 @@ class TestSingleStageExecution:
         assert result.stage_results[0].steps_taken == 4
         assert result.stage_results[0].status == "success"
         assert len(result.stage_results[0].actions) == 4
+        assert len(result.stage_results[0].episode_log) == 4
+        assert result.stage_results[0].episode_log[0].action_type == "click"
+        assert result.stage_results[0].episode_log[-1].action_type == "done"
+
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_episode_memory_keeps_semantic_fields(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test episode memory captures semantic narrative fields."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.side_effect = [
+            AgentAction(
+                thought="Focusing search",
+                action_type="click",
+                target_id=1,
+                semantic_meaning="Focus the search input",
+                progress_assessment="Stage started",
+            ),
+            AgentAction(
+                thought="Done",
+                action_type="done",
+                semantic_meaning="Search flow completed",
+                progress_assessment="Stage objective achieved",
+            ),
+            AgentAction(
+                thought="Done stage 2",
+                action_type="done",
+            ),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "python"},
+        )
+
+        log = result.stage_results[0].episode_log
+        assert len(log) == 2
+        assert log[0].semantic_meaning == "Focus the search input"
+        assert log[0].progress_assessment == "Stage started"
+        assert log[1].progress_assessment == "Stage objective achieved"
 
 
 class TestMultipleStages:

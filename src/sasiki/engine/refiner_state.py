@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from sasiki.engine.replay_models import AgentAction
+from sasiki.engine.replay_models import AgentAction, EpisodeEntry
 
 
 class StageResult(BaseModel):
@@ -20,6 +20,7 @@ class StageResult(BaseModel):
     status: Literal["success", "failed", "skipped", "paused"]
     steps_taken: int
     actions: list[AgentAction] = Field(default_factory=list)
+    episode_log: list[EpisodeEntry] = Field(default_factory=list)
     error: str | None = None
 
 

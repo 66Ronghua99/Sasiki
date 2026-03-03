@@ -57,5 +57,24 @@ class RetryContext:
     max_attempts: int                       # 最大尝试次数
 
 
+class EpisodeEntry(BaseModel):
+    """Structured episode memory entry for a single step."""
+
+    step: int
+    action_type: str
+    target_description: str = ""
+    value: str | None = None
+    result: Literal["success", "failed", "skipped"]
+    error: str | None = None
+    page_url_before: str = ""
+    page_url_after: str = ""
+    dom_hash_before: str | None = None
+    dom_hash_after: str | None = None
+    page_changed: bool = False
+    thought: str = ""
+    semantic_meaning: str | None = None
+    progress_assessment: str | None = None
+
+
 class AgentAction(AgentDecision):
     """Backward-compatible alias for legacy code paths."""
