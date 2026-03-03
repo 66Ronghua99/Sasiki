@@ -45,11 +45,11 @@ class CLIInteractiveHandler(HumanInteractionHandler):
 
         print(f"\n{'='*60}")
         print("Options:")
-        print("  [c]ontinue - Continue with execution")
-        print("  [r]etry    - Retry the failed action")
+        print("  [c]ontinue - Continue with execution (add feedback to continue)")
+        print("  [i]nput    - Provide instruction to agent (e.g., 'navigate to xiaohongshu.com')")
+        print("  [r]etry    - Retry the failed action (pause after)")
         print("  [s]kip     - Skip this stage")
         print("  [a]bort    - Abort the workflow")
-        print("  [i]nput    - Provide input/feedback to the agent")
 
         while True:
             choice = input("\nYour choice: ").strip().lower()

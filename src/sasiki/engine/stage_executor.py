@@ -6,7 +6,7 @@ stages with step-by-step Agent control, retry logic, and HITL handling.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from sasiki.engine.hitl_decision_mapper import HITLDecisionMapper
 from sasiki.engine.refiner_state import StageResult
@@ -145,9 +145,13 @@ class StageExecutor:
 
                 # Check for human pause request
                 if action.action_type == "ask_human":
-                    return await self._handle_ask_human(
+                    result = await self._handle_ask_human(
                         stage_name, stage_index, steps_taken, taken_actions, action, goal, history
                     )
+                    if result == "continue":
+                        # Human provided input, continue execution
+                        continue
+                    return result
 
             except Exception as e:
                 # Retry with context on failure
@@ -189,9 +193,12 @@ class StageExecutor:
                         )
 
                     if action.action_type == "ask_human":
-                        return await self._handle_ask_human(
+                        result = await self._handle_ask_human(
                             stage_name, stage_index, steps_taken, taken_actions, action, goal, history
                         )
+                        if result == "continue":
+                            continue
+                        return result
 
                 except Exception as e2:
                     get_logger().error(
@@ -293,9 +300,14 @@ class StageExecutor:
         action: AgentAction,
         goal: str,
         history: list[str],
-    ) -> StageResult:
-        """Handle ask_human action type."""
-        from sasiki.engine.human_interface import HITLContext
+    ) -> StageResult | Literal["continue"]:
+        """Handle ask_human action type.
+
+        Returns:
+            StageResult: If the stage should end (abort, skip, pause)
+            "continue": If the agent should continue executing the stage
+        """
+        from sasiki.engine.human_interface import HITLContext, HumanDecision
 
         get_logger().info(
             "stage_paused_for_human",
@@ -324,7 +336,20 @@ class StageExecutor:
         # Wait for user decision
         decision, feedback = await self.human_handler.handle_hitl_pause(hitl_context)
 
-        # Map decision to result using centralized mapper
+        # Handle PROVIDE_INPUT: add feedback to history and continue execution
+        if decision == HumanDecision.PROVIDE_INPUT:
+            if feedback:
+                history.append(f"Human: {feedback}")
+                get_logger().info("human_input_received", feedback=feedback)
+            return "continue"
+
+        # Handle CONTINUE: also continue execution (may add feedback)
+        if decision == HumanDecision.CONTINUE:
+            if feedback:
+                history.append(f"Human: {feedback}")
+            return "continue"
+
+        # Map other decisions to result using centralized mapper
         return HITLDecisionMapper().map_decision_to_result(
             decision=decision,
             stage_name=stage_name,
