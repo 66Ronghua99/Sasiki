@@ -47,6 +47,13 @@ uv run pytest -q
 - `StageExecutor` 新增 dom_hash 连续检测逻辑，触发时返回明确的 stagnation failure。
 - `EpisodeEntry` 记录 `dom_hash_before/dom_hash_after`，并新增停滞检测回归测试。
 
+**P1-10：Multi-level retry（L1/L2/L3/L4）**
+
+### 结果
+- `StageExecutor` 增加 `max_retry_attempts`，将重试从单次扩展为多层升级重试（默认最多 3 次总尝试）。
+- 每层重试通过 `RetryContext.attempt_number/max_attempts` 显式传递到 Agent，失败后继续升级到下一层，最终再进入 HITL。
+- 新增回归测试覆盖“第二层重试成功”路径，并校验 attempt 编号。
+
 ## 下一步（最小可执行）
 
-**P1-10：Multi-level retry（L1/L2/L3/L4）**
+**P1-11：StageVerifier（evidence-based done）**

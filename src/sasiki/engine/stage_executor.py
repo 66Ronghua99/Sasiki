@@ -117,6 +117,7 @@ class StageExecutor:
         max_steps: int = 20,
         max_repeats: int = 3,
         max_stagnant_steps: int = 3,
+        max_retry_attempts: int = 3,
     ):
         """Initialize the stage executor.
 
@@ -126,12 +127,14 @@ class StageExecutor:
             max_steps: Maximum steps before failing the stage
             max_repeats: Maximum repetitions of same action before failing
             max_stagnant_steps: Maximum consecutive identical dom_hash snapshots
+            max_retry_attempts: Maximum attempts including initial try (L1/L2 escalation)
         """
         self.agent = agent
         self.human_handler = human_handler
         self.max_steps = max_steps
         self.max_repeats = max_repeats
         self.max_stagnant_steps = max_stagnant_steps
+        self.max_retry_attempts = max_retry_attempts
 
     async def execute(
         self,
@@ -286,127 +289,30 @@ class StageExecutor:
                     step=steps_taken,
                     error=str(e),
                 )
-
-                # Build retry context
-                retry_ctx = RetryContext(
+                (
+                    steps_taken,
+                    last_dom_hash,
+                    stagnant_count,
+                    retry_result,
+                    should_continue,
+                ) = await self._run_retry_attempts(
+                    page=page,
+                    goal=goal,
+                    stage_name=stage_name,
+                    stage_index=stage_index,
+                    history=history,
+                    taken_actions=taken_actions,
+                    episode_log=episode_log,
+                    steps_taken=steps_taken,
+                    last_dom_hash=last_dom_hash,
+                    stagnant_count=stagnant_count,
                     failed_action=action,
-                    error_message=str(e),
-                    error_type=self._classify_error(e),
-                    attempt_number=2,
-                    max_attempts=2,
+                    initial_error=e,
                 )
-                if action is not None:
-                    current_url = self._safe_page_url(page)
-                    self._record_episode(
-                        episode_log=episode_log,
-                        step=steps_taken + 1,
-                        action=action,
-                        result="failed",
-                        error=str(e),
-                        page_url_before=current_url,
-                        page_url_after=current_url,
-                        dom_hash_before=self._safe_dom_hash(),
-                        dom_hash_after=self._safe_dom_hash(),
-                    )
-
-                retry_action: AgentAction | None = None
-                try:
-                    retry_action = await self.agent.step_with_context(
-                        page,
-                        goal,
-                        retry_context=retry_ctx,
-                        action_history=self._build_action_history(history, episode_log),
-                    )
-                    taken_actions.append(retry_action)
-                    steps_taken += 1
-                    current_dom_hash = self._safe_dom_hash()
-                    page_url_before = self._safe_page_url(page)
-                    await self.agent.execute_action(page, retry_action)
-                    page_url_after = self._safe_page_url(page)
-                    self._record_episode(
-                        episode_log=episode_log,
-                        step=steps_taken,
-                        action=retry_action,
-                        result="success",
-                        page_url_before=page_url_before,
-                        page_url_after=page_url_after,
-                        dom_hash_before=current_dom_hash,
-                        dom_hash_after=current_dom_hash,
-                    )
-
-                    last_dom_hash, stagnant_count = self._update_stagnation(
-                        current_dom_hash,
-                        last_dom_hash,
-                        stagnant_count,
-                    )
-                    if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
-                        return StageResult(
-                            stage_name=stage_name,
-                            status="failed",
-                            steps_taken=steps_taken,
-                            actions=taken_actions,
-                            episode_log=episode_log.copy(),
-                            error=(
-                                "DOM stagnation detected: "
-                                f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
-                            ),
-                        )
-
-                    if retry_action.action_type == "done":
-                        return StageResult(
-                            stage_name=stage_name,
-                            status="success",
-                            steps_taken=steps_taken,
-                            actions=taken_actions,
-                            episode_log=episode_log.copy(),
-                        )
-
-                    if retry_action.action_type == "ask_human":
-                        result = await self._handle_ask_human(
-                            stage_name,
-                            stage_index,
-                            steps_taken,
-                            taken_actions,
-                            episode_log,
-                            retry_action,
-                            goal,
-                            history,
-                        )
-                        if result == "continue":
-                            continue
-                        return result
-
-                except Exception as e2:
-                    if retry_action is not None:
-                        current_url = self._safe_page_url(page)
-                        self._record_episode(
-                            episode_log=episode_log,
-                            step=steps_taken + 1,
-                            action=retry_action,
-                            result="failed",
-                            error=str(e2),
-                            page_url_before=current_url,
-                            page_url_after=current_url,
-                            dom_hash_before=self._safe_dom_hash(),
-                            dom_hash_after=self._safe_dom_hash(),
-                        )
-                    get_logger().error(
-                        "action_failed_after_retry",
-                        stage_index=stage_index,
-                        step=steps_taken,
-                        error=str(e2),
-                    )
-                    # Retry failed, enter HITL
-                    return await self._handle_step_failure(
-                        stage_name,
-                        stage_index,
-                        steps_taken,
-                        taken_actions,
-                        episode_log,
-                        e2,
-                        goal,
-                        history,
-                    )
+                if should_continue:
+                    continue
+                if retry_result is not None:
+                    return retry_result
 
         # Max steps reached
         get_logger().error(
@@ -460,6 +366,171 @@ class StageExecutor:
         else:
             target_part = "none"
         return f"{action.action_type}:{target_part}:{action.value or ''}"
+
+    async def _run_retry_attempts(
+        self,
+        page: Page,
+        goal: str,
+        stage_name: str,
+        stage_index: int,
+        history: list[str],
+        taken_actions: list[AgentAction],
+        episode_log: list[EpisodeEntry],
+        steps_taken: int,
+        last_dom_hash: str | None,
+        stagnant_count: int,
+        failed_action: AgentAction | None,
+        initial_error: Exception,
+    ) -> tuple[int, str | None, int, StageResult | None, bool]:
+        """Run multi-level retries and return updated loop state."""
+        if failed_action is not None:
+            current_url = self._safe_page_url(page)
+            self._record_episode(
+                episode_log=episode_log,
+                step=steps_taken + 1,
+                action=failed_action,
+                result="failed",
+                error=str(initial_error),
+                page_url_before=current_url,
+                page_url_after=current_url,
+                dom_hash_before=self._safe_dom_hash(),
+                dom_hash_after=self._safe_dom_hash(),
+            )
+
+        retry_error: Exception = initial_error
+        retry_failed_action: AgentAction | None = failed_action
+
+        for attempt_number in range(2, self.max_retry_attempts + 1):
+            retry_ctx = RetryContext(
+                failed_action=retry_failed_action,
+                error_message=str(retry_error),
+                error_type=self._classify_error(retry_error),
+                attempt_number=attempt_number,
+                max_attempts=self.max_retry_attempts,
+            )
+            retry_action: AgentAction | None = None
+            try:
+                retry_action = await self.agent.step_with_context(
+                    page,
+                    goal,
+                    retry_context=retry_ctx,
+                    action_history=self._build_action_history(history, episode_log),
+                )
+                taken_actions.append(retry_action)
+                steps_taken += 1
+                current_dom_hash = self._safe_dom_hash()
+                page_url_before = self._safe_page_url(page)
+                await self.agent.execute_action(page, retry_action)
+                page_url_after = self._safe_page_url(page)
+                self._record_episode(
+                    episode_log=episode_log,
+                    step=steps_taken,
+                    action=retry_action,
+                    result="success",
+                    page_url_before=page_url_before,
+                    page_url_after=page_url_after,
+                    dom_hash_before=current_dom_hash,
+                    dom_hash_after=current_dom_hash,
+                )
+
+                last_dom_hash, stagnant_count = self._update_stagnation(
+                    current_dom_hash,
+                    last_dom_hash,
+                    stagnant_count,
+                )
+                if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
+                    return (
+                        steps_taken,
+                        last_dom_hash,
+                        stagnant_count,
+                        StageResult(
+                            stage_name=stage_name,
+                            status="failed",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                            error=(
+                                "DOM stagnation detected: "
+                                f"dom_hash {current_dom_hash} unchanged for {stagnant_count} steps"
+                            ),
+                        ),
+                        False,
+                    )
+
+                if retry_action.action_type == "done":
+                    return (
+                        steps_taken,
+                        last_dom_hash,
+                        stagnant_count,
+                        StageResult(
+                            stage_name=stage_name,
+                            status="success",
+                            steps_taken=steps_taken,
+                            actions=taken_actions,
+                            episode_log=episode_log.copy(),
+                        ),
+                        False,
+                    )
+
+                if retry_action.action_type == "ask_human":
+                    result = await self._handle_ask_human(
+                        stage_name,
+                        stage_index,
+                        steps_taken,
+                        taken_actions,
+                        episode_log,
+                        retry_action,
+                        goal,
+                        history,
+                    )
+                    if result == "continue":
+                        return steps_taken, last_dom_hash, stagnant_count, None, True
+                    return steps_taken, last_dom_hash, stagnant_count, result, False
+
+                return steps_taken, last_dom_hash, stagnant_count, None, True
+
+            except Exception as retry_exc:
+                retry_error = retry_exc
+                if retry_action is not None:
+                    retry_failed_action = retry_action
+                    current_url = self._safe_page_url(page)
+                    self._record_episode(
+                        episode_log=episode_log,
+                        step=steps_taken + 1,
+                        action=retry_action,
+                        result="failed",
+                        error=str(retry_exc),
+                        page_url_before=current_url,
+                        page_url_after=current_url,
+                        dom_hash_before=self._safe_dom_hash(),
+                        dom_hash_after=self._safe_dom_hash(),
+                    )
+                get_logger().warning(
+                    "action_retry_attempt_failed",
+                    stage_index=stage_index,
+                    step=steps_taken,
+                    attempt=attempt_number,
+                    error=str(retry_exc),
+                )
+
+        get_logger().error(
+            "action_failed_after_retry",
+            stage_index=stage_index,
+            step=steps_taken,
+            attempts=self.max_retry_attempts,
+            error=str(retry_error),
+        )
+        failure_result = await self._handle_step_failure(
+            stage_name,
+            stage_index,
+            steps_taken,
+            taken_actions,
+            episode_log,
+            retry_error,
+            goal,
+            history,
+        )
+        return steps_taken, last_dom_hash, stagnant_count, failure_result, False
 
     async def _handle_ask_human(
         self,

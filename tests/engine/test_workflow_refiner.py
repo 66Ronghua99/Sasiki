@@ -509,7 +509,7 @@ class TestRetryLogic:
     async def test_step_exception_retry(
         self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
-        """Test that a failed step is retried once with context."""
+        """Test that a failed step is retried with context."""
         mock_env, mock_page = mock_playwright_env
         mock_agent = mock_replay_agent
 
@@ -528,6 +528,37 @@ class TestRetryLogic:
         assert result.status == "completed"
         # step_with_context should have been called for retry
         assert mock_agent.step_with_context.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_step_exception_second_retry_succeeds(
+        self, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test multi-level retry succeeds on second retry attempt."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.side_effect = [
+            Exception("Initial failure"),
+            AgentAction(thought="Stage 2 done", action_type="done"),
+        ]
+        mock_agent.step_with_context.side_effect = [
+            Exception("Retry level 1 failed"),
+            AgentAction(thought="Recovered on L2", action_type="done"),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "test"},
+        )
+
+        assert result.status == "completed"
+        assert mock_agent.step_with_context.call_count == 2
+        first_ctx = mock_agent.step_with_context.call_args_list[0].kwargs["retry_context"]
+        second_ctx = mock_agent.step_with_context.call_args_list[1].kwargs["retry_context"]
+        assert first_ctx.attempt_number == 2
+        assert second_ctx.attempt_number == 3
+        assert second_ctx.max_attempts == 3
 
     @pytest.mark.asyncio
     async def test_step_exception_double_failure(
