@@ -130,7 +130,7 @@ class StageExecutor:
         human_handler: HumanInteractionHandler | None = None,
         max_steps: int = 20,
         max_repeats: int = 3,
-        max_stagnant_steps: int = 3,
+        max_stagnant_steps: int = 5,
         max_retry_attempts: int = 3,
         stage_verifier: StageVerifier | None = None,
         execution_strategy: ExecutionStrategy | None = None,
@@ -304,10 +304,12 @@ class StageExecutor:
                         dom_hash_after=current_dom_hash,
                     )
 
+                    page_changed = page_url_before != page_url_after
                     last_dom_hash, stagnant_count = self._update_stagnation(
                         current_dom_hash,
                         last_dom_hash,
                         stagnant_count,
+                        page_changed=page_changed,
                     )
                     if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
                         return StageResult(
@@ -577,10 +579,12 @@ class StageExecutor:
                     dom_hash_after=current_dom_hash,
                 )
 
+                page_changed = page_url_before != page_url_after
                 last_dom_hash, stagnant_count = self._update_stagnation(
                     current_dom_hash,
                     last_dom_hash,
                     stagnant_count,
+                    page_changed=page_changed,
                 )
                 if current_dom_hash and stagnant_count >= self.max_stagnant_steps:
                     return (
@@ -703,6 +707,8 @@ class StageExecutor:
             goal,
             history,
         )
+        if failure_result == "continue":
+            return steps_taken, last_dom_hash, stagnant_count, None, True
         return steps_taken, last_dom_hash, stagnant_count, failure_result, False
 
     async def _handle_ask_human(
@@ -791,9 +797,9 @@ class StageExecutor:
         error: Exception,
         goal: str,
         history: list[str],
-    ) -> StageResult:
+    ) -> StageResult | Literal["continue"]:
         """Handle step failure after retry exhaustion."""
-        from sasiki.engine.human_interface import HITLContext
+        from sasiki.engine.human_interface import HITLContext, HumanDecision
 
         # If no handler, return failed status (backwards compatible)
         if self.human_handler is None:
@@ -818,6 +824,17 @@ class StageExecutor:
 
         # Wait for user decision
         decision, feedback = await self.human_handler.handle_hitl_pause(hitl_context)
+
+        if decision == HumanDecision.PROVIDE_INPUT:
+            if feedback:
+                history.append(f"Human: {feedback}")
+                get_logger().info("human_input_received_after_failure", feedback=feedback)
+            return "continue"
+
+        if decision == HumanDecision.CONTINUE:
+            if feedback:
+                history.append(f"Human: {feedback}")
+            return "continue"
 
         # Map decision to result using centralized mapper
         return HITLDecisionMapper().map_decision_to_result(
@@ -860,8 +877,13 @@ class StageExecutor:
         current_dom_hash: str | None,
         last_dom_hash: str | None,
         stagnant_count: int,
+        page_changed: bool = False,
     ) -> tuple[str | None, int]:
         """Update stagnation counters based on dom_hash continuity."""
+        if page_changed:
+            # Navigation or URL transition is meaningful progress even if semantic
+            # interactive set is similar across pages.
+            return current_dom_hash or last_dom_hash, 1 if current_dom_hash else 0
         if not current_dom_hash:
             return last_dom_hash, 0
         if current_dom_hash == last_dom_hash:
