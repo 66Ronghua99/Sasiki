@@ -119,6 +119,12 @@ class RecordingParser:
             try:
                 action = RecordedAction.model_validate(data)
                 actions.append(action)
+                if action.type.value == "navigate" and not action.triggered_by:
+                    get_logger().warning(
+                        "navigate_missing_triggered_by",
+                        line=line_num,
+                        page_url=action.page_context.url,
+                    )
             except Exception as e:
                 get_logger().warning("action_validation_error", line=line_num, error=str(e))
                 continue
@@ -215,9 +221,10 @@ class RecordingParser:
             if compressed_hint:
                 compact["target_hint"] = compressed_hint
 
-        # Add value for type/select actions
-        if action.value:
-            compact["value"] = action.value
+        # Prefer explicit value; fall back to value_after for newer protocol samples.
+        effective_value = action.value if action.value is not None else action.value_after
+        if effective_value:
+            compact["value"] = effective_value
 
         # Add URL for navigate actions
         if action.url and action.type.value == "navigate":
@@ -229,6 +236,9 @@ class RecordingParser:
 
         if action.triggered_by:
             compact["triggered_by"] = action.triggered_by
+
+        if action.page_context.frame_id:
+            compact["frame_id"] = action.page_context.frame_id
 
         return compact
 
@@ -327,7 +337,13 @@ class RecordingParser:
                 "raw": {
                     "type": action.type.value,
                     "timestamp": action.timestamp,
-                    "value": action.value,
+                    "event_id": action.event_id,
+                    "trace_id": action.trace_id,
+                    "parent_event_id": action.parent_event_id,
+                    "value": action.value if action.value is not None else action.value_after,
+                    "value_before": action.value_before,
+                    "value_after": action.value_after,
+                    "input_masked": action.input_masked,
                     "url": action.url,
                     "triggers_navigation": action.triggers_navigation,
                     "triggered_by": action.triggered_by,

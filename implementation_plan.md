@@ -2,223 +2,154 @@
 
 ## 1. 项目状态快照
 
-| 模块 | 状态 | 代码证据 |
-|---|---|---|
-| Phase 1 录制链路 | 已完成，协议持续演进 | `src/sasiki/server/websocket_protocol.py`, `tests/test_phase1_websocket_flow.py` |
-| Phase 2 生成链路 | 已完成（structured packet + semantic plan） | `src/sasiki/workflow/recording_parser.py`, `src/sasiki/workflow/skill_generator.py` |
-| Phase 3 执行引擎 | 已完成（Refiner/Retry/HITL/Observation） | `src/sasiki/engine/workflow_refiner.py`, `src/sasiki/engine/stage_executor.py` |
-| 录制->语义契约文档 | 已完成并可开发 | `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`, `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md` |
-| Canonicalizer 实现 | 未开始 | `src/sasiki/workflow/` 下暂无 canonical* 文件 |
-| Generate fail-fast validator | 未开始 | `src/sasiki/commands/generate.py`, `src/sasiki/workflow/skill_generator.py` 无 schema gate |
+| 模块 | 当前状态 | 代码证据 | 结论 |
+|---|---|---|---|
+| Recording 协议与落盘 | 已上线但字段仍是旧版最小集 | `src/sasiki/server/websocket_protocol.py`, `src/sasiki/server/recording_session.py` | 缺少 Phase B 目标字段（`event_id/frame_id/parent_event_id/value_before/value_after` 等） |
+| Parser -> Structured Packet | 可用，已支持 `triggered_by` 与 target hints | `src/sasiki/workflow/recording_parser.py` | 仍未输出 Phase B 关键因果字段，Canonicalizer 可用输入不完整 |
+| Canonical 基线 | 已完成首版 deterministic 路径 | `src/sasiki/workflow/canonical_models.py`, `src/sasiki/workflow/canonicalizer.py`, `tests/test_canonicalizer.py` | 已具备 fail-fast 与规则 R1-R6，但上游事件信息仍偏弱 |
+| Generator | 已切换消费 canonical packet | `src/sasiki/workflow/skill_generator.py`, `tests/test_skill_generator.py` | 主链路已通，下一步瓶颈在录制协议补齐 |
+| Refiner Traceability | 有 execution report，但缺 source link 字段 | `src/sasiki/engine/replay_models.py`, `src/sasiki/engine/refiner_state.py` | Phase D 前置接口未补齐 |
+| E2E 实站验证 | 可运行但受站点风控干扰 | `docs/E2E_TEST_REPORT.md`, `docs/E2E_CLICK_FAILURE_ANALYSIS.md` | 需要继续，但当前更高优先是先补协议字段 |
 
-## 2. 未完成 TODO 盘点
+## 2. 未完成 TODO 盘点与依赖检查
 
-### 2.1 来自 `PROGRESS.md` 的 `[ ]`
-
-1. 设计 Agent Prompt Cache 与 Message History 机制。
-2. 在真实复杂网站（如小红书）验证执行稳定性与准确率。
-
-### 2.2 来自 `NEXT_STEP.md` 的当前主线
-
-1. Phase A（P0）：`canonical_models.py`。
-2. Phase A（P0）：`canonicalizer.py`（deterministic，R1-R6）。
-3. Phase A（P0）：`generate` 链路接入 schema validator（fail-fast）。
-
-### 2.3 一致性判断
-
-`PROGRESS.md` 的复选框与 `当前优先级/NEXT_STEP` 存在时序不一致。按最新执行指针，应优先推进 Phase A 的 canonical 基线，否则后续 E2E 与 Prompt Cache 优化都缺少稳定语义输入。
+| TODO | 来源 | 依赖就绪度 | 单次 session 可交付性 |
+|---|---|---|---|
+| Phase B-1 扩展 recording 协议字段（submit/triggered_by/value_before/value_after/event_id） | `PROGRESS.md` / `NEXT_STEP.md` | 高（模型和 parser 都在本仓） | 高（可拆成后端模型+parser+测试） |
+| Phase B-2 parser 输出补齐 canonicalizer 所需字段（frame_id/parent_event_id） | `NEXT_STEP.md` | 高（与 TODO1 同一改动面） | 高（可与 TODO1 合并为一个最小闭环） |
+| 实站录制->generate->refine E2E 闭环 | `PROGRESS.md` | 中（依赖网络/风控/人工介入） | 中（更适合作为协议改动后的验收） |
+| Prompt Cache / Message History 设计 | `PROGRESS.md` | 中（需跨 agent/stage executor 设计） | 低（偏设计任务，且非当前主阻塞） |
 
 ## 3. 推荐最小可执行 TODO
 
-**TODO: Phase A-P0-1（一个 session 内完成）**  
-落地 Canonical 基线闭环：
-1. 新增 `canonical_models.py`（SSOT 数据模型）。
-2. 新增 `canonicalizer.py`（R1-R6 + confidence + diagnostics）。
-3. 在 `generate` 中加入 schema validator fail-fast（不合格输入直接终止，不进入 LLM）。
+**推荐：Phase B-MVP（后端协议+parser 对齐）**
 
-### 选择理由
+目标范围：
+1. 扩展 `RecordedAction` 数据模型，兼容接收并持久化 Phase B 新字段。
+2. 在 `RecordingParser.to_structured_packet()` 中输出 canonicalizer 需要的因果字段与前后值字段。
+3. 保持向后兼容：旧录制文件可继续 `generate`。
 
-1. 依赖已就绪：Parser 已输出稳定 structured packet，可直接作为 canonicalizer 输入。
-2. 阻塞面最大：这是 `Raw -> Canonical -> Semantic` 的唯一缺口，未补齐将阻塞后续语义稳定性与可追溯性。
-3. 可控范围：核心改动集中在 `workflow/` 与 `generate` 链路，风险边界清晰，可通过单元测试封装。
+选择理由：
+1. 这是当前优先级第一项，且直接阻塞“fill->submit 语义还原稳定性”。
+2. 依赖全在仓内，不依赖真实站点风控，不会被外部环境卡住。
+3. 可在一次开发会话内完成代码+单测，风险边界清晰。
 
-### 工作量估算
+预估工作量：1.5h-2h（实现）+ 0.5h（测试）
 
-- 核心实现：1.5h-2h
-- 单元测试：0.5h-1h
-- 合计：2h-3h
+## 4. 依赖与差距分析
 
-## 4. 问题定义（Design Path）
+### 4.1 输入契约（当前 vs 目标）
 
-### 4.1 当前痛点
-
-1. 生成阶段仍直接喂 Raw action packet 给 LLM，缺少 deterministic 的语义归一层。
-2. 没有 schema gate，脏录制数据会直接进入 LLM，导致输出波动与追溯断裂。
-3. `reference_actions` 尚未绑定 `source_canonical_action_id`，后续 Refiner traceability 难以闭环。
-
-### 4.2 约束
-
-1. 不破坏现有 CLI 和历史 workflow 的可运行性。
-2. Canonicalizer 不允许使用 LLM。
-3. 先落地最小闭环，再做协议扩展（submit 显式事件、value_before/value_after 等）。
-
-### 4.3 非目标（本 TODO 不做）
-
-1. 不改 Extension 录制协议（Phase B）。
-2. 不改 Refiner trace 字段（Phase D）。
-3. 不处理 Prompt Cache 体系。
-
-## 5. 边界与归属
-
-| 组件 | 职责 | 输入 | 输出 |
+| 字段 | 当前状态 | 目标状态 | 差距 |
 |---|---|---|---|
-| `RecordingParser` | JSONL -> structured raw packet | recording JSONL | raw actions packet |
-| `Canonicalizer`（新增） | Raw -> Canonical 归一（deterministic） | raw actions | canonical actions + diagnostics |
-| `SkillGenerator` | Canonical -> SemanticStage | canonical actions | workflow payload |
-| `generate` 命令 | 入口编排与 fail-fast | recording path | workflow / 错误退出 |
+| `event_id` | 无 | Raw Event 稳定主键 | 需新增到 `RecordedAction` + packet |
+| `parent_event_id` | 无 | 因果链路 | 需新增到 `RecordedAction` + packet |
+| `frame_id` | 无 | 多 frame 归因 | 需新增到 `PageContext` 或 action 级字段并投影 |
+| `value_before/value_after` | 无（仅 `value`） | 输入演化可回放 | 需新增并与 `value` 协调 |
+| `triggered_by` | 有但仅弱约束 | 按事件类型规范化 | 需加校验策略（至少 soft-check） |
+| `submit` 事件 | Canonicalizer支持；协议枚举未包含 | Recording 明确 submit 边界 | 需扩展 `ActionType` |
 
-依赖方向：`Parser -> Canonicalizer -> SkillGenerator -> Workflow`。  
-Source of Truth：CanonicalAction schema 在 `canonical_models.py`。
+### 4.2 输出契约
 
-## 6. 方案对比与取舍
+1. `RecordingParser.to_structured_packet()` 产出字段会被 `Canonicalizer` 直接消费。
+2. 新字段在当前阶段主要服务 canonical 归一与未来 traceability，对 `Workflow` 对外接口不应造成破坏。
 
-### Option A（推荐）
+### 4.3 已有原型与可复用测试
 
-新增独立 `Canonicalizer` 层，并在 `generate` 前置校验。
+1. `tests/test_recording_parser.py` 已有 structured packet 断言，可直接扩展。
+2. `tests/test_canonicalizer.py` 已覆盖 submit/fill merge 语义，可新增“带 event identity”的回归断言。
+3. `tests/test_skill_generator.py` 已有 fail-fast 用例，可用于验证兼容性未回退。
 
-- 优点：职责清晰、可测试、符合 RFC 与 implementation spec。
-- 缺点：需要改动 `SkillGenerator` 的输入组装逻辑。
+### 4.4 Memory 风险对齐
 
-### Option B
+1. 已知规则要求“先保事件语义、再做压缩”，所以新增字段必须原样透传，不先做语义推断。
+2. 真实站点验证默认有头浏览器，仅作为本任务完成后的验收步骤。
 
-在 `SkillGenerator` 内部零散加规则，不引入新模块。
+## 5. Proposed Changes
 
-- 优点：短期改动少。
-- 缺点：规则与 LLM 流程耦合，后续难维护，且无法形成可复用 SSOT。
+### 5.1 协议模型层
 
-### Option C
+1. `[MODIFY]` `src/sasiki/server/websocket_protocol.py`
+- 扩展 `ActionType`：新增 `SUBMIT`（必要时补 `PRESS`，视现网事件是否出现）。
+- `RecordedAction` 新增可选字段：`event_id`, `trace_id`, `parent_event_id`, `value_before`, `value_after`, `input_masked`。
+- `PageContext` 新增 `frame_id`（或 action 级 `frame_id`，二选一，见设计决策）。
+- 保持旧字段不删除，alias 兼容驼峰与下划线。
 
-先做复杂站点 E2E，再回补 canonical。
+### 5.2 解析与投影层
 
-- 优点：短期可见结果。
-- 缺点：会在不稳定语义输入上做验证，数据无法用于稳定优化。
+1. `[MODIFY]` `src/sasiki/workflow/recording_parser.py`
+- `to_structured_packet()` 的 `raw` 与上下文字段补齐：`event_id/parent_event_id/frame_id/value_before/value_after/input_masked`。
+- 保留现有 `value` 语义，避免破坏下游；当 `value` 为空时可回退 `value_after`（仅投影层，不改原始落盘）。
+- 在 compact narrative 中仅补充必要字段（避免提示词膨胀）。
 
-结论：选 Option A。
+### 5.3 Canonical 对齐层（最小接入）
 
-## 7. Proposed Changes
+1. `[MODIFY]` `src/sasiki/workflow/canonicalizer.py`
+- schema 验证允许并读取新增字段（不强制）。
+- `source_event_ids` 维持当前类型与行为，新增字段仅用于后续 trace 对齐准备。
 
-### 7.1 Workflow 层
+### 5.4 测试
 
-1. `[NEW]` `src/sasiki/workflow/canonical_models.py`
-- `class PostconditionSpec(BaseModel)`
-- `class TargetStrategy(BaseModel)`
-- `class RetryHint(BaseModel)`
-- `class CanonicalAction(BaseModel)`
-- `class CanonicalDiagnostics(BaseModel)`
+1. `[MODIFY]` `tests/test_recording_parser.py`
+- 新增“新字段透传到 structured packet”断言。
+- 新增“旧录制样本不含新字段仍可解析”回归断言。
+2. `[MODIFY]` `tests/test_canonicalizer.py`
+- 新增“submit + parent_event_id 场景仍能生成正确 canonical action”断言。
+3. `[MODIFY]` `tests/test_skill_generator.py`
+- 新增“带新字段录制样本 generate 成功”的兼容性断言。
 
-2. `[NEW]` `src/sasiki/workflow/canonicalizer.py`
-- `class Canonicalizer`
-- `def canonicalize(raw_actions: list[dict[str, Any]]) -> tuple[list[CanonicalAction], CanonicalDiagnostics]`
-- 覆盖规则：windowing、R1-R6、confidence、warning/drop 策略。
+### 5.5 删除项
 
-3. `[MODIFY]` `src/sasiki/workflow/skill_generator.py`
-- `_extract_workflow_data()` 中把 `structured_packet["actions"]` 先送入 canonicalizer。
-- semantic prompt 输入切换为 canonical action packet（而非 raw packet 直传）。
-- stage 组装时引用 canonical action 的稳定字段。
+1. `[DELETE]` 无。
 
-4. `[MODIFY]` `src/sasiki/workflow/recording_parser.py`
-- 如有必要，仅补充 canonicalizer 所需的最小 raw 字段投影函数。
+## 6. 关键设计决策
 
-### 7.2 CLI/命令层
+1. **新字段采用 optional + backward compatible**
+- 原因：历史 JSONL 资产较多，直接强制字段会导致 generate 大面积 fail-fast。
 
-1. `[MODIFY]` `src/sasiki/commands/generate.py`
-- 对 schema validator / canonicalizer 异常做 fail-fast 退出与可读错误提示。
+2. **`value` 不移除，`value_before/value_after` 作为补充事实字段**
+- 原因：下游已有大量 `value` 使用点，先并存可降低回归风险。
 
-### 7.3 测试
+3. **`triggered_by` 先做 soft validation（warning）而非 hard fail**
+- 原因：现网录制端尚在演进，先用告警统计覆盖率，再在 Phase B 末期升为强校验。
 
-1. `[NEW]` `tests/workflow/test_canonicalizer.py`
-- 覆盖 implementation spec 的 R1-R6、merge、confidence、drop/warning。
+需要你确认：
+1. `frame_id` 放在 `PageContext` 还是 `RecordedAction` 顶层（我建议放 `PageContext`，更符合“页面上下文”语义）。
+2. `ActionType` 是否立即加入 `PRESS`（如果 extension 会上报键盘事件，建议同时加入，减少后续兼容分支）。
 
-2. `[MODIFY]` `tests/test_skill_generator.py`
-- 验证 generator 使用 canonical 输入后仍能产出有效 workflow。
+## 7. Verification Plan
 
-3. `[NEW]` `tests/commands/test_generate_validator.py`
-- 无效录制输入会在 generate 阶段被拦截，不调用 LLM。
-
-4. `[DELETE]` 无。
-
-## 8. 关键设计决策
-
-1. `CanonicalAction` 作为生成阶段唯一语义输入。
-- 原因：避免 Raw 字段噪声直接影响 LLM，保证行为可追溯。
-
-2. fail-fast 放在 generate 编排层，而非 LLM 返回后兜底。
-- 原因：低成本尽早失败，避免无效 token 消耗。
-
-3. Phase A 先允许协议字段缺失降级（诊断告警），但禁止关键缺失静默通过。
-- 原因：兼容历史录制，同时建立明确升级路径。
-
-## 9. 依赖与差距分析
-
-### 9.1 输入契约就绪度
-
-1. 已具备：`type/timestamp/value/url/page_context/target_hint/triggered_by`。
-2. 缺失：`event_id/frame_id/value_before/value_after/submit` 显式事件。
-
-### 9.2 输出契约消费方
-
-1. Generator 消费 canonical actions 产出 semantic stages。
-2. Refiner 暂时继续消费现有 `WorkflowStage`，source link 字段放到后续 Phase D。
-
-### 9.3 风险
-
-1. 旧测试样例里的 `type` 事件与 spec 的 `fill` 语义差异可能导致规则误判。
-2. 历史录制缺字段导致大量 fallback，短期会出现 `LOW_CONFIDENCE_INTENT`。
-
-### 9.4 缓解
-
-1. 在 canonicalizer 中引入显式 alias 映射（`type -> fill`）。
-2. 诊断中输出低置信动作比例，作为 Phase B 协议升级量化依据。
-
-## 10. Migration Plan
-
-1. Step 1：落地 canonical models + canonicalizer（不改外部 CLI 参数）。
-2. Step 2：generate 接入 validator，默认启用 fail-fast。
-3. Step 3：以现有测试录制集回归，收敛 warning 分类。
-4. Step 4：再进入 Phase B 协议字段扩展。
-
-回滚点：`SkillGenerator` 保留 raw packet 兼容入口；若 canonical 路径出现严重回归，可临时回切 raw 模式。
-
-## 11. Verification Plan
-
-### 11.1 单元测试场景
+### 7.1 单元测试矩阵
 
 | 场景 | 输入 | 预期 |
 |---|---|---|
-| R1 Explicit Submit | 包含 `submit` event | 产出 `action_type=submit`, confidence=1.0 |
-| R2 Fill+Enter | `fill` 后 2s 内 `press Enter` | 产出 fill + submit 对 |
-| Fill Merge | 同目标连续 fill | 合并单个 canonical fill，保留 source ids |
-| R4 Navigate | navigate + triggered_by=redirect | confidence=0.80 |
-| R6 Fallback | 未命中规则 | `intent_category=other`, `needs_review=true` |
-| Missing postcondition | 构造失败样例 | action drop + `MISSING_POSTCONDITION` warning |
-| Generate fail-fast | 缺关键字段 raw action | CLI 退出码非 0，LLM 不被调用 |
+| 新字段透传 | action 含 `event_id/value_before/value_after/frame_id` | packet 中对应字段存在且值一致 |
+| submit 兼容 | `type=submit` action | `RecordedAction` 可解析，canonical 可产出 submit intent |
+| 旧样本兼容 | 无新字段旧 JSONL | parser/generate 全流程不报 schema 错误 |
+| triggered_by soft-check | `navigate` 无 triggered_by | 不中断流程，但产生可观测告警 |
+| value 回退 | `value=None`, `value_after=xxx` | structured packet 中 input 语义可被 canonical 消费 |
 
-### 11.2 建议执行命令
+### 7.2 计划执行命令
 
 ```bash
-uv run pytest -q tests/workflow/test_canonicalizer.py tests/test_skill_generator.py tests/commands/test_generate_validator.py
 uv run ruff check src tests
 uv run mypy src
+uv run pytest -q tests/test_recording_parser.py tests/test_canonicalizer.py tests/test_skill_generator.py
 uv run pytest -q
 ```
 
-### 11.3 手动验证
+### 7.3 手动验证
 
-1. 用一个已有录制运行 `sasiki generate <recording> --preview`，确认 canonical 诊断摘要可见。
-2. 用缺字段样本运行 `sasiki generate <recording>`，确认被 fail-fast 拦截。
-3. 用正常样本运行生成，确认 workflow stages/variables/checkpoints 仍可落盘。
+1. 用一条新录制样本执行 `uv run sasiki generate <recording.jsonl> --preview`，确认 structured packet 含新增字段。
+2. 执行一次 `generate -> refine` 冒烟，检查 execution report 仍正常落盘。
+3. 实站验证遵守有头模式：`uv run sasiki refine <workflow_id> ... --observation-mode browser_use`（不加 `--headless`）。
 
-## 12. 需要用户确认
+## 8. 交付边界与下一步
 
-1. Phase A 是否要求一次性实现完整 R1-R6，还是先交付 R1/R4/R6 最小子集再补齐。
-2. fail-fast 严格度是否默认“关键字段缺失即失败”，或允许 warning-only 模式通过。
+本计划只覆盖 Phase B 的最小后端契约补齐，不包含：
+1. extension 端事件生产逻辑改造。
+2. Refiner execution trace 的 `source_canonical_action_id/source_link_reason` 全量落地。
+
+完成本 TODO 后，下一步建议直接进入：
+1. Phase B-后半：字段覆盖率统计与强校验开关。
+2. Phase D 预对齐：Episode/ExecutionReport 增加 source link 字段。

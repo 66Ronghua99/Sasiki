@@ -64,6 +64,7 @@ class TestRecordingParser:
                 "url": "https://example.com",
                 "title": "Example",
                 "tab_id": 123,
+                "frame_id": "main",
             },
             "url": "https://example.com",
             "triggered_by": "url_change",
@@ -77,6 +78,7 @@ class TestRecordingParser:
                 "url": "https://example.com/page",
                 "title": "Example Page",
                 "tab_id": 123,
+                "frame_id": "main",
             },
             "target_hint": {
                 "role": "button",
@@ -175,6 +177,7 @@ class TestRecordingParser:
         assert click_action["target_hint_raw"]["class_name"] == "submit-btn"
         assert click_action["target_hint_raw"]["element_id"] == "submit-main"
         assert click_action["target_hint_raw"]["test_id"] == "submit-cta"
+        assert click_action["page_context"]["frame_id"] == "main"
 
     def test_to_structured_packet_preserves_raw_and_normalized_target_hints(self):
         """Structured packet should keep both raw and normalized target hints."""
@@ -194,6 +197,7 @@ class TestRecordingParser:
                 "url": "https://example.com/page",
                 "title": "Example Page",
                 "tab_id": 123,
+                "frame_id": "main",
             },
             "target_hint": {
                 "role": "button",
@@ -223,6 +227,86 @@ class TestRecordingParser:
 
         assert action["raw_target_hint_raw"]["tag_name"] == "svg"
         assert action["normalized_target_hint_raw"]["tag_name"] == "button"
+
+    def test_to_structured_packet_includes_phase_b_fields(self):
+        """Structured packet should include event identity and input transition fields."""
+        metadata = {
+            "_meta": True,
+            "session_id": "phase_b_session",
+            "started_at": "2024-01-01T12:00:00.000000",
+            "stopped_at": "2024-01-01T12:00:05.000000",
+            "action_count": 1,
+            "duration_ms": 5000,
+        }
+        submit_action = {
+            "event_id": "evt_001",
+            "trace_id": "trace_001",
+            "parent_event_id": "evt_000",
+            "timestamp": 1704110401000,
+            "type": "submit",
+            "session_id": "phase_b_session",
+            "page_context": {
+                "url": "https://example.com/search?keyword=boots",
+                "title": "Search",
+                "tab_id": 123,
+                "frame_id": "main",
+            },
+            "value_before": "boo",
+            "value_after": "boots",
+            "input_masked": False,
+            "triggered_by": "press_enter",
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps(metadata) + "\n")
+            f.write(json.dumps(submit_action) + "\n")
+            filepath = Path(f.name)
+
+        parser = RecordingParser(filepath)
+        packet = parser.to_structured_packet(max_actions=10)
+        action = packet["actions"][0]
+
+        assert action["raw"]["event_id"] == "evt_001"
+        assert action["raw"]["trace_id"] == "trace_001"
+        assert action["raw"]["parent_event_id"] == "evt_000"
+        assert action["raw"]["value_before"] == "boo"
+        assert action["raw"]["value_after"] == "boots"
+        assert action["raw"]["input_masked"] is False
+        assert action["page_context"]["frame_id"] == "main"
+
+    def test_to_structured_packet_uses_value_after_when_value_missing(self):
+        """Packet should project value_after as value when legacy value is empty."""
+        metadata = {
+            "_meta": True,
+            "session_id": "value_after_session",
+            "started_at": "2024-01-01T12:00:00.000000",
+            "stopped_at": "2024-01-01T12:00:05.000000",
+            "action_count": 1,
+            "duration_ms": 5000,
+        }
+        press_action = {
+            "timestamp": 1704110401000,
+            "type": "press",
+            "session_id": "value_after_session",
+            "page_context": {
+                "url": "https://example.com",
+                "title": "Example",
+                "tab_id": 123,
+            },
+            "value_after": "Enter",
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps(metadata) + "\n")
+            f.write(json.dumps(press_action) + "\n")
+            filepath = Path(f.name)
+
+        parser = RecordingParser(filepath)
+        packet = parser.to_structured_packet(max_actions=10)
+        action = packet["actions"][0]
+
+        assert action["raw"]["type"] == "press"
+        assert action["raw"]["value"] == "Enter"
 
     def test_filter_actions_by_type(self, sample_recording):
         """Test filtering actions by type."""

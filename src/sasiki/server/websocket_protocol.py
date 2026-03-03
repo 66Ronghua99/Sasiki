@@ -17,6 +17,8 @@ class ActionType(str, Enum):
     CLICK = "click"
     TYPE = "type"
     SELECT = "select"
+    PRESS = "press"
+    SUBMIT = "submit"
     NAVIGATE = "navigate"
     SCROLL = "scroll"
     TAB_SWITCH = "tab_switch"
@@ -112,6 +114,11 @@ class PageContext(BaseModel):
         validation_alias=AliasChoices("tab_id", "tabId"),
         default=None, description="Extension tab ID for multi-tab workflows"
     )
+    frame_id: Optional[str] = Field(
+        validation_alias=AliasChoices("frame_id", "frameId"),
+        default=None,
+        description="Frame identifier when the event occurs in an iframe",
+    )
 
 
 class RecordedAction(BaseModel):
@@ -125,9 +132,24 @@ class RecordedAction(BaseModel):
 
     timestamp: int = Field(description="Unix timestamp in milliseconds")
     type: ActionType = Field(description="Type of action performed")
+    event_id: Optional[str] = Field(
+        validation_alias=AliasChoices("event_id", "eventId"),
+        default=None,
+        description="Stable event id emitted by recording extension",
+    )
+    trace_id: Optional[str] = Field(
+        validation_alias=AliasChoices("trace_id", "traceId"),
+        default=None,
+        description="Trace id for cross-event correlation",
+    )
     session_id: Optional[str] = Field(
         validation_alias=AliasChoices("session_id", "sessionId"),
         default=None, description="Recording session ID for grouping actions"
+    )
+    parent_event_id: Optional[str] = Field(
+        validation_alias=AliasChoices("parent_event_id", "parentEventId"),
+        default=None,
+        description="Parent event id for causality linkage",
     )
     # Element fingerprint for replay matching
     target_hint: Optional[ElementFingerprint] = Field(
@@ -147,6 +169,21 @@ class RecordedAction(BaseModel):
     # Action-specific data
     value: Optional[str] = Field(
         default=None, description="Input value for type/select actions"
+    )
+    value_before: Optional[str] = Field(
+        validation_alias=AliasChoices("value_before", "valueBefore"),
+        default=None,
+        description="Value before input/edit action",
+    )
+    value_after: Optional[str] = Field(
+        validation_alias=AliasChoices("value_after", "valueAfter"),
+        default=None,
+        description="Value after input/edit action",
+    )
+    input_masked: Optional[bool] = Field(
+        validation_alias=AliasChoices("input_masked", "inputMasked"),
+        default=None,
+        description="Whether input value is masked for privacy",
     )
     url: Optional[str] = Field(
         default=None, description="Target URL for navigate actions"
@@ -176,6 +213,7 @@ class RecordedAction(BaseModel):
 
     def to_execution_step(self) -> dict[str, Any]:
         """Convert to execution step format for Skill generation."""
+        effective_value = self.value if self.value is not None else self.value_after
         step = {
             "action": self.type.value,
             "timestamp": self.timestamp,
@@ -186,8 +224,8 @@ class RecordedAction(BaseModel):
         if target_hint:
             step["target_hint"] = target_hint.to_selector_hint()
 
-        if self.value:
-            step["value"] = self.value
+        if effective_value:
+            step["value"] = effective_value
 
         if self.url:
             step["url"] = self.url
