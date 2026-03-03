@@ -9,6 +9,7 @@ import pytest
 
 from sasiki.workflow.models import VariableType, Workflow
 from sasiki.workflow.skill_generator import SkillGenerator
+from sasiki.workflow.skill_models import SemanticStagePlan
 
 
 class TestSkillGenerator:
@@ -162,6 +163,34 @@ class TestSkillGenerator:
 
         with pytest.raises(ValueError, match="Could not parse"):
             generator._parse_llm_response(response)
+
+    def test_build_stage_from_action_ids_sets_navigate_value(self):
+        """Navigate actions should carry URL into value for refiner execution hints."""
+        generator = SkillGenerator(llm_client=MagicMock())
+        stage_plan = SemanticStagePlan(
+            name="Search stage",
+            action_ids=[1],
+        )
+        action_map = {
+            1: {
+                "action_id": 1,
+                "canonical_action_id": "can_001",
+                "source_event_ids": [10],
+                "intent_category": "navigate",
+                "intent_label": "navigate_page",
+                "confidence": 0.9,
+                "action_type": "navigate",
+                "target_strategy": {"preferred": None, "fallbacks": []},
+                "input": None,
+                "page_url": "https://example.com/search?q=test",
+                "postconditions": [],
+            }
+        }
+
+        stage = generator._build_stage_from_action_ids(stage_plan, action_map)
+
+        assert stage["action_details"][0]["value"] == "https://example.com/search?q=test"
+        assert stage["reference_actions"][0]["value"] == "https://example.com/search?q=test"
 
     def test_convert_to_workflow(self, mock_llm_response):
         """Test converting LLM data to Workflow model."""

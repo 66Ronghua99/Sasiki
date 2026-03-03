@@ -134,6 +134,59 @@ def test_navigate_redirect_generates_low_confidence_warning() -> None:
     assert any(w.code == "LOW_CONFIDENCE_INTENT" for w in diagnostics.warnings)
 
 
+def test_noisy_url_change_navigate_before_interaction_is_dropped() -> None:
+    canonicalizer = Canonicalizer()
+    actions, diagnostics = canonicalizer.canonicalize(
+        [
+            _packet_action(
+                1,
+                "navigate",
+                1000,
+                page_url="https://example.com/search?keyword=old",
+                url="https://example.com/search?keyword=old",
+                triggered_by="url_change",
+            ),
+            _packet_action(
+                2,
+                "click",
+                1200,
+                page_url="https://example.com/search?keyword=old",
+                target={"role": "textbox", "name": "Search", "tag_name": "input"},
+            ),
+        ]
+    )
+
+    assert len(actions) == 1
+    assert actions[0].action_type == "click"
+    assert diagnostics.dropped_event_ids == [1]
+    assert any(w.code == "DROPPED_NOISY_NAVIGATE" for w in diagnostics.warnings)
+
+
+def test_url_fragment_decodes_double_encoded_query_value() -> None:
+    canonicalizer = Canonicalizer()
+    actions, _ = canonicalizer.canonicalize(
+        [
+            _packet_action(
+                1,
+                "navigate",
+                1000,
+                page_url=(
+                    "https://example.com/search_result"
+                    "?keyword=%25E6%2598%25A5%25E5%25AD%25A3%25E7%25A9%25BF%25E6%2590%25AD%2520%25E7%2594%25B7"
+                ),
+                url=(
+                    "https://example.com/search_result"
+                    "?keyword=%25E6%2598%25A5%25E5%25AD%25A3%25E7%25A9%25BF%25E6%2590%25AD%2520%25E7%2594%25B7"
+                ),
+                triggered_by="submit",
+            )
+        ]
+    )
+
+    assert len(actions) == 1
+    assert actions[0].postconditions[0].value == "keyword=春季穿搭 男"
+
+
 def test_unknown_sequence_falls_back_to_other() -> None:
     canonicalizer = Canonicalizer()
     actions, _ = canonicalizer.canonicalize(

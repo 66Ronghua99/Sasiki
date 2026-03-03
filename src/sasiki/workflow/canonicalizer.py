@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Any, Literal, cast
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl, unquote, urlparse
 
 from sasiki.workflow.canonical_models import (
     CanonicalAction,
@@ -62,6 +62,14 @@ class Canonicalizer:
         "redirect": 0.80,
         "url_change": 0.70,
     }
+    _QUERY_KEY_PRIORITY = (
+        "keyword",
+        "query",
+        "q",
+        "search_query",
+        "wd",
+        "text",
+    )
 
     def canonicalize(
         self,
@@ -147,6 +155,20 @@ class Canonicalizer:
                 )
                 consumed_next = True
             elif event.event_type == "navigate":
+                if self._is_noisy_url_change_navigate(event, next_event):
+                    diagnostics.warnings.append(
+                        CanonicalWarning(
+                            code="DROPPED_NOISY_NAVIGATE",
+                            message=(
+                                "Dropped low-signal navigate(url_change) before immediate interaction; "
+                                "likely page-state marker instead of user intent"
+                            ),
+                            event_ids=event.source_event_ids.copy(),
+                        )
+                    )
+                    diagnostics.dropped_event_ids.extend(event.source_event_ids)
+                    idx += 2 if consumed_next else 1
+                    continue
                 triggered_by = (event.triggered_by or "").lower()
                 confidence = self._NAV_CONFIDENCE.get(triggered_by, 0.70)
                 self._emit(
@@ -557,14 +579,60 @@ class Canonicalizer:
         if not url:
             return None
         parsed = urlparse(url)
-        if parsed.query:
-            first_key, first_value = next(iter(parse_qsl(parsed.query, keep_blank_values=True)))
-            if first_key:
-                return f"{first_key}={first_value}" if first_value else first_key
+        query_items = parse_qsl(parsed.query, keep_blank_values=True)
+        if query_items:
+            key, value = self._pick_query_item(query_items)
+            if key:
+                normalized_value = self._normalize_fragment_value(value)
+                return f"{key}={normalized_value}" if normalized_value else key
         path = (parsed.path or "").strip("/")
         if path:
-            return path.split("/")[-1]
+            return self._normalize_fragment_value(path.split("/")[-1])
         return parsed.netloc or None
+
+    def _pick_query_item(self, query_items: list[tuple[str, str]]) -> tuple[str, str]:
+        lowered_map = {key.lower(): (key, value) for key, value in query_items if key}
+        for key in self._QUERY_KEY_PRIORITY:
+            selected = lowered_map.get(key)
+            if selected is not None:
+                return selected
+        for key, value in query_items:
+            if key and value:
+                return key, value
+        return query_items[0]
+
+    def _normalize_fragment_value(self, value: str) -> str:
+        normalized = value.strip()
+        for _ in range(3):
+            decoded = unquote(normalized)
+            if decoded == normalized:
+                break
+            normalized = decoded.strip()
+        return " ".join(normalized.split())
+
+    def _is_noisy_url_change_navigate(
+        self,
+        event: NormalizedEvent,
+        next_event: NormalizedEvent | None,
+    ) -> bool:
+        """Drop low-signal url_change navigations immediately followed by interaction."""
+        if (event.triggered_by or "").lower() != "url_change":
+            return False
+        if next_event is None:
+            return False
+        if next_event.event_type not in {"click", "fill", "press", "submit"}:
+            return False
+        if not self._within_window(event, next_event, 5000):
+            return False
+        return self._url_signature(event.url_target or event.page_url) == self._url_signature(
+            next_event.page_url
+        )
+
+    def _url_signature(self, url: str) -> tuple[str, str]:
+        parsed = urlparse(url)
+        host = (parsed.netloc or "").lower()
+        path = (parsed.path or "/").rstrip("/") or "/"
+        return host, path
 
     def _looks_like_content_url(self, url: str) -> bool:
         if not url:

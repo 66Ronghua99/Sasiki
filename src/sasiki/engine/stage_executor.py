@@ -258,6 +258,7 @@ class StageExecutor:
                         action_history=action_history,
                         observation=provider_observation,
                     )
+                    self._validate_action_payload(action)
                     taken_actions.append(action)
                     steps_taken += 1
 
@@ -582,6 +583,7 @@ class StageExecutor:
                     action_history=self._build_action_history(history, episode_log),
                     observation=provider_observation,
                 )
+                self._validate_action_payload(retry_action)
                 taken_actions.append(retry_action)
                 steps_taken += 1
                 page_url_before = self._safe_page_url(page)
@@ -726,6 +728,24 @@ class StageExecutor:
             attempts=self.max_retry_attempts,
             error=str(retry_error),
         )
+        if self.human_handler is None and self._is_missing_navigate_url_error(retry_error):
+            return (
+                steps_taken,
+                last_dom_hash,
+                stagnant_count,
+                StageResult(
+                    stage_name=stage_name,
+                    status="paused",
+                    steps_taken=steps_taken,
+                    actions=taken_actions,
+                    episode_log=episode_log.copy(),
+                    error=(
+                        "Retry exhausted: navigate action missing URL value. "
+                        "Update workflow/reference actions or resume with human guidance."
+                    ),
+                ),
+                False,
+            )
         failure_result = await self._handle_step_failure(
             stage_name,
             stage_index,
@@ -884,6 +904,18 @@ class StageExecutor:
         if isinstance(state, dict):
             return state.get("provider_observation")
         return None
+
+    def _validate_action_payload(self, action: AgentAction) -> None:
+        """Reject invalid high-risk actions before execution."""
+        if action.action_type == "navigate":
+            url = action.value.strip() if isinstance(action.value, str) else ""
+            if not url:
+                raise ValueError("Invalid agent action: navigate requires URL value")
+
+    def _is_missing_navigate_url_error(self, error: Exception) -> bool:
+        """Detect navigate-without-url failures for retry downgrade policy."""
+        lowered = str(error).lower()
+        return "navigate" in lowered and "require" in lowered and "url" in lowered
 
     def _safe_page_url(self, page: Page) -> str:
         """Get page url safely for mocks and real pages."""

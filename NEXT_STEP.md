@@ -13,20 +13,18 @@
 
 1. ✅ 后端协议与 parser 首版已完成（commit: `a10e6a4`）。
 2. ✅ extension 协议字段首版已对齐（`content.ts` + `background.ts`，pending real sample）。
-3. 🔴 真实 E2E 暴露新阻塞：`navigate + value=null` 导致 retry 硬失败（workflow: `2575f2d7-084e-449c-ac30-794add02329d`）。
-4. ⏳ execution trace source-link（Phase D）尚未接入。
+3. 🟡 Phase C/D P0 代码修复已落地（canonicalizer 去噪 + generator navigate value 补齐 + retry 降级）。
+4. ⏳ 需用有头真实 E2E 复验修复有效性（重点看 Stage1 是否稳定 `fill -> submit`）。
+5. ⏳ execution trace source-link（Phase D）尚未接入。
+6. 复验样本 `343d6933-9df3-4c32-a35d-b6cd333bbcdf` 显示：已消除空 URL 导航崩溃，但 Stage1 仍因 done-verifier 误拒绝失败；暂不改阶段顺序。
 
 ## 立即执行（按顺序）
 
-1. **Generator 修复（P0）**
-- 目标：stage 不再被脏 URL 主导，`search_query` 成为关键动作主驱动。
-- 验收：同样输入下，Stage1 优先出现 `fill/submit`，不连续 `navigate` 修 URL。
+1. **有头 E2E 复验（P0）**
+- 目标：验证 P0 修复后，真实站点 Stage1 不再被连续 `navigate` 主导。
+- 验收：同样输入下，Stage1 优先出现 `fill/submit`，且无 `navigate + value=null` 硬失败。
 
-2. **Refiner retry 兜底（P0）**
-- 目标：当 LLM 输出 `navigate` 且缺 `value` 时不硬崩。
-- 验收：同类异常走降级策略（重试重采样/ask_human/skip）而非直接失败退出。
-
-3. **Traceability 补齐（P1）**
+2. **Traceability 补齐（P1）**
 - 在 `EpisodeEntry` / execution report 增加 `source_canonical_action_id`（可空）与 `source_link_reason`（当可空时必填）。
 
 ## Done Criteria

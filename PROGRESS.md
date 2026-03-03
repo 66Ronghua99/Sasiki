@@ -40,10 +40,10 @@ Message: `feat(recording): add phase-b protocol fields (pending test)`
 
 ### 2) 验证结果（本地）
 
-1. `uv run pytest -q tests/test_recording_parser.py tests/test_canonicalizer.py tests/test_skill_generator.py` ✅（35 passed）
+1. `uv run pytest -q tests/test_canonicalizer.py tests/test_skill_generator.py tests/engine/test_workflow_refiner.py` ✅（63 passed）
 2. `uv run mypy src` ✅
-3. `uv run pytest -q` ✅（216 passed）
-4. `uv run ruff check src tests` ❌（历史 lint 债，当前约 189）
+3. `uv run pytest -q` ✅（220 passed）
+4. `uv run ruff check src tests` ❌（历史 lint 债，当前约 190）
 
 ### 3) Phase B-MVP（extension 侧）已完成首版对齐（pending real sample）
 
@@ -61,12 +61,27 @@ Message: `feat(recording): add phase-b protocol fields (pending test)`
    - `npm run typecheck` ✅
    - `npm run build` ✅
 
+### 4) Phase C/D（P0）首轮修复已落地（pending headed E2E）
+
+已完成：
+1. `src/sasiki/workflow/canonicalizer.py`
+   - 新增噪声过滤：`navigate(triggered_by=url_change)` 且紧邻交互事件时可判定为低信号并丢弃。
+   - URL 片段提取增强：优先语义查询键（`keyword/query/q/...`），并对双重编码值做解码归一。
+2. `src/sasiki/workflow/skill_generator.py`
+   - `navigate` 动作在 `action_details/reference_actions` 中补齐 `value=page_url`，避免空 URL 导航提示。
+3. `src/sasiki/engine/stage_executor.py`
+   - 执行前校验 `navigate` 必须带 URL。
+   - retry 用尽且命中“navigate 缺 URL”时，默认降级为 `paused`（无 handler），避免硬失败退出。
+4. 回归测试新增：
+   - `tests/test_canonicalizer.py`
+   - `tests/test_skill_generator.py`
+   - `tests/engine/test_workflow_refiner.py`
+
 ## 当前优先级（按顺序）
 
-1. **Phase C 修复（Generator 语义稳态）**：修复脏 URL / 双重编码漂移，保证变量（如 `search_query`）真正驱动关键动作，降低无意义 `navigate` 重试。
-2. **Phase D 修复（Refiner retry 兜底）**：对 `navigate + value=null` 增加策略降级，避免硬失败。
-3. **Traceability 补齐**：execution trace 增加 `source_canonical_action_id/source_link_reason` 并修复 step 记录连续性。
-4. Prompt Cache / Message History 成本优化。
+1. **Headed E2E 回归验证（下一步）**：用真实录制样本验证 `fill -> submit` 是否稳定替代连续 `navigate`。
+2. **Traceability 补齐**：execution trace 增加 `source_canonical_action_id/source_link_reason` 并修复 step 记录连续性。
+3. Prompt Cache / Message History 成本优化。
 
 ## 执行约束
 
@@ -82,7 +97,7 @@ uv run sasiki refine <workflow_id> \
   --observation-mode browser_use
 ```
 
-## 最新 E2E 结论（2026-03-03 夜间）
+## 最新 E2E 结论（2026-03-03 夜间，修复前基线）
 
 样本：`/Users/cory/.sasiki/workflows/2575f2d7-084e-449c-ac30-794add02329d/execution_report_final.json`
 
@@ -94,6 +109,14 @@ uv run sasiki refine <workflow_id> \
 结论：
 1. Phase B 协议字段对齐已能支撑链路运行。
 2. 当前主阻塞已转移到 Phase C/D（生成策略与执行重试鲁棒性）。
+
+## 最新 E2E 复验（2026-03-03 夜间，修复后）
+
+样本：`/Users/cory/.sasiki/workflows/343d6933-9df3-4c32-a35d-b6cd333bbcdf/execution_report_final.json`
+
+1. Stage1 执行到搜索结果页成功，未出现 `navigate + value=null` 崩溃。
+2. 失败原因为 `done` 被 StageVerifier 拒绝（`evidence does not satisfy success criteria`）。
+3. 当前仍处于 P0 复验阶段：核心关注点保持不变（`fill -> submit` 稳定性 + 无空 URL 导航硬失败）。
 
 ## 已知未解决问题
 

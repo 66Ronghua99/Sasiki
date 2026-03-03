@@ -713,6 +713,30 @@ class TestRetryLogic:
         assert result.stage_results[0].status == "failed"
         assert "retry" in result.stage_results[0].error.lower()
 
+    @pytest.mark.asyncio
+    async def test_retry_missing_navigate_url_pauses_without_handler(
+        self, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Invalid navigate payload should degrade to paused instead of hard fail."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.side_effect = Exception("Initial execution failed")
+        mock_agent.step_with_context.side_effect = [
+            AgentAction(thought="Retry 1", action_type="navigate"),
+            AgentAction(thought="Retry 2", action_type="navigate"),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "test"},
+        )
+
+        assert result.status == "paused"
+        assert result.stage_results[0].status == "paused"
+        assert "navigate action missing url value" in result.stage_results[0].error.lower()
+
 
 class TestVariableSubstitution:
     """Tests for variable substitution in stage goals."""

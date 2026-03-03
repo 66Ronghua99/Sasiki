@@ -187,6 +187,12 @@ You receive a structured browser recording (JSON). Each action has a stable `act
             if not action:
                 continue
 
+            action_type = action.get("action_type")
+            action_value = (
+                action.get("page_url")
+                if action_type == "navigate"
+                else action.get("input")
+            )
             target_strategy = action.get("target_strategy", {})
             preferred_target = (
                 target_strategy.get("preferred")
@@ -200,10 +206,10 @@ You receive a structured browser recording (JSON). Each action has a stable `act
                 "intent_category": action.get("intent_category"),
                 "intent_label": action.get("intent_label"),
                 "confidence": action.get("confidence"),
-                "action_type": action.get("action_type"),
+                "action_type": action_type,
                 "target_hint": preferred_target,
                 "normalized_target_hint": preferred_target,
-                "value": action.get("input"),
+                "value": action_value,
                 "url": action.get("page_url"),
                 "triggered_by": action.get("triggered_by"),
                 "postconditions": action.get("postconditions", []),
@@ -223,7 +229,7 @@ You receive a structured browser recording (JSON). Each action has a stable `act
                 "action_type": detail.get("action_type"),
                 "type": detail.get("action_type"),  # backward compatibility for existing readers
                 "target": preferred_target,
-                "value": action.get("input"),
+                "value": action_value,
                 "postconditions": action.get("postconditions", []),
             }
             cleaned_reference_action = self.formatter.remove_null_values(reference_action)
