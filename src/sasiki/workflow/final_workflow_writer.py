@@ -16,7 +16,7 @@ from pydantic_yaml import to_yaml_file
 from sasiki.utils.logger import get_logger
 
 if TYPE_CHECKING:
-    from sasiki.engine.refiner_state import StageResult
+    from sasiki.engine.refiner_state import ExecutionReport, StageResult
     from sasiki.workflow.models import Workflow
 
 from sasiki.workflow.storage import WorkflowStorage
@@ -110,3 +110,22 @@ class FinalWorkflowWriter:
             storage = WorkflowStorage()
 
         return storage.base_dir / workflow_id
+
+    def save_execution_report(
+        self,
+        workflow_id: str,
+        report: ExecutionReport,
+        output_suffix: str = "final",
+    ) -> Path:
+        """Save structured execution report JSON."""
+        workflow_dir = self.get_workflow_dir(workflow_id)
+        workflow_dir.mkdir(parents=True, exist_ok=True)
+        report_path = workflow_dir / f"execution_report_{output_suffix}.json"
+        with open(report_path, "w") as f:
+            json.dump(report.model_dump(mode="json"), f, indent=2)
+        get_logger().info(
+            "execution_report_saved",
+            workflow_id=workflow_id,
+            path=str(report_path),
+        )
+        return report_path

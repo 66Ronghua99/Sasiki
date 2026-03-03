@@ -23,6 +23,31 @@ class StageResult(BaseModel):
     episode_log: list[EpisodeEntry] = Field(default_factory=list)
     verified: bool = False
     verification_evidence: str | None = None
+    world_state_summary: str | None = None
+    error: str | None = None
+
+
+class ExecutionStageReport(BaseModel):
+    """Structured execution report for a single stage."""
+
+    stage_name: str
+    status: Literal["success", "failed", "skipped", "paused"]
+    steps_taken: int
+    verified: bool = False
+    verification_evidence: str | None = None
+    world_state_summary: str | None = None
+    episode_log: list[EpisodeEntry] = Field(default_factory=list)
+    error: str | None = None
+
+
+class ExecutionReport(BaseModel):
+    """Structured execution report for a workflow run."""
+
+    workflow_id: str
+    workflow_name: str
+    status: Literal["completed", "failed", "paused"]
+    total_steps: int
+    stages: list[ExecutionStageReport] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -35,6 +60,8 @@ class RefineResult(BaseModel):
     stage_results: list[StageResult] = Field(default_factory=list)
     total_steps: int = 0
     final_workflow_path: str | None = None
+    execution_report: ExecutionReport | None = None
+    execution_report_path: str | None = None
     error: str | None = None
 
 
@@ -134,6 +161,8 @@ class RefinerState:
         workflow_id: str,
         workflow_name: str,
         final_workflow_path: str | None = None,
+        execution_report: ExecutionReport | None = None,
+        execution_report_path: str | None = None,
     ) -> RefineResult:
         """Build the final RefineResult from current state."""
         return RefineResult(
@@ -143,6 +172,35 @@ class RefinerState:
             stage_results=self._stage_results.copy(),
             total_steps=self._total_steps,
             final_workflow_path=final_workflow_path,
+            execution_report=execution_report,
+            execution_report_path=execution_report_path,
+            error=self._error,
+        )
+
+    def build_execution_report(
+        self,
+        workflow_id: str,
+        workflow_name: str,
+    ) -> ExecutionReport:
+        """Build structured execution report from current state."""
+        return ExecutionReport(
+            workflow_id=workflow_id,
+            workflow_name=workflow_name,
+            status=self._final_status,
+            total_steps=self._total_steps,
+            stages=[
+                ExecutionStageReport(
+                    stage_name=result.stage_name,
+                    status=result.status,
+                    steps_taken=result.steps_taken,
+                    verified=result.verified,
+                    verification_evidence=result.verification_evidence,
+                    world_state_summary=result.world_state_summary,
+                    episode_log=result.episode_log.copy(),
+                    error=result.error,
+                )
+                for result in self._stage_results
+            ],
             error=self._error,
         )
 

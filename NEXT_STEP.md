@@ -2,7 +2,7 @@
 
 **更新日期：2026-03-03**
 
-## 目标：AI-Native Pipeline 重构 — P2 WorldState
+## 目标：AI-Native Pipeline 重构 — P2 ExecutionStrategy
 
 ---
 
@@ -20,14 +20,15 @@
 
 ## 当前优先级
 
-### P2：WorldState 跨 Stage 传递
+### P2：ExecutionStrategy 接口预留（Path B）
 
 **任务描述**：
-在 Stage 执行结束后生成简短 `world_state_summary`（URL + 关键页面状态），并在下一 Stage 作为上下文输入，避免 `history.clear()` 后的信息断层。
+为未来 Path B（browser/api/tool/hybrid）预留统一执行策略接口，在不改变现有 browser-first 行为前提下抽象执行层边界。
 
 **验收标准**：
-- Stage 间可读取前一阶段 `world_state_summary`
-- Prompt 中包含 `World state from previous stage`（或等价语义段落）
+- 新增策略抽象接口与默认 browser 实现占位
+- 当前执行路径行为保持不变（回归测试通过）
+- 代码中新增清晰的扩展点注释或接口文档
 - 单元测试通过（`uv run pytest -q`）
 
 ---
@@ -52,6 +53,6 @@
 11. ✅ StageVerifier（evidence-based done）
 
 **P2（记忆与输出）**：
-12. WorldState 跨 Stage 传递
-13. ExecutionReport 输出格式
+12. ✅ WorldState 跨 Stage 传递
+13. ✅ ExecutionReport 输出格式
 14. ExecutionStrategy 接口预留（Path B）

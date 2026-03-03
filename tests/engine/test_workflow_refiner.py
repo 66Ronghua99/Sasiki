@@ -137,6 +137,7 @@ class TestStageResult:
         assert result.episode_log == []
         assert result.verified is False
         assert result.verification_evidence is None
+        assert result.world_state_summary is None
         assert result.error is None
 
     def test_stage_result_with_error(self):
@@ -152,6 +153,7 @@ class TestStageResult:
         assert result.episode_log == []
         assert result.verified is False
         assert result.verification_evidence is None
+        assert result.world_state_summary is None
         assert result.error == "Something went wrong"
 
 
@@ -170,6 +172,8 @@ class TestRefineResult:
         assert result.workflow_id == "test-id"
         assert result.status == "completed"
         assert result.final_workflow_path is None
+        assert result.execution_report is None
+        assert result.execution_report_path is None
 
 
 class TestWorkflowRefinerInit:
@@ -241,6 +245,12 @@ class TestSingleStageExecution:
         assert result.stage_results[0].status == "success"
         assert result.stage_results[0].steps_taken == 1
         assert result.total_steps == 2  # One step per stage
+        assert result.execution_report is not None
+        assert result.execution_report_path is not None
+        assert result.execution_report.status == "completed"
+        assert len(result.execution_report.stages) == 2
+        assert result.execution_report.stages[0].stage_name == "Search"
+        assert result.execution_report.stages[0].steps_taken == 1
 
     @pytest.mark.asyncio
     @patch("builtins.open", mock_open())
@@ -407,6 +417,44 @@ class TestStageVerifier:
         assert result.stage_results[0].verification_evidence == "Clicked search button only"
         assert "StageVerifier" in (result.stage_results[0].error or "")
         assert result.stage_results[1].status == "skipped"
+
+
+class TestWorldState:
+    """Tests for cross-stage world state propagation."""
+
+    @pytest.mark.asyncio
+    @patch("builtins.open", mock_open())
+    @patch("sasiki.workflow.final_workflow_writer.to_yaml_file")
+    async def test_world_state_transfers_to_next_stage_prompt(
+        self, mock_to_yaml, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test stage summary is injected into the next stage prompt."""
+        mock_env, mock_page = mock_playwright_env
+        mock_page.url = "https://example.com/results"
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.side_effect = [
+            AgentAction(
+                thought="Stage 1 done",
+                action_type="done",
+                evidence="Results list is visible with multiple cards",
+            ),
+            AgentAction(thought="Stage 2 done", action_type="done"),
+        ]
+
+        refiner = WorkflowRefiner()
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "python"},
+        )
+
+        assert result.stage_results[0].world_state_summary is not None
+        assert "https://example.com/results" in (result.stage_results[0].world_state_summary or "")
+        assert "Results list is visible" in (result.stage_results[0].world_state_summary or "")
+
+        second_stage_goal = mock_agent.step.call_args_list[1].args[1]
+        assert "World state from previous stage:" in second_stage_goal
+        assert "https://example.com/results" in second_stage_goal
 
 
 class TestMultipleStages:
@@ -1050,3 +1098,21 @@ class TestBuildStageGoal:
         assert "Search box is near top" in goal
         assert "Reference actions (hints, not strict script):" in goal
         assert "fill on {'role': 'searchbox', 'name': 'Search'} with \"python\"" in goal
+
+    def test_build_stage_goal_includes_previous_world_state(self):
+        """Test goal includes world state transferred from previous stage."""
+        from sasiki.engine.stage_executor import StageExecutor
+
+        executor = StageExecutor(agent=None)  # type: ignore
+        stage = {
+            "name": "Review Stage",
+            "actions": ["Open first result"],
+        }
+        goal = executor._build_stage_goal(
+            stage,
+            [],
+            previous_world_state="URL: https://example.com/results; Evidence: Results visible",
+        )
+
+        assert "World state from previous stage:" in goal
+        assert "https://example.com/results" in goal

@@ -166,6 +166,8 @@ def refine(
 
     # Summary
     console.print(f"\nTotal Steps: {result.total_steps}")
+    if result.execution_report_path:
+        console.print(f"[dim]Execution report:[/dim] {result.execution_report_path}")
 
     # Final status
     if result.status == "completed":

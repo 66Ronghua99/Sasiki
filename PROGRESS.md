@@ -36,6 +36,7 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
   - **分层架构预留**：Layer 1（执行）/ Layer 2（语义理解）/ Layer 3（意图+API化，Path B 未来方向）
 - 定义两条演化路径：Path A（忠实复刻+优化）/ Path B（意图理解+革命性优化）
 - 制定 14 个 TODO，P0→P2 优先级分层
+- P1 StageVerifier（evidence-based done）、P2 WorldState（跨 Stage 状态传递）与 P2 ExecutionReport（结构化执行输出）已落地并完成回归测试
 ### Previous Phase 3 design
 - 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
 - 引入 `playwright` 依赖，作为自动化执行基础。
@@ -88,9 +89,9 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **P2：WorldState 跨 Stage 传递**
-2. **P2：ExecutionReport 输出格式**
-3. **P2：ExecutionStrategy 接口预留（Path B）**
+1. **P2：ExecutionStrategy 接口预留（Path B）**
+2. **真实复杂网站执行稳定性验证（小红书等）**
+3. **Agent Prompt Cache / Message History 成本优化**
 4. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---

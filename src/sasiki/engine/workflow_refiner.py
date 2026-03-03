@@ -64,6 +64,7 @@ class WorkflowRefiner:
         self.enable_checkpoints = enable_checkpoints
         self.human_handler = human_handler
         self._history: list[str] = []
+        self._world_state_summary: str | None = None
 
     async def run(
         self,
@@ -89,6 +90,7 @@ class WorkflowRefiner:
             workflow_name=workflow.name,
             start_stage=start_stage,
         )
+        self._world_state_summary = None
 
         # Generate execution plan with resolved variables
         try:
@@ -140,7 +142,12 @@ class WorkflowRefiner:
                     continue
 
                 # Execute the stage
-                result = await self._execute_stage(page, stage, stage_index)
+                result = await self._execute_stage(
+                    page,
+                    stage,
+                    stage_index,
+                    previous_world_state=self._world_state_summary,
+                )
                 state.add_stage_result(result)
 
                 # Handle stage failure or pause
@@ -162,6 +169,8 @@ class WorkflowRefiner:
                     )
                     self._skip_tail(stages, stage_index, state)
                     break
+
+                self._world_state_summary = result.world_state_summary
 
                 # Check for checkpoint after this stage
                 coordinator = CheckpointCoordinator(
@@ -189,16 +198,27 @@ class WorkflowRefiner:
 
             # Save final workflow if completed or paused (not on failure)
             final_workflow_path: Path | None = None
+            writer = FinalWorkflowWriter()
             if state.final_status in ("completed", "paused"):
-                writer = FinalWorkflowWriter()
                 final_workflow_path = writer.save(
                     workflow, state.stage_results, output_suffix
                 )
+            execution_report = state.build_execution_report(
+                workflow_id=str(workflow.id),
+                workflow_name=workflow.name,
+            )
+            execution_report_path = writer.save_execution_report(
+                workflow_id=str(workflow.id),
+                report=execution_report,
+                output_suffix=output_suffix,
+            )
 
             return state.build_refine_result(
                 workflow_id=str(workflow.id),
                 workflow_name=workflow.name,
                 final_workflow_path=str(final_workflow_path) if final_workflow_path else None,
+                execution_report=execution_report,
+                execution_report_path=str(execution_report_path),
             )
 
         except Exception as e:
@@ -218,6 +238,7 @@ class WorkflowRefiner:
         page: Page,
         stage: dict[str, Any],
         stage_index: int,
+        previous_world_state: str | None = None,
     ) -> StageResult:
         """Execute a single stage using StageExecutor.
 
@@ -225,6 +246,7 @@ class WorkflowRefiner:
             page: The Playwright page to interact with
             stage: The stage definition from execution plan
             stage_index: Index of the stage for logging
+            previous_world_state: Summary from previous stage
 
         Returns:
             StageResult containing the execution outcome
@@ -235,7 +257,13 @@ class WorkflowRefiner:
             max_steps=self.max_steps_per_stage,
             max_repeats=3,
         )
-        return await executor.execute(page, stage, stage_index, self._history)
+        return await executor.execute(
+            page,
+            stage,
+            stage_index,
+            self._history,
+            previous_world_state=previous_world_state,
+        )
 
     def _skip_tail(
         self,

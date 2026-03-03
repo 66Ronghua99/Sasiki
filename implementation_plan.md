@@ -62,6 +62,22 @@ uv run pytest -q
 - `ReplayAgent` prompt schema 增加 `evidence` 字段要求，补充对应回归断言。
 - 增加 verified/unverified 两条回归测试，覆盖 `done` 的成功与失败分支。
 
+**P2-12：WorldState 跨 Stage 传递**
+
+### 结果
+- `StageResult` 新增 `world_state_summary` 字段。
+- `StageExecutor` 在 stage 成功结束时生成 `world_state_summary`（URL + done evidence）。
+- `WorkflowRefiner` 在 Stage 间传递 world state，并注入下一阶段 prompt。
+- 新增回归测试覆盖 world state prompt 注入与 `_build_stage_goal` 渲染。
+
+**P2-13：ExecutionReport 输出格式**
+
+### 结果
+- 在 `RefinerState` 中新增 `ExecutionReport/ExecutionStageReport` 结构，统一汇总 workflow 级与 stage 级执行结果。
+- `WorkflowRefiner` 在每次运行结束后生成并持久化 `execution_report_<suffix>.json`（含失败场景）。
+- `RefineResult` 新增 `execution_report` 与 `execution_report_path`，CLI 汇总输出新增报告路径展示。
+- 增加回归断言，校验 report 基本字段与 stage 明细字段。
+
 ## 下一步（最小可执行）
 
-**P2-12：WorldState 跨 Stage 传递**
+**P2-14：ExecutionStrategy 接口预留（Path B）**

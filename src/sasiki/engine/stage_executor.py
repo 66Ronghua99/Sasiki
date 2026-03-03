@@ -35,6 +35,7 @@ class StageContext:
     actions: list[str] = field(default_factory=list)
     action_details: list[dict[str, Any]] = field(default_factory=list)
     recent_history: list[str] = field(default_factory=list)
+    previous_world_state: str | None = None
 
     def build_prompt(self) -> str:
         """Build prompt text for the stage with semantic and action-level guidance."""
@@ -42,6 +43,8 @@ class StageContext:
 
         if self.application:
             lines.append(f"Application/Context: {self.application}")
+        if self.previous_world_state:
+            lines.append(f"World state from previous stage: {self.previous_world_state}")
 
         if self.objective:
             lines.append(f"\nObjective: {self.objective}")
@@ -146,6 +149,7 @@ class StageExecutor:
         stage: dict[str, Any],
         stage_index: int,
         history: list[str],
+        previous_world_state: str | None = None,
     ) -> StageResult:
         """Execute a single stage.
 
@@ -154,6 +158,7 @@ class StageExecutor:
             stage: The stage definition from execution plan
             stage_index: Index of the stage for logging
             history: Shared history list to accumulate thoughts
+            previous_world_state: Summary from previous stage
 
         Returns:
             StageResult containing the execution outcome
@@ -163,7 +168,7 @@ class StageExecutor:
         success_criteria = stage.get("success_criteria", "")
 
         # Build independent goal for this stage
-        goal = self._build_stage_goal(stage, history)
+        goal = self._build_stage_goal(stage, history, previous_world_state=previous_world_state)
 
         # Build concise summary for logging
         action_count = len(stage.get("actions", []))
@@ -280,6 +285,7 @@ class StageExecutor:
                         episode_log=episode_log.copy(),
                         verified=verification.verified,
                         verification_evidence=verification.evidence,
+                        world_state_summary=self._build_world_state_summary(page, verification.evidence),
                     )
 
                 # Check for human pause request
@@ -349,7 +355,12 @@ class StageExecutor:
             error=f"Maximum steps ({self.max_steps}) reached",
         )
 
-    def _build_stage_goal(self, stage: dict[str, Any], history: list[str]) -> str:
+    def _build_stage_goal(
+        self,
+        stage: dict[str, Any],
+        history: list[str],
+        previous_world_state: str | None = None,
+    ) -> str:
         """Build stage goal prompt via structured StageContext."""
         context = StageContext(
             stage_name=stage["name"],
@@ -361,8 +372,16 @@ class StageExecutor:
             actions=stage.get("actions", []),
             action_details=stage.get("action_details", []),
             recent_history=history,
+            previous_world_state=previous_world_state,
         )
         return context.build_prompt()
+
+    def _build_world_state_summary(self, page: Page, verification_evidence: str | None) -> str:
+        """Build a concise stage-end state summary for next-stage prompts."""
+        current_url = self._safe_page_url(page)
+        if verification_evidence:
+            return f"URL: {current_url}; Evidence: {verification_evidence}"
+        return f"URL: {current_url}"
 
     def _classify_error(self, error: Exception) -> str:
         """Classify error type for retry strategy."""
@@ -507,6 +526,9 @@ class StageExecutor:
                             episode_log=episode_log.copy(),
                             verified=verification.verified,
                             verification_evidence=verification.evidence,
+                            world_state_summary=self._build_world_state_summary(
+                                page, verification.evidence
+                            ),
                         ),
                         False,
                     )
