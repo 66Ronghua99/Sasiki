@@ -1,250 +1,224 @@
 # implementation_plan (2026-03-03)
 
-## 0. Archived Next-Step Guide (post-review, authoritative)
-
-This section is the handoff pointer after context compaction.
-
-### Primary specs
-
-1. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md` (v1.1)
-2. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`
-
-### Immediate coding order
-
-1. Add canonical models: `src/sasiki/workflow/canonical_models.py`
-2. Add canonicalizer engine: `src/sasiki/workflow/canonicalizer.py`
-3. Wire `generate` pipeline to canonicalizer + schema validator
-4. Extend trace fields for refiner path: source links from execution step to canonical action
-
-### Non-negotiable implementation constraints
-
-1. Canonicalizer must be deterministic (no LLM in conversion path)
-2. Postconditions must be structured objects only
-3. `source_canonical_action_id` required on reference-derived execution steps
-4. If source link is null, must emit `source_link_reason` enum
-
-### Test minimum (before merge)
-
-1. Canonicalizer unit tests for R1-R6 intent rules + conflict tie-break + confidence fallback
-2. Verifier unit tests for `url_contains`, `value_equals`, `count_at_least`, timeout mapping
-3. Integration test: recording -> canonical -> semantic stage -> refiner traceability
-
-### Exit gates
-
-1. Phase A exit: schema validator coverage 100% on generate input samples
-2. Phase B exit: submit chain reconstruction >= 90% on benchmark set
-3. Phase D exit: failed step traceability = 100%
-
 ## 1. 项目状态快照
 
-| 模块 | 当前状态 | 证据 |
+| 模块 | 状态 | 代码证据 |
 |---|---|---|
-| Phase 1 录制链路 | 完成，持续站点回归 | `PROGRESS.md`、`tests/test_phase1_websocket_flow.py` |
-| Phase 2 Skill 生成 | 完成，结构化字段已落地 | `src/sasiki/workflow/skill_generator.py`、`src/sasiki/workflow/models.py` |
-| Phase 3 执行引擎核心 | 完成（含 Retry/HITL/StageVerifier/WorldState/ExecutionReport/ExecutionStrategy） | `src/sasiki/engine/stage_executor.py`、`workflow_refiner.py`、`execution_strategy.py` |
-| 当前未完成主线 | 3 项未完成，P0 为“统一观测入口 + browser-use snapshot 试点” | `PROGRESS.md:125-127`、`NEXT_STEP.md:51-64` |
+| Phase 1 录制链路 | 已完成，协议持续演进 | `src/sasiki/server/websocket_protocol.py`, `tests/test_phase1_websocket_flow.py` |
+| Phase 2 生成链路 | 已完成（structured packet + semantic plan） | `src/sasiki/workflow/recording_parser.py`, `src/sasiki/workflow/skill_generator.py` |
+| Phase 3 执行引擎 | 已完成（Refiner/Retry/HITL/Observation） | `src/sasiki/engine/workflow_refiner.py`, `src/sasiki/engine/stage_executor.py` |
+| 录制->语义契约文档 | 已完成并可开发 | `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`, `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md` |
+| Canonicalizer 实现 | 未开始 | `src/sasiki/workflow/` 下暂无 canonical* 文件 |
+| Generate fail-fast validator | 未开始 | `src/sasiki/commands/generate.py`, `src/sasiki/workflow/skill_generator.py` 无 schema gate |
 
-## 2. Problem Statement
+## 2. 未完成 TODO 盘点
 
-- 当前痛点：观测链路存在“双观测/双格式”。
-  - `StageExecutor` 通过 `BrowserExecutionStrategy.observe()` 获取一次页面状态。
-  - `ReplayAgent.step_with_context()` 又直接调用 `AccessibilityObserver.observe()` 再观测一次。
-- 结果风险：
-  - 同一步 LLM 决策依赖的观测和引擎侧停滞检测观测不一致。
-  - recording 侧关键 hint（`class/tag/attrs`）在当前快照中保留不足，影响复杂站点点击稳定性。
-- 约束：
-  - 必须保持默认行为兼容（browser-first，不破坏现有 CLI 与测试基线）。
-  - 需要可灰度开关与回滚点。
-- 非目标（本轮不做）：
-  - 不实现 Path B 的 API/Hybrid 执行逻辑。
-  - 不在本轮完成大规模 Prompt Cache 体系重构。
+### 2.1 来自 `PROGRESS.md` 的 `[ ]`
 
-## 3. Boundary & Ownership
+1. 设计 Agent Prompt Cache 与 Message History 机制。
+2. 在真实复杂网站（如小红书）验证执行稳定性与准确率。
 
-| 边界 | 责任 | Source of Truth |
+### 2.2 来自 `NEXT_STEP.md` 的当前主线
+
+1. Phase A（P0）：`canonical_models.py`。
+2. Phase A（P0）：`canonicalizer.py`（deterministic，R1-R6）。
+3. Phase A（P0）：`generate` 链路接入 schema validator（fail-fast）。
+
+### 2.3 一致性判断
+
+`PROGRESS.md` 的复选框与 `当前优先级/NEXT_STEP` 存在时序不一致。按最新执行指针，应优先推进 Phase A 的 canonical 基线，否则后续 E2E 与 Prompt Cache 优化都缺少稳定语义输入。
+
+## 3. 推荐最小可执行 TODO
+
+**TODO: Phase A-P0-1（一个 session 内完成）**  
+落地 Canonical 基线闭环：
+1. 新增 `canonical_models.py`（SSOT 数据模型）。
+2. 新增 `canonicalizer.py`（R1-R6 + confidence + diagnostics）。
+3. 在 `generate` 中加入 schema validator fail-fast（不合格输入直接终止，不进入 LLM）。
+
+### 选择理由
+
+1. 依赖已就绪：Parser 已输出稳定 structured packet，可直接作为 canonicalizer 输入。
+2. 阻塞面最大：这是 `Raw -> Canonical -> Semantic` 的唯一缺口，未补齐将阻塞后续语义稳定性与可追溯性。
+3. 可控范围：核心改动集中在 `workflow/` 与 `generate` 链路，风险边界清晰，可通过单元测试封装。
+
+### 工作量估算
+
+- 核心实现：1.5h-2h
+- 单元测试：0.5h-1h
+- 合计：2h-3h
+
+## 4. 问题定义（Design Path）
+
+### 4.1 当前痛点
+
+1. 生成阶段仍直接喂 Raw action packet 给 LLM，缺少 deterministic 的语义归一层。
+2. 没有 schema gate，脏录制数据会直接进入 LLM，导致输出波动与追溯断裂。
+3. `reference_actions` 尚未绑定 `source_canonical_action_id`，后续 Refiner traceability 难以闭环。
+
+### 4.2 约束
+
+1. 不破坏现有 CLI 和历史 workflow 的可运行性。
+2. Canonicalizer 不允许使用 LLM。
+3. 先落地最小闭环，再做协议扩展（submit 显式事件、value_before/value_after 等）。
+
+### 4.3 非目标（本 TODO 不做）
+
+1. 不改 Extension 录制协议（Phase B）。
+2. 不改 Refiner trace 字段（Phase D）。
+3. 不处理 Prompt Cache 体系。
+
+## 5. 边界与归属
+
+| 组件 | 职责 | 输入 | 输出 |
+|---|---|---|---|
+| `RecordingParser` | JSONL -> structured raw packet | recording JSONL | raw actions packet |
+| `Canonicalizer`（新增） | Raw -> Canonical 归一（deterministic） | raw actions | canonical actions + diagnostics |
+| `SkillGenerator` | Canonical -> SemanticStage | canonical actions | workflow payload |
+| `generate` 命令 | 入口编排与 fail-fast | recording path | workflow / 错误退出 |
+
+依赖方向：`Parser -> Canonicalizer -> SkillGenerator -> Workflow`。  
+Source of Truth：CanonicalAction schema 在 `canonical_models.py`。
+
+## 6. 方案对比与取舍
+
+### Option A（推荐）
+
+新增独立 `Canonicalizer` 层，并在 `generate` 前置校验。
+
+- 优点：职责清晰、可测试、符合 RFC 与 implementation spec。
+- 缺点：需要改动 `SkillGenerator` 的输入组装逻辑。
+
+### Option B
+
+在 `SkillGenerator` 内部零散加规则，不引入新模块。
+
+- 优点：短期改动少。
+- 缺点：规则与 LLM 流程耦合，后续难维护，且无法形成可复用 SSOT。
+
+### Option C
+
+先做复杂站点 E2E，再回补 canonical。
+
+- 优点：短期可见结果。
+- 缺点：会在不稳定语义输入上做验证，数据无法用于稳定优化。
+
+结论：选 Option A。
+
+## 7. Proposed Changes
+
+### 7.1 Workflow 层
+
+1. `[NEW]` `src/sasiki/workflow/canonical_models.py`
+- `class PostconditionSpec(BaseModel)`
+- `class TargetStrategy(BaseModel)`
+- `class RetryHint(BaseModel)`
+- `class CanonicalAction(BaseModel)`
+- `class CanonicalDiagnostics(BaseModel)`
+
+2. `[NEW]` `src/sasiki/workflow/canonicalizer.py`
+- `class Canonicalizer`
+- `def canonicalize(raw_actions: list[dict[str, Any]]) -> tuple[list[CanonicalAction], CanonicalDiagnostics]`
+- 覆盖规则：windowing、R1-R6、confidence、warning/drop 策略。
+
+3. `[MODIFY]` `src/sasiki/workflow/skill_generator.py`
+- `_extract_workflow_data()` 中把 `structured_packet["actions"]` 先送入 canonicalizer。
+- semantic prompt 输入切换为 canonical action packet（而非 raw packet 直传）。
+- stage 组装时引用 canonical action 的稳定字段。
+
+4. `[MODIFY]` `src/sasiki/workflow/recording_parser.py`
+- 如有必要，仅补充 canonicalizer 所需的最小 raw 字段投影函数。
+
+### 7.2 CLI/命令层
+
+1. `[MODIFY]` `src/sasiki/commands/generate.py`
+- 对 schema validator / canonicalizer 异常做 fail-fast 退出与可读错误提示。
+
+### 7.3 测试
+
+1. `[NEW]` `tests/workflow/test_canonicalizer.py`
+- 覆盖 implementation spec 的 R1-R6、merge、confidence、drop/warning。
+
+2. `[MODIFY]` `tests/test_skill_generator.py`
+- 验证 generator 使用 canonical 输入后仍能产出有效 workflow。
+
+3. `[NEW]` `tests/commands/test_generate_validator.py`
+- 无效录制输入会在 generate 阶段被拦截，不调用 LLM。
+
+4. `[DELETE]` 无。
+
+## 8. 关键设计决策
+
+1. `CanonicalAction` 作为生成阶段唯一语义输入。
+- 原因：避免 Raw 字段噪声直接影响 LLM，保证行为可追溯。
+
+2. fail-fast 放在 generate 编排层，而非 LLM 返回后兜底。
+- 原因：低成本尽早失败，避免无效 token 消耗。
+
+3. Phase A 先允许协议字段缺失降级（诊断告警），但禁止关键缺失静默通过。
+- 原因：兼容历史录制，同时建立明确升级路径。
+
+## 9. 依赖与差距分析
+
+### 9.1 输入契约就绪度
+
+1. 已具备：`type/timestamp/value/url/page_context/target_hint/triggered_by`。
+2. 缺失：`event_id/frame_id/value_before/value_after/submit` 显式事件。
+
+### 9.2 输出契约消费方
+
+1. Generator 消费 canonical actions 产出 semantic stages。
+2. Refiner 暂时继续消费现有 `WorkflowStage`，source link 字段放到后续 Phase D。
+
+### 9.3 风险
+
+1. 旧测试样例里的 `type` 事件与 spec 的 `fill` 语义差异可能导致规则误判。
+2. 历史录制缺字段导致大量 fallback，短期会出现 `LOW_CONFIDENCE_INTENT`。
+
+### 9.4 缓解
+
+1. 在 canonicalizer 中引入显式 alias 映射（`type -> fill`）。
+2. 诊断中输出低置信动作比例，作为 Phase B 协议升级量化依据。
+
+## 10. Migration Plan
+
+1. Step 1：落地 canonical models + canonicalizer（不改外部 CLI 参数）。
+2. Step 2：generate 接入 validator，默认启用 fail-fast。
+3. Step 3：以现有测试录制集回归，收敛 warning 分类。
+4. Step 4：再进入 Phase B 协议字段扩展。
+
+回滚点：`SkillGenerator` 保留 raw packet 兼容入口；若 canonical 路径出现严重回归，可临时回切 raw 模式。
+
+## 11. Verification Plan
+
+### 11.1 单元测试场景
+
+| 场景 | 输入 | 预期 |
 |---|---|---|
-| 观测数据生产 | 统一从 ObservationProvider 输出标准观测 | `src/sasiki/engine/observation_provider.py`（新增） |
-| 执行循环调度 | 只消费 provider 输出，不再各自重复观测 | `StageExecutor` + `ReplayAgent` |
-| CLI 开关与配置注入 | 仅负责将 provider/schema 选项注入 refiner | `src/sasiki/commands/refine.py` |
-| 兼容与回退 | 默认 legacy；试点按开关启用 browser-use schema | `WorkflowRefiner` 初始化路径 |
+| R1 Explicit Submit | 包含 `submit` event | 产出 `action_type=submit`, confidence=1.0 |
+| R2 Fill+Enter | `fill` 后 2s 内 `press Enter` | 产出 fill + submit 对 |
+| Fill Merge | 同目标连续 fill | 合并单个 canonical fill，保留 source ids |
+| R4 Navigate | navigate + triggered_by=redirect | confidence=0.80 |
+| R6 Fallback | 未命中规则 | `intent_category=other`, `needs_review=true` |
+| Missing postcondition | 构造失败样例 | action drop + `MISSING_POSTCONDITION` warning |
+| Generate fail-fast | 缺关键字段 raw action | CLI 退出码非 0，LLM 不被调用 |
 
-## 4. 未完成 TODO 评估与选择
-
-| TODO | 依赖就绪度 | 粒度评估 | 阻塞关系 | 结论 |
-|---|---|---|---|---|
-| 统一观测入口 + browser-use snapshot 试点 | 高（ExecutionStrategy、AccessibilityObserver、现有测试均在） | 可拆成 1 次会话内的最小 PR | 阻塞真实站点稳定性验证与后续 prompt 优化 | 选中 |
-| Agent Prompt Cache / Message History | 中（需先稳定观测输入） | 超过 2 小时，需独立设计与指标口径 | 依赖观测口径统一后更稳妥 | 暂不选 |
-| 真实复杂网站稳定性验证 | 中（环境与数据依赖高） | 明显超过 2 小时，偏验证项目 | 受观测质量直接影响 | 暂不选 |
-| lint 清理（NEXT_STEP P2） | 高 | 小 | 不阻塞主链路 | 作为并行收尾项 |
-
-### 推荐最小可执行 TODO
-
-**TODO-P0-A1：统一观测入口最小闭环（ObservationProvider + schema 开关 + 对比日志 + 单测）**
-
-- 预估工作量：1.5-2 小时。
-- 选择理由：
-  - 优先级最高（P0），并直接解除 E2E 稳定性验证的核心阻塞。
-  - 依赖已具备，不需要先改数据模型或外部接口。
-  - 可通过 feature flag 控制风险，默认行为不变。
-
-## 5. 输入/输出契约与差距分析
-
-### 输入契约
-
-- 页面对象：`playwright.async_api.Page`
-- 现有观测源：
-  - `AccessibilityObserver.observe(page) -> ObservationResult`
-  - `BrowserExecutionStrategy.observe(page, context) -> ObservationResult(execution_strategy)`
-- 现有消费者：
-  - `ReplayAgent`（LLM prompt + target fallback）
-  - `StageExecutor`（stagnation、日志）
-
-### 输出契约（目标）
-
-统一返回 `ProviderObservation`，至少包含：
-
-- `snapshot_mode`: `legacy` or `browser_use`
-- `dom_hash`
-- `summary`
-- `llm_payload`（直接用于 prompt）
-- `selector_map`（可选，用于执行/定位 debug）
-- `debug_stats`（元素数、序列化长度、命中统计）
-
-### 代码差距
-
-- 缺“统一观测抽象层”：目前 observe 逻辑分散在 `execution_strategy.py` 与 `page_observer.py`。
-- 缺“单次观测复用路径”：`StageExecutor` 无法将同一份观测传入 `ReplayAgent`。
-- 缺“schema 开关注入”：`refine` CLI 暂无观测模式参数。
-- 缺“对比日志结构”：当前日志不足以直接比较 old/new snapshot 命中差异。
-
-### 可复用原型
-
-- `tests/engine/test_page_observer.py`：已有 snapshot 与 dom_hash 稳定性测试，可直接扩展。
-- `tests/engine/test_execution_strategy.py`：已有 `observe()` 路径测试，可扩展 provider 注入断言。
-- `tests/engine/test_replay_agent_retry.py`：已有 observation mock，可验证“复用单次观测”。
-
-### Memory.md 相关约束
-
-- #10：避免压缩树时丢兄弟节点，新的 provider 不能再次引入“只保留第一子分支”。
-- #11：SPA 导航后观测要考虑渲染延迟，provider 设计需允许等待策略复用。
-- #8：Prompt 成本敏感，观测输出要支持稳定字段与可缓存结构。
-
-## 6. Proposed Changes
-
-### Engine Observation Layer
-
-- `[NEW]` `src/sasiki/engine/observation_provider.py`
-  - 新增统一接口与数据模型：
-    - `class ObservationProvider(ABC)`
-      - `async def observe(self, page: Page, *, mode: str = "legacy") -> ProviderObservation`
-    - `class LegacyObservationProvider(ObservationProvider)`
-    - `class BrowserUseObservationProvider(ObservationProvider)`
-    - `class ProviderObservation(BaseModel)`
-- `[MODIFY]` `src/sasiki/engine/execution_strategy.py`
-  - `BrowserExecutionStrategy` 支持注入 `observation_provider`。
-  - `observe()` 改为委托 provider，并回填 `ObservationResult`（保持接口兼容）。
-- `[MODIFY]` `src/sasiki/engine/replay_agent.py`
-  - 新增 `step_with_observation(...)` 或在 `step_with_context(...)` 增加 `observation` 参数。
-  - 若外部已传观测，则不再内部二次 observe。
-- `[MODIFY]` `src/sasiki/engine/stage_executor.py`
-  - 每步只调用一次 strategy/provider observe。
-  - 将同一 observation 传给 `ReplayAgent` 决策。
-  - 增加 old/new schema 对比日志字段输出（元素数、payload 长度、命中率）。
-
-### CLI / Refiner Wiring
-
-- `[MODIFY]` `src/sasiki/commands/refine.py`
-  - 增加可选参数：
-    - `--observation-mode [legacy|browser_use]`（默认 `legacy`）
-    - `--observation-compare-log`（默认关闭）
-- `[MODIFY]` `src/sasiki/engine/workflow_refiner.py`
-  - 透传 observation mode 到 `StageExecutor` / strategy。
-
-### Tests
-
-- `[NEW]` `tests/engine/test_observation_provider.py`
-  - provider 输出 schema、selector_map、debug_stats、dom_hash 稳定性。
-- `[MODIFY]` `tests/engine/test_execution_strategy.py`
-  - 覆盖 provider 注入与 observe 委托。
-- `[MODIFY]` `tests/engine/test_replay_agent_retry.py`
-  - 覆盖“外部 observation 传入时不重复 observe”。
-- `[MODIFY]` `tests/engine/test_workflow_refiner.py`
-  - 覆盖 observation mode 参数透传与单次观测路径。
-
-### 删除项
-
-- `[DELETE]` 无。
-
-## 7. 关键设计决策
-
-1. 决策：在 Engine 层新增 `ObservationProvider`，而不是仅在 `ReplayAgent` 内做适配。
-- 原因：StageExecutor 与 ReplayAgent 都消费观测，抽象应放在共同上游，避免再次分叉。
-
-2. 决策：默认 `legacy`，`browser_use` 通过开关试点。
-- 原因：保持向后兼容，降低回归风险；试点可快速收集真实站点数据。
-
-3. 决策：保留 `ExecutionStrategy.observe()` 现有返回结构，对外不破坏。
-- 原因：减少改动面，先在内部以 provider 实现重用，再逐步演进接口。
-
-需要你确认：
-- CLI 参数命名是否采用 `--observation-mode`（推荐）。
-- compare log 是否默认开启（建议默认关闭，按需开启）。
-
-## 8. 方案对比（Options & Tradeoffs）
-
-### Option A（推荐）: 新增 ObservationProvider，StageExecutor 单次观测后复用
-- 优点：边界清晰、可灰度、便于后续 prompt/cache 优化。
-- 缺点：涉及 4-6 个文件联动。
-
-### Option B: 仅修改 ReplayAgent，复用 strategy.observe 结果
-- 优点：改动少。
-- 缺点：观测职责仍散落在 strategy/agent，schema 演进继续耦合，长期维护成本高。
-
-### Option C: 直接替换当前快照为 browser-use schema（无开关）
-- 优点：推进快。
-- 缺点：回归风险高，缺少回滚点；不满足“最小 PR + 试点”目标。
-
-## 9. Migration Plan
-
-1. 新增 provider 与数据模型，保持默认 `legacy`，不改现有行为。
-2. `BrowserExecutionStrategy.observe()` 接入 provider，但输出保持原接口。
-3. `ReplayAgent` 增加“接受外部 observation”入口，`StageExecutor` 改为单次观测复用。
-4. `refine` CLI 增加 mode/compare-log 开关并透传。
-5. 增加单元测试与回归测试。
-6. 小流量手动验证（小红书 workflow）后再决定是否默认切换。
-
-回滚点：
-- 若试点异常，直接使用 `--observation-mode legacy`，不影响主流程。
-
-## 10. Verification Plan
-
-### 单元测试
-
-| 场景 | 预期 |
-|---|---|
-| Provider(legacy) 输出 | 保持现有 dom_hash 与 summary 语义 |
-| Provider(browser_use) 输出 | 包含 `idx/role/name/tag/class/attrs/selector_map` |
-| StageExecutor 单次观测 | 每步只调用一次 observe，Agent 不再二次 observe |
-| Strategy observe 委托 | `BrowserExecutionStrategy.observe` 调用 provider 并兼容旧返回 |
-| CLI 参数透传 | `refine --observation-mode browser_use` 可注入到 refiner |
-
-建议执行命令：
+### 11.2 建议执行命令
 
 ```bash
-uv run pytest -q tests/engine/test_observation_provider.py tests/engine/test_execution_strategy.py tests/engine/test_replay_agent_retry.py tests/engine/test_workflow_refiner.py
+uv run pytest -q tests/workflow/test_canonicalizer.py tests/test_skill_generator.py tests/commands/test_generate_validator.py
 uv run ruff check src tests
 uv run mypy src
 uv run pytest -q
 ```
 
-### 手动验证
+### 11.3 手动验证
 
-1. 准备一个已有可运行 workflow（推荐 `60b002bc-a4c5-4695-9496-a1d9c7f4bc94`）。
-2. 执行 legacy 基线：`sasiki refine <id> --cdp-url http://localhost:9222 --observation-mode legacy`。
-3. 执行试点模式：`sasiki refine <id> --cdp-url http://localhost:9222 --observation-mode browser_use --observation-compare-log`。
-4. 对比日志中元素数、payload 长度、命中信息与 stage 成功率。
+1. 用一个已有录制运行 `sasiki generate <recording> --preview`，确认 canonical 诊断摘要可见。
+2. 用缺字段样本运行 `sasiki generate <recording>`，确认被 fail-fast 拦截。
+3. 用正常样本运行生成，确认 workflow stages/variables/checkpoints 仍可落盘。
 
-预期结果：
-- 同一步不再出现双观测。
-- 试点模式可检索到 class/tag 等关键 hint。
-- 在复杂页面点击成功率提升或至少不下降。
+## 12. 需要用户确认
+
+1. Phase A 是否要求一次性实现完整 R1-R6，还是先交付 R1/R4/R6 最小子集再补齐。
+2. fail-fast 严格度是否默认“关键字段缺失即失败”，或允许 warning-only 模式通过。

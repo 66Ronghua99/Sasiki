@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from sasiki.workflow.models import VariableType, Workflow
 from sasiki.workflow.skill_generator import SkillGenerator
-from sasiki.workflow.models import Workflow, VariableType
 
 
 class TestSkillGenerator:
@@ -333,6 +333,36 @@ class TestSkillGenerator:
 
         with pytest.raises(FileNotFoundError):
             generator.generate_from_recording("/nonexistent/file.jsonl")
+
+    def test_generate_from_recording_fail_fast_before_llm_on_invalid_actions(self):
+        """Invalid recordings should be rejected before any LLM call."""
+        metadata = {
+            "_meta": True,
+            "session_id": "broken_session",
+            "started_at": "2024-01-01T12:00:00.000000",
+            "stopped_at": "2024-01-01T12:00:10.000000",
+            "action_count": 1,
+            "duration_ms": 10000,
+        }
+        invalid_action = {
+            "timestamp": "not-an-int",
+            "type": "click",
+            "session_id": "broken_session",
+            "page_context": {"url": "https://example.com", "title": "Example", "tab_id": 1},
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps(metadata) + "\n")
+            f.write(json.dumps(invalid_action) + "\n")
+            recording = Path(f.name)
+
+        mock_llm = MagicMock()
+        generator = SkillGenerator(llm_client=mock_llm)
+
+        with pytest.raises(ValueError, match="No valid canonical actions"):
+            generator.generate_from_recording(recording, save=False)
+
+        mock_llm.complete.assert_not_called()
 
     def test_build_extraction_prompt(self, sample_recording):
         """Test prompt building."""

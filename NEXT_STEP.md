@@ -2,7 +2,14 @@
 
 **更新日期：2026-03-03**
 
-## 目标：进入 E2E 实战测试阶段（小红书等复杂站点）
+## 目标：Phase B 协议补齐 + 一次端到端验证闭环
+
+## 执行约束（必须遵守）
+
+1. 真实站点 `refine` 回归统一使用**有头浏览器**（不要加 `--headless`）。
+2. 观测模式固定 `--observation-mode browser_use`，避免新旧观测混用导致结论漂移。
+3. 推荐命令模板：
+   - `uv run sasiki refine <workflow_id> -i search_query="春季穿搭 男" --max-steps 30 --observation-mode browser_use`
 
 ## 开发执行指针（Compact 后直接按此继续）
 
@@ -11,20 +18,24 @@
 1. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`（v1.1）
 2. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`（实现细则，开发以此为准）
 
-### Phase A（先做，P0）
+### Phase A（P0，已完成首版）
 
-1. 新增 `workflow/canonical_models.py`
-   - 定义 `CanonicalAction`、`PostconditionSpec`、`TargetStrategy`、`RetryHint`
-2. 新增 `workflow/canonicalizer.py`
-   - 实现 deterministic pipeline（windowing、R1-R6 规则、confidence、warning）
-3. `generate` 链路接入 schema validator
-   - 缺关键字段 fail-fast（不进入 LLM）
+1. ✅ 新增 `workflow/canonical_models.py`
+   - 已定义 `CanonicalAction`、`PostconditionSpec`、`TargetStrategy`、`RetryHint`、`CanonicalDiagnostics`
+2. ✅ 新增 `workflow/canonicalizer.py`
+   - 已实现 deterministic pipeline（R1-R6、fill merge、confidence、warning/drop）
+3. ✅ `generate` 链路接入 fail-fast
+   - canonical 为空或 schema 不合格时，不进入 LLM
+4. ✅ 测试
+   - 新增 `tests/test_canonicalizer.py`
+   - 更新 `tests/test_skill_generator.py`（invalid recording 不触发 LLM）
 
 ### Phase B（紧接 Phase A）
 
-1. 扩展 recording 协议字段（submit、triggered_by 规则、value_before/value_after）
-2. parser 输出补齐 canonicalizer 所需字段
-3. 将 `reference_actions` 固化为“内联子集 + source_canonical_action_id”
+1. 扩展 recording 协议字段（submit、triggered_by 规则、value_before/value_after、event_id）
+2. parser 输出补齐 canonicalizer 所需字段（frame_id、parent_event_id 等）
+3. `reference_actions` 字段冻结为“内联子集 + source_canonical_action_id + postconditions”
+4. 将 execution trace 接入 `source_canonical_action_id/source_link_reason`（Phase D 预对齐）
 
 ### Done Criteria（进入下一阶段前必须满足）
 
@@ -105,16 +116,15 @@
 
 ## 下一步任务（当前主线）
 
-1. **E2E 实战测试（进行中，当前最高优先级）**
-   - 目标：在小红书等真实复杂网站验证执行稳定性与准确率。
-   - 建议命令：
-     - `sasiki refine <workflow_id> --cdp-url http://localhost:9222 --observation-mode browser_use --observation-compare-log`
-   - 验收：
-     - 形成可复现测试流程与失败样例归档
-     - 关键 Stage 成功率指标可对照 legacy 基线
-2. **Agent Prompt Cache / Message History 成本优化**
-3. **Phase 4 设计**：CLI 管理、批量执行、体验优化
-4. **观测层收尾：E2E 稳定后移除 legacy provider**
+1. **Phase B 协议补齐（当前最高优先级）**
+   - 目标：让 Raw Event 满足 canonicalizer 和追溯链路的最小字段集合。
+   - 验收：基准样本字段覆盖率 >= 90%，fill->submit 链路重建稳定。
+2. **执行一次端到端闭环检测（建议本周内）**
+   - 录制 -> generate -> refine，全链路跑通 1 个真实样本（推荐小红书搜索）。
+   - 输出执行报告并核对 traceability 字段与 canonical 对齐。
+3. **Agent Prompt Cache / Message History 成本优化**
+4. **Phase 4 设计**：CLI 管理、批量执行、体验优化
+5. **观测层收尾：E2E 稳定后移除 legacy provider**
 
 ---
 
@@ -123,7 +133,7 @@
 1. ✅ **P0（已处理）**：修复 `BrowserExecutionStrategy.execute()` 对 mock `page.url` 的未 await 调用，避免 RuntimeWarning 与元数据异常。
 2. ✅ **P1（已处理）**：修复 `StageExecutor` 中 `ExecutionContext.episode_log` 赋值的类型不兼容（mypy 报错）。
 3. ✅ **P1（已处理）**：修复 `execution_strategy._describe_target()` 返回 `Any` 的类型问题（mypy 报错）。
-4. ⏳ **P2（待处理）**：清理仓库历史 lint 债并恢复全量 lint 门禁（当前 `ruff check src tests` 约 195 项）。
+4. ⏳ **P2（待处理）**：清理仓库历史 lint 债并恢复全量 lint 门禁（当前 `ruff check src tests` 约 182 项）。
 
 ---
 

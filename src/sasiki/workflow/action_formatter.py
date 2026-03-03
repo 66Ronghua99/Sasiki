@@ -1,6 +1,6 @@
 """Action formatter for creating human-readable summaries of browser actions."""
 
-from typing import Any, Optional
+from typing import Any
 
 
 class ActionFormatter:
@@ -19,11 +19,11 @@ class ActionFormatter:
         value = action_detail.get("value")
         sibling_texts = target_hint.get("sibling_texts", [])
 
-        # Handle type action
-        if action_type == "type" and value is not None:
+        # Handle fill/type action
+        if action_type in {"type", "fill"} and value is not None:
             if target_name and not self._looks_like_id(target_name):
-                return f'Type "{value}" into "{target_name}"'
-            return f'Type "{value}"'
+                return f'Fill "{value}" into "{target_name}"'
+            return f'Fill "{value}"'
 
         # Handle navigate action
         if action_type == "navigate":
@@ -77,9 +77,7 @@ class ActionFormatter:
         if len(text) >= 24 and all(c in "0123456789abcdefABCDEF" for c in text):
             return True
         # Check for mostly numeric (like "83" as a standalone count)
-        if text.isdigit() and len(text) <= 4:
-            return True
-        return False
+        return bool(text.isdigit() and len(text) <= 4)
 
     def _extract_meaningful_text(self, sibling_texts: list[str]) -> str | None:
         """Extract meaningful text from sibling_texts, filtering out IDs and numbers."""

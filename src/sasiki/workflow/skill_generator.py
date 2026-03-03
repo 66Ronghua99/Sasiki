@@ -1,19 +1,27 @@
 """Skill generator for converting recordings to Workflows using LLM."""
 
 import json
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import ValidationError
 
 from sasiki.llm.client import LLMClient
 from sasiki.utils.logger import get_logger
-from sasiki.workflow.models import Checkpoint, VariableType, Workflow, WorkflowStage, WorkflowVariable
-from sasiki.workflow.recording_parser import RecordingParser
-from sasiki.workflow.storage import WorkflowStorage
-from sasiki.workflow.skill_models import SemanticPlan, SemanticStagePlan
 from sasiki.workflow.action_formatter import ActionFormatter
+from sasiki.workflow.canonicalizer import Canonicalizer
+from sasiki.workflow.models import (
+    Checkpoint,
+    VariableType,
+    Workflow,
+    WorkflowStage,
+    WorkflowVariable,
+)
+from sasiki.workflow.recording_parser import RecordingParser
+from sasiki.workflow.skill_models import SemanticPlan, SemanticStagePlan
+from sasiki.workflow.storage import WorkflowStorage
 
 
 class SkillGenerator:
@@ -50,16 +58,17 @@ You receive a structured browser recording (JSON). Each action has a stable `act
 - Raw data assembly is handled by code; keep output semantic.
 """
 
-    def __init__(self, llm_client: Optional[LLMClient] = None):
+    def __init__(self, llm_client: LLMClient | None = None):
         self.llm_client = llm_client or LLMClient()
         self.formatter = ActionFormatter()
+        self.canonicalizer = Canonicalizer()
 
     def _build_extraction_prompt(
         self,
         narrative: str,
         metadata: dict[str, Any],
-        name_hint: Optional[str] = None,
-        description_hint: Optional[str] = None,
+        name_hint: str | None = None,
+        description_hint: str | None = None,
     ) -> tuple[str, str]:
         """Build extraction prompt.
 
@@ -178,19 +187,31 @@ You receive a structured browser recording (JSON). Each action has a stable `act
             if not action:
                 continue
 
-            raw = action.get("raw", {})
+            target_strategy = action.get("target_strategy", {})
+            preferred_target = (
+                target_strategy.get("preferred")
+                if isinstance(target_strategy, dict)
+                else None
+            )
             detail = {
                 "action_id": action_id,
-                "action_type": raw.get("type"),
-                "timestamp": raw.get("timestamp"),
-                "page_context": action.get("page_context"),
-                "target_hint": action.get("normalized_target_hint_raw") or action.get("target_hint_raw"),
-                "raw_target_hint": action.get("raw_target_hint_raw"),
-                "normalized_target_hint": action.get("normalized_target_hint_raw"),
-                "value": raw.get("value"),
-                "url": raw.get("url"),
-                "triggers_navigation": raw.get("triggers_navigation"),
-                "triggered_by": raw.get("triggered_by"),
+                "canonical_action_id": action.get("canonical_action_id"),
+                "source_event_ids": action.get("source_event_ids", []),
+                "intent_category": action.get("intent_category"),
+                "intent_label": action.get("intent_label"),
+                "confidence": action.get("confidence"),
+                "action_type": action.get("action_type"),
+                "target_hint": preferred_target,
+                "normalized_target_hint": preferred_target,
+                "value": action.get("input"),
+                "url": action.get("page_url"),
+                "triggered_by": action.get("triggered_by"),
+                "postconditions": action.get("postconditions", []),
+                "page_context": {
+                    "url": action.get("page_url", ""),
+                    "title": "",
+                    "tab_id": None,
+                },
             }
             # Clean null values from detail before adding
             cleaned_detail = self.formatter.remove_null_values(detail)
@@ -198,9 +219,12 @@ You receive a structured browser recording (JSON). Each action has a stable `act
             action_summaries.append(self.formatter.format_action_text(detail))
 
             reference_action = {
-                "type": detail.get("action_type"),
-                "target": detail.get("target_hint"),
-                "value": detail.get("value"),
+                "source_canonical_action_id": action.get("canonical_action_id"),
+                "action_type": detail.get("action_type"),
+                "type": detail.get("action_type"),  # backward compatibility for existing readers
+                "target": preferred_target,
+                "value": action.get("input"),
+                "postconditions": action.get("postconditions", []),
             }
             cleaned_reference_action = self.formatter.remove_null_values(reference_action)
             reference_actions.append(cleaned_reference_action)
@@ -251,8 +275,8 @@ You receive a structured browser recording (JSON). Each action has a stable `act
     def _extract_workflow_data(
         self,
         recording_path: Path,
-        name_hint: Optional[str] = None,
-        description_hint: Optional[str] = None,
+        name_hint: str | None = None,
+        description_hint: str | None = None,
     ) -> dict[str, Any]:
         """Extract workflow data from recording using structured I/O + LLM."""
         parser = RecordingParser(recording_path)
@@ -260,7 +284,24 @@ You receive a structured browser recording (JSON). Each action has a stable `act
 
         max_actions = 80
         structured_packet = parser.to_structured_packet(max_actions=max_actions)
-        packet_json = json.dumps(structured_packet, ensure_ascii=False)
+        canonical_actions, diagnostics = self.canonicalizer.canonicalize(
+            structured_packet.get("actions", [])
+        )
+        if not canonical_actions:
+            raise ValueError("No valid canonical actions produced from recording.")
+
+        canonical_packet = {
+            "metadata": {
+                **structured_packet.get("metadata", {}),
+                "canonical_action_count": len(canonical_actions),
+                "canonical_warning_count": len(diagnostics.warnings),
+                "canonical_dropped_event_count": len(diagnostics.dropped_event_ids),
+                "low_confidence_action_count": len(diagnostics.low_confidence_action_ids),
+            },
+            "actions": [action.model_dump(mode="json") for action in canonical_actions],
+            "diagnostics": diagnostics.model_dump(mode="json"),
+        }
+        packet_json = json.dumps(canonical_packet, ensure_ascii=False)
 
         get_logger().info(
             "extracting_workflow",
@@ -268,6 +309,8 @@ You receive a structured browser recording (JSON). Each action has a stable `act
             actions=metadata["action_count"],
             selected_actions=structured_packet["metadata"]["selected_action_count"],
             truncated=structured_packet["metadata"]["truncated"],
+            canonical_actions=len(canonical_actions),
+            canonical_warnings=len(diagnostics.warnings),
         )
 
         system_prompt, user_prompt = self._build_extraction_prompt(
@@ -297,7 +340,7 @@ You receive a structured browser recording (JSON). Each action has a stable `act
 
         workflow_data = self._assemble_workflow_data(
             semantic_plan=semantic_plan,
-            structured_packet=structured_packet,
+            structured_packet=canonical_packet,
         )
 
         get_logger().info(
@@ -311,7 +354,7 @@ You receive a structured browser recording (JSON). Each action has a stable `act
     def _convert_to_workflow(
         self,
         data: dict[str, Any],
-        source_session_id: Optional[str] = None,
+        source_session_id: str | None = None,
     ) -> Workflow:
         """Convert assembled workflow data to Workflow model."""
         stages: list[WorkflowStage] = []
@@ -372,18 +415,16 @@ You receive a structured browser recording (JSON). Each action has a stable `act
         )
 
         if source_session_id:
-            try:
+            with suppress(ValueError):
                 workflow.source_session_id = UUID(source_session_id)
-            except ValueError:
-                pass
 
         return workflow
 
     def generate_from_recording(
         self,
         recording_path: Path | str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
         save: bool = True,
     ) -> Workflow:
         """Generate a workflow from a recording file."""

@@ -63,6 +63,19 @@
 - **根因**：`page.goto()` 等待的是 `load` 事件，但对 SPA（如小红书）来说，`load` 触发后 JavaScript 框架才开始渲染可访问性树（Accessibility Tree）。此时立即调用 `Accessibility.getFullAXTree` 仍返回空树，Agent 误认为页面未加载并开始重复导航。
 - **做法**：在 `execute_action` 的 `navigate` 分支后加 `wait_for_load_state("networkidle", timeout=5000)`，`click` 后加 `wait_for_load_state("domcontentloaded", timeout=3000)`，均用 try-except 容错超时。
 
+### 12) Raw 直接喂 LLM 导致语义漂移（Canonical 缺位）(2026-03-03)
+- **根因**：`generate` 路径此前将 `structured_packet` 的 raw action 直接传给 LLM，缺少 deterministic 归一层；录制噪声和字段缺失会直接放大到语义输出。
+- **做法**：
+  1. 新增 `Canonicalizer`（`workflow/canonicalizer.py`），统一执行 R1-R6、fill merge、confidence 与 warning/drop 规则。
+  2. `SkillGenerator` 改为消费 canonical packet，不再直接消费 raw packet。
+  3. 加入 fail-fast：无法产出有效 canonical actions 时直接失败，不进入 LLM。
+- **预防规则**：凡是执行关键路径涉及 LLM 语义抽取，必须先经过 deterministic schema/IR gate（如 CanonicalAction），禁止 raw 直接入模。
+
+### 13) 真实站点 refine 使用无头模式导致诊断与介入能力下降 (2026-03-03)
+- **根因**：无头模式下真实站点（含反爬/风控/登录态校验）更容易出现不可见拦截，且 HITL 介入与肉眼核验链路缺失，导致“看似失败原因不明”的排障成本升高。
+- **做法**：E2E 与回归默认使用有头浏览器，不传 `--headless`；统一使用 `--observation-mode browser_use` 保持观测口径一致。
+- **预防规则**：除 CI 纯单测场景外，真实站点验证命令必须先给出有头版本，必要时再补充无头对照实验。
+
 
 
 1. Chrome 扩展后台页是否收到 WebSocket 控制消息。  

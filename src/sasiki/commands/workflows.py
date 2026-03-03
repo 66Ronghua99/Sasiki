@@ -36,7 +36,7 @@ def _format_target_hint(target: Any) -> str:
 
 def _format_reference_action(reference_action: dict[str, Any]) -> str:
     """Format a reference action for high-level display."""
-    action_type = str(reference_action.get("type", "action"))
+    action_type = str(reference_action.get("action_type") or reference_action.get("type", "action"))
     target_text = _format_target_hint(reference_action.get("target"))
     value = reference_action.get("value")
 

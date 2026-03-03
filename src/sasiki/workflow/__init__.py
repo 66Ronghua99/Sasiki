@@ -1,5 +1,7 @@
 """Workflow models, storage, and skill generation."""
 from sasiki.workflow.models import Workflow, WorkflowStage, WorkflowVariable, Checkpoint
+from sasiki.workflow.canonical_models import CanonicalAction, CanonicalDiagnostics
+from sasiki.workflow.canonicalizer import Canonicalizer
 from sasiki.workflow.recording_models import RecordingMetadata
 from sasiki.workflow.recording_parser import RecordingParser
 from sasiki.workflow.skill_generator import SkillGenerator
@@ -14,4 +16,7 @@ __all__ = [
     "RecordingParser",
     "RecordingMetadata",
     "SkillGenerator",
+    "CanonicalAction",
+    "CanonicalDiagnostics",
+    "Canonicalizer",
 ]

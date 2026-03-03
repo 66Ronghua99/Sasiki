@@ -129,8 +129,8 @@ def generate(
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
     except ValueError as e:
-        console.print(f"[red]Error parsing LLM response: {e}[/red]")
-        console.print("[dim]The LLM may have returned an invalid format. Try again or adjust the recording.[/dim]")
+        console.print(f"[red]Error generating workflow: {e}[/red]")
+        console.print("[dim]Please validate recording quality and schema, then retry.[/dim]")
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error generating workflow: {e}[/red]")

@@ -269,7 +269,8 @@ class StageExecutor:
                     action_key = self._action_key(action)
                     if action_key == last_action_key:
                         repeat_count += 1
-                        if repeat_count >= self.max_repeats:
+                        should_fail_on_repeat = self._should_fail_on_repetition(action)
+                        if repeat_count >= self.max_repeats and should_fail_on_repeat:
                             return StageResult(
                                 stage_name=stage_name,
                                 status="failed",
@@ -277,6 +278,14 @@ class StageExecutor:
                                 actions=taken_actions,
                                 episode_log=episode_log.copy(),
                                 error=f"Action repetition detected: {action.action_type} repeated {self.max_repeats} times",
+                            )
+                        if repeat_count == self.max_repeats and not should_fail_on_repeat:
+                            get_logger().warning(
+                                "action_repetition_tolerated",
+                                stage_index=stage_index,
+                                step=steps_taken,
+                                action_type=action.action_type,
+                                repeats=repeat_count,
                             )
                     else:
                         repeat_count = 0
@@ -491,6 +500,15 @@ class StageExecutor:
         else:
             target_part = "none"
         return f"{action.action_type}:{target_part}:{action.value or ''}"
+
+    def _should_fail_on_repetition(self, action: AgentDecision) -> bool:
+        """Return True when repeated actions should trigger immediate stage failure.
+
+        Repeating `fill` can be a transient model behavior while deciding the
+        follow-up submit action (e.g. press Enter/click search). Let max-steps
+        and stagnation checks handle it instead of hard-failing early.
+        """
+        return action.action_type != "fill"
 
     async def _run_retry_attempts(
         self,

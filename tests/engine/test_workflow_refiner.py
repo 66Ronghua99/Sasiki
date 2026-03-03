@@ -872,6 +872,32 @@ class TestActionRepetitionDetection:
         assert "repetition" in result.stage_results[0].error.lower()
 
     @pytest.mark.asyncio
+    async def test_repeated_fill_is_not_hard_failed_by_repetition(
+        self, mock_playwright_env, mock_replay_agent, sample_workflow
+    ):
+        """Test that repeated fill does not trigger repetition hard-failure."""
+        mock_env, mock_page = mock_playwright_env
+        mock_agent = mock_replay_agent
+
+        mock_agent.step.return_value = AgentAction(
+            thought="Typing search query",
+            action_type="fill",
+            target_id=42,
+            value="春季穿搭 男",
+        )
+
+        # Keep max_steps below stagnation threshold to make assertion deterministic.
+        refiner = WorkflowRefiner(max_steps_per_stage=4)
+        result = await refiner.run(
+            workflow=sample_workflow,
+            inputs={"query": "test"},
+        )
+
+        assert result.status == "failed"
+        assert "repetition" not in result.stage_results[0].error.lower()
+        assert "Maximum steps" in result.stage_results[0].error
+
+    @pytest.mark.asyncio
     async def test_different_actions_not_detected_as_repetition(
         self, mock_playwright_env, mock_replay_agent, sample_workflow
     ):
