@@ -1,54 +1,38 @@
-# 当前最高优先级任务
+# 当前执行指针
 
 **更新日期：2026-03-03**
 
-## 目标
+## 当前阶段
 
-完成从 Phase B 到 Phase C/D 的故障收敛：
-1. 修复 generate 产物中的 URL/变量漂移，避免语义偏航；
-2. 提升 refine retry 鲁棒性，避免空参数动作硬失败；
-3. 补齐 execution trace 追溯字段与记录一致性。
+P0（不切 Phase）：执行鲁棒性收敛。
 
-## 当前状态
+## 只做这三件事
 
-1. ✅ 后端协议与 parser 首版已完成（commit: `a10e6a4`）。
-2. ✅ extension 协议字段首版已对齐（`content.ts` + `background.ts`，pending real sample）。
-3. 🟡 Phase C/D P0 代码修复已落地（canonicalizer 去噪 + generator navigate value 补齐 + retry 降级）。
-4. ⏳ 需用有头真实 E2E 复验修复有效性（重点看 Stage1 是否稳定 `fill -> submit`）。
-5. ⏳ execution trace source-link（Phase D）尚未接入。
-6. 复验样本 `343d6933-9df3-4c32-a35d-b6cd333bbcdf` 显示：已消除空 URL 导航崩溃，但 Stage1 仍因 done-verifier 误拒绝失败；暂不改阶段顺序。
+1. 继续 headed E2E 复验（固定 `--observation-mode browser_use`），确认三类契约错误持续为 0：
+   - `navigate requires URL value`
+   - `press requires value`
+   - `done.evidence` 类型 parse error
+2. 进入 P0-B：Stage2 定位策略收敛，重点处理“search_result 页面无有效 note 目标 -> 循环 navigate/scroll/click idx1”。
+3. 增加 Stage2 定位失败可观测性：统计 `target_id not found`、`locator timeout`、`explore<->search_result` 往返循环次数，作为后续策略切换触发条件。
 
-## 立即执行（按顺序）
+详细重规划见：
 
-1. **有头 E2E 复验（P0）**
-- 目标：验证 P0 修复后，真实站点 Stage1 不再被连续 `navigate` 主导。
-- 验收：同样输入下，Stage1 优先出现 `fill/submit`，且无 `navigate + value=null` 硬失败。
+1. `docs/P0_EXECUTION_REPLAN.md`
 
-2. **Traceability 补齐（P1）**
-- 在 `EpisodeEntry` / execution report 增加 `source_canonical_action_id`（可空）与 `source_link_reason`（当可空时必填）。
+## 验收口径（本轮）
 
-## Done Criteria
+1. 3 次有头 E2E 中，`navigate requires URL value` = 0。
+2. 3 次有头 E2E 中，`press requires value` = 0。
+3. 3 次有头 E2E 中，`done.evidence` 类型 parse error = 0。
+4. Stage1 不再因 verifier 误拒绝 `done` 失败。
+5. 在 3 次 run 中，至少 2 次可通过 Stage2，或给出可重复复现的单一 Stage2 主阻塞并有明确修补点。
 
-1. 录制 -> generate -> refine 至少 1 条真实样本闭环成功（允许 HITL）。
-2. `fill -> submit` 链路重建通过率 >= 90%。
-3. 不再出现 `navigate + value=null` 直接失败。
-4. execution_report 失败步可追溯（有 `source_canonical_action_id` 或 `source_link_reason`）。
+## 约束
 
-## 执行约束（必须遵守）
+1. 真实站点必须有头模式（不要 `--headless`）。
+2. 固定 `--observation-mode browser_use`。
 
-1. 真实站点 refine 使用有头浏览器（不要 `--headless`）。
-2. 观测模式固定 `--observation-mode browser_use`。
+## 参考
 
-推荐命令模板：
-
-```bash
-uv run sasiki refine <workflow_id> -i search_query="春季穿搭 男" --max-steps 30 --observation-mode browser_use
-```
-
-问题样本归档：
-1. `/Users/cory/.sasiki/workflows/2575f2d7-084e-449c-ac30-794add02329d/execution_report_final.json`
-
-## 相关规格文档
-
-1. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`
-2. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`
+1. `docs/P0_EXECUTION_REPLAN.md`（第 8-10 节：最新证据与调试闭环）
+2. `PROGRESS.md`（`P0-A2 实施进展（2026-03-04）`）

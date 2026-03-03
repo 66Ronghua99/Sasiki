@@ -54,12 +54,26 @@ Respond with a single JSON object. Always include `semantic_meaning`, `progress_
 
 
 class ReplayAgent:
+    _INTERACTION_ACTION_TYPES = {"click", "fill", "hover", "extract_text", "assert_visible"}
+
     def __init__(self) -> None:
         self.observer = AccessibilityObserver()
         self.llm = LLMClient()
         self.last_dom_hash: str | None = None
         self.current_node_map: dict[int, Any] = {}
         self.current_selector_map: dict[int, str] = {}
+        self._round_index = 0
+        self._debug_rounds: list[dict[str, Any]] = []
+
+    def reset_debug_rounds(self) -> None:
+        """Reset in-memory LLM debug rounds for a new stage run."""
+        self._debug_rounds = []
+
+    def consume_debug_rounds(self) -> list[dict[str, Any]]:
+        """Consume and clear collected LLM debug rounds."""
+        rounds = self._debug_rounds.copy()
+        self._debug_rounds = []
+        return rounds
 
     async def _get_element_center(self, page: Page, backend_node_id: int) -> tuple[float, float]:
         """Gets the center coordinates of an element using CDP."""
@@ -120,10 +134,12 @@ class ReplayAgent:
         Returns:
             AgentAction decided by the LLM
         """
+        self._round_index += 1
         # Log concise goal summary (first line only)
         goal_summary = goal.split('\n')[0] if goal else ""
         get_logger().info(
             "replay_agent_step_start",
+            round_index=self._round_index,
             goal_summary=goal_summary,
             is_retry=retry_context is not None,
             attempt=retry_context.attempt_number if retry_context else 1,
@@ -153,12 +169,50 @@ class ReplayAgent:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
+        observation_json = self._serialize_tree(observation_payload)
+        get_logger().info(
+            "replay_agent_llm_request",
+            round_index=self._round_index,
+            is_retry=retry_context is not None,
+            attempt=retry_context.attempt_number if retry_context else 1,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            observation_chars=len(observation_json),
+            user_prompt_chars=len(user_prompt),
+            system_prompt_chars=len(system_prompt),
+        )
+        round_trace: dict[str, Any] = {
+            "round_index": self._round_index,
+            "is_retry": retry_context is not None,
+            "attempt": retry_context.attempt_number if retry_context else 1,
+            "goal": goal,
+            "action_history": action_history.copy() if action_history else [],
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "observation_payload": observation_json,
+            "observation_chars": len(observation_json),
+            "user_prompt_chars": len(user_prompt),
+            "system_prompt_chars": len(system_prompt),
+        }
 
         # 3. Call LLM
-        response_str = await self.llm.complete_async(
-            messages=messages,
-            temperature=0.1,
-            response_format={"type": "json_object"}
+        try:
+            response_str = await self.llm.complete_async(
+                messages=messages,
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+        except Exception as e:
+            round_trace["request_error"] = str(e)
+            self._debug_rounds.append(round_trace)
+            raise
+        round_trace["raw_response"] = response_str
+        round_trace["response_chars"] = len(response_str)
+        get_logger().info(
+            "replay_agent_llm_response_raw",
+            round_index=self._round_index,
+            response=response_str,
+            response_chars=len(response_str),
         )
 
         # 4. Parse output
@@ -174,9 +228,13 @@ class ReplayAgent:
             action_data = json.loads(clean_str.strip())
             action_data = self._normalize_action_data(action_data)
             action = AgentAction(**action_data)
+            round_trace["normalized_action"] = action.model_dump(mode="json")
+            self._debug_rounds.append(round_trace)
             get_logger().info("replay_agent_action_decided", action=action.model_dump())
             return action
         except Exception as e:
+            round_trace["parse_error"] = str(e)
+            self._debug_rounds.append(round_trace)
             get_logger().error("Failed to parse LLM action", error=str(e), response=response_str)
             raise
 
@@ -220,6 +278,10 @@ class ReplayAgent:
             return {"thought": "Invalid action payload", "action_type": "ask_human", "message": str(action_data)}
 
         normalized = dict(action_data)
+        for key in ("target", "target_id", "value", "message", "evidence", "url", "key", "keys"):
+            raw_value = normalized.get(key)
+            if isinstance(raw_value, str) and not raw_value.strip():
+                normalized[key] = None
 
         # Normalize common action aliases
         action_type = normalized.get("action_type")
@@ -232,12 +294,45 @@ class ReplayAgent:
         if isinstance(action_type, str):
             normalized["action_type"] = action_alias_map.get(action_type, action_type)
 
+        # Navigate often returns `url` instead of `value`
+        if normalized.get("action_type") == "navigate":
+            if normalized.get("value") is None and isinstance(normalized.get("url"), str):
+                normalized["value"] = normalized["url"]
+            if normalized.get("value") is None and isinstance(normalized.get("target"), str):
+                target_url = normalized["target"].strip()
+                if target_url.startswith(("http://", "https://")):
+                    normalized["value"] = target_url
+                    normalized["target"] = None
+
         # Backward/variant fields from LLM outputs
-        if normalized.get("target") is None and isinstance(normalized.get("element_identifier"), dict):
-            normalized["target"] = normalized["element_identifier"]
+        if normalized.get("target") is None:
+            identifier_target = self._coerce_target_payload(normalized.get("element_identifier"))
+            if identifier_target is not None:
+                normalized["target"] = identifier_target
+
+        coerced_target = self._coerce_target_payload(normalized.get("target"))
+        if coerced_target is not None:
+            normalized["target"] = coerced_target
 
         if normalized.get("value") is None and isinstance(normalized.get("key"), str):
             normalized["value"] = normalized["key"]
+        if normalized.get("value") is None and isinstance(normalized.get("keys"), str):
+            normalized["value"] = normalized["keys"]
+
+        target_id = normalized.get("target_id")
+        if isinstance(target_id, str):
+            stripped_target_id = target_id.strip()
+            if stripped_target_id.isdigit():
+                normalized["target_id"] = int(stripped_target_id)
+            elif stripped_target_id:
+                fallback_target = normalized.get("target")
+                if not isinstance(fallback_target, dict):
+                    fallback_target = {}
+                fallback_target.setdefault("element_id", stripped_target_id)
+                normalized["target"] = fallback_target
+                normalized["target_id"] = None
+            else:
+                normalized["target_id"] = None
 
         # Some models put URL in target.url for navigate; AgentAction expects value
         target = normalized.get("target")
@@ -246,6 +341,14 @@ class ReplayAgent:
             if normalized.get("action_type") == "navigate" and isinstance(target_url, str):
                 normalized["value"] = normalized.get("value") or target_url
                 normalized["target"] = None
+
+        # Evidence must always be a string for AgentAction schema
+        evidence = normalized.get("evidence")
+        if evidence is not None and not isinstance(evidence, str):
+            try:
+                normalized["evidence"] = json.dumps(evidence, ensure_ascii=False)
+            except Exception:
+                normalized["evidence"] = str(evidence)
 
         # Fill missing thought with a deterministic fallback
         thought = normalized.get("thought")
@@ -258,6 +361,23 @@ class ReplayAgent:
             normalized["thought"] = str(fallback)
 
         return normalized
+
+    def _coerce_target_payload(self, target_payload: Any) -> dict[str, Any] | None:
+        """Normalize target payload variants from different models."""
+        if isinstance(target_payload, str):
+            element_id = target_payload.strip()
+            return {"element_id": element_id} if element_id else None
+        if not isinstance(target_payload, dict):
+            return None
+
+        target = dict(target_payload)
+        if "element_id" not in target and isinstance(target.get("elementId"), str):
+            target["element_id"] = target["elementId"]
+        if "test_id" not in target and isinstance(target.get("testId"), str):
+            target["test_id"] = target["testId"]
+        if "element_id" not in target and isinstance(target.get("id"), str):
+            target["element_id"] = target["id"]
+        return target
 
     def _build_normal_prompt(
         self,
@@ -460,6 +580,12 @@ class ReplayAgent:
         name: str | None = None
 
         if action.target is not None:
+            if action.target.test_id:
+                return page.get_by_test_id(action.target.test_id).first
+            if action.target.element_id:
+                return page.locator(
+                    f'[id="{self._escape_css_attr_value(action.target.element_id)}"]'
+                ).first
             role = action.target.role
             name = action.target.name
         elif action.target_id is not None and action.target_id in self.current_node_map:
@@ -471,13 +597,24 @@ class ReplayAgent:
 
         if not role:
             return None
+        if (
+            action.action_type in self._INTERACTION_ACTION_TYPES
+            and not name
+        ):
+            # Role-only targeting is ambiguous on list-heavy pages (e.g. many links/buttons).
+            # Let explicit target_id path handle it when provided.
+            if action.target_id is not None:
+                return None
+            raise ValueError(
+                f"Ambiguous target for {action.action_type}: role-only locator is not allowed"
+            )
         if name:
             return page.get_by_role(cast(Any, role), name=name)
         return page.get_by_role(cast(Any, role))
 
     def _resolve_target_id(self, action: AgentDecision) -> int | None:
         """Resolve legacy target_id from semantic target for compatibility path."""
-        if action.target is None:
+        if action.target is None or not action.target.role or not action.target.name:
             return None
         for node_id, node_info in self.current_node_map.items():
             locator = node_info.locator_args
@@ -487,3 +624,7 @@ class ReplayAgent:
                 continue
             return node_id
         return None
+
+    def _escape_css_attr_value(self, value: str) -> str:
+        """Escape attribute selector value for Playwright CSS locator."""
+        return value.replace("\\", "\\\\").replace('"', '\\"')

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from sasiki.engine.replay_models import AgentAction
 
@@ -85,6 +87,8 @@ class StageVerifier:
         """Check whether evidence text semantically covers criteria text."""
         criteria_lower = criteria.lower()
         evidence_lower = evidence.lower()
+        if self._match_url_containing_rule(criteria, evidence):
+            return True
         if criteria_lower in evidence_lower:
             return True
 
@@ -96,6 +100,50 @@ class StageVerifier:
         matched = sum(1 for token in tokens if token in evidence_lower)
         required = max(1, (len(tokens) + 1) // 2)
         return matched >= required
+
+    def _match_url_containing_rule(self, criteria: str, evidence: str) -> bool:
+        """Match criteria fragments like 'URL containing ...' against decoded evidence URL."""
+        match = re.search(r"url\s+containing\s+(.+)", criteria, flags=re.IGNORECASE)
+        if not match:
+            return False
+
+        expected = match.group(1).strip().strip(".'\"")
+        if not expected:
+            return False
+
+        expected_lower = expected.lower()
+        for url in self._extract_urls(evidence):
+            decoded_url = unquote_plus(url).lower()
+            if expected_lower in decoded_url:
+                return True
+            if expected_lower.startswith("keyword="):
+                query = parse_qs(urlparse(url).query)
+                keyword_values = query.get("keyword", [])
+                if any(expected_lower.removeprefix("keyword=") in unquote_plus(value).lower() for value in keyword_values):
+                    return True
+        return False
+
+    def _extract_urls(self, evidence: str) -> list[str]:
+        """Extract URL candidates from raw evidence text or JSON string evidence."""
+        candidates: list[str] = []
+        stripped = evidence.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                payload = json.loads(stripped)
+                if isinstance(payload, dict):
+                    url_value = payload.get("url")
+                    if isinstance(url_value, str) and url_value.strip():
+                        candidates.append(url_value.strip())
+            except Exception:
+                pass
+
+        candidates.extend(re.findall(r"https?://[^\s\"']+", evidence))
+        # preserve order and remove duplicates
+        unique: list[str] = []
+        for item in candidates:
+            if item and item not in unique:
+                unique.append(item)
+        return unique
 
     def _keywords(self, text: str) -> list[str]:
         """Extract meaningful english keywords."""

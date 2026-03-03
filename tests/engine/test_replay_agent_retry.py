@@ -94,6 +94,24 @@ class TestReplayAgentStepWithContext:
         assert "deadbeef" in user_message
 
     @pytest.mark.asyncio
+    async def test_step_collects_debug_rounds(self, mock_observer, mock_llm, mock_page):
+        """Each step should persist full LLM I/O payload for report debugging."""
+        agent = ReplayAgent()
+
+        await agent.step(mock_page, "Click the button")
+        rounds = agent.consume_debug_rounds()
+
+        assert len(rounds) == 1
+        debug_round = rounds[0]
+        assert debug_round["round_index"] == 1
+        assert debug_round["is_retry"] is False
+        assert "system_prompt" in debug_round and debug_round["system_prompt"]
+        assert "user_prompt" in debug_round and debug_round["user_prompt"]
+        assert "observation_payload" in debug_round and debug_round["observation_payload"]
+        assert "raw_response" in debug_round and debug_round["raw_response"]
+        assert "normalized_action" in debug_round
+
+    @pytest.mark.asyncio
     async def test_step_with_retry_context(self, mock_observer, mock_llm, mock_page):
         """Test step with retry context."""
         agent = ReplayAgent()
@@ -453,6 +471,93 @@ class TestReplayAgentPromptBuilding:
         assert normalized["value"] == "Enter"
         assert normalized["thought"] == "Submit search"
 
+    def test_normalize_action_data_maps_press_keys_field(self, agent):
+        """Test normalization for keys->value mapping."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "press",
+                "keys": "End",
+                "thought": "scroll down",
+            }
+        )
+
+        assert normalized["action_type"] == "press"
+        assert normalized["value"] == "End"
+
+    def test_normalize_action_data_maps_navigate_url_field_to_value(self, agent):
+        """Navigate output with top-level url should be normalized to value."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "navigate",
+                "url": "https://example.com/search?q=test",
+                "thought": "go to result page",
+            }
+        )
+
+        assert normalized["action_type"] == "navigate"
+        assert normalized["value"] == "https://example.com/search?q=test"
+
+    def test_normalize_action_data_maps_navigate_target_url_string_to_value(self, agent):
+        """Navigate output with URL string in target should be normalized to value."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "navigate",
+                "target": "https://example.com/explore/123",
+                "thought": "open note",
+            }
+        )
+
+        assert normalized["action_type"] == "navigate"
+        assert normalized["value"] == "https://example.com/explore/123"
+        assert normalized["target"] is None
+
+    def test_normalize_action_data_serializes_done_evidence_object(self, agent):
+        """Done evidence object should be serialized into schema-compatible string."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "done",
+                "thought": "goal reached",
+                "evidence": {
+                    "url": "https://example.com/search?q=test",
+                    "title": "Search Result",
+                },
+            }
+        )
+
+        assert isinstance(normalized["evidence"], str)
+        assert '"url": "https://example.com/search?q=test"' in normalized["evidence"]
+
+    def test_normalize_action_data_serializes_evidence_object_for_any_action(self, agent):
+        """Evidence object should be serialized even when action_type is not done."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "navigate",
+                "url": "https://example.com/search?q=test",
+                "thought": "navigate",
+                "evidence": {"source": "model-hint"},
+            }
+        )
+
+        assert normalized["value"] == "https://example.com/search?q=test"
+        assert isinstance(normalized["evidence"], str)
+        assert '"source": "model-hint"' in normalized["evidence"]
+
+    def test_normalize_action_data_converts_empty_target_and_target_id_to_none(self, agent):
+        """Empty strings should be normalized to None to avoid schema parse failure."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "navigate",
+                "target": "",
+                "target_id": "",
+                "url": "https://example.com/search?q=test",
+                "thought": "navigate",
+            }
+        )
+
+        assert normalized["target"] is None
+        assert normalized["target_id"] is None
+        assert normalized["value"] == "https://example.com/search?q=test"
+
     def test_normalize_action_data_maps_element_identifier_to_target(self, agent):
         """Test normalization for element_identifier fallback."""
         normalized = agent._normalize_action_data(
@@ -465,3 +570,74 @@ class TestReplayAgentPromptBuilding:
         )
 
         assert normalized["target"] == {"role": "textbox", "name": "搜索小红书"}
+
+    def test_normalize_action_data_moves_string_target_id_to_element_id(self, agent):
+        """String target_id like 'search-input' should be coerced to target.element_id."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "fill",
+                "target_id": "search-input",
+                "value": "春季穿搭 男生女生",
+                "thought": "fill query",
+            }
+        )
+
+        assert normalized["target_id"] is None
+        assert normalized["target"]["element_id"] == "search-input"
+
+    def test_normalize_action_data_converts_numeric_target_id_string(self, agent):
+        """Numeric target_id string should be converted to int."""
+        normalized = agent._normalize_action_data(
+            {
+                "action_type": "click",
+                "target_id": "12",
+                "thought": "click item",
+            }
+        )
+
+        assert normalized["target_id"] == 12
+
+    def test_resolve_locator_prefers_element_id(self, agent):
+        """Locator should be resolved by element_id when role/name are absent."""
+        page = MagicMock()
+        locator = MagicMock()
+        query = MagicMock()
+        query.first = locator
+        page.locator = MagicMock(return_value=query)
+
+        action = AgentAction(
+            thought="fill search input",
+            action_type="fill",
+            target={"element_id": "search-input"},
+            value="春季穿搭 男生女生",
+        )
+
+        resolved = agent._resolve_locator(page, action)
+
+        page.locator.assert_called_once_with('[id="search-input"]')
+        assert resolved is locator
+
+    def test_resolve_locator_rejects_role_only_for_interaction(self, agent):
+        """Role-only click target should be rejected as ambiguous."""
+        page = MagicMock()
+        action = AgentAction(
+            thought="click link",
+            action_type="click",
+            target={"role": "link"},
+        )
+
+        with pytest.raises(ValueError, match="Ambiguous target"):
+            agent._resolve_locator(page, action)
+
+    def test_resolve_locator_role_only_with_target_id_uses_legacy_path(self, agent):
+        """If target_id is provided, role-only semantic target should defer to target_id path."""
+        page = MagicMock()
+        action = AgentAction(
+            thought="click by node id",
+            action_type="click",
+            target={"role": "link"},
+            target_id=3,
+        )
+
+        resolved = agent._resolve_locator(page, action)
+        assert resolved is None

@@ -79,9 +79,94 @@ Message: `feat(recording): add phase-b protocol fields (pending test)`
 
 ## 当前优先级（按顺序）
 
-1. **Headed E2E 回归验证（下一步）**：用真实录制样本验证 `fill -> submit` 是否稳定替代连续 `navigate`。
-2. **Traceability 补齐**：execution trace 增加 `source_canonical_action_id/source_link_reason` 并修复 step 记录连续性。
-3. Prompt Cache / Message History 成本优化。
+1. **P0-A2 最小工具化闸门**：先消除 `navigate/press/done` 的字段漂移执行失败。
+2. **Headed E2E 回归验证**：固定口径 x3，验证三类契约错误清零。
+3. **Stage2 定位复验**：契约稳定后再处理 `target_id not found` 与弱语义 link 点击问题。
+
+## P0 收敛进展（2026-03-03 深夜）
+
+已完成最小代价实现（M1-M3）：
+
+1. 生成层：`target_hint` 改为可读短语（避免把 hash/id 直接塞入 stage goal）。
+2. 执行层：交互动作禁止 role-only locator（无 name/test_id/element_id 时判定 ambiguous）。
+3. Retry：新增等价失败检测，同类失败连续命中时提前终止当前 retry 策略，避免重复循环。
+4. 回归：
+   - `uv run mypy src` ✅
+   - `uv run pytest -q` ✅（229 passed）
+   - `uv run ruff check src tests` ❌（历史债务，190 条，非本次新增）
+
+## 重规划说明（2026-03-03）
+
+为避免继续堆叠 case-by-case 补丁，已将问题与策略重整为分层收敛方案：
+
+1. 记录文件：`docs/P0_EXECUTION_REPLAN.md`
+2. 关键原则：输入契约严格、执行定位分层、重试策略去重复
+3. 阶段顺序不变：仍停留在 P0，未切到下一 Phase
+
+## 最新 E2E Debug 固化（2026-03-03 深夜）
+
+样本：`/Users/cory/.sasiki/workflows/ddb23bb7-6267-4267-a034-fa11cd2b5628/execution_report_final.json`
+
+新增能力：
+1. `execution_report` 已写入每 stage 的 `llm_debug_rounds`（每轮 LLM 输入/输出/归一化动作/解析错误）。
+
+本次量化结论：
+1. Stage1 成功（2 steps），Stage2 失败（12 steps，max-steps）。
+2. 契约类错误仍是主因：
+   - `navigate requires URL value`：7 次
+   - `press requires value`：2 次
+   - parse error：5 次（其中 `done.evidence` 类型不匹配 2 次）
+3. 说明当前主阻塞位于执行契约层（字段漂移），不是 recording 首要阻塞。
+
+决策：
+1. 先做 P0-A2 最小工具化闸门（动作 schema + 三条兼容映射）。
+2. 契约错误清零后，再回到 Stage2 定位与 verifier 问题。
+
+## P0-A2 实施进展（2026-03-04）
+
+已落地（代码层）：
+1. `ReplayAgent._normalize_action_data` 新增 `navigate.url -> value` 映射。
+2. `ReplayAgent._normalize_action_data` 新增 `navigate.target(URL string) -> value` 映射。
+3. `ReplayAgent._normalize_action_data` 新增 `done.evidence(dict/list/other) -> string` 归一化。
+
+测试与校验：
+1. `uv run pytest -q tests/engine/test_replay_agent_retry.py` ✅（27 passed）
+2. `uv run mypy src` ✅
+3. `uv run pytest -q` ✅（235 passed）
+4. `uv run ruff check src tests` ❌（历史债务 191 条，非本次引入）
+
+状态判断：
+1. P0-A2 已完成“本地契约闸门”实现与单测覆盖。
+2. 下一步进入固定口径 headed E2E x3，验证三类契约错误是否在真实站点清零。
+
+## P0-A2 复验结果（2026-03-04）
+
+样本：`/Users/cory/.sasiki/workflows/ddb23bb7-6267-4267-a034-fa11cd2b5628/execution_report_final.json`
+
+固定口径复验（headed + `--observation-mode browser_use`）结果：
+1. `navigate requires URL value` = 0
+2. `press requires value` = 0
+3. `done.evidence` 类型 parse error = 0
+4. `llm_debug_rounds` 总 parse_error = 0
+
+结论：
+1. P0-A2（最小工具化闸门）在真实站点 run 中已生效，原三类契约错误本轮为 0。
+2. 当前主失败已收敛为 `StageVerifier` 误拒绝 `done`（`evidence does not satisfy success criteria`）。
+3. 下一步优先级从“契约补洞”切到“补齐 x2 复验 + verifier 对齐”。
+
+## Verifier 对齐进展（2026-03-04）
+
+已落地：
+1. `StageVerifier` 支持从 JSON evidence 字符串提取 URL 并按 `URL containing ...` 规则匹配（含 URL decode 与 `keyword` query 匹配）。
+2. 新增单测：`tests/engine/test_stage_verifier.py`。
+
+复验结果（同样本，同口径）：
+1. Stage1 已从 `done` 误拒绝变为稳定 `SUCCESS`。
+2. 三类契约错误继续为 0：
+   - `navigate requires URL value` = 0
+   - `press requires value` = 0
+   - `done.evidence` 类型 parse error = 0
+3. 当前主失败为 Stage2 `max_steps`，表现为目标定位与策略循环（已符合下一阶段主线）。
 
 ## 执行约束
 
