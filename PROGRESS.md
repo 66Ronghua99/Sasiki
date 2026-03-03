@@ -44,6 +44,10 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
   - `ApiExecutionStrategy` / `HybridExecutionStrategy` 占位（Path B 未来扩展）
   - `StageExecutor` 集成策略接口，支持依赖注入
   - 新增 26 个单元测试，所有 189 个测试通过
+- **录制到执行语义契约文档已完成（可直接开发）**：
+  - `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`（v1.1）
+  - `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`（deterministic 规则矩阵、冲突优先级、降级策略、测试矩阵）
+  - 已明确 `Raw Event -> Canonical Action` 组件归属与 Phase A-E 退出条件，可进入 `canonical_models/canonicalizer` 开发。
 ### Previous Phase 3 design
 - 编写 `docs/PHASE3_REPLAY_DESIGN.md` 确定执行引擎架构与观测、执行双重策略。
 - 引入 `playwright` 依赖，作为自动化执行基础。
@@ -96,11 +100,12 @@ Chrome Extension 录制 -> Python 服务接入 -> Skill 生成 -> Playwright 执
 
 ## 当前优先级（按顺序）
 
-1. **真实复杂网站执行稳定性验证（小红书等）**
-2. **Agent Prompt Cache / Message History 成本优化**
-3. **Phase 4 设计（CLI 管理、批量执行、体验优化）**
-4. **观测层清理：E2E 稳定后移除 legacy provider**
-5. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
+1. **Phase A 开发：Canonical 模型 + Canonicalizer + schema validator 接入 generate**
+2. **真实复杂网站执行稳定性验证（小红书等）**
+3. **Agent Prompt Cache / Message History 成本优化**
+4. **Phase 4 设计（CLI 管理、批量执行、体验优化）**
+5. **观测层清理：E2E 稳定后移除 legacy provider**
+6. 见 `NEXT_STEP.md` 和 `docs/AI_NATIVE_REDESIGN.md` 完整 TODO 列表
 
 ---
 

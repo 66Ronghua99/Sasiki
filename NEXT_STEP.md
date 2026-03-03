@@ -4,6 +4,38 @@
 
 ## 目标：进入 E2E 实战测试阶段（小红书等复杂站点）
 
+## 开发执行指针（Compact 后直接按此继续）
+
+### Authoritative Specs
+
+1. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md`（v1.1）
+2. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`（实现细则，开发以此为准）
+
+### Phase A（先做，P0）
+
+1. 新增 `workflow/canonical_models.py`
+   - 定义 `CanonicalAction`、`PostconditionSpec`、`TargetStrategy`、`RetryHint`
+2. 新增 `workflow/canonicalizer.py`
+   - 实现 deterministic pipeline（windowing、R1-R6 规则、confidence、warning）
+3. `generate` 链路接入 schema validator
+   - 缺关键字段 fail-fast（不进入 LLM）
+
+### Phase B（紧接 Phase A）
+
+1. 扩展 recording 协议字段（submit、triggered_by 规则、value_before/value_after）
+2. parser 输出补齐 canonicalizer 所需字段
+3. 将 `reference_actions` 固化为“内联子集 + source_canonical_action_id”
+
+### Done Criteria（进入下一阶段前必须满足）
+
+1. `canonicalizer` 单元测试覆盖 implementation spec 的 R1-R6 + fallback + warning
+2. 结构化 `postconditions` 可被 verifier 稳定消费（无自然语言裸条件）
+3. 失败步骤可追溯到 canonical_action_id 与 source_event_ids
+4. 全量门禁：
+   - `uv run ruff check src tests`（当前历史债务已知）
+   - `uv run mypy src`
+   - `uv run pytest -q`
+
 ---
 
 ## 背景

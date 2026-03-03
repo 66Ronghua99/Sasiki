@@ -1,5 +1,40 @@
 # implementation_plan (2026-03-03)
 
+## 0. Archived Next-Step Guide (post-review, authoritative)
+
+This section is the handoff pointer after context compaction.
+
+### Primary specs
+
+1. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_REQUIREMENTS.md` (v1.1)
+2. `docs/BROWSER_RECORDING_SEMANTIC_FLOW_IMPLEMENTATION_SPEC.md`
+
+### Immediate coding order
+
+1. Add canonical models: `src/sasiki/workflow/canonical_models.py`
+2. Add canonicalizer engine: `src/sasiki/workflow/canonicalizer.py`
+3. Wire `generate` pipeline to canonicalizer + schema validator
+4. Extend trace fields for refiner path: source links from execution step to canonical action
+
+### Non-negotiable implementation constraints
+
+1. Canonicalizer must be deterministic (no LLM in conversion path)
+2. Postconditions must be structured objects only
+3. `source_canonical_action_id` required on reference-derived execution steps
+4. If source link is null, must emit `source_link_reason` enum
+
+### Test minimum (before merge)
+
+1. Canonicalizer unit tests for R1-R6 intent rules + conflict tie-break + confidence fallback
+2. Verifier unit tests for `url_contains`, `value_equals`, `count_at_least`, timeout mapping
+3. Integration test: recording -> canonical -> semantic stage -> refiner traceability
+
+### Exit gates
+
+1. Phase A exit: schema validator coverage 100% on generate input samples
+2. Phase B exit: submit chain reconstruction >= 90% on benchmark set
+3. Phase D exit: failed step traceability = 100%
+
 ## 1. 项目状态快照
 
 | 模块 | 当前状态 | 证据 |
