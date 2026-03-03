@@ -1,3 +1,4 @@
+import hashlib
 from typing import Any
 
 from playwright.async_api import Page
@@ -23,6 +24,25 @@ class CompressedNode(BaseModel):
     children: list["CompressedNode"] = Field(default_factory=list, description="Child nodes")
 
 
+class AriaElement(BaseModel):
+    """A flattened semantic element for AI-native snapshot consumption."""
+
+    role: str = Field(..., description="Accessibility role")
+    name: str | None = Field(default=None, description="Accessible name")
+    value: str | None = Field(default=None, description="Control value for interactive nodes")
+    text: str | None = Field(default=None, description="Readable text content")
+
+
+class AriaSnapshot(BaseModel):
+    """Flattened semantic snapshot for LLM prompts and stagnation detection."""
+
+    url: str = Field(default="", description="Current page URL")
+    title: str = Field(default="", description="Current page title")
+    dom_hash: str = Field(default="", description="Stable hash over interactive semantic elements")
+    interactive: list[AriaElement] = Field(default_factory=list, description="Interactive semantic nodes")
+    readable: list[AriaElement] = Field(default_factory=list, description="Readable semantic nodes")
+
+
 class LocatorInfo(BaseModel):
     """Locator information for finding this node via Playwright."""
 
@@ -45,6 +65,7 @@ class ObservationResult(BaseModel):
         None, description="Compressed tree root or list of roots"
     )
     node_map: dict[int, NodeMapping] = Field(default_factory=dict, description="ID to node mapping")
+    snapshot: AriaSnapshot | None = Field(default=None, description="AI-native flattened semantic snapshot")
 
 
 class AccessibilityObserver:
@@ -161,6 +182,38 @@ class AccessibilityObserver:
         # Not keeping this node - propagate all children upward (flatten)
         return compressed_children
 
+    def _normalize_role(self, role: str) -> str:
+        """Normalize CDP-specific roles to semantic roles."""
+        return "text" if role == "StaticText" else role
+
+    def _build_snapshot(self, url: str, title: str) -> AriaSnapshot:
+        """Build an AI-native flattened snapshot from current node_map."""
+        interactive: list[AriaElement] = []
+        readable: list[AriaElement] = []
+
+        for node_id in sorted(self.node_map):
+            clean_node = self.node_map[node_id].clean_node
+            role = self._normalize_role(clean_node.role)
+            name = clean_node.name
+            value = clean_node.value
+
+            if role in self.INTERACTIVE_ROLES:
+                interactive.append(AriaElement(role=role, name=name, value=value))
+
+            if role in {"text", "heading", "paragraph", "article", "document", "listitem"} and name:
+                readable.append(AriaElement(role=role, text=name))
+
+        interactive_keys = sorted({f"{item.role}|{item.name or ''}" for item in interactive})
+        dom_hash = hashlib.sha256("\n".join(interactive_keys).encode("utf-8")).hexdigest()[:8]
+
+        return AriaSnapshot(
+            url=url,
+            title=title,
+            dom_hash=dom_hash,
+            interactive=interactive,
+            readable=readable,
+        )
+
     async def observe(self, page: Page) -> ObservationResult:
         """Capture the accessibility snapshot using CDP.
 
@@ -181,8 +234,13 @@ class AccessibilityObserver:
             await client.detach()
 
         nodes = res.get("nodes", [])
+        page_title = await page.title()
         if not nodes:
-            return ObservationResult(compressed_tree=None, node_map={})
+            return ObservationResult(
+                compressed_tree=None,
+                node_map={},
+                snapshot=self._build_snapshot(url=page.url, title=page_title),
+            )
 
         node_dict = {str(n["nodeId"]): n for n in nodes}
 
@@ -209,4 +267,5 @@ class AccessibilityObserver:
         return ObservationResult(
             compressed_tree=compressed_tree,
             node_map=self.node_map,
+            snapshot=self._build_snapshot(url=page.url, title=page_title),
         )

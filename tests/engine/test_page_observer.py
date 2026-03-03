@@ -2,7 +2,12 @@ import asyncio
 import json
 import pytest
 from playwright.async_api import async_playwright
-from sasiki.engine.page_observer import AccessibilityObserver, CompressedNode, ObservationResult
+from sasiki.engine.page_observer import (
+    AccessibilityObserver,
+    AriaSnapshot,
+    CompressedNode,
+    ObservationResult,
+)
 
 @pytest.mark.asyncio
 async def test_accessibility_observer():
@@ -66,6 +71,8 @@ async def test_accessibility_observer():
         # Basic assertions
         assert compressed_tree is not None
         assert len(node_map) > 0
+        assert result.snapshot is not None
+        assert result.snapshot.dom_hash
 
         # Check if basic elements were extracted
         found_roles = [node_info.clean_node.role for node_info in node_map.values()]
@@ -100,13 +107,50 @@ def test_compressed_node_model():
 def test_observation_result_model():
     """Test ObservationResult Pydantic model."""
     node = CompressedNode(node_id=1, role="link", name="Test")
-    result = ObservationResult(compressed_tree=node, node_map={})
+    snapshot = AriaSnapshot(url="https://example.com", title="Example", dom_hash="abc12345")
+    result = ObservationResult(compressed_tree=node, node_map={}, snapshot=snapshot)
     assert isinstance(result.compressed_tree, CompressedNode)
     assert result.compressed_tree.role == "link"
+    assert result.snapshot is not None
+    assert result.snapshot.url == "https://example.com"
 
     # Test with None tree
     result_empty = ObservationResult(compressed_tree=None, node_map={})
     assert result_empty.compressed_tree is None
+    assert result_empty.snapshot is None
+
+
+@pytest.mark.asyncio
+async def test_snapshot_dom_hash_stable_for_same_page():
+    """The semantic dom_hash should remain stable across repeated observations."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Stable Page</title></head>
+    <body>
+        <button>Search</button>
+        <input type="text" aria-label="Query" value="abc" />
+        <h1>Results</h1>
+    </body>
+    </html>
+    """
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.set_content(html_content)
+
+        observer = AccessibilityObserver()
+        first = await observer.observe(page)
+        second = await observer.observe(page)
+
+        await browser.close()
+
+    assert first.snapshot is not None
+    assert second.snapshot is not None
+    assert first.snapshot.dom_hash == second.snapshot.dom_hash
+    assert first.snapshot.interactive
+    assert first.snapshot.readable
 
 
 if __name__ == "__main__":
