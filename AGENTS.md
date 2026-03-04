@@ -6,7 +6,7 @@ Current runtime code spans Python + migration Node runtime:
 - `browser/`: CDP Chromium launcher and cookie/session injection.
 - `llm/`: model client and completion wrappers.
 - `workflow/`, `recorder/`, `analyzer/`, `utils/`: workflow models, capture, analysis, and shared utilities.
-- `apps/agent-runtime/`: Node migration scaffold with class-based abstractions (`AgentLoop`, `LoopPolicy`, `ToolSchemaRegistry`, `PlaywrightMcpStdioClient`, `PiMonoPlanner`, `MigrationRuntime`).
+- `apps/agent-runtime/`: Node migration runtime using `@mariozechner/pi-agent-core` with class-based adapters (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`, `PlaywrightMcpStdioClient`, `MigrationRuntime`).
 
 Repository control docs:
 - `PROGRESS.md`: migration milestones and definition of success.
@@ -16,7 +16,7 @@ Repository control docs:
 Tests live in `tests/` (`test_*.py`). Example YAML assets are in `examples/`.
 
 ## Migration Status
-The project is actively migrating to a Node-based runtime (`pi-mono` + Playwright MCP). Until functional cutover is complete, Python CLI/runtime remains the production baseline.
+The project is actively migrating to a Node-based runtime (`pi-agent-core` + Playwright MCP). Until functional cutover is complete, Python CLI/runtime remains the production baseline.
 
 ## Build, Test, and Development Commands
 Use `uv` for local development:

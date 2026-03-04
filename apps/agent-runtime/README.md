@@ -1,11 +1,16 @@
 # Agent Runtime (Migration Scaffold)
 
-This package is the first migration slice from Python loop to Node runtime.
+This package hosts the Node migration runtime for Sasiki.
 
 ## Current scope
-- Class-first abstractions for planner, tool client, policy, and loop orchestration.
-- Playwright MCP stdio client wrapper.
-- Migration runtime entrypoint with a minimal executable loop.
+- `pi-agent-core` drives the agent loop (`Agent` + tool execution events).
+- Playwright MCP stdio client provides browser tools.
+- Class-based adapters isolate model resolution and MCP tool mapping:
+  - `PiAgentCoreLoop`
+  - `ModelResolver`
+  - `McpToolAdapter`
+  - `PlaywrightMcpStdioClient`
+  - `MigrationRuntime`
 
 ## Run
 ```bash
@@ -15,5 +20,5 @@ npm run dev -- "Open xiaohongshu and search for coffee beans"
 ```
 
 ## Notes
-- `PiMonoPlanner` is intentionally wired with a fallback planner for now.
-- Next slice will replace fallback logic with concrete pi-mono agent invocation.
+- Runtime now uses `@mariozechner/pi-agent-core` (no custom planner loop).
+- Focus remains on business workflow replication and E2E stability for Xiaohongshu actions.

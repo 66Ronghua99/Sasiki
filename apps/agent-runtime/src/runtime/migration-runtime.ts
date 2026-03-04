@@ -1,22 +1,14 @@
 import type { AgentRunResult } from "../domain/agent-types.js";
-import { AgentLoop } from "../core/agent-loop.js";
-import { LoopPolicy } from "../core/loop-policy.js";
+import { PiAgentCoreLoop } from "../core/pi-agent-core-loop.js";
 import { ConsoleLogger } from "../infrastructure/logging/console-logger.js";
 import { PlaywrightMcpStdioClient } from "../infrastructure/mcp/playwright-mcp-stdio-client.js";
-import { PiMonoPlanner } from "../infrastructure/planner/pi-mono-planner.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 
 export class MigrationRuntime {
-  private readonly loop: AgentLoop;
+  private readonly loop: PiAgentCoreLoop;
 
   constructor(config: RuntimeConfig) {
     const logger = new ConsoleLogger();
-    const policy = new LoopPolicy();
-    const planner = new PiMonoPlanner({
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-    });
     const toolClient = new PlaywrightMcpStdioClient({
       command: config.mcpCommand,
       args: [...config.mcpArgs, "--cdp-endpoint", config.cdpEndpoint],
@@ -28,7 +20,15 @@ export class MigrationRuntime {
       },
     });
 
-    this.loop = new AgentLoop(planner, toolClient, policy, logger);
+    this.loop = new PiAgentCoreLoop(
+      {
+        model: config.model,
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+      },
+      toolClient,
+      logger
+    );
   }
 
   async start(): Promise<void> {
