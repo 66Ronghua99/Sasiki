@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export const DEFAULT_SOP_ASSET_ROOT_DIR = "~/.sasiki/sop_assets";
 
 export interface RuntimeConfigFile {
   llm?: {
@@ -34,6 +35,9 @@ export interface RuntimeConfigFile {
   runtime?: {
     artifactsDir?: string;
   };
+  observe?: {
+    timeoutMs?: number;
+  };
 }
 
 export interface RuntimeConfig {
@@ -55,6 +59,8 @@ export interface RuntimeConfig {
   baseUrl?: string;
   thinkingLevel: RuntimeThinkingLevel;
   artifactsDir: string;
+  observeTimeoutMs: number;
+  sopAssetRootDir: string;
 }
 
 export interface RuntimeConfigSourceOptions {
@@ -97,6 +103,8 @@ export class RuntimeConfigLoader {
       baseUrl,
       thinkingLevel: this.readThinkingLevel(file?.llm?.thinkingLevel, process.env.LLM_THINKING_LEVEL, "minimal"),
       artifactsDir: file?.runtime?.artifactsDir ?? process.env.RUNTIME_ARTIFACTS_DIR ?? "artifacts/e2e",
+      observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, process.env.OBSERVE_TIMEOUT_MS, 120000),
+      sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
     };
   }
 

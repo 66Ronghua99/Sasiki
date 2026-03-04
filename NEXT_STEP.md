@@ -1,3 +1,3 @@
 # NEXT STEP
 
-按 `.plan/20260304_watch_once_v0_engineering_handoff.md` 启动工程开发（先做 PR-1 Contract Foundation，再推进 PR-2 observe 单站点闭环）。
+按 `.plan/20260304_watch_once_v0_engineering_handoff.md` 推进 PR-2（Observe 单站点闭环）：接入 `--mode observe` + `runtime.observe()`，在 Baidu 产出 4 类示教工件并完成 schema 校验。

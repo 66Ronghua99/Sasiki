@@ -15,6 +15,7 @@
 - Watch-Once v0 设计评审稿：`.plan/20260304_watch_once_v0_design.md`
 - Watch-Once v0 正式 PRD：`.plan/20260304_watch_once_v0_prd.md`
 - Watch-Once v0 工程开发交接稿（逐文件接口）：`.plan/20260304_watch_once_v0_engineering_handoff.md`
+- Watch-Once PR-1 Contract Foundation 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -49,10 +50,16 @@
 - 已新增 PM 技能 `skills/drive-pm-closed-loop`：可将需求讨论收敛为“可执行、可验证”的最小闭环，并提供结构化迭代模板。
 - 已新增 PM 技能 `skills/pm-progress-requirement-discovery`：可基于 `PROGRESS/.plan/MEMORY/NEXT_STEP` 提出高价值澄清问题并收敛当前需求。
 - 已新增 Watch-Once v0 工程开发交接文档：`.plan/20260304_watch_once_v0_engineering_handoff.md`（含逐文件接口草案、错误码、开发顺序与验收口径）。
+- 已完成 Watch-Once PR-1 Contract Foundation：
+  - 新增 `apps/agent-runtime/src/domain/sop-trace.ts`（`SopTrace` 契约 + `validateSopTrace` 校验）
+  - 新增 `apps/agent-runtime/src/domain/sop-asset.ts`（`SopAsset`/`SopAssetQuery` 契约）
+  - 新增 `apps/agent-runtime/src/domain/runtime-errors.ts`（统一 runtime 错误码）
+  - 扩展 `apps/agent-runtime/src/runtime/artifacts-writer.ts`，支持示教 4 工件写入与路径接口
+  - 扩展 `apps/agent-runtime/src/runtime/runtime-config.ts`，补齐 `observe.timeoutMs` 与固定 `sopAssetRootDir` 配置基础
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` Watch-Once 浏览器示教采集 v0：支持记录用户一次真实操作并输出结构化 `SOP trace` 工件。
+- `P0-NEXT` Watch-Once PR-2 Observe 单站点闭环（Baidu）：接入 `--mode observe`、`runtime.observe()`、示教采集与 trace/draft/asset 产物链路。
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。

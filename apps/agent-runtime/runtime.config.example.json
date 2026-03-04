@@ -21,5 +21,8 @@
   },
   "runtime": {
     "artifactsDir": "artifacts/e2e"
+  },
+  "observe": {
+    "timeoutMs": 120000
   }
 }
