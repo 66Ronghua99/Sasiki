@@ -25,33 +25,30 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.1.0",
-    
     # LLM
     "openai>=1.12.0",
     "anthropic>=0.18.0",
-    
     # Video/Image Processing
     "opencv-python>=4.9.0",
     "pillow>=10.2.0",
     "imagehash>=4.3.1",
     "scikit-image>=0.22.0",
-    
     # macOS Screen Capture
     "pyobjc-core>=10.1; sys_platform == 'darwin'",
     "pyobjc-framework-AVFoundation>=10.1; sys_platform == 'darwin'",
     "pyobjc-framework-CoreMedia>=10.1; sys_platform == 'darwin'",
     "pyobjc-framework-Vision>=10.1; sys_platform == 'darwin'",
-    
     # Automation
     "pyautogui>=0.9.54",
     "pyperclip>=1.8.2",
     "pynput>=1.7.6",
-    
     # Utils
     "typer>=0.9.0",
     "rich>=13.7.0",
     "pydantic-yaml>=1.2.0",
     "aiofiles>=23.2.1",
+    "playwright>=1.58.0",
+    "mcp>=1.26.0",
 ]
 
 [project.optional-dependencies]
