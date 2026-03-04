@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
-from collections.abc import Awaitable
+from collections.abc import Coroutine
+from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import AsyncExitStack, suppress
 from dataclasses import dataclass
@@ -211,7 +212,7 @@ class MCPStdioClient:
     def _run_coro(
         self,
         operation: str,
-        awaitable: Awaitable[_T],
+        awaitable: Coroutine[Any, Any, _T],
         *,
         timeout_seconds: float | None = None,
     ) -> _T:
@@ -220,7 +221,7 @@ class MCPStdioClient:
             raise MCPClientError("MCP process is not running")
 
         timeout = timeout_seconds or self._request_timeout_seconds
-        future = asyncio.run_coroutine_threadsafe(awaitable, loop)
+        future: Future[_T] = asyncio.run_coroutine_threadsafe(awaitable, loop)
         try:
             return future.result(timeout=timeout)
         except FuturesTimeoutError as exc:

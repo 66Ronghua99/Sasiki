@@ -1,41 +1,45 @@
-"""LLM client with OpenRouter support."""
+"""LLM client with provider routing support."""
 
-from typing import Any, Optional
-import base64
+from typing import Any, cast
 
 from openai import AsyncOpenAI, OpenAI
-from pydantic import BaseModel
 
-from sasiki.config import settings
+from sasiki.config import get_settings
 from sasiki.utils.logger import logger
 
 
 class LLMClient:
     """Client for LLM API calls."""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
+        settings = get_settings()
+        base_url = settings.active_base_url
+        api_key = settings.active_api_key
+        model = settings.active_model
+        provider = "dashscope" if settings.dashscope_api_key else "openrouter"
+
         self.client = OpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.openrouter_api_key,
+            base_url=base_url,
+            api_key=api_key,
         )
         self.async_client = AsyncOpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.openrouter_api_key,
+            base_url=base_url,
+            api_key=api_key,
         )
-        self.model = settings.llm_model
-        
-        logger.info("llm_client_initialized", model=self.model)
-    
+        self.model = model
+
+        logger.info("llm_client_initialized", model=self.model, provider=provider, base_url=base_url)
+
     def complete(
         self,
         messages: list[dict[str, Any]],
         temperature: float = 0.3,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[dict] = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> str:
         """Send a completion request to the LLM."""
         try:
-            kwargs = {
+            kwargs: dict[str, Any] = {
                 "model": self.model,
                 "messages": messages,
                 "temperature": temperature,
@@ -44,33 +48,33 @@ class LLMClient:
                 kwargs["max_tokens"] = max_tokens
             if response_format:
                 kwargs["response_format"] = response_format
-            
+
             response = self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content
-            
+
             logger.debug(
                 "llm_completion",
                 model=self.model,
                 prompt_tokens=response.usage.prompt_tokens,
                 completion_tokens=response.usage.completion_tokens,
             )
-            
-            return content
-            
+
+            return cast(str, content or "")
+
         except Exception as e:
             logger.error("llm_completion_error", error=str(e))
             raise
-    
+
     async def complete_async(
         self,
         messages: list[dict[str, Any]],
         temperature: float = 0.3,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[dict] = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> str:
         """Async completion request."""
         try:
-            kwargs = {
+            kwargs: dict[str, Any] = {
                 "model": self.model,
                 "messages": messages,
                 "temperature": temperature,
@@ -79,30 +83,30 @@ class LLMClient:
                 kwargs["max_tokens"] = max_tokens
             if response_format:
                 kwargs["response_format"] = response_format
-            
+
             response = await self.async_client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content
-            
+
             logger.debug(
                 "llm_completion_async",
                 model=self.model,
                 prompt_tokens=response.usage.prompt_tokens,
                 completion_tokens=response.usage.completion_tokens,
             )
-            
-            return content
-            
+
+            return cast(str, content or "")
+
         except Exception as e:
             logger.error("llm_completion_async_error", error=str(e))
             raise
-    
+
     def analyze_frames(
         self,
         frames: list[tuple[str, float]],  # List of (base64_image, timestamp)
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> str:
         """Analyze a sequence of screenshot frames.
-        
+
         Args:
             frames: List of (base64_image, timestamp) tuples
             context: Optional context about what the user is doing
@@ -123,8 +127,8 @@ Be specific about:
 
 Output a structured description of the observed workflow."""
 
-        user_content = []
-        
+        user_content: list[dict[str, Any]] = []
+
         if context:
             user_content.append({
                 "type": "text",
@@ -135,9 +139,9 @@ Output a structured description of the observed workflow."""
                 "type": "text",
                 "text": "Analyze these screenshot frames captured during the user's work session:"
             })
-        
+
         # Add frames (limit to avoid token overflow)
-        for i, (b64_image, timestamp) in enumerate(frames[:20]):  # Limit to 20 frames
+        for _i, (b64_image, timestamp) in enumerate(frames[:20]):  # Limit to 20 frames
             user_content.append({
                 "type": "text",
                 "text": f"\n[Frame at {timestamp:.1f}s]"
@@ -148,21 +152,21 @@ Output a structured description of the observed workflow."""
                     "url": f"data:image/jpeg;base64,{b64_image}"
                 }
             })
-        
-        messages = [
+
+        messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
         ]
-        
+
         return self.complete(messages, temperature=0.2, max_tokens=2000)
-    
+
     def extract_workflow(
         self,
         observation: str,
         events_summary: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Extract structured workflow from observation text.
-        
+
         Returns a JSON object with:
         - workflow_name
         - stages[]
@@ -215,17 +219,18 @@ Recorded events summary:
 
 Extract the structured workflow."""
 
-        messages = [
+        messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
-        
+
         response = self.complete(
             messages,
             temperature=0.2,
             max_tokens=3000,
             response_format={"type": "json_object"}
         )
-        
+
         import json
-        return json.loads(response)
+
+        return cast(dict[str, Any], json.loads(response))

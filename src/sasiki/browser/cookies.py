@@ -160,7 +160,7 @@ class SessionManager:
     ) -> int:
         """Sync variant of inject_cookies_from_file for sync Playwright contexts."""
         formatted_cookies = SessionManager.load_cookies_from_file(cookie_file_path)
-        context.add_cookies(formatted_cookies)
+        context.add_cookies(formatted_cookies)  # type: ignore[arg-type]
         return len(formatted_cookies)
 
     @staticmethod

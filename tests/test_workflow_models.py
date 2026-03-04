@@ -1,14 +1,13 @@
 """Tests for workflow models."""
 
+
 import pytest
-from pathlib import Path
 
 from sasiki.workflow.models import (
+    VariableType,
     Workflow,
     WorkflowStage,
     WorkflowVariable,
-    Checkpoint,
-    VariableType,
 )
 
 

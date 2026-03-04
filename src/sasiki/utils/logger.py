@@ -1,22 +1,24 @@
 """Structured logging configuration."""
 
-import structlog
 import logging
 import sys
+from typing import Any
+
+import structlog
 
 from sasiki.config import settings
 
 
-def configure_logging():
+def configure_logging() -> Any:
     """Configure structured logging."""
-    
+
     # Configure standard library logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=getattr(logging, settings.log_level.upper()),
     )
-    
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -35,7 +37,7 @@ def configure_logging():
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
+
     return structlog.get_logger()
 
 
