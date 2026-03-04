@@ -18,11 +18,16 @@
 - 已接入运行工件闭环基础能力：每次运行生成 `run_id`，并落盘 `steps.json`、`mcp_calls.jsonl`、`runtime.log`，同时尝试输出 `final.png`。
 - 已补齐 Node 侧 CDP 自动启动（默认本地 endpoint），并修复 MCP tool schema 与 `pi-agent-core` 校验兼容问题（移除 `$schema`/`$id`）。
 - 已支持 `runtime.config.json` 配置加载（模型/MCP/CDP/工件目录），并支持 `--config`/`RUNTIME_CONFIG_PATH` 指定配置文件。
+- 已升级 agent system prompt（身份/能力/观察-行动-验证循环）并新增 `llm.thinkingLevel` 配置，支持输出可复盘的 assistant 思考内容。
 - 已接入 Node 侧 cookie 注入：从 `~/.sasiki/cookies/*.json` 读取并在 CDP 上下文注入（默认开启）。
 - 已增强模型解析兼容：支持 `openai/MiniMax-*` 自动映射到 `minimax`，并在配置 `baseUrl` 时允许 OpenAI-compatible 自定义模型名。
 - 已修复 `baseUrl` 场景协议误判：配置 OpenAI-compatible `baseUrl` 时，不再执行 `MiniMax` provider 自动映射，避免 Anthropic API 路径 404。
 - 已新增模型加载诊断日志：输出 `configuredModel/configuredBaseUrl` 与最终 `provider/api/baseUrl`，并在未进入 MCP 时标记 `llm_failed_before_mcp`。
 - 已调整运行日志保留策略：`runtime.log` 不再在 `run()` 开始时清空，启动阶段与模型解析日志可完整回放。
+- 已支持手动中断快速落盘：收到 `SIGINT/SIGTERM` 时触发 `abort` 并立即刷写当前 `steps/mcp_calls/assistant_turns/runtime.log`。
+- 已新增 `assistant_turns.json` 工件，按回合落盘 assistant 的 `thinking/text/toolCalls/stopReason`，用于后续 SOP 复刻分析。
+- 已移除工具结果截断：`McpToolBridge` 不再将 MCP 返回裁剪到 800 字符，`steps/mcp_calls` 记录也不再做 600 字符裁剪，保证模型与排障工件都可见完整上下文。
+- 已支持运行结束自动关浏览器：`runtime.stop()` 优先通过 CDP `Browser.close` 关闭本地浏览器，会话不可用时回退到本进程拉起实例的 `SIGTERM`。
 - 已增加模型-端点错配预警：`DashScope + MiniMax` 组合将输出 `model_baseurl_mismatch_possible` 提示，并将 OpenAI-compatible 自定义模型优先走 `openai-completions`。
 - 已修复 OpenAI-compatible `developer` role 兼容：非 OpenAI 官方 baseUrl 强制 `supportsDeveloperRole=false`，避免 DashScope `messages[0].role=developer` 的 400 报错。
 - 已调整默认模型选择：当 `baseUrl` 为 DashScope 时默认使用 `openai/qwen-plus`，示例配置同步更新，降低默认错配概率。

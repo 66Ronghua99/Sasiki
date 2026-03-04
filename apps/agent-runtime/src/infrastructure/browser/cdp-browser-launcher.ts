@@ -126,6 +126,12 @@ export class CdpBrowserLauncher {
   }
 
   async stop(): Promise<void> {
+    const closedByCdp = await this.closeBrowserOverCdp();
+    if (closedByCdp) {
+      this.process = null;
+      return;
+    }
+
     if (!this.process || this.process.killed) {
       return;
     }
@@ -139,6 +145,55 @@ export class CdpBrowserLauncher {
       });
     } finally {
       this.process = null;
+    }
+  }
+
+  private async closeBrowserOverCdp(): Promise<boolean> {
+    if (!this.isLocalEndpoint(this.config.cdpEndpoint)) {
+      this.logger.warn("cdp_close_skipped", { reason: "non_local_endpoint", endpoint: this.config.cdpEndpoint });
+      return false;
+    }
+    if (!(await this.isEndpointReady())) {
+      return false;
+    }
+
+    const playwright = await this.loadPlaywrightForCdp();
+    if (!playwright) {
+      this.logger.warn("cdp_close_skipped", {
+        reason: "playwright_module_missing",
+        endpoint: this.config.cdpEndpoint,
+      });
+      return false;
+    }
+
+    let browser: any | null = null;
+    try {
+      browser = await playwright.chromium.connectOverCDP(this.config.cdpEndpoint);
+      if (typeof browser?.newBrowserCDPSession !== "function") {
+        this.logger.warn("cdp_close_skipped", {
+          reason: "browser_cdp_session_unavailable",
+          endpoint: this.config.cdpEndpoint,
+        });
+        return false;
+      }
+      const session = await browser.newBrowserCDPSession();
+      await session.send("Browser.close");
+      this.logger.info("cdp_close_succeeded", { endpoint: this.config.cdpEndpoint, method: "Browser.close" });
+      return true;
+    } catch (error) {
+      this.logger.warn("cdp_close_failed", {
+        endpoint: this.config.cdpEndpoint,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch {
+          // Browser.close may already terminate the CDP session.
+        }
+      }
     }
   }
 
