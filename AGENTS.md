@@ -6,7 +6,7 @@ Current runtime code spans Python + migration Node runtime:
 - `browser/`: CDP Chromium launcher and cookie/session injection.
 - `llm/`: model client and completion wrappers.
 - `workflow/`, `recorder/`, `analyzer/`, `utils/`: workflow models, capture, analysis, and shared utilities.
-- `apps/agent-runtime/`: Node migration runtime using `@mariozechner/pi-agent-core` with class-based adapters (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`, `PlaywrightMcpStdioClient`, `MigrationRuntime`).
+- `apps/agent-runtime/`: Node migration runtime using `@mariozechner/pi-agent-core` with class-based adapters (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`, `CdpBrowserLauncher`, `CookieLoader`, `RunLogger`, `RunArtifactsWriter`, `PlaywrightMcpStdioClient`, `MigrationRuntime`) and file-based runtime config (`runtime.config.example.json`).
 
 Repository control docs:
 - `PROGRESS.md`: migration milestones and definition of success.

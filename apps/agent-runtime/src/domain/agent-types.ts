@@ -1,24 +1,5 @@
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps";
 
-export type PlannedActionName =
-  | "navigate"
-  | "click"
-  | "type"
-  | "press_key"
-  | "wait_for"
-  | "done";
-
-export interface PlannedAction {
-  action: PlannedActionName;
-  reason?: string;
-  url?: string;
-  ref?: string;
-  text?: string;
-  key?: string;
-  seconds?: number;
-  submit?: boolean;
-}
-
 export interface AgentStepRecord {
   stepIndex: number;
   action: string;
@@ -30,9 +11,24 @@ export interface AgentStepRecord {
   error?: string;
 }
 
+export interface McpCallRecord {
+  index: number;
+  timestamp: string;
+  phase: "start" | "end";
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  isError?: boolean;
+  resultExcerpt?: string;
+}
+
 export interface AgentRunResult {
+  runId?: string;
+  artifactsDir?: string;
   task: string;
   status: AgentRunStatus;
   finishReason: string;
   steps: AgentStepRecord[];
+  mcpCalls: McpCallRecord[];
+  finalScreenshotPath?: string;
 }

@@ -41,17 +41,42 @@ export class McpToolAdapter {
     if (!inputSchema) {
       return { type: "object", properties: {} } as unknown as TSchema;
     }
-    if (typeof inputSchema.type === "string") {
-      return inputSchema as unknown as TSchema;
+    const sanitized = this.sanitizeSchema(inputSchema);
+    if (typeof sanitized.type === "string") {
+      return sanitized as unknown as TSchema;
     }
-    return { type: "object", ...inputSchema } as unknown as TSchema;
+    return { type: "object", ...sanitized } as unknown as TSchema;
+  }
+
+  private sanitizeSchema(value: unknown): Record<string, unknown> {
+    const record = this.toArgs(value);
+    const output: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(record)) {
+      if (key === "$schema" || key === "$id") {
+        continue;
+      }
+      if (Array.isArray(raw)) {
+        output[key] = raw.map((item) => (this.isRecord(item) ? this.sanitizeSchema(item) : item));
+        continue;
+      }
+      if (this.isRecord(raw)) {
+        output[key] = this.sanitizeSchema(raw);
+        continue;
+      }
+      output[key] = raw;
+    }
+    return output;
   }
 
   private toArgs(params: unknown): Record<string, unknown> {
-    if (params && typeof params === "object" && !Array.isArray(params)) {
+    if (this.isRecord(params)) {
       return params as Record<string, unknown>;
     }
     return {};
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
 
   private resultText(result: ToolCallResult): string {
