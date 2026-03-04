@@ -36,6 +36,7 @@ class LLMClient:
         temperature: float = 0.3,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> str:
         """Send a completion request to the LLM."""
         try:
@@ -48,6 +49,8 @@ class LLMClient:
                 kwargs["max_tokens"] = max_tokens
             if response_format:
                 kwargs["response_format"] = response_format
+            if tools:
+                kwargs["tools"] = tools
 
             response = self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content
@@ -71,6 +74,7 @@ class LLMClient:
         temperature: float = 0.3,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> str:
         """Async completion request."""
         try:
@@ -83,6 +87,8 @@ class LLMClient:
                 kwargs["max_tokens"] = max_tokens
             if response_format:
                 kwargs["response_format"] = response_format
+            if tools:
+                kwargs["tools"] = tools
 
             response = await self.async_client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content

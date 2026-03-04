@@ -14,6 +14,8 @@ class FakeLLM:
     def __init__(self, responses: list[dict[str, Any]]) -> None:
         self._responses = responses
         self._index = 0
+        self.last_messages: list[dict[str, Any]] = []
+        self.last_tools: list[dict[str, Any]] | None = None
 
     def complete(
         self,
@@ -21,8 +23,11 @@ class FakeLLM:
         temperature: float = 0.3,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> str:
-        del messages, temperature, max_tokens, response_format
+        del temperature, max_tokens, response_format
+        self.last_messages = messages
+        self.last_tools = tools
         if self._index < len(self._responses):
             payload = self._responses[self._index]
             self._index += 1
@@ -34,10 +39,27 @@ class FakeLLM:
 class FakeMCP:
     """Simple in-memory MCP client fake."""
 
-    def __init__(self, snapshots: list[str]) -> None:
+    def __init__(
+        self,
+        snapshots: list[str],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.snapshots = snapshots
         self.snapshot_index = 0
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.tools = tools or [
+            {"name": "browser_snapshot", "description": "Capture current DOM snapshot", "inputSchema": {}},
+            {"name": "browser_click", "description": "Click an element by ref", "inputSchema": {"properties": {"ref": {"type": "string"}}}},
+            {"name": "browser_type", "description": "Type text into an input", "inputSchema": {"properties": {"ref": {"type": "string"}, "text": {"type": "string"}}}},
+            {"name": "browser_navigate", "description": "Navigate to URL", "inputSchema": {"properties": {"url": {"type": "string"}}}},
+            {"name": "browser_press_key", "description": "Press keyboard key", "inputSchema": {"properties": {"key": {"type": "string"}}}},
+            {"name": "browser_wait_for", "description": "Wait for seconds", "inputSchema": {"properties": {"time": {"type": "number"}}}},
+        ]
+        self.list_tools_calls = 0
+
+    def list_tools(self) -> list[dict[str, Any]]:
+        self.list_tools_calls += 1
+        return self.tools
 
     def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         args = arguments or {}
@@ -106,3 +128,20 @@ def test_agent_stalls_when_snapshot_never_changes() -> None:
 
     assert result.status == AgentRunStatus.STALLED
     assert len(result.steps) == 2
+
+
+def test_agent_passes_mcp_tools_as_llm_tool_schema() -> None:
+    llm = FakeLLM(responses=[{"action": "done", "reason": "done"}])
+    mcp = FakeMCP(snapshots=["home page"])
+
+    agent = BrowserAgent(llm=llm, mcp=mcp, max_steps=3)
+    result = agent.run("Open page")
+
+    assert result.status == AgentRunStatus.COMPLETED
+    assert mcp.list_tools_calls == 1
+    assert "MCP tools available in this session" not in llm.last_messages[0]["content"]
+    assert isinstance(llm.last_tools, list)
+    assert llm.last_tools
+    function_names = [item["function"]["name"] for item in llm.last_tools if item.get("type") == "function"]
+    assert "browser_click" in function_names
+    assert "browser_snapshot" in function_names

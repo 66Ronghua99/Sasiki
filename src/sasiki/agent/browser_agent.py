@@ -20,6 +20,7 @@ class LLMClientProtocol(Protocol):
         temperature: float = 0.3,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate a completion."""
 
@@ -80,6 +81,14 @@ class AgentRunResult(BaseModel):
 class BrowserAgent:
     """Minimal browser automation agent using Playwright MCP tools."""
 
+    _ACTION_TOOL_MAP: dict[str, str] = {
+        "navigate": "browser_navigate",
+        "click": "browser_click",
+        "type": "browser_type",
+        "press_key": "browser_press_key",
+        "wait_for": "browser_wait_for",
+    }
+
     _SYSTEM_PROMPT = """You are a browser task execution planner.
 Choose exactly one next action based on the current page snapshot and task.
 
@@ -126,6 +135,8 @@ JSON shape:
         self.max_stall_steps = max_stall_steps
         self.max_failures = max_failures
         self.snapshot_chars = snapshot_chars
+        self._available_tools: set[str] = set()
+        self._planner_tools: list[dict[str, Any]] | None = None
 
     def run(self, task: str) -> AgentRunResult:
         """Run one agent session for a natural-language browser task."""
@@ -133,6 +144,7 @@ JSON shape:
         failure_count = 0
         stall_count = 0
 
+        self._load_planner_tools()
         snapshot = self._capture_snapshot()
         snapshot_digest = self._digest(snapshot)
 
@@ -262,33 +274,91 @@ JSON shape:
             ],
             temperature=0.1,
             max_tokens=450,
+            tools=self._load_planner_tools(),
         )
         data = self._parse_json_object(raw)
         return PlannedAction.model_validate(data)
 
-    @staticmethod
-    def _tool_call_for_action(action: PlannedAction) -> tuple[str, dict[str, Any]]:
+    def _tool_call_for_action(self, action: PlannedAction) -> tuple[str, dict[str, Any]]:
+        tool_name = self._ACTION_TOOL_MAP.get(action.action)
+        if not tool_name:
+            raise ValueError(f"unsupported action for tool mapping: {action.action}")
+        if self._available_tools and tool_name not in self._available_tools:
+            raise ValueError(f"mapped tool not available in MCP session: {tool_name}")
+
         if action.action == "navigate":
             if not action.url:
                 raise ValueError("navigate action requires url")
-            return "browser_navigate", {"url": action.url}
+            return tool_name, {"url": action.url}
         if action.action == "click":
             if not action.ref:
                 raise ValueError("click action requires ref")
-            return "browser_click", {"ref": action.ref}
+            return tool_name, {"ref": action.ref}
         if action.action == "type":
             if not action.ref or action.text is None:
                 raise ValueError("type action requires ref and text")
-            return "browser_type", {"ref": action.ref, "text": action.text, "submit": action.submit}
+            return tool_name, {"ref": action.ref, "text": action.text, "submit": action.submit}
         if action.action == "press_key":
             if not action.key:
                 raise ValueError("press_key action requires key")
-            return "browser_press_key", {"key": action.key}
+            return tool_name, {"key": action.key}
         if action.action == "wait_for":
             seconds = action.seconds if action.seconds is not None else 1.0
-            return "browser_wait_for", {"time": seconds}
+            return tool_name, {"time": seconds}
+        raise ValueError(f"unsupported action payload for: {action.action}")
 
-        raise ValueError(f"unsupported action for tool mapping: {action.action}")
+    def _load_planner_tools(self) -> list[dict[str, Any]]:
+        if self._planner_tools is not None:
+            return self._planner_tools
+
+        tools = self._discover_tools()
+        self._available_tools = {tool.get("name", "") for tool in tools if isinstance(tool.get("name"), str)}
+        self._planner_tools = self._to_llm_tool_schema(tools)
+        return self._planner_tools
+
+    def _discover_tools(self) -> list[dict[str, Any]]:
+        list_tools = getattr(self.mcp, "list_tools", None)
+        if not callable(list_tools):
+            return []
+
+        try:
+            tools = list_tools()
+        except Exception:
+            return []
+
+        if not isinstance(tools, list):
+            return []
+        return [item for item in tools if isinstance(item, dict)]
+
+    @staticmethod
+    def _to_llm_tool_schema(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        output: list[dict[str, Any]] = []
+        for tool in tools:
+            name = tool.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+
+            description = tool.get("description")
+            if not isinstance(description, str) or not description:
+                description = f"MCP tool: {name}"
+
+            parameters = tool.get("inputSchema")
+            if not isinstance(parameters, dict):
+                parameters = {"type": "object", "properties": {}}
+            elif "type" not in parameters:
+                parameters = {"type": "object", **parameters}
+
+            output.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": description,
+                        "parameters": parameters,
+                    },
+                }
+            )
+        return output
 
     @staticmethod
     def _history_text(steps: list[AgentStep]) -> str:

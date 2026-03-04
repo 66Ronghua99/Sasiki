@@ -209,3 +209,7 @@ __marimo__/
 # Local reference directories (not runtime dependencies)
 chores/
 playwright-mcp/
+
+# Node migration runtime
+node_modules/
+apps/agent-runtime/dist/
