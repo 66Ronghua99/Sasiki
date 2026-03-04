@@ -3,6 +3,7 @@
  * Used By: core/agent-loop.ts, runtime/agent-runtime.ts, runtime/artifacts-writer.ts
  * Last Updated: 2026-03-04
  */
+export type RuntimeMode = "run" | "observe";
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps";
 
 export interface AgentStepRecord {
@@ -53,4 +54,16 @@ export interface AgentRunResult {
   mcpCalls: McpCallRecord[];
   assistantTurns: AssistantTurnRecord[];
   finalScreenshotPath?: string;
+}
+
+export interface ObserveRunResult {
+  runId: string;
+  mode: "observe";
+  taskHint: string;
+  status: "completed" | "failed";
+  finishReason: string;
+  artifactsDir: string;
+  tracePath?: string;
+  draftPath?: string;
+  assetPath?: string;
 }

@@ -21,6 +21,11 @@ npm install
 npm run dev -- "Open xiaohongshu and search for coffee beans"
 ```
 
+Observe once (Watch-Once v0 baseline):
+```bash
+npm run dev -- --mode observe "在百度演示一次：搜索咖啡豆并打开一个结果"
+```
+
 ## Config File
 - Copy `runtime.config.example.json` to `runtime.config.json` and fill values.
 - Runtime loads config from (first existing):
@@ -61,11 +66,17 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
 ## Artifacts
 - Default output directory: `artifacts/e2e/{run_id}/`
 - Override root path via `RUNTIME_ARTIFACTS_DIR`
-- Per-run artifacts:
+- `run` mode artifacts:
   - `steps.json`
   - `mcp_calls.jsonl`
   - `runtime.log`
   - `final.png` (best-effort screenshot)
+- `observe` mode artifacts:
+  - `demonstration_raw.jsonl`
+  - `demonstration_trace.json`
+  - `sop_draft.md`
+  - `sop_asset.json`
+  - `runtime.log`
 
 ## Notes
 - Runtime now uses `@mariozechner/pi-agent-core` (no custom planner loop).

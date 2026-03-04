@@ -16,6 +16,7 @@
 - Watch-Once v0 正式 PRD：`.plan/20260304_watch_once_v0_prd.md`
 - Watch-Once v0 工程开发交接稿（逐文件接口）：`.plan/20260304_watch_once_v0_engineering_handoff.md`
 - Watch-Once PR-1 Contract Foundation 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
+- Watch-Once PR-2 Observe Baseline 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -56,10 +57,17 @@
   - 新增 `apps/agent-runtime/src/domain/runtime-errors.ts`（统一 runtime 错误码）
   - 扩展 `apps/agent-runtime/src/runtime/artifacts-writer.ts`，支持示教 4 工件写入与路径接口
   - 扩展 `apps/agent-runtime/src/runtime/runtime-config.ts`，补齐 `observe.timeoutMs` 与固定 `sopAssetRootDir` 配置基础
+- 已完成 Watch-Once PR-2 Observe Baseline 代码接线：
+  - CLI 支持 `--mode run|observe`（默认 run）
+  - `AgentRuntime` 新增 `observe(taskHint)`，并实现 run/observe 初始化隔离（observe 不强依赖 LLM/MCP 初始化）
+  - 新增 `playwright-demonstration-recorder.ts`（CDP 单标签示教采集 + 多标签告警）
+  - 新增 `sop-demonstration-recorder.ts`（raw -> trace/draft/webElementHints）
+  - 新增 `sop-asset-store.ts`（`~/.sasiki/sop_assets/index.json` upsert/search/getById）
+  - observe 路径可落盘 `demonstration_raw.jsonl` / `demonstration_trace.json` / `sop_draft.md` / `sop_asset.json`
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` Watch-Once PR-2 Observe 单站点闭环（Baidu）：接入 `--mode observe`、`runtime.observe()`、示教采集与 trace/draft/asset 产物链路。
+- `P0-NEXT` Watch-Once PR-2 Baidu 实测验收：产出一条真实示教 run 证据（4 工件 + `~/.sasiki/sop_assets/index.json` 命中），并补充失败场景修复。
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。

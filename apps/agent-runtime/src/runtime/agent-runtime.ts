@@ -1,28 +1,49 @@
 /**
- * Deps: core/agent-loop.ts, infrastructure/*, runtime/*
+ * Deps: core/*, domain/*, infrastructure/*, runtime/*
  * Used By: index.ts
  * Last Updated: 2026-03-04
  */
-import type { AgentRunResult } from "../domain/agent-types.js";
 import { AgentLoop } from "../core/agent-loop.js";
+import { SopDemonstrationRecorder } from "../core/sop-demonstration-recorder.js";
+import type { AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
+import { RuntimeError } from "../domain/runtime-errors.js";
+import type { SopAsset, WebElementHint } from "../domain/sop-asset.js";
+import { SOP_ASSET_VERSION } from "../domain/sop-asset.js";
+import type { DemonstrationRawEvent, SopTrace } from "../domain/sop-trace.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
+import { PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";
 import { RuntimeLogger } from "../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
-import type { RuntimeConfig } from "./runtime-config.js";
 import { ArtifactsWriter } from "./artifacts-writer.js";
+import type { RuntimeConfig } from "./runtime-config.js";
+import { SopAssetStore } from "./sop-asset-store.js";
+
+interface RunActiveState {
+  mode: "run";
+  runId: string;
+  artifacts: ArtifactsWriter;
+}
+
+interface ObserveActiveState {
+  mode: "observe";
+  runId: string;
+  artifacts: ArtifactsWriter;
+  controller: AbortController;
+}
+
+type ActiveRunState = RunActiveState | ObserveActiveState;
 
 export class AgentRuntime {
   private readonly config: RuntimeConfig;
   private readonly logger: RuntimeLogger;
   private readonly cdpLauncher: CdpBrowserLauncher;
   private readonly loop: AgentLoop;
-  private activeRun:
-    | {
-        runId: string;
-        artifacts: ArtifactsWriter;
-      }
-    | null = null;
+  private readonly sopRecorder: SopDemonstrationRecorder;
+  private readonly sopAssetStore: SopAssetStore;
+  private activeRun: ActiveRunState | null = null;
   private flushPromise: Promise<void> | null = null;
+  private started = false;
+  private loopInitialized = false;
 
   constructor(config: RuntimeConfig) {
     this.config = config;
@@ -63,18 +84,27 @@ export class AgentRuntime {
       toolClient,
       this.logger
     );
+    this.sopRecorder = new SopDemonstrationRecorder();
+    this.sopAssetStore = new SopAssetStore(config.sopAssetRootDir);
   }
 
-  async start(): Promise<void> {
-    await this.cdpLauncher.start();
-    await this.loop.initialize();
+  async start(mode: RuntimeMode = "run"): Promise<void> {
+    if (!this.started) {
+      await this.cdpLauncher.start();
+      this.started = true;
+    }
+    if (mode === "run") {
+      await this.ensureLoopInitialized();
+    }
   }
 
   async run(task: string): Promise<AgentRunResult> {
+    await this.ensureLoopInitialized();
+
     const runId = this.createRunId();
     const artifacts = new ArtifactsWriter(this.config.artifactsDir, runId);
     await artifacts.ensureDir();
-    this.activeRun = { runId, artifacts };
+    this.activeRun = { mode: "run", runId, artifacts };
     this.logger.info("run_started", { runId, task, artifactsDir: artifacts.runDir });
 
     try {
@@ -121,10 +151,98 @@ export class AgentRuntime {
     }
   }
 
+  async observe(taskHint: string): Promise<ObserveRunResult> {
+    const runId = this.createRunId();
+    const artifacts = new ArtifactsWriter(this.config.artifactsDir, runId);
+    await artifacts.ensureDir();
+    const recorder = new PlaywrightDemonstrationRecorder();
+    const controller = new AbortController();
+    this.activeRun = { mode: "observe", runId, artifacts, controller };
+    this.logger.info("observe_started", {
+      runId,
+      taskHint,
+      artifactsDir: artifacts.runDir,
+      timeoutMs: this.config.observeTimeoutMs,
+    });
+
+    let recorderStarted = false;
+    let recorderStopped = false;
+    try {
+      await recorder.start({
+        cdpEndpoint: this.config.cdpEndpoint,
+        singleTabOnly: true,
+        timeoutMs: this.config.observeTimeoutMs,
+      });
+      recorderStarted = true;
+      const stopReason = await this.waitForObserveStop(controller.signal, this.config.observeTimeoutMs);
+      const rawEvents = await recorder.stop();
+      recorderStopped = true;
+
+      if (rawEvents.length === 0) {
+        throw new RuntimeError("OBSERVE_NO_EVENTS_CAPTURED", "observe finished without captured events");
+      }
+
+      const trace = this.buildTrace(runId, taskHint, rawEvents);
+      const draft = this.sopRecorder.buildDraft(trace);
+      const webElementHints = this.sopRecorder.buildWebElementHints(trace);
+      const asset = this.buildAsset(runId, trace, webElementHints, artifacts);
+
+      await artifacts.writeDemonstrationRaw(rawEvents);
+      await artifacts.writeDemonstrationTrace(trace);
+      await artifacts.writeSopDraft(draft);
+      await artifacts.writeSopAsset(asset);
+      await this.sopAssetStore.upsert(asset);
+
+      const result: ObserveRunResult = {
+        runId,
+        mode: "observe",
+        taskHint,
+        status: "completed",
+        finishReason: stopReason === "interrupt" ? "interrupt_requested" : "observe_timeout_reached",
+        artifactsDir: artifacts.runDir,
+        tracePath: artifacts.demonstrationTracePath(),
+        draftPath: artifacts.sopDraftPath(),
+        assetPath: artifacts.sopAssetPath(),
+      };
+      this.logger.info("observe_finished", {
+        runId,
+        status: result.status,
+        finishReason: result.finishReason,
+        events: rawEvents.length,
+        tracePath: result.tracePath,
+        assetPath: result.assetPath,
+      });
+      return result;
+    } catch (error) {
+      this.logger.error("observe_failed", {
+        runId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      if (recorderStarted && !recorderStopped) {
+        try {
+          await recorder.stop();
+        } catch {
+          // Best effort stop during error path.
+        }
+      }
+      await artifacts.writeRuntimeLog(this.logger.toText());
+      this.activeRun = null;
+    }
+  }
+
   async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<void> {
     if (!this.activeRun) {
       return;
     }
+    if (this.activeRun.mode === "observe") {
+      this.logger.warn("observe_interrupt_requested", { signal: signalName, runId: this.activeRun.runId });
+      this.activeRun.controller.abort();
+      await this.activeRun.artifacts.writeRuntimeLog(this.logger.toText());
+      return;
+    }
+
     this.logger.warn("run_interrupt_requested", {
       signal: signalName,
       runId: this.activeRun.runId,
@@ -134,12 +252,91 @@ export class AgentRuntime {
   }
 
   async stop(): Promise<void> {
-    await this.loop.shutdown();
-    await this.cdpLauncher.stop();
+    if (this.loopInitialized) {
+      await this.loop.shutdown();
+      this.loopInitialized = false;
+    }
+    if (this.started) {
+      await this.cdpLauncher.stop();
+      this.started = false;
+    }
+  }
+
+  private async ensureLoopInitialized(): Promise<void> {
+    if (this.loopInitialized) {
+      return;
+    }
+    await this.loop.initialize();
+    this.loopInitialized = true;
+  }
+
+  private buildTrace(runId: string, taskHint: string, rawEvents: DemonstrationRawEvent[]) {
+    return this.sopRecorder.buildTrace({
+      traceId: runId,
+      taskHint,
+      site: this.detectSite(rawEvents),
+      rawEvents,
+    });
+  }
+
+  private buildAsset(
+    runId: string,
+    trace: SopTrace,
+    webElementHints: WebElementHint[],
+    artifacts: ArtifactsWriter
+  ): SopAsset {
+    const tags = this.sopRecorder.buildTags(trace);
+    return {
+      assetVersion: SOP_ASSET_VERSION,
+      assetId: `sop_${runId}`,
+      site: trace.site,
+      taskHint: trace.taskHint,
+      tags: tags.length > 0 ? tags : ["observe"],
+      tracePath: artifacts.demonstrationTracePath(),
+      draftPath: artifacts.sopDraftPath(),
+      guidePath: artifacts.sopDraftPath(),
+      webElementHints,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  private detectSite(rawEvents: DemonstrationRawEvent[]): string {
+    for (let i = rawEvents.length - 1; i >= 0; i -= 1) {
+      const event = rawEvents[i];
+      try {
+        const host = new URL(event.url).hostname;
+        if (host) {
+          return host;
+        }
+      } catch {
+        // keep searching previous events
+      }
+    }
+    return "unknown";
+  }
+
+  private waitForObserveStop(signal: AbortSignal, timeoutMs: number): Promise<"timeout" | "interrupt"> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve("timeout");
+      }, timeoutMs);
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        resolve("interrupt");
+      };
+
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort);
+    });
   }
 
   private async flushInProgressArtifacts(reason: string): Promise<void> {
-    if (!this.activeRun) {
+    if (!this.activeRun || this.activeRun.mode !== "run") {
       return;
     }
     if (!this.flushPromise) {
@@ -151,7 +348,7 @@ export class AgentRuntime {
   }
 
   private async flushInProgressArtifactsInternal(reason: string): Promise<void> {
-    if (!this.activeRun) {
+    if (!this.activeRun || this.activeRun.mode !== "run") {
       return;
     }
     try {
