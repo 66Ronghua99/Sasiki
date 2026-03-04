@@ -1,5 +1,9 @@
 # PROGRESS
 
+## Doc Ownership
+- `PROGRESS.md` 只记录：里程碑、DONE/TODO 状态、执行参考链接。
+- `MEMORY.md` 记录：经验总结、踩坑根因、排障与约定。
+
 ## Current Milestone
 - `M1 (Done)`: 已完成 `Node + pi-agent-core + Playwright MCP` 主链路切换。
 - `M2 (Done)`: 达成完整业务闭环：启动 CDP Chromium、注入 Cookie、打开小红书、搜索、打开帖子、点赞、截图。
@@ -8,15 +12,16 @@
 - 解决用户在浏览器上的长程 SOP 复刻问题：面对千差万别的需求，优先通过“看用户做一次（Watch Once）→ 学习关键动作序列 → 在后续任务中自动复现并持续优化”来达成稳定执行。
 
 ## Requirement References (Load First)
-- 最新任务需求与实施方案：`.plan/implementation_plan.md`
 - Watch-Once v0 设计评审稿：`.plan/20260304_watch_once_v0_design.md`
 - Watch-Once v0 正式 PRD：`.plan/20260304_watch_once_v0_prd.md`
+- Watch-Once v0 工程开发交接稿（逐文件接口）：`.plan/20260304_watch_once_v0_engineering_handoff.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
-  2. `.plan/implementation_plan.md`
-  3. `MEMORY.md`
-  4. `NEXT_STEP.md`
+  2. `MEMORY.md`
+  3. `NEXT_STEP.md`
+  4. `.plan/20260304_watch_once_v0_prd.md`
+  5. `.plan/20260304_watch_once_v0_engineering_handoff.md`
 
 ## DONE
 - 明确迁移架构：Node 主进程负责 agent loop，Python 退出主链路。
@@ -34,22 +39,17 @@
 - 已支持 `runtime.config.json` 配置加载（模型/MCP/CDP/工件目录），并支持 `--config`/`RUNTIME_CONFIG_PATH` 指定配置文件。
 - 已升级 agent system prompt（身份/能力/观察-行动-验证循环）并新增 `llm.thinkingLevel` 配置，支持输出可复盘的 assistant 思考内容。
 - 已接入 Node 侧 cookie 注入：从 `~/.sasiki/cookies/*.json` 读取并在 CDP 上下文注入（默认开启）。
-- 已增强模型解析兼容：支持 `openai/MiniMax-*` 自动映射到 `minimax`，并在配置 `baseUrl` 时允许 OpenAI-compatible 自定义模型名。
-- 已修复 `baseUrl` 场景协议误判：配置 OpenAI-compatible `baseUrl` 时，不再执行 `MiniMax` provider 自动映射，避免 Anthropic API 路径 404。
-- 已新增模型加载诊断日志：输出 `configuredModel/configuredBaseUrl` 与最终 `provider/api/baseUrl`，并在未进入 MCP 时标记 `llm_failed_before_mcp`。
-- 已调整运行日志保留策略：`runtime.log` 不再在 `run()` 开始时清空，启动阶段与模型解析日志可完整回放。
-- 已支持手动中断快速落盘：收到 `SIGINT/SIGTERM` 时触发 `abort` 并立即刷写当前 `steps/mcp_calls/assistant_turns/runtime.log`。
+- 已完成模型与 OpenAI-compatible endpoint 兼容性治理（映射、错配预警、`developer role` 兼容、DashScope 默认模型策略）。
+- 已补齐模型诊断与可观测性（`configured/final model` 解析日志、`llm_failed_before_mcp` 标记）。
+- 已增强运行稳定性（中断快速落盘、`runtime.log` 保留、MCP 结果不截断）。
 - 已新增 `assistant_turns.json` 工件，按回合落盘 assistant 的 `thinking/text/toolCalls/stopReason`，用于后续 SOP 复刻分析。
-- 已移除工具结果截断：`McpToolBridge` 不再将 MCP 返回裁剪到 800 字符，`steps/mcp_calls` 记录也不再做 600 字符裁剪，保证模型与排障工件都可见完整上下文。
-- 已支持运行结束自动关浏览器：`runtime.stop()` 优先通过 CDP `Browser.close` 关闭本地浏览器，会话不可用时回退到本进程拉起实例的 `SIGTERM`。
-- 已增加模型-端点错配预警：`DashScope + MiniMax` 组合将输出 `model_baseurl_mismatch_possible` 提示，并将 OpenAI-compatible 自定义模型优先走 `openai-completions`。
-- 已修复 OpenAI-compatible `developer` role 兼容：非 OpenAI 官方 baseUrl 强制 `supportsDeveloperRole=false`，避免 DashScope `messages[0].role=developer` 的 400 报错。
-- 已调整默认模型选择：当 `baseUrl` 为 DashScope 时默认使用 `openai/qwen-plus`，示例配置同步更新，降低默认错配概率。
+- 已完善浏览器生命周期管理（`runtime.stop()` 优先 `Browser.close`，失败时回退本进程 `SIGTERM`）与启动日志降噪。
 - 已完成一次真实链路验证：可打开小红书、跳转、搜索、打开帖子、截图；点赞动作仍不稳定，且存在中间误操作。
-- 已清理浏览器选择日志噪音：`cdp_launch_browser_selected` 仅输出最终选中浏览器来源，避免 system/playwright 双日志误导。
 - 已清理 Python 旧实现与依赖清单（`src/`、`tests/`、`pyproject.toml`、`uv.lock`），仓库主线收敛为 Node runtime。
 - 已新增 PM 技能 `skills/drive-pm-closed-loop`：可将需求讨论收敛为“可执行、可验证”的最小闭环，并提供结构化迭代模板。
 - 已新增 PM 技能 `skills/pm-progress-requirement-discovery`：可基于 `PROGRESS/.plan/MEMORY/NEXT_STEP` 提出高价值澄清问题并收敛当前需求。
+- 已新增 Watch-Once v0 工程开发交接文档：`.plan/20260304_watch_once_v0_engineering_handoff.md`（含逐文件接口草案、错误码、开发顺序与验收口径）。
+- 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
 - `P0-NEXT` Watch-Once 浏览器示教采集 v0：支持记录用户一次真实操作并输出结构化 `SOP trace` 工件。

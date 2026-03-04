@@ -12,4 +12,4 @@
 - [ ] 完成 Baidu / Douyin-or-TikTok / Xiaohongshu 三站点示教验证
 - [ ] 运行 typecheck
 - [ ] 运行 build
-- [ ] 更新 PROGRESS.md（DONE/TODO 与 reference）
+- [x] 更新 PROGRESS.md（DONE/TODO 与 reference）
