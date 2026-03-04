@@ -1,6 +1,6 @@
-# Agent Runtime (Migration Scaffold)
+# Agent Runtime
 
-This package hosts the Node migration runtime for Sasiki.
+This package hosts the production Node runtime for Sasiki.
 
 ## Current scope
 - `pi-agent-core` drives the agent loop (`Agent` + tool execution events).
@@ -37,9 +37,10 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
 ```
 
 ## Model Config
-- `LLM_MODEL` format: `{provider}/{model_key}` (example: `minimax/MiniMax-M2.5`, `openrouter/openrouter/auto`).
+- `LLM_MODEL` format: `{provider}/{model_key}` (example: `openai/qwen-plus`, `openrouter/openrouter/auto`).
 - If `LLM_MODEL` is empty:
-  - with domestic key (`LLM_API_KEY` or `DASHSCOPE_API_KEY`) -> defaults to `minimax/MiniMax-M2.5`
+  - when `baseUrl` points to DashScope -> defaults to `openai/qwen-plus`
+  - otherwise with domestic key (`LLM_API_KEY` or `DASHSCOPE_API_KEY`) -> defaults to `minimax/MiniMax-M2.5`
   - otherwise with `OPENROUTER_API_KEY` -> defaults to `openrouter/openrouter/auto`
 
 ## CDP Launch
@@ -69,3 +70,4 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
 ## Notes
 - Runtime now uses `@mariozechner/pi-agent-core` (no custom planner loop).
 - Focus remains on business workflow replication and E2E stability for Xiaohongshu actions.
+- Python legacy runtime has been removed from the mainline repository.

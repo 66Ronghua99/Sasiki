@@ -1,8 +1,7 @@
 # PROGRESS
 
 ## Current Milestone
-- `M0 (Done)`: Python 最小 Agent Loop 已打通，可进入网页、执行搜索、打开帖子。
-- `M1 (In Progress)`: 一次性迁移到 `Node + pi-agent-core + Playwright MCP` 主链路。
+- `M1 (Done)`: 已完成 `Node + pi-agent-core + Playwright MCP` 主链路切换。
 - `M2 (Target)`: 达成完整业务闭环：启动 CDP Chromium、注入 Cookie、打开小红书、搜索、打开帖子、点赞、截图。
 
 ## DONE
@@ -29,6 +28,7 @@
 - 已调整默认模型选择：当 `baseUrl` 为 DashScope 时默认使用 `openai/qwen-plus`，示例配置同步更新，降低默认错配概率。
 - 已完成一次真实链路验证：可打开小红书、跳转、搜索、打开帖子、截图；点赞动作仍不稳定，且存在中间误操作。
 - 已清理浏览器选择日志噪音：`cdp_launch_browser_selected` 仅输出最终选中浏览器来源，避免 system/playwright 双日志误导。
+- 已清理 Python 旧实现与依赖清单（`src/`、`tests/`、`pyproject.toml`、`uv.lock`），仓库主线收敛为 Node runtime。
 
 ## TODO
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
@@ -36,8 +36,7 @@
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。
 - `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
 - `P1` 替换默认运行入口到 Node runtime。
-- `P1` 保留旧 Python 入口一个迁移窗口，仅输出迁移提示。
-- `P2` 按需恢复 Python 子进程工具能力（仅在必要的 Python 生态场景）。
+- `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## Migration Success Criteria
 - 单次执行必须完整通过以下链路：

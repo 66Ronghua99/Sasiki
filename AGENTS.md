@@ -1,59 +1,39 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Current runtime code spans Python + migration Node runtime:
-- `agent/`: browser loop and MCP client wrappers.
-- `browser/`: CDP Chromium launcher and cookie/session injection.
-- `llm/`: model client and completion wrappers.
-- `workflow/`, `recorder/`, `analyzer/`, `utils/`: workflow models, capture, analysis, and shared utilities.
-- `apps/agent-runtime/`: Node migration runtime using `@mariozechner/pi-agent-core` with class-based adapters (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`, `CdpBrowserLauncher`, `CookieLoader`, `RunLogger`, `RunArtifactsWriter`, `PlaywrightMcpStdioClient`, `MigrationRuntime`) and file-based runtime config (`runtime.config.example.json`).
-
-Repository control docs:
-- `PROGRESS.md`: migration milestones and definition of success.
-- `docs/E2E_MIGRATION_CLOSED_LOOP.md`: closed-loop E2E acceptance guide.
-- `references/`: external upstream references (including `playwright-mcp` snapshot).
-
-Tests live in `tests/` (`test_*.py`). Example YAML assets are in `examples/`.
-
-## Migration Status
-The project is actively migrating to a Node-based runtime (`pi-agent-core` + Playwright MCP). Until functional cutover is complete, Python CLI/runtime remains the production baseline.
+This repository is now Node-first.
+- `apps/agent-runtime/` is the only runtime codebase.
+- `apps/agent-runtime/src/core/` contains planning/execution abstractions (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`).
+- `apps/agent-runtime/src/infrastructure/` contains browser, MCP, and logging adapters.
+- `apps/agent-runtime/src/runtime/` contains composition (`MigrationRuntime`), config loading, and artifact writing.
+- `docs/` stores acceptance and structure docs.
+- `PROGRESS.md` is the single status board (milestone, DONE, TODO).
+- `references/` contains upstream snapshots only (not runtime dependencies).
 
 ## Build, Test, and Development Commands
-Use `uv` for local development:
-- `uv sync --extra dev`: install runtime + dev dependencies.
-- `uv run sasiki --help`: verify CLI entrypoint and available commands.
-- `uv run ruff check src tests`: lint and import/order checks.
-- `uv run mypy src`: strict type checking for core modules.
-- `uv run python -m pytest -q`: run tests via module entrypoint (preferred in this repo).
-
-Node migration runtime:
-- `cd apps/agent-runtime && npm install`
-- `npm run dev -- \"your task\"`
-- `npm run typecheck`
-
-Run all three quality gates (`ruff`, `mypy`, `pytest`) before opening a PR. If `uv run pytest -q` and `python -m pytest` differ, record both results in PR notes.
+- `npm --prefix apps/agent-runtime install`: install runtime dependencies.
+- `npm --prefix apps/agent-runtime run dev -- "你的任务"`: run in TS dev mode.
+- `npm --prefix apps/agent-runtime run typecheck`: TypeScript static checks.
+- `npm --prefix apps/agent-runtime run build`: compile to `dist/`.
+- `node apps/agent-runtime/dist/index.js "...task..."`: production-like execution.
 
 ## Coding Style & Naming Conventions
-Python target is 3.10+ with 4-space indentation and 100-char line length (`black`/`ruff` settings in `pyproject.toml`).
-- Functions/modules: `snake_case`
-- Classes/enums: `PascalCase`
-- Constants: `UPPER_SNAKE_CASE`
-
-Prefer typed, deterministic interfaces (Pydantic models/protocols are common here). Avoid import-time side effects except explicit bootstrap code (for example CLI logging setup).
+Use strict TypeScript patterns:
+- Classes/interfaces: `PascalCase`; functions/variables: `camelCase`; constants: `UPPER_SNAKE_CASE`.
+- Keep adapter boundaries explicit: `core` must not depend on concrete process-side effects.
+- Prefer structured records over free-form strings for runtime events.
 
 ## Testing Guidelines
-Framework: `pytest` (+ `pytest-asyncio`, `pytest-cov` available).
-- Name files `tests/test_<feature>.py`.
-- Name tests by behavior, e.g., `test_agent_completes_on_done_action`.
-- Prefer fakes/stubs for LLM/MCP/browser boundaries instead of hitting external services.
-- For bug fixes, add a regression test first, then implement the fix.
-- For migration acceptance, use the exact 7-step closed loop in `docs/E2E_MIGRATION_CLOSED_LOOP.md` (CDP start, cookie injection, Xiaohongshu open/search/post/like, screenshot).
+Primary gates before handoff:
+- `npm --prefix apps/agent-runtime run typecheck`
+- `npm --prefix apps/agent-runtime run build`
+
+E2E acceptance follows `docs/E2E_CLOSED_LOOP.md` with required artifacts in `artifacts/e2e/{run_id}/`.
 
 ## Commit & Pull Request Guidelines
-Follow Conventional Commits as seen in history: `feat(...)`, `fix:`, `chore:`.
-- Keep commits focused and reviewable.
-- Base development work on branch `mvp-dev` (current default dev branch).
-- PRs should include: concise problem/solution summary, test evidence (commands + result), compatibility/risk notes, and linked issues.
+Use Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`). Keep commits small and isolated by concern.  
+PRs should include: objective, changed modules, verification commands/results, and rollback notes if behavior changed.
 
 ## Security & Configuration Tips
-Use `.env` for local secrets and keep `.env.example` as the template. Never commit API keys, cookies, or recording artifacts. Runtime data defaults to `~/.sasiki/`; do not store sensitive user captures in the repository.
+Use local config files and env vars only (`apps/agent-runtime/runtime.config.json`, `.env`).  
+Never commit API keys, cookies, or runtime artifacts. Sensitive runtime state should stay under `~/.sasiki/`.
