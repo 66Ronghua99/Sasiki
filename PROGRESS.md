@@ -2,7 +2,21 @@
 
 ## Current Milestone
 - `M1 (Done)`: 已完成 `Node + pi-agent-core + Playwright MCP` 主链路切换。
-- `M2 (Target)`: 达成完整业务闭环：启动 CDP Chromium、注入 Cookie、打开小红书、搜索、打开帖子、点赞、截图。
+- `M2 (Done)`: 达成完整业务闭环：启动 CDP Chromium、注入 Cookie、打开小红书、搜索、打开帖子、点赞、截图。
+
+## Ultimate Goal
+- 解决用户在浏览器上的长程 SOP 复刻问题：面对千差万别的需求，优先通过“看用户做一次（Watch Once）→ 学习关键动作序列 → 在后续任务中自动复现并持续优化”来达成稳定执行。
+
+## Requirement References (Load First)
+- 最新任务需求与实施方案：`.plan/implementation_plan.md`
+- Watch-Once v0 设计评审稿：`.plan/20260304_watch_once_v0_design.md`
+- Watch-Once v0 正式 PRD：`.plan/20260304_watch_once_v0_prd.md`
+- 历史设计决策与检查清单：`.plan/*.md`
+- 建议加载顺序：
+  1. `PROGRESS.md`
+  2. `.plan/implementation_plan.md`
+  3. `MEMORY.md`
+  4. `NEXT_STEP.md`
 
 ## DONE
 - 明确迁移架构：Node 主进程负责 agent loop，Python 退出主链路。
@@ -34,30 +48,14 @@
 - 已完成一次真实链路验证：可打开小红书、跳转、搜索、打开帖子、截图；点赞动作仍不稳定，且存在中间误操作。
 - 已清理浏览器选择日志噪音：`cdp_launch_browser_selected` 仅输出最终选中浏览器来源，避免 system/playwright 双日志误导。
 - 已清理 Python 旧实现与依赖清单（`src/`、`tests/`、`pyproject.toml`、`uv.lock`），仓库主线收敛为 Node runtime。
+- 已新增 PM 技能 `skills/drive-pm-closed-loop`：可将需求讨论收敛为“可执行、可验证”的最小闭环，并提供结构化迭代模板。
+- 已新增 PM 技能 `skills/pm-progress-requirement-discovery`：可基于 `PROGRESS/.plan/MEMORY/NEXT_STEP` 提出高价值澄清问题并收敛当前需求。
 
 ## TODO
+- `P0-NEXT` Watch-Once 浏览器示教采集 v0：支持记录用户一次真实操作并输出结构化 `SOP trace` 工件。
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。
 - `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
 - `P1` 替换默认运行入口到 Node runtime。
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
-
-## Closed-Loop Success Criteria
-- 单次执行必须完整通过以下链路：
-  1. 启动 CDP Chromium
-  2. 注入 Cookie
-  3. 打开小红书
-  4. 搜索关键词
-  5. 打开目标帖子
-  6. 点赞
-  7. 截图落盘
-- 连续 `20/20` 轮通过视为功能迁移成功。
-
-## Evidence Requirements
-- 每次运行输出 `run_id`。
-- 每次运行至少保存：
-  - `steps.json`
-  - `mcp_calls.jsonl`
-  - `final.png`
-  - `runtime.log`

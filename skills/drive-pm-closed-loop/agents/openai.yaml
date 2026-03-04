@@ -1,0 +1,4 @@
+interface:
+  display_name: "PM Closed-Loop Planner"
+  short_description: "Turn requirement talks into a verifiable loop plan."
+  default_prompt: "Use $drive-pm-closed-loop to turn this requirement discussion into an executable, testable minimum closed loop and a prioritized iteration plan."

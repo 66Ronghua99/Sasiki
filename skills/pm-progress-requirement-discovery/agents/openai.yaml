@@ -1,0 +1,4 @@
+interface:
+  display_name: "PM Requirement Discovery"
+  short_description: "Ask critical PM questions from project progress."
+  default_prompt: "Use $pm-progress-requirement-discovery to review my project progress and ask me the highest-value questions needed to clarify current requirements."
