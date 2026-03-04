@@ -1,5 +1,5 @@
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
-import { MigrationRuntime } from "./runtime/migration-runtime.js";
+import { AgentRuntime } from "./runtime/agent-runtime.js";
 
 interface CliArguments {
   configPath?: string;
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   }
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
-  const runtime = new MigrationRuntime(config);
+  const runtime = new AgentRuntime(config);
 
   try {
     await runtime.start();

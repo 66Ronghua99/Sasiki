@@ -97,7 +97,7 @@ export class RuntimeConfigLoader {
   ): string {
     const normalizedBaseUrl = baseUrl?.trim().toLowerCase() ?? "";
     if (normalizedBaseUrl.includes("dashscope.aliyuncs.com")) {
-      return "MiniMax-M2.5";
+      return "openai/qwen-plus";
     }
     if (domesticApiKey) {
       return "minimax/MiniMax-M2.5";

@@ -1,6 +1,6 @@
 /**
  * Deps: contracts/tool-client.ts, @mariozechner/pi-agent-core
- * Used By: core/pi-agent-core-loop.ts
+ * Used By: core/agent-loop.ts
  * Last Updated: 2026-03-04
  */
 import type { AgentTool } from "@mariozechner/pi-agent-core";
@@ -8,7 +8,7 @@ import type { TSchema } from "@mariozechner/pi-ai";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../contracts/tool-client.js";
 
-export class McpToolAdapter {
+export class McpToolBridge {
   private readonly client: ToolClient;
 
   constructor(client: ToolClient) {

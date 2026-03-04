@@ -1,20 +1,20 @@
 import type { AgentRunResult } from "../domain/agent-types.js";
-import { PiAgentCoreLoop } from "../core/pi-agent-core-loop.js";
+import { AgentLoop } from "../core/agent-loop.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
-import { RunLogger } from "../infrastructure/logging/run-logger.js";
-import { PlaywrightMcpStdioClient } from "../infrastructure/mcp/playwright-mcp-stdio-client.js";
+import { RuntimeLogger } from "../infrastructure/logging/runtime-logger.js";
+import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
 import type { RuntimeConfig } from "./runtime-config.js";
-import { RunArtifactsWriter } from "./run-artifacts-writer.js";
+import { ArtifactsWriter } from "./artifacts-writer.js";
 
-export class MigrationRuntime {
+export class AgentRuntime {
   private readonly config: RuntimeConfig;
-  private readonly logger: RunLogger;
+  private readonly logger: RuntimeLogger;
   private readonly cdpLauncher: CdpBrowserLauncher;
-  private readonly loop: PiAgentCoreLoop;
+  private readonly loop: AgentLoop;
 
   constructor(config: RuntimeConfig) {
     this.config = config;
-    this.logger = new RunLogger();
+    this.logger = new RuntimeLogger();
     this.cdpLauncher = new CdpBrowserLauncher(
       {
         cdpEndpoint: config.cdpEndpoint,
@@ -29,7 +29,7 @@ export class MigrationRuntime {
       },
       this.logger
     );
-    const toolClient = new PlaywrightMcpStdioClient({
+    const toolClient = new McpStdioClient({
       command: config.mcpCommand,
       args: [...config.mcpArgs, "--cdp-endpoint", config.cdpEndpoint],
       env: {
@@ -41,7 +41,7 @@ export class MigrationRuntime {
       },
     });
 
-    this.loop = new PiAgentCoreLoop(
+    this.loop = new AgentLoop(
       {
         model: config.model,
         apiKey: config.apiKey,
@@ -59,7 +59,7 @@ export class MigrationRuntime {
 
   async run(task: string): Promise<AgentRunResult> {
     const runId = this.createRunId();
-    const artifacts = new RunArtifactsWriter(this.config.artifactsDir, runId);
+    const artifacts = new ArtifactsWriter(this.config.artifactsDir, runId);
     await artifacts.ensureDir();
     this.logger.info("run_started", { runId, task, artifactsDir: artifacts.runDir });
 

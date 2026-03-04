@@ -1,11 +1,11 @@
 /**
  * Deps: contracts/logger.ts
- * Used By: runtime/migration-runtime.ts
+ * Used By: runtime/agent-runtime.ts
  * Last Updated: 2026-03-04
  */
 import type { Logger } from "../../contracts/logger.js";
 
-export class RunLogger implements Logger {
+export class RuntimeLogger implements Logger {
   private readonly lines: string[] = [];
 
   info(event: string, payload?: Record<string, unknown>): void {

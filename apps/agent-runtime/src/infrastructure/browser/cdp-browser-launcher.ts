@@ -1,6 +1,6 @@
 /**
  * Deps: contracts/logger.ts, infrastructure/browser/cookie-loader.ts
- * Used By: runtime/migration-runtime.ts
+ * Used By: runtime/agent-runtime.ts
  * Last Updated: 2026-03-04
  */
 import { spawn, type ChildProcess } from "node:child_process";

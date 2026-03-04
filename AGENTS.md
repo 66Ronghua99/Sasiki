@@ -3,9 +3,9 @@
 ## Project Structure & Module Organization
 This repository is now Node-first.
 - `apps/agent-runtime/` is the only runtime codebase.
-- `apps/agent-runtime/src/core/` contains planning/execution abstractions (`PiAgentCoreLoop`, `ModelResolver`, `McpToolAdapter`).
+- `apps/agent-runtime/src/core/` contains planning/execution abstractions (`AgentLoop`, `ModelResolver`, `McpToolBridge`).
 - `apps/agent-runtime/src/infrastructure/` contains browser, MCP, and logging adapters.
-- `apps/agent-runtime/src/runtime/` contains composition (`MigrationRuntime`), config loading, and artifact writing.
+- `apps/agent-runtime/src/runtime/` contains composition (`AgentRuntime`), config loading, and artifact writing.
 - `docs/` stores acceptance and structure docs.
 - `PROGRESS.md` is the single status board (milestone, DONE, TODO).
 - `references/` contains upstream snapshots only (not runtime dependencies).

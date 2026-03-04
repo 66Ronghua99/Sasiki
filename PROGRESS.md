@@ -9,11 +9,11 @@
 - 明确工具策略：直接接入 Playwright MCP，不重复实现工具协议层。
 - 明确迁移验收口径：以“点赞 + 截图闭环”作为迁移成功标准，而非仅“打开帖子”。
 - 已创建 `apps/agent-runtime` 迁移骨架，并完成核心类抽象：
-  - `PiAgentCoreLoop`
+  - `AgentLoop`
   - `ModelResolver`
-  - `McpToolAdapter`
-  - `PlaywrightMcpStdioClient`
-  - `MigrationRuntime`
+  - `McpToolBridge`
+  - `McpStdioClient`
+  - `AgentRuntime`
 - 已将 runtime 主链路切换为 `@mariozechner/pi-agent-core`，移除自研 planner loop 依赖。
 - 已接入运行工件闭环基础能力：每次运行生成 `run_id`，并落盘 `steps.json`、`mcp_calls.jsonl`、`runtime.log`，同时尝试输出 `final.png`。
 - 已补齐 Node 侧 CDP 自动启动（默认本地 endpoint），并修复 MCP tool schema 与 `pi-agent-core` 校验兼容问题（移除 `$schema`/`$id`）。
@@ -38,7 +38,7 @@
 - `P1` 替换默认运行入口到 Node runtime。
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
-## Migration Success Criteria
+## Closed-Loop Success Criteria
 - 单次执行必须完整通过以下链路：
   1. 启动 CDP Chromium
   2. 注入 Cookie

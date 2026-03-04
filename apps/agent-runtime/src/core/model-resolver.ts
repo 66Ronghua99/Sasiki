@@ -1,6 +1,6 @@
 /**
  * Deps: @mariozechner/pi-ai
- * Used By: core/pi-agent-core-loop.ts
+ * Used By: core/agent-loop.ts
  * Last Updated: 2026-03-04
  */
 import { getModel, getModels, getProviders, type KnownProvider, type Model } from "@mariozechner/pi-ai";

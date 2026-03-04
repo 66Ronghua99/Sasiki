@@ -1,6 +1,6 @@
 /**
- * Deps: core/model-resolver.ts, core/mcp-tool-adapter.ts, contracts/*
- * Used By: runtime/migration-runtime.ts
+ * Deps: core/model-resolver.ts, core/mcp-tool-bridge.ts, contracts/*
+ * Used By: runtime/agent-runtime.ts
  * Last Updated: 2026-03-04
  */
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
@@ -10,9 +10,9 @@ import type { Logger } from "../contracts/logger.js";
 import type { ToolClient } from "../contracts/tool-client.js";
 import type { AgentRunResult, AgentRunStatus, AgentStepRecord, McpCallRecord } from "../domain/agent-types.js";
 import { ModelResolver } from "./model-resolver.js";
-import { McpToolAdapter } from "./mcp-tool-adapter.js";
+import { McpToolBridge } from "./mcp-tool-bridge.js";
 
-export interface PiAgentCoreLoopConfig {
+export interface AgentLoopConfig {
   model: string;
   apiKey: string;
   baseUrl?: string;
@@ -25,18 +25,18 @@ const SYSTEM_PROMPT = [
   "Only mark task done after required actions are actually executed.",
 ].join("\n");
 
-export class PiAgentCoreLoop {
-  private readonly config: PiAgentCoreLoopConfig;
+export class AgentLoop {
+  private readonly config: AgentLoopConfig;
   private readonly tools: ToolClient;
   private readonly logger: Logger;
-  private readonly toolAdapter: McpToolAdapter;
+  private readonly toolAdapter: McpToolBridge;
   private agent: Agent | null = null;
 
-  constructor(config: PiAgentCoreLoopConfig, tools: ToolClient, logger: Logger) {
+  constructor(config: AgentLoopConfig, tools: ToolClient, logger: Logger) {
     this.config = config;
     this.tools = tools;
     this.logger = logger;
-    this.toolAdapter = new McpToolAdapter(tools);
+    this.toolAdapter = new McpToolBridge(tools);
   }
 
   async initialize(): Promise<void> {
@@ -60,7 +60,7 @@ export class PiAgentCoreLoop {
     agent.setTools(agentTools);
 
     this.agent = agent;
-    this.logger.info("pi_agent_core_initialized", {
+    this.logger.info("agent_loop_initialized", {
       model: model.id,
       provider: model.provider,
       api: model.api,
@@ -187,7 +187,7 @@ export class PiAgentCoreLoop {
 
   private requireAgent(): Agent {
     if (!this.agent) {
-      throw new Error("pi-agent-core loop is not initialized");
+      throw new Error("agent loop is not initialized");
     }
     return this.agent;
   }
@@ -236,7 +236,7 @@ export class PiAgentCoreLoop {
     steps.push({
       stepIndex: steps.length + 1,
       action: mappedAction,
-      reason: "pi-agent-core tool execution",
+      reason: "agent tool execution",
       toolName: running?.name ?? event.toolName,
       toolArguments: args,
       resultExcerpt: excerpt,

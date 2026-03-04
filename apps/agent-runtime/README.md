@@ -6,13 +6,13 @@ This package hosts the production Node runtime for Sasiki.
 - `pi-agent-core` drives the agent loop (`Agent` + tool execution events).
 - Playwright MCP stdio client provides browser tools.
 - Class-based adapters isolate model resolution and MCP tool mapping:
-  - `PiAgentCoreLoop`
+  - `AgentLoop`
   - `ModelResolver`
-  - `McpToolAdapter`
-  - `RunLogger`
-  - `RunArtifactsWriter`
-  - `PlaywrightMcpStdioClient`
-  - `MigrationRuntime`
+  - `McpToolBridge`
+  - `RuntimeLogger`
+  - `ArtifactsWriter`
+  - `McpStdioClient`
+  - `AgentRuntime`
 
 ## Run
 ```bash

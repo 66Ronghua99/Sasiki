@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs/promises, node:path
- * Used By: runtime/migration-runtime.ts
+ * Used By: runtime/agent-runtime.ts
  * Last Updated: 2026-03-04
  */
 import { mkdir, writeFile } from "node:fs/promises";
@@ -8,7 +8,7 @@ import path from "node:path";
 
 import type { AgentStepRecord, McpCallRecord } from "../domain/agent-types.js";
 
-export class RunArtifactsWriter {
+export class ArtifactsWriter {
   readonly runId: string;
   readonly runDir: string;
 

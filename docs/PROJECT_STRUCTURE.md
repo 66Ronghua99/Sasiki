@@ -24,7 +24,7 @@
 
 - `core/`: agent loop, model resolver, MCP tool adapter.
 - `infrastructure/browser/`: CDP launcher and cookie injection.
-- `infrastructure/mcp/`: Playwright MCP stdio client.
+- `infrastructure/mcp/`: generic MCP stdio client adapter.
 - `infrastructure/logging/`: structured runtime logger.
 - `runtime/`: runtime config, orchestration, artifact writer.
 - `contracts/` and `domain/`: interfaces and run data contracts.

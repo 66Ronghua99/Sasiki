@@ -1,18 +1,18 @@
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../contracts/tool-client.js";
 
-export interface PlaywrightMcpClientConfig {
+export interface McpStdioClientConfig {
   command: string;
   args: string[];
   env?: Record<string, string>;
 }
 
-export class PlaywrightMcpStdioClient implements ToolClient {
-  private readonly config: PlaywrightMcpClientConfig;
+export class McpStdioClient implements ToolClient {
+  private readonly config: McpStdioClientConfig;
   private processStarted = false;
   private session: unknown | null = null;
   private transport: unknown | null = null;
 
-  constructor(config: PlaywrightMcpClientConfig) {
+  constructor(config: McpStdioClientConfig) {
     this.config = config;
   }
 

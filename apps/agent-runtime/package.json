@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Node runtime for Sasiki migration (pi-agent-core + Playwright MCP)",
+  "description": "Node runtime for Sasiki agent loop (pi-agent-core + MCP tools)",
   "engines": {
     "node": ">=20"
   },
