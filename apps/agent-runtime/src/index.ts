@@ -15,12 +15,29 @@ async function main(): Promise<void> {
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
   const runtime = new AgentRuntime(config);
+  let interrupting = false;
+  const requestInterrupt = (signal: "SIGINT" | "SIGTERM"): void => {
+    if (interrupting) {
+      process.stderr.write(`Force exiting after repeated ${signal}.\n`);
+      process.exit(130);
+      return;
+    }
+    interrupting = true;
+    process.stderr.write(`Received ${signal}, requesting graceful stop and flushing logs...\n`);
+    void runtime.requestInterrupt(signal);
+  };
+  const onSigint = (): void => requestInterrupt("SIGINT");
+  const onSigterm = (): void => requestInterrupt("SIGTERM");
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
 
   try {
     await runtime.start();
     const result = await runtime.run(args.task);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
     await runtime.stop();
   }
 }

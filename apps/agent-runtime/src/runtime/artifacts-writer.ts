@@ -6,7 +6,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { AgentStepRecord, McpCallRecord } from "../domain/agent-types.js";
+import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../domain/agent-types.js";
 
 export class ArtifactsWriter {
   readonly runId: string;
@@ -29,6 +29,10 @@ export class ArtifactsWriter {
     const lines = calls.map((call) => JSON.stringify(call)).join("\n");
     const output = lines ? `${lines}\n` : "";
     await writeFile(path.join(this.runDir, "mcp_calls.jsonl"), output, "utf-8");
+  }
+
+  async writeAssistantTurns(turns: AssistantTurnRecord[]): Promise<void> {
+    await this.writeJson("assistant_turns.json", turns);
   }
 
   async writeRuntimeLog(runtimeLog: string): Promise<void> {

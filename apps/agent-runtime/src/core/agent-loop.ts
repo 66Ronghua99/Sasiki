@@ -5,10 +5,18 @@
  */
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { stat } from "node:fs/promises";
+import { inspect } from "node:util";
 
 import type { Logger } from "../contracts/logger.js";
 import type { ToolClient } from "../contracts/tool-client.js";
-import type { AgentRunResult, AgentRunStatus, AgentStepRecord, McpCallRecord } from "../domain/agent-types.js";
+import type {
+  AgentRunResult,
+  AgentRunStatus,
+  AgentStepRecord,
+  AssistantToolCallRecord,
+  AssistantTurnRecord,
+  McpCallRecord,
+} from "../domain/agent-types.js";
 import { ModelResolver } from "./model-resolver.js";
 import { McpToolBridge } from "./mcp-tool-bridge.js";
 
@@ -16,13 +24,27 @@ export interface AgentLoopConfig {
   model: string;
   apiKey: string;
   baseUrl?: string;
+  thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+}
+
+export interface AgentLoopProgressSnapshot {
+  steps: AgentStepRecord[];
+  mcpCalls: McpCallRecord[];
+  assistantTurns: AssistantTurnRecord[];
 }
 
 const SYSTEM_PROMPT = [
-  "You are a browser automation agent for Xiaohongshu.",
-  "You must use available MCP tools to execute actions instead of describing actions.",
-  "Goal: open website, search target topic, open post, like post, and capture screenshot when requested.",
-  "Only mark task done after required actions are actually executed.",
+  "You are Sasiki Browser Operator, an adaptive web workflow executor.",
+  "Your job is to complete user goals end-to-end using available browser tools, while staying robust to UI changes.",
+  "Core abilities: observe page state, choose next best action, recover from failures, and verify outcomes with evidence.",
+  "Operating loop:",
+  "1) Observe first: use snapshot, URL, title, and visible structure to build a current page model.",
+  "2) Act with intent: choose one action that most directly advances the goal.",
+  "3) Verify after each action: confirm navigation/state change before moving on.",
+  "4) Recover adaptively: if a tool call fails, diagnose why and try an alternative approach.",
+  "Prefer stable, user-visible cues and semantic refs before broad DOM heuristics.",
+  "Use browser_run_code only when normal tools are insufficient, and keep code minimal and focused.",
+  "Do not declare completion until all requested outcomes are actually executed and observable.",
 ].join("\n");
 
 export class AgentLoop {
@@ -31,6 +53,7 @@ export class AgentLoop {
   private readonly logger: Logger;
   private readonly toolAdapter: McpToolBridge;
   private agent: Agent | null = null;
+  private activeProgress: AgentLoopProgressSnapshot | null = null;
 
   constructor(config: AgentLoopConfig, tools: ToolClient, logger: Logger) {
     this.config = config;
@@ -57,6 +80,7 @@ export class AgentLoop {
       getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
     });
     agent.setSystemPrompt(SYSTEM_PROMPT);
+    agent.setThinkingLevel(this.config.thinkingLevel);
     agent.setTools(agentTools);
 
     this.agent = agent;
@@ -66,6 +90,7 @@ export class AgentLoop {
       api: model.api,
       baseUrl: model.baseUrl,
       compat: this.extractCompatForLog(model),
+      thinkingLevel: this.config.thinkingLevel,
       toolCount: agentTools.length,
     });
   }
@@ -79,50 +104,58 @@ export class AgentLoop {
     const agent = this.requireAgent();
     const steps: AgentStepRecord[] = [];
     const mcpCalls: McpCallRecord[] = [];
+    const assistantTurns: AssistantTurnRecord[] = [];
+    this.activeProgress = { steps, mcpCalls, assistantTurns };
     const runningCalls = new Map<string, { name: string; args: Record<string, unknown> }>();
 
     let status: AgentRunStatus = "completed";
     let finishReason = "agent loop completed";
-    const unsubscribe = agent.subscribe((event) => {
-      this.collectStepEvent(event, steps, mcpCalls, runningCalls);
-      const failure = this.detectFailure(event);
-      if (!failure) {
-        return;
-      }
-      status = "failed";
-      finishReason = failure;
-    });
-
     try {
-      await agent.prompt(task);
-      await agent.waitForIdle();
-    } finally {
-      unsubscribe();
-    }
-
-    if (status === "completed") {
-      const stateError = agent.state.error;
-      if (stateError) {
+      const unsubscribe = agent.subscribe((event) => {
+        this.collectStepEvent(event, steps, mcpCalls, runningCalls);
+        this.collectAssistantTurnEvent(event, assistantTurns);
+        const failure = this.detectFailure(event);
+        if (!failure) {
+          return;
+        }
         status = "failed";
-        finishReason = stateError;
-      }
-    }
-
-    if (status === "failed" && mcpCalls.length === 0) {
-      this.logger.warn("llm_failed_before_mcp", {
-        finishReason,
-        configuredModel: this.config.model,
-        configuredBaseUrl: this.config.baseUrl,
+        finishReason = failure;
       });
-    }
 
-    return {
-      task,
-      status,
-      finishReason,
-      steps,
-      mcpCalls,
-    };
+      try {
+        await agent.prompt(task);
+        await agent.waitForIdle();
+      } finally {
+        unsubscribe();
+      }
+
+      if (status === "completed") {
+        const stateError = agent.state.error;
+        if (stateError) {
+          status = "failed";
+          finishReason = stateError;
+        }
+      }
+
+      if (status === "failed" && mcpCalls.length === 0) {
+        this.logger.warn("llm_failed_before_mcp", {
+          finishReason,
+          configuredModel: this.config.model,
+          configuredBaseUrl: this.config.baseUrl,
+        });
+      }
+
+      return {
+        task,
+        status,
+        finishReason,
+        steps,
+        mcpCalls,
+        assistantTurns,
+      };
+    } finally {
+      this.activeProgress = null;
+    }
   }
 
   async captureFinalScreenshot(filePath: string): Promise<string | undefined> {
@@ -159,6 +192,25 @@ export class AgentLoop {
       }
     }
     return undefined;
+  }
+
+  abort(reason = "manual_interrupt"): void {
+    if (!this.agent) {
+      return;
+    }
+    this.logger.warn("agent_abort_requested", { reason });
+    this.agent.abort();
+  }
+
+  snapshotProgress(): AgentLoopProgressSnapshot {
+    if (!this.activeProgress) {
+      return { steps: [], mcpCalls: [], assistantTurns: [] };
+    }
+    return {
+      steps: [...this.activeProgress.steps],
+      mcpCalls: [...this.activeProgress.mcpCalls],
+      assistantTurns: [...this.activeProgress.assistantTurns],
+    };
   }
 
   private logPotentialModelEndpointMismatch(): void {
@@ -221,6 +273,7 @@ export class AgentLoop {
     const mappedAction = this.mapToolNameToAction(running?.name ?? event.toolName);
     const excerpt = this.extractText(event.result);
     const args = running?.args ?? {};
+    const isToolError = this.isToolExecutionError(event.isError, excerpt);
 
     mcpCalls.push({
       index: mcpCalls.length + 1,
@@ -229,7 +282,7 @@ export class AgentLoop {
       toolCallId: event.toolCallId,
       toolName: running?.name ?? event.toolName,
       args,
-      isError: event.isError,
+      isError: isToolError,
       resultExcerpt: excerpt,
     });
 
@@ -240,10 +293,60 @@ export class AgentLoop {
       toolName: running?.name ?? event.toolName,
       toolArguments: args,
       resultExcerpt: excerpt,
-      progressed: !event.isError,
-      error: event.isError ? excerpt : undefined,
+      progressed: !isToolError,
+      error: isToolError ? excerpt : undefined,
     });
     runningCalls.delete(event.toolCallId);
+  }
+
+  private collectAssistantTurnEvent(event: AgentEvent, assistantTurns: AssistantTurnRecord[]): void {
+    if (event.type !== "message_end") {
+      return;
+    }
+    if (!this.isRecord(event.message) || event.message.role !== "assistant") {
+      return;
+    }
+
+    const content = Array.isArray(event.message.content) ? event.message.content : [];
+    const textBlocks: string[] = [];
+    const thinkingBlocks: string[] = [];
+    const toolCalls: AssistantToolCallRecord[] = [];
+
+    for (const block of content) {
+      if (!this.isRecord(block)) {
+        continue;
+      }
+      if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+        textBlocks.push(block.text);
+      }
+      if (block.type === "thinking" && typeof block.thinking === "string" && block.thinking.trim()) {
+        thinkingBlocks.push(block.thinking);
+      }
+      if (block.type === "toolCall" && typeof block.name === "string") {
+        toolCalls.push({
+          id: typeof block.id === "string" ? block.id : undefined,
+          name: block.name,
+          arguments: this.toRecord(block.arguments),
+        });
+      }
+    }
+
+    assistantTurns.push({
+      index: assistantTurns.length + 1,
+      timestamp: new Date().toISOString(),
+      stopReason: typeof event.message.stopReason === "string" ? event.message.stopReason : undefined,
+      text: textBlocks.join("\n\n"),
+      thinking: thinkingBlocks.join("\n\n"),
+      toolCalls,
+      errorMessage: typeof event.message.errorMessage === "string" ? event.message.errorMessage : undefined,
+    });
+  }
+
+  private isToolExecutionError(eventIsError: boolean | undefined, excerpt: string): boolean {
+    if (eventIsError) {
+      return true;
+    }
+    return /"isError":\s*true/.test(excerpt) || /### Error/.test(excerpt);
   }
 
   private detectFailure(event: AgentEvent): string | null {
@@ -294,14 +397,19 @@ export class AgentLoop {
   }
 
   private extractText(value: unknown): string {
-    const raw = (() => {
-      try {
-        return JSON.stringify(value);
-      } catch {
-        return String(value);
-      }
-    })();
-    return raw.length <= 600 ? raw : `${raw.slice(0, 600)}...<truncated>`;
+    if (typeof value === "string") {
+      return value;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return inspect(value, {
+        depth: null,
+        maxArrayLength: null,
+        maxStringLength: null,
+        compact: false,
+      });
+    }
   }
 
   private extractCompatForLog(model: any): Record<string, unknown> | undefined {
@@ -325,4 +433,5 @@ export class AgentLoop {
     }
     return Object.keys(result).length > 0 ? result : undefined;
   }
+
 }

@@ -1,3 +1,8 @@
+/**
+ * Deps: none
+ * Used By: core/agent-loop.ts, runtime/agent-runtime.ts, runtime/artifacts-writer.ts
+ * Last Updated: 2026-03-04
+ */
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps";
 
 export interface AgentStepRecord {
@@ -22,6 +27,22 @@ export interface McpCallRecord {
   resultExcerpt?: string;
 }
 
+export interface AssistantToolCallRecord {
+  id?: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface AssistantTurnRecord {
+  index: number;
+  timestamp: string;
+  stopReason?: string;
+  text: string;
+  thinking: string;
+  toolCalls: AssistantToolCallRecord[];
+  errorMessage?: string;
+}
+
 export interface AgentRunResult {
   runId?: string;
   artifactsDir?: string;
@@ -30,5 +51,6 @@ export interface AgentRunResult {
   finishReason: string;
   steps: AgentStepRecord[];
   mcpCalls: McpCallRecord[];
+  assistantTurns: AssistantTurnRecord[];
   finalScreenshotPath?: string;
 }

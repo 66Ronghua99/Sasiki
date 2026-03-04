@@ -5,6 +5,7 @@
  */
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { TSchema } from "@mariozechner/pi-ai";
+import { inspect } from "node:util";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../contracts/tool-client.js";
 
@@ -80,11 +81,18 @@ export class McpToolBridge {
   }
 
   private resultText(result: ToolCallResult): string {
+    if (typeof result === "string") {
+      return result;
+    }
     try {
-      const text = JSON.stringify(result);
-      return text.length <= 800 ? text : `${text.slice(0, 800)}...<truncated>`;
+      return JSON.stringify(result);
     } catch {
-      return String(result);
+      return inspect(result, {
+        depth: null,
+        maxArrayLength: null,
+        maxStringLength: null,
+        compact: false,
+      });
     }
   }
 }

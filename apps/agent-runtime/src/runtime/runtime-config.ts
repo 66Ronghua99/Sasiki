@@ -1,11 +1,19 @@
+/**
+ * Deps: node:fs, node:path
+ * Used By: index.ts, runtime/agent-runtime.ts
+ * Last Updated: 2026-03-04
+ */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+
+export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface RuntimeConfigFile {
   llm?: {
     model?: string;
     apiKey?: string;
     baseUrl?: string;
+    thinkingLevel?: RuntimeThinkingLevel;
   };
   mcp?: {
     command?: string;
@@ -45,6 +53,7 @@ export interface RuntimeConfig {
   model: string;
   apiKey: string;
   baseUrl?: string;
+  thinkingLevel: RuntimeThinkingLevel;
   artifactsDir: string;
 }
 
@@ -86,6 +95,7 @@ export class RuntimeConfigLoader {
       model,
       apiKey,
       baseUrl,
+      thinkingLevel: this.readThinkingLevel(file?.llm?.thinkingLevel, process.env.LLM_THINKING_LEVEL, "minimal"),
       artifactsDir: file?.runtime?.artifactsDir ?? process.env.RUNTIME_ARTIFACTS_DIR ?? "artifacts/e2e",
     };
   }
@@ -156,6 +166,24 @@ export class RuntimeConfigLoader {
       return Math.floor(configValue);
     }
     return this.parseInt(envValue, fallback);
+  }
+
+  private static readThinkingLevel(
+    configValue: RuntimeThinkingLevel | undefined,
+    envValue: string | undefined,
+    fallback: RuntimeThinkingLevel
+  ): RuntimeThinkingLevel {
+    if (this.isThinkingLevel(configValue)) {
+      return configValue;
+    }
+    if (this.isThinkingLevel(envValue)) {
+      return envValue;
+    }
+    return fallback;
+  }
+
+  private static isThinkingLevel(value: string | undefined): value is RuntimeThinkingLevel {
+    return value === "off" || value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh";
   }
 
   private static loadConfigFile(

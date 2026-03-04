@@ -1,3 +1,8 @@
+/**
+ * Deps: core/agent-loop.ts, infrastructure/*, runtime/*
+ * Used By: index.ts
+ * Last Updated: 2026-03-04
+ */
 import type { AgentRunResult } from "../domain/agent-types.js";
 import { AgentLoop } from "../core/agent-loop.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
@@ -11,6 +16,13 @@ export class AgentRuntime {
   private readonly logger: RuntimeLogger;
   private readonly cdpLauncher: CdpBrowserLauncher;
   private readonly loop: AgentLoop;
+  private activeRun:
+    | {
+        runId: string;
+        artifacts: ArtifactsWriter;
+      }
+    | null = null;
+  private flushPromise: Promise<void> | null = null;
 
   constructor(config: RuntimeConfig) {
     this.config = config;
@@ -46,6 +58,7 @@ export class AgentRuntime {
         model: config.model,
         apiKey: config.apiKey,
         baseUrl: config.baseUrl,
+        thinkingLevel: config.thinkingLevel,
       },
       toolClient,
       this.logger
@@ -61,6 +74,7 @@ export class AgentRuntime {
     const runId = this.createRunId();
     const artifacts = new ArtifactsWriter(this.config.artifactsDir, runId);
     await artifacts.ensureDir();
+    this.activeRun = { runId, artifacts };
     this.logger.info("run_started", { runId, task, artifactsDir: artifacts.runDir });
 
     try {
@@ -68,6 +82,7 @@ export class AgentRuntime {
       const finalScreenshotPath = await this.loop.captureFinalScreenshot(artifacts.finalScreenshotPath());
       await artifacts.writeSteps(baseResult.steps);
       await artifacts.writeMcpCalls(baseResult.mcpCalls);
+      await artifacts.writeAssistantTurns(baseResult.assistantTurns);
 
       const result: AgentRunResult = {
         ...baseResult,
@@ -92,6 +107,7 @@ export class AgentRuntime {
         finishReason: result.finishReason,
         steps: result.steps.length,
         mcpCalls: result.mcpCalls.length,
+        assistantTurns: result.assistantTurns.length,
         finalScreenshotPath: result.finalScreenshotPath,
       });
       return result;
@@ -101,12 +117,63 @@ export class AgentRuntime {
       throw error;
     } finally {
       await artifacts.writeRuntimeLog(this.logger.toText());
+      this.activeRun = null;
     }
+  }
+
+  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<void> {
+    if (!this.activeRun) {
+      return;
+    }
+    this.logger.warn("run_interrupt_requested", {
+      signal: signalName,
+      runId: this.activeRun.runId,
+    });
+    this.loop.abort(`signal:${signalName}`);
+    await this.flushInProgressArtifacts("interrupt_requested");
   }
 
   async stop(): Promise<void> {
     await this.loop.shutdown();
     await this.cdpLauncher.stop();
+  }
+
+  private async flushInProgressArtifacts(reason: string): Promise<void> {
+    if (!this.activeRun) {
+      return;
+    }
+    if (!this.flushPromise) {
+      this.flushPromise = this.flushInProgressArtifactsInternal(reason).finally(() => {
+        this.flushPromise = null;
+      });
+    }
+    await this.flushPromise;
+  }
+
+  private async flushInProgressArtifactsInternal(reason: string): Promise<void> {
+    if (!this.activeRun) {
+      return;
+    }
+    try {
+      const snapshot = this.loop.snapshotProgress();
+      await this.activeRun.artifacts.writeSteps(snapshot.steps);
+      await this.activeRun.artifacts.writeMcpCalls(snapshot.mcpCalls);
+      await this.activeRun.artifacts.writeAssistantTurns(snapshot.assistantTurns);
+      await this.activeRun.artifacts.writeRuntimeLog(this.logger.toText());
+      this.logger.info("run_interrupt_flushed", {
+        runId: this.activeRun.runId,
+        reason,
+        steps: snapshot.steps.length,
+        mcpCalls: snapshot.mcpCalls.length,
+        assistantTurns: snapshot.assistantTurns.length,
+      });
+    } catch (error) {
+      this.logger.warn("run_interrupt_flush_failed", {
+        runId: this.activeRun.runId,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private createRunId(): string {
