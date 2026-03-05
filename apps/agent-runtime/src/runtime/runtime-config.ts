@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type RuntimeSemanticMode = "off" | "auto" | "on";
 export const DEFAULT_SOP_ASSET_ROOT_DIR = "~/.sasiki/sop_assets";
 const DEFAULT_ARTIFACTS_SUBDIR = path.join("artifacts", "e2e");
 
@@ -39,6 +40,10 @@ export interface RuntimeConfigFile {
   observe?: {
     timeoutMs?: number;
   };
+  semantic?: {
+    mode?: RuntimeSemanticMode;
+    timeoutMs?: number;
+  };
 }
 
 export interface RuntimeConfig {
@@ -62,6 +67,8 @@ export interface RuntimeConfig {
   artifactsDir: string;
   observeTimeoutMs: number;
   sopAssetRootDir: string;
+  semanticMode: RuntimeSemanticMode;
+  semanticTimeoutMs: number;
 }
 
 export interface RuntimeConfigSourceOptions {
@@ -106,6 +113,12 @@ export class RuntimeConfigLoader {
       artifactsDir: this.resolveArtifactsDir(file?.runtime?.artifactsDir, process.env.RUNTIME_ARTIFACTS_DIR),
       observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, process.env.OBSERVE_TIMEOUT_MS, 120000),
       sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
+      semanticMode: this.readSemanticMode(file?.semantic?.mode, process.env.SOP_COMPACT_SEMANTIC_MODE, "auto"),
+      semanticTimeoutMs: this.readPositiveInt(
+        file?.semantic?.timeoutMs,
+        process.env.SOP_COMPACT_SEMANTIC_TIMEOUT_MS,
+        12000
+      ),
     };
   }
 
@@ -191,6 +204,20 @@ export class RuntimeConfigLoader {
     return fallback;
   }
 
+  private static readSemanticMode(
+    configValue: RuntimeSemanticMode | undefined,
+    envValue: string | undefined,
+    fallback: RuntimeSemanticMode
+  ): RuntimeSemanticMode {
+    if (this.isSemanticMode(configValue)) {
+      return configValue;
+    }
+    if (this.isSemanticMode(envValue)) {
+      return envValue;
+    }
+    return fallback;
+  }
+
   private static resolveArtifactsDir(configValue: string | undefined, envValue: string | undefined): string {
     const root = this.resolveWorkspaceRoot();
     if (configValue?.trim()) {
@@ -222,6 +249,10 @@ export class RuntimeConfigLoader {
 
   private static isThinkingLevel(value: string | undefined): value is RuntimeThinkingLevel {
     return value === "off" || value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh";
+  }
+
+  private static isSemanticMode(value: string | undefined): value is RuntimeSemanticMode {
+    return value === "off" || value === "auto" || value === "on";
   }
 
   private static loadConfigFile(

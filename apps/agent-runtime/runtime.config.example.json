@@ -24,5 +24,9 @@
   },
   "observe": {
     "timeoutMs": 120000
+  },
+  "semantic": {
+    "mode": "auto",
+    "timeoutMs": 12000
   }
 }

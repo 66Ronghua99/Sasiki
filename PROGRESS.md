@@ -21,6 +21,7 @@
 - Watch-Once PR-3 Semantic Compaction + Consumption 方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
 - Watch-Once PR-3 Closed-Loop 技术评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
 - Watch-Once PR-3 Phase-2 Semantic Layer 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
+- Watch-Once PR-3 Phase-2 Semantic Layer 实施记录：`.plan/20260305_watch_once_pr3_phase2_semantic_layer_implementation.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -89,13 +90,20 @@
   - `buildWebElementHints` 去重策略上线：按 `purpose+selector+textHint+roleHint` 去重
   - 验收样例 `run_id=20260305_134516_980`：`sourceSteps=52`，`compactSteps=19`
   - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过；`node .../dist/index.js sop-compact --run-id` 可执行
+- 已完成 PR-3 Phase-2 代码接线（Semantic Layer + Fallback）：
+  - 新增 `src/core/semantic-compactor.ts`，基于 `pi-ai completeSimple` 生成语义 guide
+  - `sop-compact` 新增 `semanticMode(off|auto|on)` 与 `semanticFallback` metadata 标记
+  - CLI 支持 `sop-compact --semantic off|auto|on`，配置支持 `semantic.mode/semantic.timeoutMs`
+  - 语义成功时落盘 `guide_semantic.md`；失败回退 rule-based 且不阻塞 `sop_compact.md`
+  - `runtime.log` 追加 `semantic_compaction_succeeded/fallback` 事件用于排障
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+  - AC-2 验收通过（`run_id=20260305_134516_980`）：`semanticMode=auto` 下生成 `guide_semantic.md`，`semanticFallback=false`
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` PR-3 Phase-2：引入可降级的 LLM 语义增强（失败回退 rule-based），产出更自然可消费的 `guide`。
-  - 方案文档：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
-  - 执行清单：`.plan/checklist_watch_once_pr3_phase2_semantic_layer.md`
-- `P0` PR-3 Phase-3：将 SOP 资产检索与消费接入 `run` 路径（按 site/taskHint 检索并注入执行上下文）。
+- `P0-NEXT` PR-3 Phase-3：将 SOP 资产检索与消费接入 `run` 路径（按 site/taskHint 检索并注入执行上下文）。
+  - 参考方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
+  - 输入前置：`PR-3 Phase-2` AC-1~AC-4 已通过（见 `.plan/checklist_watch_once_pr3_phase2_semantic_layer.md`）
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。

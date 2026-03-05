@@ -9,6 +9,8 @@
 - `LLM model` 与 `baseUrl` 容易错配：DashScope 场景优先使用 `openai/qwen-plus`，避免 `MiniMax + DashScope` 导致 4xx/能力不兼容。
 - 浏览器任务“看起来完成”不等于“业务完成”：必须用可验证证据确认（页面状态变化、截图、结构化步骤）。
 - 仅靠 prompt 很难稳定复刻复杂 SOP：需要真实示教数据作为后续优化依据。
+- 语义层调用具备环境依赖（网络/鉴权/模型可用性）：任何失败都必须回退到 rule-based 产物，不能阻塞 `sop_compact.md` 输出。
+- API 兼容性坑：部分 OpenAI-compatible 端点对 reasoning/thinking 参数兼容不稳定，语义层失败时应优先将 `thinkingLevel` 设为 `off` 再排查。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
@@ -26,6 +28,7 @@
 - 防漂移治理：进入跨模块改造前先冻结“单一闭环 + AC 阈值 + Gate 评审”，评审通过前不启动实现。
 - 输入融合治理：`type/input` 链路需以“最终有效输入值”为准，`Backspace/Delete/方向键` 等编辑键默认视为噪声，不应单独占据 compact 步骤。
 - hint 去重治理：`webElementHints` 去重键应至少包含 `purpose+selector+textHint+roleHint`，避免 selector 重复导致资产噪声膨胀。
+- 语义增强治理：`sop-compact` 需要显式写出 `semanticMode` 与 `semanticFallback`，并把 fallback 原因写入 `runtime.log` 方便排障。
 
 ## Environment Requirements
 - Node `>=20`

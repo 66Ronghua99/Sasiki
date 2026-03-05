@@ -1,11 +1,12 @@
 /**
- * Deps: node:fs/promises, node:path, domain/sop-trace.ts
+ * Deps: node:fs/promises, node:path, domain/sop-trace.ts, core/semantic-compactor.ts
  * Used By: index.ts
  * Last Updated: 2026-03-05
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { SemanticCompactor, type SemanticMode, type SemanticThinkingLevel } from "../core/semantic-compactor.js";
 import type { SopTrace, SopTraceStep } from "../domain/sop-trace.js";
 
 const FUNCTIONAL_KEYS = new Set([
@@ -53,11 +54,45 @@ interface CompactHint {
   role?: string;
 }
 
+interface SopCompactSemanticOptions {
+  mode: SemanticMode;
+  timeoutMs: number;
+  model: string;
+  apiKey: string;
+  baseUrl?: string;
+  thinkingLevel: SemanticThinkingLevel;
+}
+
+interface SopCompactServiceOptions {
+  semantic?: SopCompactSemanticOptions;
+}
+
+interface SemanticOutcome {
+  mode: SemanticMode;
+  fallback: boolean;
+  guidePath?: string;
+  guideMarkdown?: string;
+  error?: string;
+  model?: string;
+  provider?: string;
+  stopReason?: string;
+}
+
+interface BuiltCompact {
+  stepCount: number;
+  tabs: string[];
+  highSteps: string[];
+  hints: CompactHint[];
+}
+
 export interface SopCompactResult {
   runId: string;
   runDir: string;
   sourceTracePath: string;
   compactPath: string;
+  semanticMode: SemanticMode;
+  semanticFallback: boolean;
+  semanticGuidePath?: string;
   sourceSteps: number;
   compactSteps: number;
   tabs: string[];
@@ -65,9 +100,18 @@ export interface SopCompactResult {
 
 export class SopCompactService {
   private readonly artifactsDir: string;
+  private readonly semanticOptions: SopCompactSemanticOptions;
 
-  constructor(artifactsDir: string) {
+  constructor(artifactsDir: string, options?: SopCompactServiceOptions) {
     this.artifactsDir = path.resolve(artifactsDir);
+    this.semanticOptions = options?.semantic ?? {
+      mode: "off",
+      timeoutMs: 12000,
+      model: "openai/gpt-4o-mini",
+      apiKey: "",
+      thinkingLevel: "minimal",
+    };
+    process.stdout.write(`Initialized SopCompactService with artifactsDir=${this.artifactsDir} and semanticOptions=${JSON.stringify(this.semanticOptions)}\n`);
   }
 
   async compact(runId: string): Promise<SopCompactResult> {
@@ -75,13 +119,29 @@ export class SopCompactService {
     const sourceTracePath = path.join(runDir, "demonstration_trace.json");
     const compactPath = path.join(runDir, "sop_compact.md");
     const trace = await this.readTrace(sourceTracePath);
-    const built = this.buildCompact(trace, runId, sourceTracePath);
-    await writeFile(compactPath, built.markdown, "utf-8");
+    const built = this.buildCompact(trace);
+    const semantic = await this.runSemanticCompaction(runId, runDir, trace, built);
+    const markdown = this.renderCompactMarkdown({
+      runId,
+      sourceTracePath,
+      trace,
+      built,
+      semantic,
+    });
+
+    if (semantic.guidePath && semantic.guideMarkdown) {
+      await writeFile(semantic.guidePath, semantic.guideMarkdown, "utf-8");
+    }
+    await writeFile(compactPath, markdown, "utf-8");
+
     return {
       runId,
       runDir,
       sourceTracePath,
       compactPath,
+      semanticMode: semantic.mode,
+      semanticFallback: semantic.fallback,
+      semanticGuidePath: semantic.guidePath,
       sourceSteps: trace.steps.length,
       compactSteps: built.stepCount,
       tabs: built.tabs,
@@ -93,12 +153,7 @@ export class SopCompactService {
     return JSON.parse(raw) as SopTrace;
   }
 
-  private buildCompact(
-    trace: SopTrace,
-    runId: string,
-    sourceTracePath: string
-  ): { markdown: string; stepCount: number; tabs: string[] } {
-    const lines: string[] = [];
+  private buildCompact(trace: SopTrace): BuiltCompact {
     const highSteps: string[] = [];
     const hintMap = new Map<string, CompactHint>();
     const tabs = new Set<string>();
@@ -222,6 +277,23 @@ export class SopCompactService {
 
     flushInput();
     flushScroll();
+    return {
+      stepCount: highSteps.length,
+      tabs: [...tabs],
+      highSteps,
+      hints: [...hintMap.values()],
+    };
+  }
+
+  private renderCompactMarkdown(input: {
+    runId: string;
+    sourceTracePath: string;
+    trace: SopTrace;
+    built: BuiltCompact;
+    semantic: SemanticOutcome;
+  }): string {
+    const { runId, sourceTracePath, trace, built, semantic } = input;
+    const lines: string[] = [];
     lines.push("# SOP Compact (v0)");
     lines.push("");
     lines.push(`- runId: ${runId}`);
@@ -230,39 +302,126 @@ export class SopCompactService {
     lines.push(`- taskHint: ${trace.taskHint}`);
     lines.push(`- generatedAt: ${new Date().toISOString()}`);
     lines.push(`- sourceTrace: ${sourceTracePath}`);
+    lines.push(`- semanticMode: ${semantic.mode}`);
+    lines.push(`- semanticFallback: ${semantic.fallback}`);
+    if (semantic.guidePath) {
+      lines.push(`- semanticGuidePath: ${semantic.guidePath}`);
+    }
+    if (semantic.model) {
+      lines.push(`- semanticModel: ${semantic.model}`);
+    }
+    if (semantic.provider) {
+      lines.push(`- semanticProvider: ${semantic.provider}`);
+    }
+    if (semantic.stopReason) {
+      lines.push(`- semanticStopReason: ${semantic.stopReason}`);
+    }
+    if (semantic.error) {
+      lines.push(`- semanticError: ${semantic.error}`);
+    }
     lines.push("");
     lines.push("## High-Level Steps");
-    for (let i = 0; i < highSteps.length; i += 1) {
-      lines.push(`${i + 1}. ${highSteps[i]}`);
+    for (let i = 0; i < built.highSteps.length; i += 1) {
+      lines.push(`${i + 1}. ${built.highSteps[i]}`);
     }
     lines.push("");
     lines.push("## Hints");
-    if (hintMap.size === 0) {
+    if (built.hints.length === 0) {
       lines.push("- 无可提取的关键元素提示");
     } else {
-      for (const hint of hintMap.values()) {
-        const segments: string[] = [];
-        if (hint.selector) {
-          segments.push(`selector: ${hint.selector}`);
-        }
-        if (hint.text) {
-          segments.push(`text: ${hint.text}`);
-        }
-        if (hint.role) {
-          segments.push(`role: ${hint.role}`);
-        }
-        if (segments.length > 0) {
-          lines.push(`- ${segments.join(" | ")}`);
+      for (const hint of built.hints) {
+        const serialized = this.serializeHint(hint);
+        if (serialized) {
+          lines.push(`- ${serialized}`);
         }
       }
     }
     lines.push("");
+    return `${lines.join("\n")}\n`;
+  }
 
-    return {
-      markdown: `${lines.join("\n")}\n`,
-      stepCount: highSteps.length,
-      tabs: [...tabs],
-    };
+  private async runSemanticCompaction(
+    runId: string,
+    runDir: string,
+    trace: SopTrace,
+    built: BuiltCompact
+  ): Promise<SemanticOutcome> {
+    const mode = this.semanticOptions.mode;
+    if (mode === "off") {
+      return { mode, fallback: false };
+    }
+
+    try {
+      const compactor = new SemanticCompactor({
+        model: this.semanticOptions.model,
+        apiKey: this.semanticOptions.apiKey,
+        baseUrl: this.semanticOptions.baseUrl,
+        timeoutMs: this.semanticOptions.timeoutMs,
+        thinkingLevel: this.semanticOptions.thinkingLevel,
+      });
+      const result = await compactor.compact({
+        runId,
+        traceId: trace.traceId,
+        site: trace.site,
+        taskHint: trace.taskHint,
+        highLevelSteps: built.highSteps,
+        hints: built.hints.map((hint) => this.serializeHint(hint)).filter((hint) => hint.length > 0),
+      });
+      const guidePath = path.join(runDir, "guide_semantic.md");
+      await this.appendRuntimeLog(runDir, "INFO", "semantic_compaction_succeeded", {
+        runId,
+        mode,
+        guidePath,
+        model: result.model,
+        provider: result.provider,
+        stopReason: result.stopReason,
+      });
+      return {
+        mode,
+        fallback: false,
+        guidePath,
+        guideMarkdown: result.markdown,
+        model: result.model,
+        provider: result.provider,
+        stopReason: result.stopReason,
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await this.appendRuntimeLog(runDir, "WARN", "semantic_compaction_fallback", { runId, mode, reason });
+      return { mode, fallback: true, error: reason };
+    }
+  }
+
+  private serializeHint(hint: CompactHint): string {
+    const segments: string[] = [];
+    if (hint.selector) {
+      segments.push(`selector: ${hint.selector}`);
+    }
+    if (hint.text) {
+      segments.push(`text: ${hint.text}`);
+    }
+    if (hint.role) {
+      segments.push(`role: ${hint.role}`);
+    }
+    return segments.join(" | ");
+  }
+
+  private async appendRuntimeLog(
+    runDir: string,
+    level: "INFO" | "WARN" | "ERROR",
+    event: string,
+    payload?: Record<string, unknown>
+  ): Promise<void> {
+    const runtimeLogPath = path.join(runDir, "runtime.log");
+    const line = `${new Date().toISOString()} ${level} ${event}${payload ? ` ${JSON.stringify(payload)}` : ""}`;
+    let existing = "";
+    try {
+      existing = await readFile(runtimeLogPath, "utf-8");
+    } catch {
+      existing = "";
+    }
+    const prefix = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+    await writeFile(runtimeLogPath, `${existing}${prefix}${line}\n`, "utf-8");
   }
 
   private tryBuildShortcut(
