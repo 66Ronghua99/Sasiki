@@ -98,6 +98,18 @@
   - `runtime.log` 追加 `semantic_compaction_succeeded/fallback` 事件用于排障
   - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
   - AC-2 验收通过（`run_id=20260305_134516_980`）：`semanticMode=auto` 下生成 `guide_semantic.md`，`semanticFallback=false`
+- 已完成 Runtime/SOP 解耦重构（功能不变）：
+  - `AgentRuntime` 拆分为生命周期壳 + `RunExecutor` + `ObserveExecutor`
+  - `sop-compact` 拆分为 `sop-rule-compact-builder` / `sop-semantic-runner` / `sop-compact-renderer`
+  - `sop-demonstration-recorder` 拆分为 `sop-trace-builder` / `sop-trace-guide-builder` façade
+  - 新增设计产物：`.plan/20260305_runtime_sop_decoupling_refactor.md`
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已完成 Runtime 命名归位（功能不变）：
+  - 新增 `WorkflowRuntime` 作为顶层编排入口（组合 `AgentExecutionRuntime + ObserveRuntime`）
+  - `index.ts` 切换主入口到 `WorkflowRuntime`
+  - `runtime/agent-runtime.ts` 保留兼容导出（`AgentRuntime` 别名映射到 `WorkflowRuntime`）
+  - 新增设计产物：`.plan/20260305_runtime_naming_realignment.md`
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO

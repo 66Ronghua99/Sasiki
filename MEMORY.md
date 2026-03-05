@@ -29,6 +29,8 @@
 - 输入融合治理：`type/input` 链路需以“最终有效输入值”为准，`Backspace/Delete/方向键` 等编辑键默认视为噪声，不应单独占据 compact 步骤。
 - hint 去重治理：`webElementHints` 去重键应至少包含 `purpose+selector+textHint+roleHint`，避免 selector 重复导致资产噪声膨胀。
 - 语义增强治理：`sop-compact` 需要显式写出 `semanticMode` 与 `semanticFallback`，并把 fallback 原因写入 `runtime.log` 方便排障。
+- 结构解耦治理：跨链路服务（如 `AgentRuntime`、`sop-compact`）优先收敛为“编排壳”，将规则计算、语义调用、渲染、I/O 拆为可替换组件，降低回归风险并提升测试粒度。
+- 命名归位治理：当模块已承载多能力（agent + observe）时，顶层命名应升级为中性编排名（如 `WorkflowRuntime`），并短期保留旧名兼容导出以平滑迁移。
 
 ## Environment Requirements
 - Node `>=20`

@@ -5,7 +5,7 @@
  */
 import type { RuntimeMode } from "./domain/agent-types.js";
 import type { SemanticMode } from "./core/semantic-compactor.js";
-import { AgentRuntime } from "./runtime/agent-runtime.js";
+import { WorkflowRuntime } from "./runtime/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
 import { SopCompactService } from "./runtime/sop-compact.js";
 
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   }
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
-  const runtime = new AgentRuntime(config);
+  const runtime = new WorkflowRuntime(config);
   let interrupting = false;
   const requestInterrupt = (signal: "SIGINT" | "SIGTERM"): void => {
     if (interrupting) {
