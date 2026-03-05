@@ -1,13 +1,14 @@
 /**
- * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/sop-trace.ts, domain/sop-asset.ts
- * Used By: runtime/agent-runtime.ts
- * Last Updated: 2026-03-04
+ * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts
+ * Used By: runtime/run-executor.ts, runtime/observe-executor.ts
+ * Last Updated: 2026-03-05
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../domain/agent-types.js";
 import type { SopAsset } from "../domain/sop-asset.js";
+import type { SopConsumptionRecord } from "../domain/sop-consumption.js";
 import type { DemonstrationRawEvent, SopTrace } from "../domain/sop-trace.js";
 
 export class ArtifactsWriter {
@@ -50,6 +51,10 @@ export class ArtifactsWriter {
 
   async writeSopAsset(asset: SopAsset): Promise<void> {
     await this.writeJson("sop_asset.json", asset);
+  }
+
+  async writeSopConsumption(record: SopConsumptionRecord): Promise<void> {
+    await this.writeJson("sop_consumption.json", record);
   }
 
   async writeRuntimeLog(runtimeLog: string): Promise<void> {

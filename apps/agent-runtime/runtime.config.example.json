@@ -28,5 +28,11 @@
   "semantic": {
     "mode": "auto",
     "timeoutMs": 12000
+  },
+  "consumption": {
+    "enabled": false,
+    "topN": 3,
+    "hintsLimit": 8,
+    "maxGuideChars": 4000
   }
 }

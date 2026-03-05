@@ -22,6 +22,9 @@
 - Watch-Once PR-3 Closed-Loop 技术评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
 - Watch-Once PR-3 Phase-2 Semantic Layer 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
 - Watch-Once PR-3 Phase-2 Semantic Layer 实施记录：`.plan/20260305_watch_once_pr3_phase2_semantic_layer_implementation.md`
+- Watch-Once PR-3 Semantic Compaction + Consumption 检查清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
+- Watch-Once PR-3 Phase-3 Consumption Wiring 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
+- Watch-Once PR-3 Phase-3 Consumption Wiring 检查清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -98,6 +101,15 @@
   - `runtime.log` 追加 `semantic_compaction_succeeded/fallback` 事件用于排障
   - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
   - AC-2 验收通过（`run_id=20260305_134516_980`）：`semanticMode=auto` 下生成 `guide_semantic.md`，`semanticFallback=false`
+- 已完成 PR-3 Phase-3 代码接线（Consumption Wiring, config-gated）：
+  - 新增 `src/domain/sop-consumption.ts`（run 消费证据契约）
+  - 新增 `src/runtime/sop-consumption-context.ts`（site/taskHint 检索、guide/hints 注入、回退策略）
+  - `RunExecutor` 接入消费上下文：run 前检索资产并注入低优先级 SOP 参考，落盘 `sop_consumption.json`
+  - `runtime.log` 新增消费事件：`sop_consumption_selected|fallback|skipped`，包含 `asset_id/guide_source/fallback_used`
+  - 配置新增 `consumption.enabled/topN/hintsLimit/maxGuideChars`（默认 `enabled=false` 保持兼容）
+  - `runtime.config.example.json` 与 `apps/agent-runtime/README.md` 已同步
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+  - AC-1~AC-5 手动验收通过（本地 harness：`artifacts/e2e/phase3_acceptance_vXHZnd/*`）
 - 已完成 Runtime/SOP 解耦重构（功能不变）：
   - `AgentRuntime` 拆分为生命周期壳 + `RunExecutor` + `ObserveExecutor`
   - `sop-compact` 拆分为 `sop-rule-compact-builder` / `sop-semantic-runner` / `sop-compact-renderer`
@@ -113,9 +125,12 @@
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` PR-3 Phase-3：将 SOP 资产检索与消费接入 `run` 路径（按 site/taskHint 检索并注入执行上下文）。
+- `P0-NEXT` PR-3 Phase-3：在真实 runtime 链路完成一次消费注入抽样验收（非 fake loop）。
   - 参考方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
-  - 输入前置：`PR-3 Phase-2` AC-1~AC-4 已通过（见 `.plan/checklist_watch_once_pr3_phase2_semantic_layer.md`）
+  - 执行计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
+  - 跟踪清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
+  - 当前状态：代码接线 + 本地 AC 验收已完成，待真实链路抽样验证
+  - 验收重点：命中资产时 `sop_consumption.json` 与 `asset_id/guide_source/fallback_used` 日志一致，且不降低 run 成功率
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。

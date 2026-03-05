@@ -36,6 +36,18 @@ Enable semantic enhancement (`off|auto|on`, default from config):
 npm run dev -- sop-compact --run-id 20260305_120050_475 --semantic auto
 ```
 
+Enable SOP consumption during `run` via config:
+```json
+{
+  "consumption": {
+    "enabled": true,
+    "topN": 3,
+    "hintsLimit": 8,
+    "maxGuideChars": 4000
+  }
+}
+```
+
 ## Config File
 - Copy `runtime.config.example.json` to `runtime.config.json` and fill values.
 - Runtime loads config from (first existing):
@@ -81,6 +93,7 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `mcp_calls.jsonl`
   - `runtime.log`
   - `final.png` (best-effort screenshot)
+  - `sop_consumption.json` (written when run starts; records asset selection/fallback)
 - `observe` mode artifacts:
   - `demonstration_raw.jsonl`
   - `demonstration_trace.json`

@@ -31,6 +31,9 @@
 - 语义增强治理：`sop-compact` 需要显式写出 `semanticMode` 与 `semanticFallback`，并把 fallback 原因写入 `runtime.log` 方便排障。
 - 结构解耦治理：跨链路服务（如 `AgentRuntime`、`sop-compact`）优先收敛为“编排壳”，将规则计算、语义调用、渲染、I/O 拆为可替换组件，降低回归风险并提升测试粒度。
 - 命名归位治理：当模块已承载多能力（agent + observe）时，顶层命名应升级为中性编排名（如 `WorkflowRuntime`），并短期保留旧名兼容导出以平滑迁移。
+- 消费注入治理：run 侧 SOP 资产消费必须 `config-gated`（默认关闭）并保持 no-asset/guide-missing 场景非阻塞回退，避免影响主执行链路稳定性。
+- 消费可观测性治理：每次 run 必须落盘 `sop_consumption.json`，并在日志中包含 `asset_id/guide_source/fallback_used`，否则无法排查“注入是否生效”。
+- 检索匹配治理：当前 `SopAssetStore.search` 的 taskHint 匹配是 `asset.taskHint.includes(query.taskHint)`，当 run 任务语句比资产 taskHint 更长时容易 miss；Phase-3 后续应评估改为双向包含或归一化匹配策略。
 
 ## Environment Requirements
 - Node `>=20`

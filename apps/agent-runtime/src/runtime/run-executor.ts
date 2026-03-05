@@ -1,12 +1,14 @@
 /**
- * Deps: core/agent-loop.ts, domain/agent-types.ts, contracts/logger.ts, runtime/artifacts-writer.ts
- * Used By: runtime/agent-runtime.ts
+ * Deps: core/agent-loop.ts, domain/agent-types.ts, domain/sop-consumption.ts, contracts/logger.ts, runtime/artifacts-writer.ts, runtime/sop-consumption-context.ts
+ * Used By: runtime/workflow-runtime.ts
  * Last Updated: 2026-03-05
  */
 import type { AgentLoop, AgentLoopProgressSnapshot } from "../core/agent-loop.js";
 import type { Logger } from "../contracts/logger.js";
 import type { AgentRunResult } from "../domain/agent-types.js";
+import type { SopConsumptionRecord, SopConsumptionResult } from "../domain/sop-consumption.js";
 import { ArtifactsWriter } from "./artifacts-writer.js";
+import type { SopConsumptionContextBuilder } from "./sop-consumption-context.js";
 
 interface RuntimeLogBuffer extends Logger {
   toText(): string;
@@ -22,6 +24,7 @@ export interface RunExecutorOptions {
   logger: RuntimeLogBuffer;
   artifactsDir: string;
   createRunId: () => string;
+  sopConsumptionContext?: SopConsumptionContextBuilder;
 }
 
 export class RunExecutor {
@@ -29,6 +32,7 @@ export class RunExecutor {
   private readonly logger: RuntimeLogBuffer;
   private readonly artifactsDir: string;
   private readonly createRunId: () => string;
+  private readonly sopConsumptionContext?: SopConsumptionContextBuilder;
   private activeRun: ActiveRunState | null = null;
   private flushPromise: Promise<void> | null = null;
 
@@ -37,6 +41,7 @@ export class RunExecutor {
     this.logger = options.logger;
     this.artifactsDir = options.artifactsDir;
     this.createRunId = options.createRunId;
+    this.sopConsumptionContext = options.sopConsumptionContext;
   }
 
   async execute(task: string): Promise<AgentRunResult> {
@@ -47,7 +52,12 @@ export class RunExecutor {
     this.logger.info("run_started", { runId, task, artifactsDir: artifacts.runDir });
 
     try {
-      const baseResult = await this.loop.run(task);
+      const consumption = await this.resolveConsumption(task);
+      await artifacts.writeSopConsumption(consumption.record);
+      this.logConsumption(runId, consumption.record);
+
+      const loopResult = await this.loop.run(consumption.taskForLoop);
+      const baseResult: AgentRunResult = { ...loopResult, task };
       const finalScreenshotPath = await this.loop.captureFinalScreenshot(artifacts.finalScreenshotPath());
       await artifacts.writeSteps(baseResult.steps);
       await artifacts.writeMcpCalls(baseResult.mcpCalls);
@@ -153,5 +163,62 @@ export class RunExecutor {
     await artifacts.writeSteps(snapshot.steps);
     await artifacts.writeMcpCalls(snapshot.mcpCalls);
     await artifacts.writeAssistantTurns(snapshot.assistantTurns);
+  }
+
+  private async resolveConsumption(task: string): Promise<SopConsumptionResult> {
+    if (!this.sopConsumptionContext) {
+      return this.fallbackConsumption(task, "consumption_not_configured");
+    }
+    return this.sopConsumptionContext.build(task);
+  }
+
+  private fallbackConsumption(task: string, reason: string): SopConsumptionResult {
+    return {
+      taskForLoop: task,
+      record: {
+        enabled: false,
+        originalTask: task,
+        injected: false,
+        candidateAssetIds: [],
+        candidateCount: 0,
+        guideSource: "none",
+        fallbackUsed: true,
+        fallbackReason: reason,
+        usedHints: [],
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  private logConsumption(runId: string, record: SopConsumptionRecord): void {
+    if (record.fallbackUsed) {
+      const payload = {
+        runId,
+        asset_id: record.selectedAssetId,
+        guide_source: record.guideSource,
+        fallback_used: record.fallbackUsed,
+        reason: record.fallbackReason,
+        candidate_count: record.candidateCount,
+      };
+      if (record.fallbackReason?.startsWith("build_failed:")) {
+        this.logger.warn("sop_consumption_fallback", payload);
+        return;
+      }
+      if (record.fallbackReason === "consumption_disabled" || record.fallbackReason === "consumption_not_configured") {
+        this.logger.info("sop_consumption_skipped", payload);
+        return;
+      }
+      this.logger.info("sop_consumption_fallback", payload);
+      return;
+    }
+
+    this.logger.info("sop_consumption_selected", {
+      runId,
+      asset_id: record.selectedAssetId,
+      guide_source: record.guideSource,
+      fallback_used: record.fallbackUsed,
+      candidate_count: record.candidateCount,
+      hints: record.usedHints.length,
+    });
   }
 }

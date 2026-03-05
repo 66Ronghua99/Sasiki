@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs, node:path
- * Used By: index.ts, runtime/agent-runtime.ts
+ * Used By: index.ts, runtime/workflow-runtime.ts
  * Last Updated: 2026-03-05
  */
 import { existsSync, readFileSync } from "node:fs";
@@ -44,6 +44,12 @@ export interface RuntimeConfigFile {
     mode?: RuntimeSemanticMode;
     timeoutMs?: number;
   };
+  consumption?: {
+    enabled?: boolean;
+    topN?: number;
+    hintsLimit?: number;
+    maxGuideChars?: number;
+  };
 }
 
 export interface RuntimeConfig {
@@ -69,6 +75,10 @@ export interface RuntimeConfig {
   sopAssetRootDir: string;
   semanticMode: RuntimeSemanticMode;
   semanticTimeoutMs: number;
+  sopConsumptionEnabled: boolean;
+  sopConsumptionTopN: number;
+  sopConsumptionHintsLimit: number;
+  sopConsumptionMaxGuideChars: number;
 }
 
 export interface RuntimeConfigSourceOptions {
@@ -118,6 +128,22 @@ export class RuntimeConfigLoader {
         file?.semantic?.timeoutMs,
         process.env.SOP_COMPACT_SEMANTIC_TIMEOUT_MS,
         12000
+      ),
+      sopConsumptionEnabled: this.readBoolean(
+        file?.consumption?.enabled,
+        process.env.SOP_CONSUMPTION_ENABLED,
+        false
+      ),
+      sopConsumptionTopN: this.readPositiveInt(file?.consumption?.topN, process.env.SOP_CONSUMPTION_TOP_N, 3),
+      sopConsumptionHintsLimit: this.readPositiveInt(
+        file?.consumption?.hintsLimit,
+        process.env.SOP_CONSUMPTION_HINTS_LIMIT,
+        8
+      ),
+      sopConsumptionMaxGuideChars: this.readPositiveInt(
+        file?.consumption?.maxGuideChars,
+        process.env.SOP_CONSUMPTION_MAX_GUIDE_CHARS,
+        4000
       ),
     };
   }

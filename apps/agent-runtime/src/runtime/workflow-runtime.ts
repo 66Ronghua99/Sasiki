@@ -16,6 +16,7 @@ import { ObserveRuntime } from "./observe-runtime.js";
 import { RunExecutor } from "./run-executor.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 import { SopAssetStore } from "./sop-asset-store.js";
+import { SopConsumptionContextBuilder } from "./sop-consumption-context.js";
 
 export class WorkflowRuntime {
   private readonly cdpLauncher: CdpBrowserLauncher;
@@ -63,15 +64,24 @@ export class WorkflowRuntime {
       logger
     );
 
+    const sopAssetStore = new SopAssetStore(config.sopAssetRootDir);
+    const sopConsumptionContext = new SopConsumptionContextBuilder({
+      enabled: config.sopConsumptionEnabled,
+      topN: config.sopConsumptionTopN,
+      hintsLimit: config.sopConsumptionHintsLimit,
+      maxGuideChars: config.sopConsumptionMaxGuideChars,
+      assetStore: sopAssetStore,
+    });
+
     const runExecutor = new RunExecutor({
       loop,
       logger,
       artifactsDir: config.artifactsDir,
       createRunId: () => this.createRunId(),
+      sopConsumptionContext,
     });
 
     const sopRecorder = new SopDemonstrationRecorder();
-    const sopAssetStore = new SopAssetStore(config.sopAssetRootDir);
     const observeExecutor = new ObserveExecutor({
       logger,
       cdpEndpoint: config.cdpEndpoint,
