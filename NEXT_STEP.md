@@ -1,3 +1,3 @@
 # NEXT STEP
 
-执行 PR-2.1 实测验收：跑一条含多 tab 的 `--mode observe`，再执行 `sop-compact --run-id <id>`，检查 `tabId` 标记与 `sop_compact.md` 的切 tab高层步骤是否可复盘。
+进入 PR-3 Phase-2 开发：按 `.plan/20260305_watch_once_pr3_phase2_semantic_layer.md` 与 `checklist_watch_once_pr3_phase2_semantic_layer.md` 实现 `off|auto|on` 语义增强与 fallback。

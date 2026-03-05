@@ -1,7 +1,7 @@
 /**
  * Deps: domain/runtime-errors.ts, domain/sop-trace.ts, domain/sop-asset.ts
  * Used By: runtime/agent-runtime.ts
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-05
  */
 import { RuntimeError } from "../domain/runtime-errors.js";
 import type { WebElementHint } from "../domain/sop-asset.js";
@@ -74,21 +74,29 @@ export class SopDemonstrationRecorder {
 
   buildWebElementHints(trace: SopTrace): WebElementHint[] {
     const hints: WebElementHint[] = [];
+    const dedupe = new Set<string>();
     for (const step of trace.steps) {
       if (step.action !== "click" && step.action !== "type") {
         continue;
       }
+      const purpose = `fallback_when_${step.action}_fails`;
       const selector = step.target.type === "selector" ? step.target.value : undefined;
       const textHint = step.target.type === "text" ? step.target.value : this.readString(step.input.textHint);
-      if (!selector && !textHint) {
+      const roleHint = this.readString(step.input.roleHint);
+      if (!selector && !textHint && !roleHint) {
         continue;
       }
+      const dedupeKey = [purpose, selector ?? "", textHint ?? "", roleHint ?? ""].join("|");
+      if (dedupe.has(dedupeKey)) {
+        continue;
+      }
+      dedupe.add(dedupeKey);
       hints.push({
         stepIndex: step.stepIndex,
-        purpose: `fallback_when_${step.action}_fails`,
+        purpose,
         selector,
         textHint,
-        roleHint: this.readString(step.input.roleHint),
+        roleHint,
       });
     }
     return hints;

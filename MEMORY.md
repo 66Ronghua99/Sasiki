@@ -23,6 +23,9 @@
 - 示教采集治理：浏览器事件需通过 `addInitScript + 当前页注入` 双路径覆盖，减少导航后监听丢失。
 - 多标签治理：录制层不应把多 tab 视为失败，而应显式记录 `tabId` 让后处理阶段理解跨 tab 行为。
 - 降噪治理：录制保真与消费摘要要解耦，`sop-compact` 作为手动后处理更利于迭代压缩策略。
+- 防漂移治理：进入跨模块改造前先冻结“单一闭环 + AC 阈值 + Gate 评审”，评审通过前不启动实现。
+- 输入融合治理：`type/input` 链路需以“最终有效输入值”为准，`Backspace/Delete/方向键` 等编辑键默认视为噪声，不应单独占据 compact 步骤。
+- hint 去重治理：`webElementHints` 去重键应至少包含 `purpose+selector+textHint+roleHint`，避免 selector 重复导致资产噪声膨胀。
 
 ## Environment Requirements
 - Node `>=20`

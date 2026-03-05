@@ -18,6 +18,9 @@
 - Watch-Once PR-1 Contract Foundation 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
 - Watch-Once PR-2 Observe Baseline 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
 - Watch-Once PR-2.1 Compact + Multi-Tab 实施记录：`.plan/20260305_watch_once_pr2_1_compact_multitab.md`
+- Watch-Once PR-3 Semantic Compaction + Consumption 方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
+- Watch-Once PR-3 Closed-Loop 技术评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
+- Watch-Once PR-3 Phase-2 Semantic Layer 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -70,10 +73,29 @@
   - 新增手动后处理命令：`sop-compact --run-id <id>`
   - `sop-compact` 输出单文件 `sop_compact.md`（high-level 自然语言步骤 + 显式切 tab 步骤 + 关键 hints）
   - 默认 artifacts 目录统一到仓库根 `artifacts/e2e`（避免在不同 cwd 下落到不同路径）
+- 已完成 Watch-Once PR-2.1 实测验收（run_id=`20260305_134516_980`）：
+  - `demonstration_raw.jsonl` / `demonstration_trace.json` 均含多 tab `tabId`（`tab-1`、`tab-2`）
+  - `singleTabOnly=false`，`sop_compact.md` 含显式切 tab 步骤
+  - `sourceSteps=52`，`compactSteps=27`，完成可复盘降噪
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已完成 PR-3 闭环方案评审（Gate-1）并冻结开发边界：
+  - 评审结论：Approved（`2026-03-05`）
+  - Phase-1 范围：仅 rule-based 压缩与 hints 提升，不引入 LLM/run 消费
+  - Gate-2 保持 AC-1~AC-4 全通过后再进入 Phase-2
+- 已完成 PR-3 Phase-1（Rule-based 压缩 + Hint 去重/保真）并通过 Gate-2：
+  - `sop-compact` 支持输入链终态融合：去除中间编辑噪声，仅保留最终有效输入
+  - `sop-compact` 压缩滚动/重复步骤：连续 scroll 聚合摘要、连续同内容步骤去重
+  - `sop-compact` hints 输出升级：支持 `selector/text/role` 组合去重展示
+  - `buildWebElementHints` 去重策略上线：按 `purpose+selector+textHint+roleHint` 去重
+  - 验收样例 `run_id=20260305_134516_980`：`sourceSteps=52`，`compactSteps=19`
+  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过；`node .../dist/index.js sop-compact --run-id` 可执行
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` Watch-Once PR-2.1 实测验收：跑一条含多 tab 的 observe + `sop-compact`，确认 `tabId` 标记、显式切 tab 步骤与 high-level 压缩质量符合预期。
+- `P0-NEXT` PR-3 Phase-2：引入可降级的 LLM 语义增强（失败回退 rule-based），产出更自然可消费的 `guide`。
+  - 方案文档：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
+  - 执行清单：`.plan/checklist_watch_once_pr3_phase2_semantic_layer.md`
+- `P0` PR-3 Phase-3：将 SOP 资产检索与消费接入 `run` 路径（按 site/taskHint 检索并注入执行上下文）。
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。
