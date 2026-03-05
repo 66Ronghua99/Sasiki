@@ -1,13 +1,14 @@
 /**
  * Deps: node:fs, node:path
  * Used By: index.ts, runtime/agent-runtime.ts
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-05
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 export const DEFAULT_SOP_ASSET_ROOT_DIR = "~/.sasiki/sop_assets";
+const DEFAULT_ARTIFACTS_SUBDIR = path.join("artifacts", "e2e");
 
 export interface RuntimeConfigFile {
   llm?: {
@@ -102,7 +103,7 @@ export class RuntimeConfigLoader {
       apiKey,
       baseUrl,
       thinkingLevel: this.readThinkingLevel(file?.llm?.thinkingLevel, process.env.LLM_THINKING_LEVEL, "minimal"),
-      artifactsDir: file?.runtime?.artifactsDir ?? process.env.RUNTIME_ARTIFACTS_DIR ?? "artifacts/e2e",
+      artifactsDir: this.resolveArtifactsDir(file?.runtime?.artifactsDir, process.env.RUNTIME_ARTIFACTS_DIR),
       observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, process.env.OBSERVE_TIMEOUT_MS, 120000),
       sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
     };
@@ -188,6 +189,35 @@ export class RuntimeConfigLoader {
       return envValue;
     }
     return fallback;
+  }
+
+  private static resolveArtifactsDir(configValue: string | undefined, envValue: string | undefined): string {
+    const root = this.resolveWorkspaceRoot();
+    if (configValue?.trim()) {
+      const normalized = configValue.trim();
+      return path.isAbsolute(normalized) ? normalized : path.join(root, normalized);
+    }
+    if (envValue?.trim()) {
+      const normalized = envValue.trim();
+      return path.isAbsolute(normalized) ? normalized : path.join(root, normalized);
+    }
+    return path.join(root, DEFAULT_ARTIFACTS_SUBDIR);
+  }
+
+  private static resolveWorkspaceRoot(): string {
+    let current = path.resolve(process.cwd());
+    while (true) {
+      const hasProgress = existsSync(path.join(current, "PROGRESS.md"));
+      const hasAgents = existsSync(path.join(current, "AGENTS.md"));
+      if (hasProgress && hasAgents) {
+        return current;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        return path.resolve(process.cwd());
+      }
+      current = parent;
+    }
   }
 
   private static isThinkingLevel(value: string | undefined): value is RuntimeThinkingLevel {

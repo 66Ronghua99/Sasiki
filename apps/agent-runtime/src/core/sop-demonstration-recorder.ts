@@ -40,12 +40,13 @@ export class SopDemonstrationRecorder {
       previousTime = currentTime;
     }
 
+    const uniqueTabs = new Set(orderedEvents.map((event) => event.tabId).filter((value) => value.trim().length > 0));
     const trace: SopTrace = {
       traceVersion: SOP_TRACE_VERSION,
       traceId: input.traceId,
       mode: "observe",
       site: input.site,
-      singleTabOnly: true,
+      singleTabOnly: uniqueTabs.size <= 1,
       taskHint: input.taskHint,
       steps,
     };
@@ -127,6 +128,7 @@ export class SopDemonstrationRecorder {
         stepIndex,
         timestamp: event.timestamp,
         action: "navigate",
+        tabId: event.tabId,
         target: { type: "url", value: urlAfter || "about:blank" },
         input: {},
         page: { urlBefore, urlAfter },
@@ -140,6 +142,7 @@ export class SopDemonstrationRecorder {
         stepIndex,
         timestamp: event.timestamp,
         action: "click",
+        tabId: event.tabId,
         target: selector
           ? { type: "selector", value: selector }
           : { type: "text", value: text ?? "clicked element" },
@@ -155,6 +158,7 @@ export class SopDemonstrationRecorder {
         stepIndex,
         timestamp: event.timestamp,
         action: "type",
+        tabId: event.tabId,
         target: selector
           ? { type: "selector", value: selector }
           : { type: "text", value: text ?? "input target" },
@@ -170,6 +174,7 @@ export class SopDemonstrationRecorder {
         stepIndex,
         timestamp: event.timestamp,
         action: "press_key",
+        tabId: event.tabId,
         target: { type: "key", value: key },
         input: {},
         page: { urlBefore, urlAfter },
@@ -182,6 +187,7 @@ export class SopDemonstrationRecorder {
         stepIndex,
         timestamp: event.timestamp,
         action: "scroll",
+        tabId: event.tabId,
         target: { type: "text", value: "window" },
         input: {
           x: this.readNumber(event.payload.x) ?? 0,
@@ -200,6 +206,7 @@ export class SopDemonstrationRecorder {
       stepIndex,
       timestamp: event.timestamp,
       action: "wait",
+      tabId: event.tabId,
       target: { type: "text", value: "wait" },
       input: {},
       page: { urlBefore: url, urlAfter: event.url || url },

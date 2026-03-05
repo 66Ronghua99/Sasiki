@@ -17,6 +17,7 @@
 - Watch-Once v0 工程开发交接稿（逐文件接口）：`.plan/20260304_watch_once_v0_engineering_handoff.md`
 - Watch-Once PR-1 Contract Foundation 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
 - Watch-Once PR-2 Observe Baseline 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
+- Watch-Once PR-2.1 Compact + Multi-Tab 实施记录：`.plan/20260305_watch_once_pr2_1_compact_multitab.md`
 - 历史设计决策与检查清单：`.plan/*.md`
 - 建议加载顺序：
   1. `PROGRESS.md`
@@ -64,10 +65,15 @@
   - 新增 `sop-demonstration-recorder.ts`（raw -> trace/draft/webElementHints）
   - 新增 `sop-asset-store.ts`（`~/.sasiki/sop_assets/index.json` upsert/search/getById）
   - observe 路径可落盘 `demonstration_raw.jsonl` / `demonstration_trace.json` / `sop_draft.md` / `sop_asset.json`
+- 已完成 Watch-Once PR-2.1 录制优化：
+  - 多标签录制由“失败中断”改为“可记录”，每条 raw event 与 trace step 带 `tabId`
+  - 新增手动后处理命令：`sop-compact --run-id <id>`
+  - `sop-compact` 输出单文件 `sop_compact.md`（high-level 自然语言步骤 + 显式切 tab 步骤 + 关键 hints）
+  - 默认 artifacts 目录统一到仓库根 `artifacts/e2e`（避免在不同 cwd 下落到不同路径）
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
 
 ## TODO
-- `P0-NEXT` Watch-Once PR-2 Baidu 实测验收：产出一条真实示教 run 证据（4 工件 + `~/.sasiki/sop_assets/index.json` 命中），并补充失败场景修复。
+- `P0-NEXT` Watch-Once PR-2.1 实测验收：跑一条含多 tab 的 observe + `sop-compact`，确认 `tabId` 标记、显式切 tab 步骤与 high-level 压缩质量符合预期。
 - `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
 - `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
 - `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。

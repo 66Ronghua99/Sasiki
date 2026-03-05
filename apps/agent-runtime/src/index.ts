@@ -1,25 +1,41 @@
 /**
- * Deps: runtime/runtime-config.ts, runtime/agent-runtime.ts, domain/agent-types.ts
+ * Deps: runtime/*, domain/agent-types.ts
  * Used By: npm scripts (dev/build runtime entry)
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-05
  */
 import type { RuntimeMode } from "./domain/agent-types.js";
 import { AgentRuntime } from "./runtime/agent-runtime.js";
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
+import { SopCompactService } from "./runtime/sop-compact.js";
 
-interface CliArguments {
+interface RuntimeCliArguments {
+  command: "runtime";
   configPath?: string;
   mode: RuntimeMode;
   task: string;
 }
 
+interface SopCompactCliArguments {
+  command: "sop-compact";
+  configPath?: string;
+  runId: string;
+}
+
+type CliArguments = RuntimeCliArguments | SopCompactCliArguments;
+
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
+  if (args.command === "sop-compact") {
+    const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
+    const service = new SopCompactService(config.artifactsDir);
+    const result = await service.compact(args.runId);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+
   if (!args.task) {
-    process.stderr.write(
-      "Usage: npm run dev -- [--config path/to/runtime.config.json] [--mode run|observe] \"your task\"\n"
-    );
-    process.exit(1);
+    printUsageAndExit();
+    return;
   }
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
@@ -52,6 +68,13 @@ async function main(): Promise<void> {
 }
 
 function parseCliArguments(argv: string[]): CliArguments {
+  if (argv[0] === "sop-compact") {
+    return parseSopCompactArguments(argv.slice(1));
+  }
+  return parseRuntimeArguments(argv);
+}
+
+function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
   const taskParts: string[] = [];
   let configPath: string | undefined;
   let mode: RuntimeMode = "run";
@@ -77,7 +100,40 @@ function parseCliArguments(argv: string[]): CliArguments {
     }
     taskParts.push(arg);
   }
-  return { configPath, mode, task: taskParts.join(" ").trim() };
+  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim() };
+}
+
+function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
+  let configPath: string | undefined;
+  let runId: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--config" || arg === "-c") {
+      configPath = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--config=")) {
+      configPath = arg.slice("--config=".length);
+      continue;
+    }
+    if (arg === "--run-id" || arg === "-r") {
+      runId = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--run-id=")) {
+      runId = arg.slice("--run-id=".length);
+      continue;
+    }
+    if (!runId) {
+      runId = arg;
+    }
+  }
+  if (!runId?.trim()) {
+    throw new Error("missing run id. usage: sop-compact --run-id <run_id>");
+  }
+  return { command: "sop-compact", configPath, runId: runId.trim() };
 }
 
 function parseMode(value: string | undefined): RuntimeMode {
@@ -85,6 +141,13 @@ function parseMode(value: string | undefined): RuntimeMode {
     return value;
   }
   throw new Error(`invalid --mode value: ${value ?? "(missing)"}. expected run|observe`);
+}
+
+function printUsageAndExit(): void {
+  process.stderr.write(
+    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] \"your task\"\n  npm run dev -- sop-compact --run-id <run_id> [--config path]\n"
+  );
+  process.exit(1);
 }
 
 main().catch((error) => {

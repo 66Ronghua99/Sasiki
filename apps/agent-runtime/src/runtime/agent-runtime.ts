@@ -170,7 +170,6 @@ export class AgentRuntime {
     try {
       await recorder.start({
         cdpEndpoint: this.config.cdpEndpoint,
-        singleTabOnly: true,
         timeoutMs: this.config.observeTimeoutMs,
       });
       recorderStarted = true;

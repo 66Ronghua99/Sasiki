@@ -1,16 +1,14 @@
 /**
- * Deps: playwright-core, domain/sop-trace.ts, domain/runtime-errors.ts
+ * Deps: playwright-core, domain/sop-trace.ts
  * Used By: runtime/agent-runtime.ts
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-05
  */
 import type { Browser, BrowserContext, ConsoleMessage, Frame, Page } from "playwright-core";
 
-import { RuntimeError } from "../../domain/runtime-errors.js";
 import type { DemonstrationRawEvent } from "../../domain/sop-trace.js";
 
 export interface ObserveCaptureOptions {
   cdpEndpoint: string;
-  singleTabOnly: true;
   timeoutMs: number;
 }
 
@@ -158,29 +156,28 @@ const OBSERVE_CAPTURE_SCRIPT = `
 export class PlaywrightDemonstrationRecorder {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
-  private page: Page | null = null;
   private readonly events: DemonstrationRawEvent[] = [];
   private readonly listeners: Array<() => void> = [];
-  private eventCounter = 0;
+  private readonly tabIds = new Map<Page, string>();
   private started = false;
-  private multiTabDetected = false;
+  private eventCounter = 0;
+  private tabCounter = 0;
 
   async start(options: ObserveCaptureOptions): Promise<void> {
     const playwright = await import("playwright-core");
     this.browser = await playwright.chromium.connectOverCDP(options.cdpEndpoint);
     this.context = this.browser.contexts()[0] ?? (await this.browser.newContext());
+    this.bindContextListener();
 
     const pages = this.context.pages();
-    if (options.singleTabOnly && pages.length > 1) {
-      throw new RuntimeError("OBSERVE_MULTI_TAB_NOT_SUPPORTED", "observe mode supports single tab only", {
-        existingTabs: pages.length,
-      });
+    if (pages.length === 0) {
+      const page = await this.context.newPage();
+      await this.registerPage(page);
+    } else {
+      for (const page of pages) {
+        await this.registerPage(page);
+      }
     }
-    this.page = pages[0] ?? (await this.context.newPage());
-
-    this.bindContextListener();
-    await this.bindPage(this.page);
-    this.pushEvent("navigate", this.page.url(), { reason: "observe_start" });
     this.started = true;
   }
 
@@ -189,9 +186,6 @@ export class PlaywrightDemonstrationRecorder {
       return [];
     }
     try {
-      if (this.multiTabDetected) {
-        throw new RuntimeError("OBSERVE_MULTI_TAB_NOT_SUPPORTED", "multiple tabs detected during observe");
-      }
       return [...this.events];
     } finally {
       await this.dispose();
@@ -200,26 +194,31 @@ export class PlaywrightDemonstrationRecorder {
 
   private bindContextListener(): void {
     const context = this.requireContext();
-    const onPage = (newPage: Page): void => {
-      if (newPage === this.page) {
-        return;
-      }
-      this.multiTabDetected = true;
+    const onPage = (page: Page): void => {
+      void this.registerPage(page);
     };
     context.on("page", onPage);
     this.listeners.push(() => context.off("page", onPage));
   }
 
-  private async bindPage(page: Page): Promise<void> {
+  private async registerPage(page: Page): Promise<void> {
+    if (this.tabIds.has(page)) {
+      return;
+    }
+    const tabId = this.nextTabId();
+    this.tabIds.set(page, tabId);
+    const openerTabId = await this.resolveOpenerTabId(page);
+
     const onConsole = (message: ConsoleMessage): void => {
-      this.captureConsoleEvent(message);
+      this.captureConsoleEvent(message, tabId, openerTabId);
     };
     const onFrameNavigated = (frame: Frame): void => {
       if (frame !== page.mainFrame()) {
         return;
       }
-      this.pushEvent("navigate", page.url(), { reason: "main_frame_navigated" });
+      this.pushEvent("navigate", page.url(), { reason: "main_frame_navigated" }, tabId, openerTabId);
     };
+
     page.on("console", onConsole);
     page.on("framenavigated", onFrameNavigated);
     this.listeners.push(() => page.off("console", onConsole));
@@ -231,9 +230,14 @@ export class PlaywrightDemonstrationRecorder {
     } catch {
       // Cross-origin and navigation races can make evaluate fail; init script still covers future documents.
     }
+    this.pushEvent("navigate", page.url(), { reason: "tab_attached" }, tabId, openerTabId);
   }
 
-  private captureConsoleEvent(message: ConsoleMessage): void {
+  private captureConsoleEvent(
+    message: ConsoleMessage,
+    tabId: string,
+    openerTabId: string | undefined
+  ): void {
     const text = message.text();
     if (!text.startsWith(OBSERVE_CONSOLE_PREFIX)) {
       return;
@@ -241,7 +245,7 @@ export class PlaywrightDemonstrationRecorder {
     const jsonPart = text.slice(OBSERVE_CONSOLE_PREFIX.length);
     try {
       const event = JSON.parse(jsonPart) as RawBrowserEvent;
-      this.pushEvent(event.type, event.url, event.payload, event.timestamp);
+      this.pushEvent(event.type, event.url, event.payload, tabId, openerTabId, event.timestamp);
     } catch {
       // Ignore malformed capture events.
     }
@@ -251,6 +255,8 @@ export class PlaywrightDemonstrationRecorder {
     type: DemonstrationRawEvent["type"],
     url: string,
     payload: Record<string, unknown>,
+    tabId: string,
+    openerTabId?: string,
     timestampMs?: number
   ): void {
     this.eventCounter += 1;
@@ -259,6 +265,8 @@ export class PlaywrightDemonstrationRecorder {
       timestamp: this.toIsoTimestamp(timestampMs),
       type,
       url,
+      tabId,
+      openerTabId,
       payload,
     });
   }
@@ -268,6 +276,19 @@ export class PlaywrightDemonstrationRecorder {
       return new Date(timestampMs).toISOString();
     }
     return new Date().toISOString();
+  }
+
+  private async resolveOpenerTabId(page: Page): Promise<string | undefined> {
+    const opener = await page.opener();
+    if (!opener) {
+      return undefined;
+    }
+    return this.tabIds.get(opener);
+  }
+
+  private nextTabId(): string {
+    this.tabCounter += 1;
+    return `tab-${this.tabCounter}`;
   }
 
   private requireContext(): BrowserContext {
@@ -290,7 +311,7 @@ export class PlaywrightDemonstrationRecorder {
     }
     this.browser = null;
     this.context = null;
-    this.page = null;
+    this.tabIds.clear();
     this.started = false;
   }
 }

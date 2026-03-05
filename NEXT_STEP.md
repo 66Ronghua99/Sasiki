@@ -1,3 +1,3 @@
 # NEXT STEP
 
-执行 PR-2 Baidu 实测验收：运行 `--mode observe` 采集真实示教，确认 4 类工件与 `~/.sasiki/sop_assets/index.json` 索引入库，并根据失败证据补第一轮稳定性修复。
+执行 PR-2.1 实测验收：跑一条含多 tab 的 `--mode observe`，再执行 `sop-compact --run-id <id>`，检查 `tabId` 标记与 `sop_compact.md` 的切 tab高层步骤是否可复盘。

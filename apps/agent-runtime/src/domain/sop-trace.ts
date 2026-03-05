@@ -15,6 +15,8 @@ export interface DemonstrationRawEvent {
   timestamp: string;
   type: "navigate" | "click" | "input" | "keydown" | "scroll" | "wait";
   url: string;
+  tabId: string;
+  openerTabId?: string;
   payload: Record<string, unknown>;
 }
 
@@ -22,6 +24,7 @@ export interface SopTraceStep {
   stepIndex: number;
   timestamp: string;
   action: SopAction;
+  tabId: string;
   target: { type: "url" | "selector" | "text" | "key"; value: string };
   input: Record<string, unknown>;
   page: { urlBefore: string; urlAfter: string };
@@ -34,7 +37,7 @@ export interface SopTrace {
   traceId: string;
   mode: "observe";
   site: string;
-  singleTabOnly: true;
+  singleTabOnly: boolean;
   taskHint: string;
   steps: SopTraceStep[];
 }
@@ -51,7 +54,9 @@ function assertTraceMetadata(trace: SopTrace): void {
     { traceVersion: trace.traceVersion }
   );
   assertSchemaCondition(trace.mode === "observe", "mode must be observe", { mode: trace.mode });
-  assertSchemaCondition(trace.singleTabOnly === true, "singleTabOnly must be true");
+  assertSchemaCondition(typeof trace.singleTabOnly === "boolean", "singleTabOnly must be boolean", {
+    singleTabOnly: trace.singleTabOnly,
+  });
 }
 
 function assertTraceSteps(steps: SopTraceStep[]): void {
