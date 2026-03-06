@@ -11,29 +11,49 @@
 ## Ultimate Goal
 - 解决用户在浏览器上的长程 SOP 复刻问题：面对千差万别的需求，优先通过“看用户做一次（Watch Once）→ 学习关键动作序列 → 在后续任务中自动复现并持续优化”来达成稳定执行。
 
-## Requirement References (Load First)
-- Watch-Once v0 设计评审稿：`.plan/20260304_watch_once_v0_design.md`
-- Watch-Once v0 正式 PRD：`.plan/20260304_watch_once_v0_prd.md`
-- Watch-Once v0 工程开发交接稿（逐文件接口）：`.plan/20260304_watch_once_v0_engineering_handoff.md`
-- Watch-Once PR-1 Contract Foundation 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
-- Watch-Once PR-2 Observe Baseline 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
-- Watch-Once PR-2.1 Compact + Multi-Tab 实施记录：`.plan/20260305_watch_once_pr2_1_compact_multitab.md`
-- Watch-Once PR-3 Semantic Compaction + Consumption 方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
-- Watch-Once PR-3 Closed-Loop 技术评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
-- Watch-Once PR-3 Phase-2 Semantic Layer 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
-- Watch-Once PR-3 Phase-2 Semantic Layer 实施记录：`.plan/20260305_watch_once_pr3_phase2_semantic_layer_implementation.md`
-- Watch-Once PR-3 Semantic Compaction + Consumption 检查清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
-- Watch-Once PR-3 Phase-3 Consumption Wiring 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
-- Watch-Once PR-3 Phase-3 Consumption Wiring 检查清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
-- 历史设计决策与检查清单：`.plan/*.md`
-- 建议加载顺序：
-  1. `PROGRESS.md`
-  2. `MEMORY.md`
-  3. `NEXT_STEP.md`
-  4. `.plan/20260304_watch_once_v0_prd.md`
-  5. `.plan/20260304_watch_once_v0_engineering_handoff.md`
+## Reference List (Progressive Loading)
+- 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
+- 进入当前阶段再加载（L1）：
+  - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
+  - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
+  - PR-3 Phase-3A 方案：`.plan/20260306_watch_once_pr3_phase3a_pinned_runid.md`
+  - PR-3 Phase-3A 清单：`.plan/checklist_watch_once_pr3_phase3a_pinned_runid.md`
+  - 协作方法论治理方案：`.plan/20260306_collaboration_methodology_agents_governance.md`
+  - 协作方法论治理清单：`.plan/checklist_collaboration_methodology_agents_governance.md`
+- 历史与归档按需加载（L2）：
+  - v0 设计评审：`.plan/20260304_watch_once_v0_design.md`
+  - v0 PRD：`.plan/20260304_watch_once_v0_prd.md`
+  - v0 工程交接：`.plan/20260304_watch_once_v0_engineering_handoff.md`
+  - PR-1 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
+  - PR-2 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
+  - PR-2.1 实施记录：`.plan/20260305_watch_once_pr2_1_compact_multitab.md`
+  - PR-3 总方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
+  - PR-3 评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
+  - PR-3 Phase-2 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
+  - PR-3 Phase-2 实施：`.plan/20260305_watch_once_pr3_phase2_semantic_layer_implementation.md`
+  - PR-3 Phase-3 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
+  - PR-3 Phase-3 清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
+  - PR-3 总清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
+  - 其他历史文档：`.plan/*.md`
+
+## TODO
+- `P0-NEXT` 长程任务 SOP 沉淀优化（仅优化 SOP 产物，不做检索/页面局部优化）：
+  - 场景：电商单页上架（标题、主图、商品落地页、图片、SKU、尺码）
+  - 约束：单任务总时长 10 分钟；单点最多重试 2 次，失败/不确定后进入 HITL
+  - 验收：纯自动 `3/3` 跑通（HITL 不计入最终成功）
+  - 证据：成功三件套（成功提示 + 最终截图 + 关键字段回读）+ `intervention_learning.jsonl` + `failure_topn.json`
+  - 多标签策略：偶发多标签记 warning，不直接判失败
+- `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
+  - 将 SOP 检索从当前消费注入流程中解耦为独立模块
+  - 后续单独优化召回/排序/归一化匹配策略
+- `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
+- `P1` 替换默认运行入口到 Node runtime。
+- `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成长程任务 SOP HITL 需求冻结（Requirement v0 + Checklist）：
+  - `.plan/20260306_long_task_sop_hitl_requirement_v0.md`
+  - `.plan/checklist_long_task_sop_hitl_requirement_v0.md`
 - 明确迁移架构：Node 主进程负责 agent loop，Python 退出主链路。
 - 明确工具策略：直接接入 Playwright MCP，不重复实现工具协议层。
 - 明确迁移验收口径：以“点赞 + 截图闭环”作为迁移成功标准，而非仅“打开帖子”。
@@ -110,6 +130,19 @@
   - `runtime.config.example.json` 与 `apps/agent-runtime/README.md` 已同步
   - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
   - AC-1~AC-5 手动验收通过（本地 harness：`artifacts/e2e/phase3_acceptance_vXHZnd/*`）
+- 已完成 PR-3 Phase-3A 确定性注入接线（Pinned RunID, retrieval-decoupled）：
+  - CLI 新增 `--sop-run-id <run_id>`，支持 run 无 task 文本（由资产 `taskHint` 提供任务基线）
+  - `run` 路径新增 `AgentRunRequest`，可携带 `sopRunId` 直连资产（`assetId=sop_<run_id>`）
+  - `sop_consumption.json` 新增 `selectionMode/taskSource/pinnedRunId` 证据字段
+  - run 日志增加 `pinned_run_id/selection_mode/task_source`，便于区分自动检索与确定性注入
+  - guide 加载优先级升级：`guide_semantic.md` > `sop_compact.md` > `sop_draft.md`
+  - `npm --prefix apps/agent-runtime run typecheck` 通过
+- 已完成 PR-3 Phase-3A V0 闭环人工验收（用户实测通过）：
+  - 用户反馈：`--sop-run-id` 路径可成功执行确定性流程
+  - 结论：V0 “指定 run_id -> 注入 compact 资产 -> 完成任务”闭环已达成
+- 已完成用户级协作方法论治理升级（AGENTS 重构）：
+  - 根 `AGENTS.md` 已升级为“协作操作系统”（原则、分阶段流程、Gate、文件职责、渐进加载、DoD）
+  - `.plan` 新增治理设计文档与 checklist，支持后续流程审计与防漂移
 - 已完成 Runtime/SOP 解耦重构（功能不变）：
   - `AgentRuntime` 拆分为生命周期壳 + `RunExecutor` + `ObserveExecutor`
   - `sop-compact` 拆分为 `sop-rule-compact-builder` / `sop-semantic-runner` / `sop-compact-renderer`
@@ -123,17 +156,3 @@
   - 新增设计产物：`.plan/20260305_runtime_naming_realignment.md`
   - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
-
-## TODO
-- `P0-NEXT` PR-3 Phase-3：在真实 runtime 链路完成一次消费注入抽样验收（非 fake loop）。
-  - 参考方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
-  - 执行计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
-  - 跟踪清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
-  - 当前状态：代码接线 + 本地 AC 验收已完成，待真实链路抽样验证
-  - 验收重点：命中资产时 `sop_consumption.json` 与 `asset_id/guide_source/fallback_used` 日志一致，且不降低 run 成功率
-- `P0` 完成 E2E 闭环能力：小红书搜索、进帖、点赞、截图。
-- `P0` 优化任务 prompt 与动作约束，降低误操作并提升点赞动作成功率。
-- `P0` 固化稳定性策略：超时、重试、stall 检测、失败原因枚举。
-- `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
-- `P1` 替换默认运行入口到 Node runtime。
-- `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
