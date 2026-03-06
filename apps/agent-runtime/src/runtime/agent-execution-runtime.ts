@@ -1,10 +1,10 @@
 /**
  * Deps: core/agent-loop.ts, domain/agent-types.ts, runtime/run-executor.ts
  * Used By: runtime/workflow-runtime.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import type { AgentLoop } from "../core/agent-loop.js";
-import type { AgentRunResult } from "../domain/agent-types.js";
+import type { AgentRunRequest, AgentRunResult } from "../domain/agent-types.js";
 import { RunExecutor } from "./run-executor.js";
 
 export interface AgentExecutionRuntimeOptions {
@@ -26,9 +26,9 @@ export class AgentExecutionRuntime {
     await this.ensureLoopInitialized();
   }
 
-  async run(task: string): Promise<AgentRunResult> {
+  async run(request: AgentRunRequest): Promise<AgentRunResult> {
     await this.ensureLoopInitialized();
-    return this.runExecutor.execute(task);
+    return this.runExecutor.execute(request);
   }
 
   async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean> {

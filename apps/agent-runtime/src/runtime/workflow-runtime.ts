@@ -1,11 +1,11 @@
 /**
  * Deps: core/*, domain/agent-types.ts, infrastructure/*, runtime/*
  * Used By: index.ts, runtime/agent-runtime.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import { AgentLoop } from "../core/agent-loop.js";
 import { SopDemonstrationRecorder } from "../core/sop-demonstration-recorder.js";
-import type { AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
+import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
 import { PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";
 import { RuntimeLogger } from "../infrastructure/logging/runtime-logger.js";
@@ -107,8 +107,8 @@ export class WorkflowRuntime {
     }
   }
 
-  async run(task: string): Promise<AgentRunResult> {
-    return this.agentRuntime.run(task);
+  async run(request: AgentRunRequest): Promise<AgentRunResult> {
+    return this.agentRuntime.run(request);
   }
 
   async observe(taskHint: string): Promise<ObserveRunResult> {

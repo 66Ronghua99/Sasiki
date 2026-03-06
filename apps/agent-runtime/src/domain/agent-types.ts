@@ -1,10 +1,15 @@
 /**
  * Deps: none
  * Used By: core/agent-loop.ts, runtime/agent-runtime.ts, runtime/artifacts-writer.ts
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-06
  */
 export type RuntimeMode = "run" | "observe";
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps";
+
+export interface AgentRunRequest {
+  task: string;
+  sopRunId?: string;
+}
 
 export interface AgentStepRecord {
   stepIndex: number;

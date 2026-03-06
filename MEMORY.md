@@ -34,6 +34,11 @@
 - 消费注入治理：run 侧 SOP 资产消费必须 `config-gated`（默认关闭）并保持 no-asset/guide-missing 场景非阻塞回退，避免影响主执行链路稳定性。
 - 消费可观测性治理：每次 run 必须落盘 `sop_consumption.json`，并在日志中包含 `asset_id/guide_source/fallback_used`，否则无法排查“注入是否生效”。
 - 检索匹配治理：当前 `SopAssetStore.search` 的 taskHint 匹配是 `asset.taskHint.includes(query.taskHint)`，当 run 任务语句比资产 taskHint 更长时容易 miss；Phase-3 后续应评估改为双向包含或归一化匹配策略。
+- 验收解耦治理：验证 SOP 消费效果时，优先使用 `--sop-run-id` 走确定性注入，避免“检索 miss + 指令仍成功”造成伪通过。
+- 任务来源治理：pinned 场景允许 task 为空并回退到 `asset.taskHint`，同时在消费证据中记录 `taskSource=request|asset_task_hint` 便于回放判定。
+- guide 优先级治理：run 注入时优先读取 `guide_semantic.md`，其次 `sop_compact.md`，最后 `sop_draft.md`，确保尽量消费 compact 后资产。
+- 阶段拆分治理：当“检索质量”与“消费效果验证”相互干扰时，先走 pinned run_id 的确定性闭环，再把检索优化独立为单模块迭代。
+- 协作操作系统治理：用户级 `AGENTS.md` 需要长期保持“方法论协议”定位（原则、Gate、文件职责、渐进加载）；项目状态与阶段结论只写入 `PROGRESS/MEMORY/NEXT_STEP`，避免职责漂移。
 
 ## Environment Requirements
 - Node `>=20`

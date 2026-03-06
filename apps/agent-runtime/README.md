@@ -21,6 +21,11 @@ npm install
 npm run dev -- "Open xiaohongshu and search for coffee beans"
 ```
 
+Run with deterministic SOP asset by recorded `run_id` (no extra task required):
+```bash
+npm run dev -- --mode run --sop-run-id 20260305_134516_980
+```
+
 Observe once (Watch-Once v0 baseline):
 ```bash
 npm run dev -- --mode observe "在百度演示一次：搜索咖啡豆并打开一个结果"
@@ -47,6 +52,11 @@ Enable SOP consumption during `run` via config:
   }
 }
 ```
+
+Consumption guide priority:
+- `guide_semantic.md` (if present)
+- `sop_compact.md` (if present)
+- `sop_draft.md` (fallback via asset `guidePath`)
 
 ## Config File
 - Copy `runtime.config.example.json` to `runtime.config.json` and fill values.
@@ -93,7 +103,7 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `mcp_calls.jsonl`
   - `runtime.log`
   - `final.png` (best-effort screenshot)
-  - `sop_consumption.json` (written when run starts; records asset selection/fallback)
+  - `sop_consumption.json` (written when run starts; records selection mode, pinned run id, selected asset, fallback)
 - `observe` mode artifacts:
   - `demonstration_raw.jsonl`
   - `demonstration_trace.json`

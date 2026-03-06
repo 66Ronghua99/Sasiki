@@ -1,12 +1,13 @@
 /**
  * Deps: node:fs/promises, node:path, domain/sop-asset.ts, domain/sop-consumption.ts, runtime/sop-asset-store.ts
  * Used By: runtime/workflow-runtime.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SopAsset, WebElementHint } from "../domain/sop-asset.js";
+import type { SopTaskSource } from "../domain/sop-consumption.js";
 import type { SopConsumptionRecord, SopConsumptionResult } from "../domain/sop-consumption.js";
 import type { SopAssetStore } from "./sop-asset-store.js";
 
@@ -16,6 +17,11 @@ export interface SopConsumptionContextOptions {
   hintsLimit: number;
   maxGuideChars: number;
   assetStore: SopAssetStore;
+}
+
+export interface SopConsumptionBuildInput {
+  task: string;
+  sopRunId?: string;
 }
 
 interface GuidePayload {
@@ -31,27 +37,51 @@ export class SopConsumptionContextBuilder {
     this.options = options;
   }
 
-  async build(task: string): Promise<SopConsumptionResult> {
+  async build(input: SopConsumptionBuildInput): Promise<SopConsumptionResult> {
+    const task = input.task.trim();
+    const pinnedRunId = input.sopRunId?.trim();
     if (!this.options.enabled) {
-      return this.toFallback(task, { enabled: false, fallbackReason: "consumption_disabled" });
+      return this.toFallback(task, {
+        enabled: false,
+        fallbackReason: "consumption_disabled",
+        selectionMode: pinnedRunId ? "pinned" : "none",
+        taskSource: "request",
+        pinnedRunId,
+      });
     }
 
     try {
-      return await this.buildInternal(task);
+      if (pinnedRunId) {
+        return await this.buildPinned(task, pinnedRunId);
+      }
+      return await this.buildAuto(task);
     } catch (error) {
       return this.toFallback(task, {
         enabled: true,
+        selectionMode: pinnedRunId ? "pinned" : "auto",
+        taskSource: "request",
+        pinnedRunId,
         fallbackReason: error instanceof Error ? `build_failed:${error.message}` : "build_failed",
       });
     }
   }
 
-  private async buildInternal(task: string): Promise<SopConsumptionResult> {
+  private async buildAuto(task: string): Promise<SopConsumptionResult> {
+    if (!task) {
+      return this.toFallback(task, {
+        enabled: true,
+        selectionMode: "auto",
+        taskSource: "request",
+        fallbackReason: "empty_task_for_auto_search",
+      });
+    }
     const siteHint = this.detectSiteHint(task);
     const candidates = await this.findCandidates(task, siteHint);
     if (candidates.length === 0) {
       return this.toFallback(task, {
         enabled: true,
+        selectionMode: "auto",
+        taskSource: "request",
         siteHint,
         candidateAssetIds: [],
         candidateCount: 0,
@@ -65,6 +95,8 @@ export class SopConsumptionContextBuilder {
     if (!guide.markdown && hints.length === 0) {
       return this.toFallback(task, {
         enabled: true,
+        selectionMode: "auto",
+        taskSource: "request",
         siteHint,
         selectedAssetId: selected.assetId,
         candidateAssetIds: candidates.map((item) => item.assetId),
@@ -78,11 +110,78 @@ export class SopConsumptionContextBuilder {
       record: {
         enabled: true,
         originalTask: task,
+        taskSource: "request",
         injected: true,
+        selectionMode: "auto",
         selectedAssetId: selected.assetId,
         candidateAssetIds: candidates.map((item) => item.assetId),
         candidateCount: candidates.length,
         siteHint,
+        guideSource: guide.source,
+        guidePath: guide.guidePath,
+        fallbackUsed: false,
+        usedHints: hints,
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  private async buildPinned(task: string, pinnedRunId: string): Promise<SopConsumptionResult> {
+    const assetId = `sop_${pinnedRunId}`;
+    const selected = await this.options.assetStore.getById(assetId);
+    if (!selected) {
+      return this.toFallback(task, {
+        enabled: true,
+        selectionMode: "pinned",
+        taskSource: "request",
+        pinnedRunId,
+        fallbackReason: "pinned_asset_not_found",
+      });
+    }
+    const originalTask = task || selected.taskHint.trim();
+    const taskSource: SopTaskSource = task ? "request" : "asset_task_hint";
+    if (!originalTask) {
+      return this.toFallback(task, {
+        enabled: true,
+        selectionMode: "pinned",
+        taskSource,
+        pinnedRunId,
+        selectedAssetId: selected.assetId,
+        candidateAssetIds: [selected.assetId],
+        candidateCount: 1,
+        fallbackReason: "empty_task_after_pinned_resolution",
+      });
+    }
+
+    const guide = await this.loadGuide(selected);
+    const hints = this.pickHints(selected.webElementHints);
+    if (!guide.markdown && hints.length === 0) {
+      return this.toFallback(originalTask, {
+        enabled: true,
+        selectionMode: "pinned",
+        taskSource,
+        pinnedRunId,
+        siteHint: selected.site,
+        selectedAssetId: selected.assetId,
+        candidateAssetIds: [selected.assetId],
+        candidateCount: 1,
+        fallbackReason: "guide_and_hints_unavailable",
+      });
+    }
+
+    return {
+      taskForLoop: this.composeAugmentedTask(originalTask, selected, guide.markdown, hints),
+      record: {
+        enabled: true,
+        originalTask,
+        taskSource,
+        injected: true,
+        selectionMode: "pinned",
+        pinnedRunId,
+        selectedAssetId: selected.assetId,
+        candidateAssetIds: [selected.assetId],
+        candidateCount: 1,
+        siteHint: selected.site,
         guideSource: guide.source,
         guidePath: guide.guidePath,
         fallbackUsed: false,
@@ -107,6 +206,8 @@ export class SopConsumptionContextBuilder {
   }
 
   private async loadGuide(asset: SopAsset): Promise<GuidePayload> {
+    const compactPath = path.join(path.dirname(asset.tracePath), "sop_compact.md");
+    const compactMarkdown = await this.readMarkdown(compactPath);
     const semanticPath = path.join(path.dirname(asset.tracePath), "guide_semantic.md");
     const semanticMarkdown = await this.readMarkdown(semanticPath);
     if (semanticMarkdown) {
@@ -114,6 +215,13 @@ export class SopConsumptionContextBuilder {
         source: "semantic",
         guidePath: semanticPath,
         markdown: semanticMarkdown,
+      };
+    }
+    if (compactMarkdown) {
+      return {
+        source: "asset",
+        guidePath: compactPath,
+        markdown: compactMarkdown,
       };
     }
 
@@ -221,6 +329,9 @@ export class SopConsumptionContextBuilder {
     task: string,
     input: {
       enabled: boolean;
+      selectionMode: "none" | "auto" | "pinned";
+      taskSource: SopTaskSource;
+      pinnedRunId?: string;
       siteHint?: string;
       selectedAssetId?: string;
       candidateAssetIds?: string[];
@@ -233,7 +344,10 @@ export class SopConsumptionContextBuilder {
       record: {
         enabled: input.enabled,
         originalTask: task,
+        taskSource: input.taskSource,
         injected: false,
+        selectionMode: input.selectionMode,
+        pinnedRunId: input.pinnedRunId,
         selectedAssetId: input.selectedAssetId,
         candidateAssetIds: input.candidateAssetIds ?? [],
         candidateCount: input.candidateCount ?? (input.candidateAssetIds?.length ?? 0),

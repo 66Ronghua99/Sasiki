@@ -1,7 +1,7 @@
 /**
  * Deps: runtime/*, domain/agent-types.ts
  * Used By: npm scripts (dev/build runtime entry)
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import type { RuntimeMode } from "./domain/agent-types.js";
 import type { SemanticMode } from "./core/semantic-compactor.js";
@@ -14,6 +14,7 @@ interface RuntimeCliArguments {
   configPath?: string;
   mode: RuntimeMode;
   task: string;
+  sopRunId?: string;
 }
 
 interface SopCompactCliArguments {
@@ -45,7 +46,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!args.task) {
+  if (args.mode === "observe" && !args.task) {
+    printUsageAndExit();
+    return;
+  }
+  if (args.mode === "run" && !args.task && !args.sopRunId) {
     printUsageAndExit();
     return;
   }
@@ -70,7 +75,13 @@ async function main(): Promise<void> {
 
   try {
     await runtime.start(args.mode);
-    const result = args.mode === "observe" ? await runtime.observe(args.task) : await runtime.run(args.task);
+    const result =
+      args.mode === "observe"
+        ? await runtime.observe(args.task)
+        : await runtime.run({
+            task: args.task,
+            sopRunId: args.sopRunId,
+          });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
     process.off("SIGINT", onSigint);
@@ -90,6 +101,7 @@ function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
   const taskParts: string[] = [];
   let configPath: string | undefined;
   let mode: RuntimeMode = "run";
+  let sopRunId: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--config" || arg === "-c") {
@@ -110,9 +122,18 @@ function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
       mode = parseMode(arg.slice("--mode=".length));
       continue;
     }
+    if (arg === "--sop-run-id") {
+      sopRunId = argv[i + 1]?.trim();
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--sop-run-id=")) {
+      sopRunId = arg.slice("--sop-run-id=".length).trim();
+      continue;
+    }
     taskParts.push(arg);
   }
-  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim() };
+  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim(), sopRunId };
 }
 
 function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
@@ -174,7 +195,7 @@ function parseSemanticMode(value: string | undefined): SemanticMode {
 
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] \"your task\"\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
+    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
   );
   process.exit(1);
 }

@@ -1,14 +1,14 @@
 /**
  * Deps: core/agent-loop.ts, domain/agent-types.ts, domain/sop-consumption.ts, contracts/logger.ts, runtime/artifacts-writer.ts, runtime/sop-consumption-context.ts
  * Used By: runtime/workflow-runtime.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import type { AgentLoop, AgentLoopProgressSnapshot } from "../core/agent-loop.js";
 import type { Logger } from "../contracts/logger.js";
-import type { AgentRunResult } from "../domain/agent-types.js";
+import type { AgentRunRequest, AgentRunResult } from "../domain/agent-types.js";
 import type { SopConsumptionRecord, SopConsumptionResult } from "../domain/sop-consumption.js";
 import { ArtifactsWriter } from "./artifacts-writer.js";
-import type { SopConsumptionContextBuilder } from "./sop-consumption-context.js";
+import type { SopConsumptionBuildInput, SopConsumptionContextBuilder } from "./sop-consumption-context.js";
 
 interface RuntimeLogBuffer extends Logger {
   toText(): string;
@@ -44,20 +44,24 @@ export class RunExecutor {
     this.sopConsumptionContext = options.sopConsumptionContext;
   }
 
-  async execute(task: string): Promise<AgentRunResult> {
+  async execute(request: AgentRunRequest): Promise<AgentRunResult> {
     const runId = this.createRunId();
     const artifacts = new ArtifactsWriter(this.artifactsDir, runId);
     await artifacts.ensureDir();
     this.activeRun = { runId, artifacts };
-    this.logger.info("run_started", { runId, task, artifactsDir: artifacts.runDir });
+    const input = this.toConsumptionInput(request);
+    this.logger.info("run_started", { runId, task: input.task, sopRunId: input.sopRunId, artifactsDir: artifacts.runDir });
 
     try {
-      const consumption = await this.resolveConsumption(task);
+      const consumption = await this.resolveConsumption(input);
       await artifacts.writeSopConsumption(consumption.record);
       this.logConsumption(runId, consumption.record);
+      if (!consumption.taskForLoop.trim()) {
+        throw new Error("run task is empty after SOP consumption resolution");
+      }
 
       const loopResult = await this.loop.run(consumption.taskForLoop);
-      const baseResult: AgentRunResult = { ...loopResult, task };
+      const baseResult: AgentRunResult = { ...loopResult, task: consumption.record.originalTask };
       const finalScreenshotPath = await this.loop.captureFinalScreenshot(artifacts.finalScreenshotPath());
       await artifacts.writeSteps(baseResult.steps);
       await artifacts.writeMcpCalls(baseResult.mcpCalls);
@@ -165,20 +169,30 @@ export class RunExecutor {
     await artifacts.writeAssistantTurns(snapshot.assistantTurns);
   }
 
-  private async resolveConsumption(task: string): Promise<SopConsumptionResult> {
-    if (!this.sopConsumptionContext) {
-      return this.fallbackConsumption(task, "consumption_not_configured");
-    }
-    return this.sopConsumptionContext.build(task);
+  private toConsumptionInput(request: AgentRunRequest): SopConsumptionBuildInput {
+    return {
+      task: request.task.trim(),
+      sopRunId: request.sopRunId?.trim(),
+    };
   }
 
-  private fallbackConsumption(task: string, reason: string): SopConsumptionResult {
+  private async resolveConsumption(input: SopConsumptionBuildInput): Promise<SopConsumptionResult> {
+    if (!this.sopConsumptionContext) {
+      return this.fallbackConsumption(input.task, input.sopRunId, "consumption_not_configured");
+    }
+    return this.sopConsumptionContext.build(input);
+  }
+
+  private fallbackConsumption(task: string, sopRunId: string | undefined, reason: string): SopConsumptionResult {
     return {
       taskForLoop: task,
       record: {
         enabled: false,
         originalTask: task,
+        taskSource: "request",
         injected: false,
+        selectionMode: sopRunId ? "pinned" : "none",
+        pinnedRunId: sopRunId,
         candidateAssetIds: [],
         candidateCount: 0,
         guideSource: "none",
@@ -195,6 +209,9 @@ export class RunExecutor {
       const payload = {
         runId,
         asset_id: record.selectedAssetId,
+        pinned_run_id: record.pinnedRunId,
+        selection_mode: record.selectionMode,
+        task_source: record.taskSource,
         guide_source: record.guideSource,
         fallback_used: record.fallbackUsed,
         reason: record.fallbackReason,
@@ -215,6 +232,9 @@ export class RunExecutor {
     this.logger.info("sop_consumption_selected", {
       runId,
       asset_id: record.selectedAssetId,
+      pinned_run_id: record.pinnedRunId,
+      selection_mode: record.selectionMode,
+      task_source: record.taskSource,
       guide_source: record.guideSource,
       fallback_used: record.fallbackUsed,
       candidate_count: record.candidateCount,
