@@ -16,6 +16,8 @@
 - 进入当前阶段再加载（L1）：
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
+  - 长程任务 SOP 高层日志基础方案：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
+  - 长程任务 SOP 高层日志基础清单：`.plan/checklist_long_task_sop_high_level_logging_foundation.md`
   - PR-3 Phase-3A 方案：`.plan/20260306_watch_once_pr3_phase3a_pinned_runid.md`
   - PR-3 Phase-3A 清单：`.plan/checklist_watch_once_pr3_phase3a_pinned_runid.md`
   - 协作方法论治理方案：`.plan/20260306_collaboration_methodology_agents_governance.md`
@@ -37,11 +39,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` 长程任务 SOP 沉淀优化（仅优化 SOP 产物，不做检索/页面局部优化）：
+- `P0-NEXT` 长程任务 SOP HITL 控制与学习闭环（高层日志基础已完成）：
   - 场景：电商单页上架（标题、主图、商品落地页、图片、SKU、尺码）
   - 约束：单任务总时长 10 分钟；单点最多重试 2 次，失败/不确定后进入 HITL
   - 验收：纯自动 `3/3` 跑通（HITL 不计入最终成功）
-  - 证据：成功三件套（成功提示 + 最终截图 + 关键字段回读）+ `intervention_learning.jsonl` + `failure_topn.json`
+  - 当前下一步：接入 `2 次重试 -> HITL` 触发/恢复，并落盘 `intervention_learning.jsonl`
+  - 证据：成功三件套（成功提示 + 最终截图 + 关键字段回读）+ `high_level_logs.json` + `intervention_learning.jsonl` + `failure_topn.json`
   - 多标签策略：偶发多标签记 warning，不直接判失败
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -51,6 +54,17 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已修正 Runtime 配置根目录解析与代理自测约定：
+  - 设计：`.plan/20260306_runtime_config_root_resolution.md`
+  - 清单：`.plan/checklist_runtime_config_root_resolution.md`
+  - `runtime.artifactsDir` 相对路径改为基于工程根标记（`.git`）解析，不再依赖协作文档存在性
+  - README / MEMORY 已补充代理环境下本地 CDP 自测的 `NO_PROXY=localhost,127.0.0.1,::1` 约定
+- 已完成长程任务 SOP 高层日志基础层（run/replay only）：
+  - 设计：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
+  - 清单：`.plan/checklist_long_task_sop_high_level_logging_foundation.md`
+  - 工件：`artifacts/e2e/{run_id}/high_level_logs.json`
+  - 覆盖语义：`read` / `judge` / `action` / `result` / `intervention`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成长程任务 SOP HITL 需求冻结（Requirement v0 + Checklist）：
   - `.plan/20260306_long_task_sop_hitl_requirement_v0.md`
   - `.plan/checklist_long_task_sop_hitl_requirement_v0.md`

@@ -13,7 +13,7 @@
 - [x] 冻结失败分析：每 3 次运行输出 Top-N 易错点
 - [x] 输出 Requirement v0 文档到 `.plan/`
 
-- [ ] 实现统一高层日志抽象（读取/判断/动作/结果/介入）
+- [x] 实现统一高层日志抽象（读取/判断/动作/结果/介入）
 - [ ] 接入 HITL 触发与恢复控制（2 次重试后介入）
 - [ ] 落盘 `intervention_learning.jsonl`（按 schema v0）
 - [ ] 落盘 `failure_topn.json`（每 3 次运行窗口）

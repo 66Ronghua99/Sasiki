@@ -11,6 +11,7 @@
 - 仅靠 prompt 很难稳定复刻复杂 SOP：需要真实示教数据作为后续优化依据。
 - 语义层调用具备环境依赖（网络/鉴权/模型可用性）：任何失败都必须回退到 rule-based 产物，不能阻塞 `sop_compact.md` 输出。
 - API 兼容性坑：部分 OpenAI-compatible 端点对 reasoning/thinking 参数兼容不稳定，语义层失败时应优先将 `thinkingLevel` 设为 `off` 再排查。
+- 代理环境坑：当 shell 设置了 `http_proxy/https_proxy` 时，本地 `localhost:9222` CDP 连接与探活可能被错误代理；自测 replay 前需显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
@@ -39,6 +40,8 @@
 - guide 优先级治理：run 注入时优先读取 `guide_semantic.md`，其次 `sop_compact.md`，最后 `sop_draft.md`，确保尽量消费 compact 后资产。
 - 阶段拆分治理：当“检索质量”与“消费效果验证”相互干扰时，先走 pinned run_id 的确定性闭环，再把检索优化独立为单模块迭代。
 - 协作操作系统治理：用户级 `AGENTS.md` 需要长期保持“方法论协议”定位（原则、Gate、文件职责、渐进加载）；项目状态与阶段结论只写入 `PROGRESS/MEMORY/NEXT_STEP`，避免职责漂移。
+- 高层日志治理：`run` 侧的 HITL / failure aggregation 必须直接消费结构化 `high_level_logs.json`，不要回退到解析 `runtime.log` 文本；runtime 级事件（如 interrupt/final result）需要与 agent 级事件统一 schema 后再合并排序。
+- 工程根解析治理：runtime 的路径解析只能依赖工程根标记（如 `.git`），不能依赖 `PROGRESS.md` / `AGENTS.md` 之类协作文档是否存在。
 
 ## Environment Requirements
 - Node `>=20`
@@ -49,5 +52,5 @@
 ## Working Conventions
 - 需求加载顺序：`PROGRESS.md` -> `MEMORY.md` -> `NEXT_STEP.md` -> `.plan/20260304_watch_once_v0_prd.md` -> `.plan/20260304_watch_once_v0_engineering_handoff.md`
 - 每次迭代先确认目标工件，再实施：
-  - E2E：`steps.json` / `mcp_calls.jsonl` / `runtime.log` / `final.png`
+  - E2E：`steps.json` / `mcp_calls.jsonl` / `assistant_turns.json` / `high_level_logs.json` / `runtime.log` / `final.png`
   - 示教：`demonstration_raw.jsonl` / `demonstration_trace.json` / `sop_draft.md`

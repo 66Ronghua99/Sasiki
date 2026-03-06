@@ -1,7 +1,7 @@
 /**
  * Deps: node:fs, node:path
  * Used By: index.ts, runtime/workflow-runtime.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-06
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -89,6 +89,7 @@ export class RuntimeConfigLoader {
   static fromSources(options?: RuntimeConfigSourceOptions): RuntimeConfig {
     const loaded = this.loadConfigFile(options?.configPath);
     const file = loaded?.config;
+    const projectRoot = this.resolveProjectRoot(loaded?.path ? path.dirname(loaded.path) : process.cwd());
     const domesticApiKey = process.env.LLM_API_KEY ?? process.env.DASHSCOPE_API_KEY;
     const openRouterApiKey = process.env.OPENROUTER_API_KEY;
     const baseUrl = file?.llm?.baseUrl ?? process.env.LLM_BASE_URL ?? process.env.DASHSCOPE_BASE_URL;
@@ -120,7 +121,7 @@ export class RuntimeConfigLoader {
       apiKey,
       baseUrl,
       thinkingLevel: this.readThinkingLevel(file?.llm?.thinkingLevel, process.env.LLM_THINKING_LEVEL, "minimal"),
-      artifactsDir: this.resolveArtifactsDir(file?.runtime?.artifactsDir, process.env.RUNTIME_ARTIFACTS_DIR),
+      artifactsDir: this.resolveArtifactsDir(projectRoot, file?.runtime?.artifactsDir, process.env.RUNTIME_ARTIFACTS_DIR),
       observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, process.env.OBSERVE_TIMEOUT_MS, 120000),
       sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
       semanticMode: this.readSemanticMode(file?.semantic?.mode, process.env.SOP_COMPACT_SEMANTIC_MODE, "auto"),
@@ -244,8 +245,7 @@ export class RuntimeConfigLoader {
     return fallback;
   }
 
-  private static resolveArtifactsDir(configValue: string | undefined, envValue: string | undefined): string {
-    const root = this.resolveWorkspaceRoot();
+  private static resolveArtifactsDir(root: string, configValue: string | undefined, envValue: string | undefined): string {
     if (configValue?.trim()) {
       const normalized = configValue.trim();
       return path.isAbsolute(normalized) ? normalized : path.join(root, normalized);
@@ -257,12 +257,10 @@ export class RuntimeConfigLoader {
     return path.join(root, DEFAULT_ARTIFACTS_SUBDIR);
   }
 
-  private static resolveWorkspaceRoot(): string {
-    let current = path.resolve(process.cwd());
+  private static resolveProjectRoot(startDir: string): string {
+    let current = path.resolve(startDir);
     while (true) {
-      const hasProgress = existsSync(path.join(current, "PROGRESS.md"));
-      const hasAgents = existsSync(path.join(current, "AGENTS.md"));
-      if (hasProgress && hasAgents) {
+      if (existsSync(path.join(current, ".git"))) {
         return current;
       }
       const parent = path.dirname(current);

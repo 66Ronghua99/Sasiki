@@ -1,7 +1,7 @@
 /**
  * Deps: core/model-resolver.ts, core/mcp-tool-bridge.ts, contracts/*
  * Used By: runtime/agent-runtime.ts
- * Last Updated: 2026-03-04
+ * Last Updated: 2026-03-06
  */
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { stat } from "node:fs/promises";
@@ -17,6 +17,7 @@ import type {
   AssistantTurnRecord,
   McpCallRecord,
 } from "../domain/agent-types.js";
+import type { HighLevelLogEntry, HighLevelLogStatus } from "../domain/high-level-log.js";
 import { ModelResolver } from "./model-resolver.js";
 import { McpToolBridge } from "./mcp-tool-bridge.js";
 
@@ -31,6 +32,11 @@ export interface AgentLoopProgressSnapshot {
   steps: AgentStepRecord[];
   mcpCalls: McpCallRecord[];
   assistantTurns: AssistantTurnRecord[];
+  highLevelLogs: HighLevelLogEntry[];
+}
+
+export interface AgentLoopSnapshotOptions {
+  includeLastSnapshot?: boolean;
 }
 
 const SYSTEM_PROMPT = [
@@ -54,6 +60,7 @@ export class AgentLoop {
   private readonly toolAdapter: McpToolBridge;
   private agent: Agent | null = null;
   private activeProgress: AgentLoopProgressSnapshot | null = null;
+  private latestProgress: AgentLoopProgressSnapshot = this.emptyProgressSnapshot();
 
   constructor(config: AgentLoopConfig, tools: ToolClient, logger: Logger) {
     this.config = config;
@@ -105,15 +112,18 @@ export class AgentLoop {
     const steps: AgentStepRecord[] = [];
     const mcpCalls: McpCallRecord[] = [];
     const assistantTurns: AssistantTurnRecord[] = [];
-    this.activeProgress = { steps, mcpCalls, assistantTurns };
+    const highLevelLogs: HighLevelLogEntry[] = [];
+    this.activeProgress = { steps, mcpCalls, assistantTurns, highLevelLogs };
+    this.latestProgress = this.activeProgress;
     const runningCalls = new Map<string, { name: string; args: Record<string, unknown> }>();
+    const toolCallTurnIndexes = new Map<string, number>();
 
     let status: AgentRunStatus = "completed";
     let finishReason = "agent loop completed";
     try {
       const unsubscribe = agent.subscribe((event) => {
-        this.collectStepEvent(event, steps, mcpCalls, runningCalls);
-        this.collectAssistantTurnEvent(event, assistantTurns);
+        this.collectStepEvent(event, steps, mcpCalls, runningCalls, highLevelLogs, toolCallTurnIndexes);
+        this.collectAssistantTurnEvent(event, assistantTurns, highLevelLogs, toolCallTurnIndexes);
         const failure = this.detectFailure(event);
         if (!failure) {
           return;
@@ -154,6 +164,7 @@ export class AgentLoop {
         assistantTurns,
       };
     } finally {
+      this.latestProgress = this.cloneProgressSnapshot({ steps, mcpCalls, assistantTurns, highLevelLogs });
       this.activeProgress = null;
     }
   }
@@ -202,15 +213,14 @@ export class AgentLoop {
     this.agent.abort();
   }
 
-  snapshotProgress(): AgentLoopProgressSnapshot {
+  snapshotProgress(options?: AgentLoopSnapshotOptions): AgentLoopProgressSnapshot {
     if (!this.activeProgress) {
-      return { steps: [], mcpCalls: [], assistantTurns: [] };
+      if (options?.includeLastSnapshot) {
+        return this.cloneProgressSnapshot(this.latestProgress);
+      }
+      return this.emptyProgressSnapshot();
     }
-    return {
-      steps: [...this.activeProgress.steps],
-      mcpCalls: [...this.activeProgress.mcpCalls],
-      assistantTurns: [...this.activeProgress.assistantTurns],
-    };
+    return this.cloneProgressSnapshot(this.activeProgress);
   }
 
   private logPotentialModelEndpointMismatch(): void {
@@ -248,12 +258,15 @@ export class AgentLoop {
     event: AgentEvent,
     steps: AgentStepRecord[],
     mcpCalls: McpCallRecord[],
-    runningCalls: Map<string, { name: string; args: Record<string, unknown> }>
+    runningCalls: Map<string, { name: string; args: Record<string, unknown> }>,
+    highLevelLogs: HighLevelLogEntry[],
+    toolCallTurnIndexes: Map<string, number>
   ): void {
     if (event.type === "tool_execution_start") {
+      const args = this.toRecord(event.args);
       runningCalls.set(event.toolCallId, {
         name: event.toolName,
-        args: this.toRecord(event.args),
+        args,
       });
       mcpCalls.push({
         index: mcpCalls.length + 1,
@@ -261,8 +274,21 @@ export class AgentLoop {
         phase: "start",
         toolCallId: event.toolCallId,
         toolName: event.toolName,
-        args: this.toRecord(event.args),
+        args,
       });
+      highLevelLogs.push(
+        this.createHighLevelLog({
+          stage: "action",
+          status: "info",
+          source: "tool",
+          summary: `Execute ${this.mapToolNameToAction(event.toolName)} via ${event.toolName}`,
+          turnIndex: toolCallTurnIndexes.get(event.toolCallId),
+          toolName: event.toolName,
+          toolCallId: event.toolCallId,
+          actionName: this.mapToolNameToAction(event.toolName),
+          data: { args },
+        })
+      );
       return;
     }
     if (event.type !== "tool_execution_end") {
@@ -274,6 +300,7 @@ export class AgentLoop {
     const excerpt = this.extractText(event.result);
     const args = running?.args ?? {};
     const isToolError = this.isToolExecutionError(event.isError, excerpt);
+    const stepIndex = steps.length + 1;
 
     mcpCalls.push({
       index: mcpCalls.length + 1,
@@ -287,7 +314,7 @@ export class AgentLoop {
     });
 
     steps.push({
-      stepIndex: steps.length + 1,
+      stepIndex,
       action: mappedAction,
       reason: "agent tool execution",
       toolName: running?.name ?? event.toolName,
@@ -296,10 +323,36 @@ export class AgentLoop {
       progressed: !isToolError,
       error: isToolError ? excerpt : undefined,
     });
+    highLevelLogs.push(
+      this.createHighLevelLog({
+        stage: "result",
+        status: isToolError ? "error" : "info",
+        source: "tool",
+        summary: isToolError
+          ? `${mappedAction} failed via ${running?.name ?? event.toolName}`
+          : `${mappedAction} completed via ${running?.name ?? event.toolName}`,
+        detail: this.summarizeText(excerpt, 400),
+        turnIndex: toolCallTurnIndexes.get(event.toolCallId),
+        stepIndex,
+        toolName: running?.name ?? event.toolName,
+        toolCallId: event.toolCallId,
+        actionName: mappedAction,
+        progressed: !isToolError,
+        data: {
+          args,
+          isError: isToolError,
+        },
+      })
+    );
     runningCalls.delete(event.toolCallId);
   }
 
-  private collectAssistantTurnEvent(event: AgentEvent, assistantTurns: AssistantTurnRecord[]): void {
+  private collectAssistantTurnEvent(
+    event: AgentEvent,
+    assistantTurns: AssistantTurnRecord[],
+    highLevelLogs: HighLevelLogEntry[],
+    toolCallTurnIndexes: Map<string, number>
+  ): void {
     if (event.type !== "message_end") {
       return;
     }
@@ -331,7 +384,7 @@ export class AgentLoop {
       }
     }
 
-    assistantTurns.push({
+    const turnRecord: AssistantTurnRecord = {
       index: assistantTurns.length + 1,
       timestamp: new Date().toISOString(),
       stopReason: typeof event.message.stopReason === "string" ? event.message.stopReason : undefined,
@@ -339,7 +392,14 @@ export class AgentLoop {
       thinking: thinkingBlocks.join("\n\n"),
       toolCalls,
       errorMessage: typeof event.message.errorMessage === "string" ? event.message.errorMessage : undefined,
-    });
+    };
+    assistantTurns.push(turnRecord);
+    for (const toolCall of toolCalls) {
+      if (toolCall.id) {
+        toolCallTurnIndexes.set(toolCall.id, turnRecord.index);
+      }
+    }
+    this.collectAssistantHighLevelLogs(turnRecord, highLevelLogs);
   }
 
   private isToolExecutionError(eventIsError: boolean | undefined, excerpt: string): boolean {
@@ -432,6 +492,130 @@ export class AgentLoop {
       }
     }
     return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  private collectAssistantHighLevelLogs(
+    turn: AssistantTurnRecord,
+    highLevelLogs: HighLevelLogEntry[]
+  ): void {
+    const readSource = turn.thinking.trim() || turn.text.trim();
+    if (readSource) {
+      highLevelLogs.push(
+        this.createHighLevelLog({
+          stage: "read",
+          status: "info",
+          source: "assistant",
+          summary: this.toSentence("Observed/considered", readSource, 220),
+          detail: this.summarizeText(readSource, 500),
+          turnIndex: turn.index,
+          data: {
+            stopReason: turn.stopReason,
+            hasThinking: Boolean(turn.thinking.trim()),
+            hasText: Boolean(turn.text.trim()),
+          },
+        })
+      );
+    }
+
+    const plannedTools = this.uniqueToolNames(turn.toolCalls);
+    const judgeStatus = this.resolveAssistantJudgeStatus(turn);
+    const judgeSummary = plannedTools.length > 0
+      ? `Planned next action: ${plannedTools.map((name) => this.mapToolNameToAction(name)).join(", ")}`
+      : turn.errorMessage
+        ? `Assistant turn failed: ${this.summarizeText(turn.errorMessage, 180)}`
+        : turn.text.trim()
+          ? this.toSentence("Assistant conclusion", turn.text, 220)
+          : `Assistant turn finished with stop reason ${turn.stopReason ?? "unknown"}`;
+    highLevelLogs.push(
+      this.createHighLevelLog({
+        stage: "judge",
+        status: judgeStatus,
+        source: "assistant",
+        summary: judgeSummary,
+        detail: this.buildJudgeDetail(turn, plannedTools),
+        turnIndex: turn.index,
+        data: {
+          stopReason: turn.stopReason,
+          toolCallCount: turn.toolCalls.length,
+          toolNames: plannedTools,
+          errorMessage: turn.errorMessage,
+        },
+      })
+    );
+  }
+
+  private resolveAssistantJudgeStatus(turn: AssistantTurnRecord): HighLevelLogStatus {
+    if (turn.errorMessage || turn.stopReason === "error" || turn.stopReason === "aborted") {
+      return "error";
+    }
+    if (turn.toolCalls.length === 0 && !turn.text.trim()) {
+      return "warning";
+    }
+    return "info";
+  }
+
+  private buildJudgeDetail(turn: AssistantTurnRecord, plannedTools: string[]): string | undefined {
+    if (plannedTools.length > 0) {
+      return `toolCalls=${plannedTools.join(", ")}`;
+    }
+    if (turn.text.trim()) {
+      return this.summarizeText(turn.text, 400);
+    }
+    if (turn.errorMessage) {
+      return this.summarizeText(turn.errorMessage, 400);
+    }
+    return undefined;
+  }
+
+  private uniqueToolNames(toolCalls: AssistantToolCallRecord[]): string[] {
+    return [...new Set(toolCalls.map((toolCall) => toolCall.name).filter(Boolean))];
+  }
+
+  private createHighLevelLog(
+    input: Omit<HighLevelLogEntry, "index" | "timestamp">
+  ): HighLevelLogEntry {
+    return {
+      index: 0,
+      timestamp: new Date().toISOString(),
+      ...input,
+    };
+  }
+
+  private summarizeText(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      return "";
+    }
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+    return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+  }
+
+  private toSentence(prefix: string, value: string, maxLength: number): string {
+    const summary = this.summarizeText(value, maxLength);
+    if (!summary) {
+      return prefix;
+    }
+    return `${prefix}: ${summary}`;
+  }
+
+  private emptyProgressSnapshot(): AgentLoopProgressSnapshot {
+    return {
+      steps: [],
+      mcpCalls: [],
+      assistantTurns: [],
+      highLevelLogs: [],
+    };
+  }
+
+  private cloneProgressSnapshot(snapshot: AgentLoopProgressSnapshot): AgentLoopProgressSnapshot {
+    return {
+      steps: [...snapshot.steps],
+      mcpCalls: [...snapshot.mcpCalls],
+      assistantTurns: [...snapshot.assistantTurns],
+      highLevelLogs: [...snapshot.highLevelLogs],
+    };
   }
 
 }

@@ -94,13 +94,16 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `PREFER_SYSTEM_BROWSER` (default `true`)
   - `CDP_HEADLESS` (`false` by default)
   - `CHROME_EXECUTABLE_PATH` (optional override)
+- If your shell has `http_proxy` / `https_proxy` enabled, set `NO_PROXY=localhost,127.0.0.1,::1` before running local CDP replay.
 
 ## Artifacts
 - Default output directory: `artifacts/e2e/{run_id}/`
 - Override root path via `RUNTIME_ARTIFACTS_DIR`
+- Relative `runtime.artifactsDir` values resolve against the nearest repo root marked by `.git`.
 - `run` mode artifacts:
   - `steps.json`
   - `mcp_calls.jsonl`
+  - `high_level_logs.json` (`read/judge/action/result/intervention` 统一高层日志)
   - `runtime.log`
   - `final.png` (best-effort screenshot)
   - `sop_consumption.json` (written when run starts; records selection mode, pinned run id, selected asset, fallback)
@@ -117,6 +120,7 @@ Observe trace notes:
 - Multi-tab flows are supported in recording.
 - Raw events and trace steps include `tabId` to distinguish behavior across tabs.
 - `sop-compact` adds explicit tab-switch steps in high-level output.
+- `observe` currently only保留轻量 `runtime.log`，不输出与 `run` 同规格的 `high_level_logs.json`。
 
 ## Notes
 - Runtime now uses `@mariozechner/pi-agent-core` (no custom planner loop).
