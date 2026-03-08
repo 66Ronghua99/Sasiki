@@ -45,11 +45,11 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` SOP Compact V1 增量迁移 Phase-1：
-  - 目标：在保留 V0 工件链路的前提下，先把 V1 的 `semantic_intent_draft.json` 接入并落盘，形成 `behavior -> semantic draft` 的最小新增闭环
-  - 约束：继续采用 add-first；保留 `abstraction_input/workflow_guide/decision_model/execution_guide` 现有 V0 输出，不直接替换 replay 消费链路
-  - 验收：同一 `run_id` 下新增 `semantic_intent_draft.json`，并通过 `typecheck/build`；`clarification_questions` 仍以 V0 路径为准，待下一阶段重构为 agent-owned
-  - 当前下一步：实现 `semantic_intent_draft.v1` 生成与落盘
+- `P0-NEXT` SOP Compact V1 增量迁移 Phase-2：
+  - 目标：把 `clarification_questions` 从 V0 fallback/merge 路径迁移到 V1 agent-owned 语义链路，并补 coverage gate
+  - 约束：继续保持 add-first；在新链路稳定前，`execution_guide.json` 仍沿用 V0 编译与消费，不切换 replay 真源
+  - 验收：新增或重写的 `clarification_questions` 必须可回链到 `semantic_intent_draft.blockingUncertainties`；若 blocking uncertainty 无问题覆盖，则状态阻断
+  - 当前下一步：实现 `semantic_intent_draft -> clarification_questions` 的 agent-owned 产物与 coverage 校验
   - 证据：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md` + `.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -62,6 +62,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 SOP Compact V1 增量迁移 Phase-1（语义草案双写，add-first）：
+  - 新增工件：`semantic_intent_draft.json` / `semantic_intent_raw.txt`
+  - 新增链路：`behavior_evidence.json + behavior_workflow.json + observed_examples.json -> semantic_intent_draft.json`
+  - 样本验证：`run_id=20260308_110124_276` 已成功生成 `semantic_intent_draft.json`，`runtime.log` 记录 `semantic_intent_draft_succeeded`
+  - 兼容性：V0 `execution_guide.json` 仍保持 `status=needs_clarification` / `replayReady=false`，未被 V1 旁路影响
+  - 门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 SOP Compact V1 增量迁移 Phase-0（行为层双写，add-first）：
   - 新增 V1 contracts：`behavior_evidence.v1` / `behavior_workflow.v1` / `semantic_intent_draft.v1`
   - 新增 V1 工件：`behavior_evidence.json` / `behavior_workflow.json`

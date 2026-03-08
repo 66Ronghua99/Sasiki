@@ -21,6 +21,7 @@
 - [x] 新增 `behavior_evidence.v1` domain contract
 - [x] 新增 `behavior_workflow.v1` domain contract
 - [x] 新增 `semantic_intent_draft.v1` domain contract
+- [x] 接入 `semantic_intent_draft.json` 生成与落盘
 - [ ] 重写 `execution_guide.v1` contract
 - [ ] 重写 `sop-compact` 编排链路到 V1 artifacts
 - [ ] 移除 V0 中 `TargetEntity/GoalType` 对 replay schema 的核心驱动
@@ -28,5 +29,6 @@
 ## Quality Gates
 - [x] 本轮为文档冻结，不把 V1 误标成已实现
 - [x] V1 Phase-0 行为层双写未替换 V0 replay 链路
-- [ ] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run typecheck`
-- [ ] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run build`
+- [x] V1 Phase-1 样本 `run_id=20260308_110124_276` 已生成 `semantic_intent_draft.json`
+- [x] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run typecheck`
+- [x] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run build`

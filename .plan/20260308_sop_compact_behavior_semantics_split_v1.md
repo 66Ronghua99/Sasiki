@@ -401,7 +401,8 @@ V0 保留以下工件和代码作为迁移参考：
 
 ### 10.5 Migration Status
 - Phase-0 已完成：V1 domain contracts 已新增，`behavior_evidence.json` / `behavior_workflow.json` 已在 `sop-compact` 中双写落盘。
-- 当前进入 Phase-1：接入 `semantic_intent_draft.json`，但继续保留 V0 的 `decision_model / clarification_questions / execution_guide` 作为稳定消费与对照基线。
+- Phase-1 已完成：`semantic_intent_draft.json` / `semantic_intent_raw.txt` 已接入并落盘，当前链路为 `behavior_evidence + behavior_workflow + observed_examples -> semantic_intent_draft`。
+- 当前进入 Phase-2：迁移 `clarification_questions` 到 agent-owned 语义链路，但继续保留 V0 的 `decision_model / execution_guide` 作为稳定消费与对照基线。
 - 迁移策略保持 `add-first`：未验证通过前，不直接替换现有 V0 replay-facing 输出。
 
 ## 11. Acceptance Criteria

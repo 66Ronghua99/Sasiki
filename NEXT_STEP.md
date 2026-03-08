@@ -1,1 +1,1 @@
-进入 `SOP Compact V1` 增量迁移 Phase-1：在保留 V0 工件与 `execution_guide.json` 消费路径不变的前提下，接入 `semantic_intent_draft.json` 的生成与落盘，形成 `behavior_evidence/behavior_workflow -> semantic_intent_draft` 的最小新增闭环；完成后更新 checklist，并通过 `npm --prefix apps/agent-runtime run typecheck` 与 `build`。
+进入 `SOP Compact V1` 增量迁移 Phase-2：在保持 `execution_guide.json` 仍由 V0 链路编译的前提下，把 `clarification_questions` 迁移为 agent-owned 产物，并建立 `semantic_intent_draft.blockingUncertainties -> clarification_questions` 的 coverage gate；完成后更新 checklist，并通过 `npm --prefix apps/agent-runtime run typecheck` 与 `build`。

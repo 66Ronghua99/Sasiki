@@ -48,6 +48,23 @@ export interface StructuredSemanticOutput {
   stopReason: string;
 }
 
+export interface SemanticIntentDraftInput {
+  runId: string;
+  traceId: string;
+  rawTask: string;
+  behaviorEvidence: unknown;
+  behaviorWorkflow: unknown;
+  observedExamples: unknown;
+}
+
+export interface SemanticIntentDraftOutput {
+  payload: Record<string, unknown>;
+  rawText: string;
+  model: string;
+  provider: string;
+  stopReason: string;
+}
+
 const SEMANTIC_SYSTEM_PROMPT = [
   "You are a SOP semantic editor for browser workflows.",
   "Rewrite noisy action steps into a concise, executable guide.",
@@ -64,6 +81,16 @@ const STRUCTURED_ABSTRACTION_SYSTEM_PROMPT = [
   "Never invent actions that are not supported by the evidence.",
   "If something is unclear, keep it in uncertainFields instead of guessing.",
   "Return one JSON object with keys: workflowGuide, decisionModel, observedExamples, clarificationQuestions.",
+  "Do not wrap the JSON in markdown fences.",
+].join("\n");
+
+const SEMANTIC_INTENT_DRAFT_SYSTEM_PROMPT = [
+  "You are a semantic intent inference engine for browser workflow demonstrations.",
+  "You receive only behavior evidence and concrete examples from one demonstration.",
+  "Infer semantic hypotheses, but do not hardcode domain taxonomies or closed business enums.",
+  "If semantics are unclear, express them as uncertainties instead of guessing.",
+  "Do not promote examples into universal rules.",
+  "Return one JSON object with keys exactly matching the semantic_intent_draft.v1 schema.",
   "Do not wrap the JSON in markdown fences.",
 ].join("\n");
 
@@ -93,6 +120,21 @@ export class SemanticCompactor {
     const rawText = this.extractText(message.content);
     if (!rawText) {
       throw new Error(`structured abstraction returned empty text (stopReason=${message.stopReason})`);
+    }
+    return {
+      payload: this.extractJsonObject(rawText),
+      rawText,
+      model: message.model,
+      provider: message.provider,
+      stopReason: message.stopReason,
+    };
+  }
+
+  async draftSemanticIntent(input: SemanticIntentDraftInput): Promise<SemanticIntentDraftOutput> {
+    const message = await this.complete(SEMANTIC_INTENT_DRAFT_SYSTEM_PROMPT, this.buildSemanticIntentPrompt(input));
+    const rawText = this.extractText(message.content);
+    if (!rawText) {
+      throw new Error(`semantic intent draft returned empty text (stopReason=${message.stopReason})`);
     }
     return {
       payload: this.extractJsonObject(rawText),
@@ -238,6 +280,123 @@ export class SemanticCompactor {
       "Evidence JSON:",
       JSON.stringify(input.abstractionInput, null, 2),
     ].join("\n");
+  }
+
+  private buildSemanticIntentPrompt(input: SemanticIntentDraftInput): string {
+    const behaviorEvidenceSummary = this.summarizeBehaviorEvidence(input.behaviorEvidence);
+    const observedExamplesSummary = this.summarizeObservedExamples(input.observedExamples);
+    return [
+      "请基于以下行为证据和示例，为浏览器示教生成 semantic_intent_draft.v1。",
+      "",
+      `runId: ${input.runId}`,
+      `traceId: ${input.traceId}`,
+      `rawTask: ${input.rawTask}`,
+      "",
+      "输出要求：",
+      "1) 只返回一个 JSON 对象；",
+      "2) 只能输出以下字段：taskIntentHypothesis, scopeHypothesis, completionHypothesis, actionPurposeHypotheses, selectionHypotheses, skipHypotheses, blockingUncertainties, nonBlockingUncertainties；",
+      "3) 不允许使用 goalType、targetEntity、domain enum 等封闭分类字段；",
+      "4) actionPurposeHypotheses 必须引用 behavior_workflow 的 stepId，并带 evidenceRefs；",
+      "5) 对无法稳定推出的业务用途、范围、完成条件，必须进入 uncertainties；",
+      "6) 不允许把 observed_examples 的具体文本、用户名、选择器直接提升为通用规则；",
+      "7) selectionHypotheses 和 skipHypotheses 只描述语义假设，不描述页面机械动作；",
+      "",
+      "期望 JSON 形状示例：",
+      JSON.stringify(
+        {
+          taskIntentHypothesis: "用户可能想批量处理当前页面中的一组待处理对象。",
+          scopeHypothesis: "范围可能是当前工作区中满足筛选条件的候选对象。",
+          completionHypothesis: "所有目标对象都已被检查，并对需要处理的对象执行了预期动作。",
+          actionPurposeHypotheses: [
+            {
+              stepId: "behavior_step_3",
+              purpose: "定位并逐个处理当前任务范围内的候选对象。",
+              confidence: "medium",
+              evidenceRefs: ["signal_3_iterate_collection"],
+            },
+          ],
+          selectionHypotheses: ["只处理当前工作区中与任务相关的候选对象。"],
+          skipHypotheses: ["若对象已满足完成条件，则可能无需重复处理。"],
+          blockingUncertainties: [
+            {
+              field: "completionHypothesis",
+              severity: "high",
+              reason: "从当前行为证据中无法唯一确定什么状态才算完成。",
+            },
+          ],
+          nonBlockingUncertainties: [
+            {
+              field: "selectionHypotheses",
+              severity: "medium",
+              reason: "选择范围仍依赖页面上下文补充。",
+            },
+          ],
+        },
+        null,
+        2
+      ),
+      "",
+      "Behavior Evidence JSON:",
+      JSON.stringify(behaviorEvidenceSummary, null, 2),
+      "",
+      "Behavior Workflow JSON:",
+      JSON.stringify(input.behaviorWorkflow, null, 2),
+      "",
+      "Observed Examples JSON:",
+      JSON.stringify(observedExamplesSummary, null, 2),
+    ].join("\n");
+  }
+
+  private summarizeBehaviorEvidence(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== "object") {
+      return {};
+    }
+    const record = value as Record<string, unknown>;
+    const stepEvidence = Array.isArray(record.stepEvidence) ? record.stepEvidence : [];
+    const prioritized = stepEvidence
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+        const step = item as Record<string, unknown>;
+        const score =
+          (typeof step.textHint === "string" && step.textHint.trim().length > 0 ? 2 : 0) +
+          (typeof step.assertionHint === "string" && step.assertionHint.trim().length > 0 ? 2 : 0) +
+          (typeof step.roleHint === "string" && step.roleHint.trim().length > 0 ? 1 : 0) +
+          (typeof step.action === "string" && ["type", "click", "press", "navigate"].includes(step.action) ? 1 : 0);
+        return { step, score };
+      })
+      .filter((item): item is { step: Record<string, unknown>; score: number } => Boolean(item))
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 16)
+      .map(({ step }) => step);
+
+    return {
+      schemaVersion: record.schemaVersion,
+      runId: record.runId,
+      traceId: record.traceId,
+      site: record.site,
+      surface: record.surface,
+      rawTask: record.rawTask,
+      actionSummary: record.actionSummary,
+      phaseSignals: Array.isArray(record.phaseSignals) ? record.phaseSignals : [],
+      exampleCandidates: Array.isArray(record.exampleCandidates) ? record.exampleCandidates.slice(0, 8) : [],
+      uncertaintyCues: Array.isArray(record.uncertaintyCues) ? record.uncertaintyCues.slice(0, 8) : [],
+      stepEvidenceSample: prioritized,
+      stepEvidenceTruncated: stepEvidence.length,
+    };
+  }
+
+  private summarizeObservedExamples(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== "object") {
+      return {};
+    }
+    const record = value as Record<string, unknown>;
+    return {
+      schemaVersion: record.schemaVersion,
+      antiPromotionRules: Array.isArray(record.antiPromotionRules) ? record.antiPromotionRules : [],
+      examples: Array.isArray(record.examples) ? record.examples.slice(0, 5) : [],
+    };
   }
 
   private extractText(content: unknown[]): string | undefined {
