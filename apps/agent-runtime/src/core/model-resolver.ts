@@ -12,6 +12,10 @@ export interface ModelResolverConfig {
 
 export class ModelResolver {
   static resolve(config: ModelResolverConfig): Model<any> {
+    if (config.baseUrl && this.isOpenRouterBaseUrl(config.baseUrl)) {
+      return this.createCustomModel("openai", this.normalizeOpenRouterModelToken(config.model), config.baseUrl);
+    }
+
     const parsed = this.parseModel(config.model);
     if (config.baseUrl && parsed.provider === "openai") {
       if (this.isOfficialOpenAiBaseUrl(config.baseUrl)) {
@@ -110,6 +114,24 @@ export class ModelResolver {
 
   private static isOfficialOpenAiBaseUrl(baseUrl: string): boolean {
     return baseUrl.trim().toLowerCase().includes("api.openai.com");
+  }
+
+  private static isOpenRouterBaseUrl(baseUrl: string): boolean {
+    return baseUrl.trim().toLowerCase().includes("openrouter.ai");
+  }
+
+  private static normalizeOpenRouterModelToken(model: string): string {
+    const value = model.trim();
+    if (!value) {
+      return "openrouter/auto";
+    }
+    if (/^openai\//i.test(value)) {
+      return value.replace(/^openai\//i, "");
+    }
+    if (/^openrouter\//i.test(value)) {
+      return value.replace(/^openrouter\//i, "");
+    }
+    return value;
   }
 
   private static resolveOpenAiCompat(

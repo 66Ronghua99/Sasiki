@@ -27,6 +27,7 @@
 - HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
 - 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 - prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
+- OpenRouter 解析治理：当 `baseUrl` 指向 `openrouter.ai` 时，模型解析必须优先按 OpenAI-compatible 路径处理，并保留完整 OpenRouter model token；不能再被 `minimax/...` 这类 provider 前缀带到 `anthropic-messages` 等错误 API。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

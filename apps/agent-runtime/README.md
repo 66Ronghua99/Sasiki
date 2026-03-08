@@ -99,9 +99,15 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
 ```
 
 ## Model Config
-- `LLM_MODEL` format: `{provider}/{model_key}` (example: `openai/qwen-plus`, `openrouter/openrouter/auto`).
+- `LLM_MODEL` format: `{provider}/{model_key}`.
+- DashScope example: `openai/qwen-plus`
+- OpenRouter example:
+  - `minimax/minimax-m2.1` with `baseUrl=https://openrouter.ai/api/v1`
+  - or explicit `openai/minimax/minimax-m2.1` with the same `baseUrl`
+- When `baseUrl` points to OpenRouter, runtime now treats the endpoint as OpenAI-compatible and preserves the full OpenRouter model token instead of resolving only from the provider prefix.
 - If `LLM_MODEL` is empty:
   - when `baseUrl` points to DashScope -> defaults to `openai/qwen-plus`
+  - when `baseUrl` points to OpenRouter -> defaults to `openai/openrouter/auto`
   - otherwise with domestic key (`LLM_API_KEY` or `DASHSCOPE_API_KEY`) -> defaults to `minimax/MiniMax-M2.5`
   - otherwise with `OPENROUTER_API_KEY` -> defaults to `openrouter/openrouter/auto`
 

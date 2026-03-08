@@ -180,6 +180,9 @@ export class RuntimeConfigLoader {
     if (normalizedBaseUrl.includes("dashscope.aliyuncs.com")) {
       return "openai/qwen-plus";
     }
+    if (normalizedBaseUrl.includes("openrouter.ai")) {
+      return "openai/openrouter/auto";
+    }
     if (domesticApiKey) {
       return "minimax/MiniMax-M2.5";
     }
