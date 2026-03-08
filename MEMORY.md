@@ -25,6 +25,7 @@
 - surface 治理：`surface` 推断应优先来自 URL path 等结构信息，不能再依赖站点名 + 业务关键词的耦合判断。
 - V0 归档原因：即使去掉了大部分业务关键词推断，只要 `TargetEntity/GoalType` 仍作为核心 schema 驱动 `decision_model/execution_guide`，抽象层就仍然混入了领域语义；V1 必须把“行为抽象”和“语义用途判定”彻底拆开。
 - HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
+- 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

@@ -399,6 +399,11 @@ V0 保留以下工件和代码作为迁移参考：
 4. 接入 `clarification_questions` 覆盖校验
 5. 最后重写 `execution_guide` 编译器
 
+### 10.5 Migration Status
+- Phase-0 已完成：V1 domain contracts 已新增，`behavior_evidence.json` / `behavior_workflow.json` 已在 `sop-compact` 中双写落盘。
+- 当前进入 Phase-1：接入 `semantic_intent_draft.json`，但继续保留 V0 的 `decision_model / clarification_questions / execution_guide` 作为稳定消费与对照基线。
+- 迁移策略保持 `add-first`：未验证通过前，不直接替换现有 V0 replay-facing 输出。
+
 ## 11. Acceptance Criteria
 | ID | Scenario | Expected Output | Evidence |
 | --- | --- | --- | --- |

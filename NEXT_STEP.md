@@ -1,3 +1,1 @@
-# NEXT STEP
-
-进入 “SOP Compact V1” 设计冻结阶段：review `.plan/20260308_sop_compact_behavior_semantics_split_v1.md`，确认“deterministic 只做行为抽象、领域语义交给 agent + HITL”的 artifact schema、状态机与迁移计划，确认后再开始代码迁移。
+进入 `SOP Compact V1` 增量迁移 Phase-1：在保留 V0 工件与 `execution_guide.json` 消费路径不变的前提下，接入 `semantic_intent_draft.json` 的生成与落盘，形成 `behavior_evidence/behavior_workflow -> semantic_intent_draft` 的最小新增闭环；完成后更新 checklist，并通过 `npm --prefix apps/agent-runtime run typecheck` 与 `build`。

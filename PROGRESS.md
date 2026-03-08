@@ -45,11 +45,11 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` SOP Compact V1 设计 review 与冻结：
-  - 目标：review 已落盘的 V1 artifact schema、状态机与迁移计划，确认后再开始代码迁移
-  - 约束：V1 review 通过前不再扩写 V0 代码路径，也不启动 V1 迁移实现
-  - 验收：确认 `behavior_evidence/behavior_workflow/semantic_intent_draft/execution_guide` 的最小字段和 `clarification_questions` 的 ownership
-  - 当前下一步：review `.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+- `P0-NEXT` SOP Compact V1 增量迁移 Phase-1：
+  - 目标：在保留 V0 工件链路的前提下，先把 V1 的 `semantic_intent_draft.json` 接入并落盘，形成 `behavior -> semantic draft` 的最小新增闭环
+  - 约束：继续采用 add-first；保留 `abstraction_input/workflow_guide/decision_model/execution_guide` 现有 V0 输出，不直接替换 replay 消费链路
+  - 验收：同一 `run_id` 下新增 `semantic_intent_draft.json`，并通过 `typecheck/build`；`clarification_questions` 仍以 V0 路径为准，待下一阶段重构为 agent-owned
+  - 当前下一步：实现 `semantic_intent_draft.v1` 生成与落盘
   - 证据：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md` + `.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -62,6 +62,11 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 SOP Compact V1 增量迁移 Phase-0（行为层双写，add-first）：
+  - 新增 V1 contracts：`behavior_evidence.v1` / `behavior_workflow.v1` / `semantic_intent_draft.v1`
+  - 新增 V1 工件：`behavior_evidence.json` / `behavior_workflow.json`
+  - 现状：V0 输出链路保持不变，V1 仅新增行为证据与行为工作流，不替换 replay-facing guide
+  - 门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 SOP Compact V1 设计包并切换主指针：
   - 新设计：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
   - 新清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`

@@ -27,6 +27,14 @@ import type {
   WorkflowGuideStep,
   WorkflowStepKind,
 } from "../domain/sop-compact-artifacts.js";
+import type {
+  BehaviorEvidence,
+  BehaviorExampleCandidate,
+  BehaviorPrimitive,
+  BehaviorStepEvidence,
+  BehaviorWorkflow,
+  BehaviorWorkflowStep,
+} from "../domain/sop-compact-artifacts-v1.js";
 import type { SopTrace, SopTraceStep } from "../domain/sop-trace.js";
 import type { BuiltCompact } from "./sop-rule-compact-builder.js";
 import { serializeCompactHint } from "./sop-rule-compact-builder.js";
@@ -59,6 +67,11 @@ interface BuildSopIntentArtifactsResult {
   manifest: CompactManifest;
 }
 
+interface BuildBehaviorArtifactsResult {
+  behaviorEvidence: BehaviorEvidence;
+  behaviorWorkflow: BehaviorWorkflow;
+}
+
 const SUBMIT_KEYWORDS = ["submit", "send", "save", "publish", "confirm", "提交", "发送", "保存", "发布", "确认"];
 const SEARCH_KEYWORDS = ["search", "filter", "query", "keyword", "搜索", "筛选", "查询"];
 const SUCCESS_KEYWORDS = ["success", "completed", "done", "saved", "sent", "成功", "完成", "已发送", "已保存"];
@@ -82,6 +95,32 @@ export class SopIntentAbstractionBuilder {
     };
     const abstractionInput = this.buildAbstractionInput(runId, trace, built, intentSeed);
     return { intentSeed, abstractionInput };
+  }
+
+  buildBehaviorArtifactsFromEvidence(abstractionInput: AbstractionInput, trace: SopTrace): BuildBehaviorArtifactsResult {
+    const behaviorEvidence: BehaviorEvidence = {
+      schemaVersion: "behavior_evidence.v1",
+      runId: abstractionInput.runId,
+      traceId: abstractionInput.traceId,
+      site: abstractionInput.site,
+      surface: abstractionInput.surface,
+      rawTask: abstractionInput.rawTask,
+      actionSummary: { ...abstractionInput.actionSummary },
+      phaseSignals: abstractionInput.phaseSignals.map((signal) => ({
+        id: signal.id,
+        primitive: this.toBehaviorPrimitive(signal.kind),
+        evidence: [...signal.evidence],
+        confidence: signal.confidence,
+      })),
+      stepEvidence: trace.steps.map((step) => this.toBehaviorStepEvidence(step)),
+      exampleCandidates: abstractionInput.exampleCandidates.map((candidate) => this.toBehaviorExampleCandidate(candidate)),
+      uncertaintyCues: [...abstractionInput.uncertaintyCues],
+    };
+
+    return {
+      behaviorEvidence,
+      behaviorWorkflow: this.buildBehaviorWorkflow(behaviorEvidence),
+    };
   }
 
   build(input: BuildSopIntentArtifactsInput): BuildSopIntentArtifactsResult {
@@ -191,6 +230,32 @@ export class SopIntentAbstractionBuilder {
       phaseSignals,
       exampleCandidates,
       uncertaintyCues,
+    };
+  }
+
+  private buildBehaviorWorkflow(behaviorEvidence: BehaviorEvidence): BehaviorWorkflow {
+    const steps: BehaviorWorkflowStep[] = behaviorEvidence.phaseSignals.map((signal, index) => ({
+      id: `behavior_step_${index + 1}`,
+      primitive: signal.primitive,
+      summary: this.behaviorPrimitiveSummary(signal.primitive),
+      evidenceRefs: [signal.id],
+    }));
+    const branchPoints = behaviorEvidence.phaseSignals
+      .filter((signal) => signal.primitive === "switch_context" || signal.primitive === "locate_candidate")
+      .map((signal) => signal.id);
+    const observedLoops = behaviorEvidence.phaseSignals
+      .filter((signal) => signal.primitive === "iterate_collection")
+      .map((signal) => signal.id);
+    const submitPoints = steps.filter((step) => step.primitive === "submit_action").map((step) => step.id);
+    const verificationPoints = steps.filter((step) => step.primitive === "verify_outcome").map((step) => step.id);
+
+    return {
+      schemaVersion: "behavior_workflow.v1",
+      steps,
+      branchPoints,
+      observedLoops,
+      submitPoints,
+      verificationPoints,
     };
   }
 
@@ -1456,6 +1521,72 @@ export class SopIntentAbstractionBuilder {
       source: input.source,
       confidence: input.confidence,
     };
+  }
+
+  private toBehaviorPrimitive(kind: AbstractionSignal["kind"]): BehaviorPrimitive {
+    switch (kind) {
+      case "open_surface":
+        return "open_surface";
+      case "switch_context":
+        return "switch_context";
+      case "locate_object":
+        return "locate_candidate";
+      case "iterate_collection":
+        return "iterate_collection";
+      case "inspect_object":
+        return "inspect_state";
+      case "edit_content":
+        return "edit_content";
+      case "submit_action":
+        return "submit_action";
+      case "verify_outcome":
+        return "verify_outcome";
+    }
+  }
+
+  private toBehaviorStepEvidence(step: SopTraceStep): BehaviorStepEvidence {
+    const textHint = this.readString(step.input.textHint);
+    const roleHint = this.readString(step.input.roleHint);
+    return {
+      stepIndex: step.stepIndex,
+      action: step.action,
+      tabId: step.tabId,
+      targetType: step.target.type,
+      targetValue: this.clip(step.target.value),
+      textHint: textHint ? this.clip(textHint) : undefined,
+      roleHint: roleHint ? this.clip(roleHint) : undefined,
+      assertionHint: step.assertionHint?.value ? this.clip(step.assertionHint.value) : undefined,
+    };
+  }
+
+  private toBehaviorExampleCandidate(candidate: ExampleCandidate): BehaviorExampleCandidate {
+    return {
+      id: candidate.id,
+      sourceStepIndex: candidate.sourceStepIndex,
+      type: candidate.type,
+      value: candidate.value,
+    };
+  }
+
+  private behaviorPrimitiveSummary(primitive: BehaviorPrimitive): string {
+    switch (primitive) {
+      case "open_surface":
+        return "进入目标工作区";
+      case "switch_context":
+        return "切换上下文或标签页";
+      case "locate_candidate":
+        return "定位候选对象";
+      case "iterate_collection":
+        return "遍历候选对象集合";
+      case "inspect_state":
+        return "检查当前对象状态";
+      case "edit_content":
+        return "填写或编辑页面内容";
+      case "submit_action":
+        return "执行发送或提交动作";
+      case "verify_outcome":
+        return "回读页面状态并验证结果";
+    }
   }
 }
 

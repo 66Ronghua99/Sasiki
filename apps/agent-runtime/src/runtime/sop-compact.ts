@@ -25,6 +25,8 @@ export interface SopCompactResult {
   sourceTracePath: string;
   compactPath: string;
   abstractionInputPath: string;
+  behaviorEvidencePath: string;
+  behaviorWorkflowPath: string;
   structuredDraftPath?: string;
   structuredRawPath?: string;
   workflowGuideJsonPath: string;
@@ -71,6 +73,8 @@ export class SopCompactService {
     const compactPath = path.join(runDir, "sop_compact.md");
     const semanticGuidePath = path.join(runDir, "guide_semantic.md");
     const abstractionInputPath = path.join(runDir, "abstraction_input.json");
+    const behaviorEvidencePath = path.join(runDir, "behavior_evidence.json");
+    const behaviorWorkflowPath = path.join(runDir, "behavior_workflow.json");
     const structuredDraftPath = path.join(runDir, "structured_abstraction_draft.json");
     const structuredRawPath = path.join(runDir, "structured_abstraction_raw.txt");
     const workflowGuideJsonPath = path.join(runDir, "workflow_guide.json");
@@ -87,6 +91,7 @@ export class SopCompactService {
     const abstractionBuilder = new SopIntentAbstractionBuilder();
     const generatedAt = new Date().toISOString();
     const { abstractionInput } = abstractionBuilder.buildEvidenceInput(runId, trace, built, generatedAt);
+    const { behaviorEvidence, behaviorWorkflow } = abstractionBuilder.buildBehaviorArtifactsFromEvidence(abstractionInput, trace);
     const structured = await new SopStructuredAbstractionRunner(this.semanticOptions).run({
       runId,
       traceId: trace.traceId,
@@ -110,6 +115,8 @@ export class SopCompactService {
 
     await this.persistSemanticOutputs(runDir, runId, semantic, structured);
     await writeFile(abstractionInputPath, `${JSON.stringify(abstraction.abstractionInput, null, 2)}\n`, "utf-8");
+    await writeFile(behaviorEvidencePath, `${JSON.stringify(behaviorEvidence, null, 2)}\n`, "utf-8");
+    await writeFile(behaviorWorkflowPath, `${JSON.stringify(behaviorWorkflow, null, 2)}\n`, "utf-8");
     if (structured.draft) {
       await writeFile(structuredDraftPath, `${JSON.stringify(structured.draft, null, 2)}\n`, "utf-8");
     }
@@ -146,6 +153,8 @@ export class SopCompactService {
       sourceTracePath,
       compactPath,
       abstractionInputPath,
+      behaviorEvidencePath,
+      behaviorWorkflowPath,
       structuredDraftPath: structured.draft ? structuredDraftPath : undefined,
       structuredRawPath: structured.rawText ? structuredRawPath : undefined,
       workflowGuideJsonPath,
