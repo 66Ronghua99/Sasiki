@@ -31,6 +31,7 @@ export class WorkflowRuntime {
         cdpEndpoint: config.cdpEndpoint,
         launchCdp: config.launchCdp,
         userDataDir: config.cdpUserDataDir,
+        resetPagesOnLaunch: config.cdpResetPagesOnLaunch,
         headless: config.cdpHeadless,
         injectCookies: config.cdpInjectCookies,
         cookiesDir: config.cdpCookiesDir,

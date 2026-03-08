@@ -27,6 +27,7 @@ export interface RuntimeConfigFile {
     endpoint?: string;
     launch?: boolean;
     userDataDir?: string;
+    resetPagesOnLaunch?: boolean;
     headless?: boolean;
     injectCookies?: boolean;
     cookiesDir?: string;
@@ -60,6 +61,7 @@ export interface RuntimeConfig {
   cdpEndpoint: string;
   launchCdp: boolean;
   cdpUserDataDir: string;
+  cdpResetPagesOnLaunch: boolean;
   cdpHeadless: boolean;
   cdpInjectCookies: boolean;
   cdpCookiesDir: string;
@@ -107,6 +109,11 @@ export class RuntimeConfigLoader {
       cdpEndpoint: file?.cdp?.endpoint ?? process.env.PLAYWRIGHT_MCP_CDP_ENDPOINT ?? "http://localhost:9222",
       launchCdp: this.readBoolean(file?.cdp?.launch, process.env.LAUNCH_CDP, true),
       cdpUserDataDir: file?.cdp?.userDataDir ?? process.env.CDP_USER_DATA_DIR ?? "~/.sasiki/chrome_profile",
+      cdpResetPagesOnLaunch: this.readBoolean(
+        file?.cdp?.resetPagesOnLaunch,
+        process.env.CDP_RESET_PAGES_ON_LAUNCH,
+        true
+      ),
       cdpHeadless: this.readBoolean(file?.cdp?.headless, process.env.CDP_HEADLESS, false),
       cdpInjectCookies: this.readBoolean(file?.cdp?.injectCookies, process.env.INJECT_COOKIES, true),
       cdpCookiesDir: file?.cdp?.cookiesDir ?? process.env.COOKIES_DIR ?? "~/.sasiki/cookies",

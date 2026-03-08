@@ -16,6 +16,7 @@ export interface CdpBrowserLauncherConfig {
   cdpEndpoint: string;
   launchCdp: boolean;
   userDataDir: string;
+  resetPagesOnLaunch: boolean;
   headless: boolean;
   executablePath?: string;
   startupTimeoutMs: number;
@@ -109,6 +110,7 @@ export class CdpBrowserLauncher {
 
     await this.waitForEndpointReady();
     const cookies = await this.injectCookiesIfNeeded();
+    await this.resetPagesOnLaunchIfNeeded();
     this.logger.info("cdp_launch_ready", {
       endpoint: this.config.cdpEndpoint,
       pid: this.process.pid,
@@ -307,6 +309,52 @@ export class CdpBrowserLauncher {
       return { filesLoaded: loaded.filesLoaded, cookiesInjected: 0 };
     } finally {
       await browser.close();
+    }
+  }
+
+  private async resetPagesOnLaunchIfNeeded(): Promise<void> {
+    if (!this.config.resetPagesOnLaunch) {
+      return;
+    }
+
+    const playwright = await this.loadPlaywrightForCdp();
+    if (!playwright) {
+      this.logger.warn("cdp_page_reset_skipped", {
+        reason: "playwright_module_missing",
+        endpoint: this.config.cdpEndpoint,
+      });
+      return;
+    }
+
+    let browser: any | null = null;
+    try {
+      browser = await playwright.chromium.connectOverCDP(this.config.cdpEndpoint);
+      const existingContexts = browser.contexts();
+      const primaryContext = existingContexts[0] ?? (await browser.newContext());
+      const blankPage = await primaryContext.newPage();
+      const pagesToClose = browser
+        .contexts()
+        .flatMap((context: any) => context.pages())
+        .filter((page: any) => page !== blankPage);
+
+      for (const page of pagesToClose) {
+        await page.close({ runBeforeUnload: false });
+      }
+
+      await blankPage.bringToFront().catch(() => {});
+      this.logger.info("cdp_page_reset_succeeded", {
+        endpoint: this.config.cdpEndpoint,
+        closedPages: pagesToClose.length,
+      });
+    } catch (error) {
+      this.logger.warn("cdp_page_reset_failed", {
+        endpoint: this.config.cdpEndpoint,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      if (browser) {
+        await browser.close().catch(() => {});
+      }
     }
   }
 
