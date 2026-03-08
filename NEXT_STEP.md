@@ -1,3 +1,3 @@
 # NEXT STEP
 
-进入“长程任务 SOP HITL 落地”阶段：高层日志基础已完成，下一步按 `.plan/20260306_long_task_sop_hitl_requirement_v0.md` 接入 `2 次重试 -> HITL` 触发/恢复与 `intervention_learning.jsonl`，确保介入后可从中断点恢复执行。
+进入 “SOP Compact 意图抽象” 阶段：review `.plan/20260308_sop_compact_intent_abstraction_v0.md` 与 checklist 中已冻结的 pre-implementation 设计包（放行矩阵、JSON 单一真源、剩余 schema、状态机、最小自动校验）；若 review 通过，再开始代码实现。

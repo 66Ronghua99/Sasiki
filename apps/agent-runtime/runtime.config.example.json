@@ -35,5 +35,10 @@
     "topN": 3,
     "hintsLimit": 8,
     "maxGuideChars": 4000
+  },
+  "hitl": {
+    "enabled": false,
+    "retryLimit": 2,
+    "maxInterventions": 1
   }
 }

@@ -51,6 +51,11 @@ export interface RuntimeConfigFile {
     hintsLimit?: number;
     maxGuideChars?: number;
   };
+  hitl?: {
+    enabled?: boolean;
+    retryLimit?: number;
+    maxInterventions?: number;
+  };
 }
 
 export interface RuntimeConfig {
@@ -81,6 +86,9 @@ export interface RuntimeConfig {
   sopConsumptionTopN: number;
   sopConsumptionHintsLimit: number;
   sopConsumptionMaxGuideChars: number;
+  hitlEnabled: boolean;
+  hitlRetryLimit: number;
+  hitlMaxInterventions: number;
 }
 
 export interface RuntimeConfigSourceOptions {
@@ -153,6 +161,13 @@ export class RuntimeConfigLoader {
         process.env.SOP_CONSUMPTION_MAX_GUIDE_CHARS,
         4000
       ),
+      hitlEnabled: this.readBoolean(file?.hitl?.enabled, process.env.HITL_ENABLED, false),
+      hitlRetryLimit: this.readNonNegativeInt(file?.hitl?.retryLimit, process.env.HITL_RETRY_LIMIT, 2),
+      hitlMaxInterventions: this.readNonNegativeInt(
+        file?.hitl?.maxInterventions,
+        process.env.HITL_MAX_INTERVENTIONS,
+        1
+      ),
     };
   }
 
@@ -222,6 +237,21 @@ export class RuntimeConfigLoader {
       return Math.floor(configValue);
     }
     return this.parseInt(envValue, fallback);
+  }
+
+  private static readNonNegativeInt(
+    configValue: number | undefined,
+    envValue: string | undefined,
+    fallback: number
+  ): number {
+    if (typeof configValue === "number" && Number.isFinite(configValue) && configValue >= 0) {
+      return Math.floor(configValue);
+    }
+    if (!envValue) {
+      return fallback;
+    }
+    const parsed = Number.parseInt(envValue, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
   }
 
   private static readThinkingLevel(

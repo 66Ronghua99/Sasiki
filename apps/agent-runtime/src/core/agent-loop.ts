@@ -205,6 +205,34 @@ export class AgentLoop {
     return undefined;
   }
 
+  async captureObservationSummary(): Promise<string> {
+    const tools = await this.tools.listTools();
+    const names = new Set(tools.map((tool) => tool.name));
+    const candidates: Array<{ name: string; args: Record<string, unknown> }> = [
+      { name: "browser_snapshot", args: {} },
+      { name: "browser_tabs", args: { action: "list" } },
+    ];
+
+    for (const candidate of candidates) {
+      if (!names.has(candidate.name)) {
+        continue;
+      }
+      try {
+        const result = await this.tools.callTool(candidate.name, candidate.args);
+        const summary = this.extractToolResultSummary(result);
+        if (summary) {
+          return summary;
+        }
+      } catch (error) {
+        this.logger.warn("observation_capture_failed", {
+          tool: candidate.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return "";
+  }
+
   abort(reason = "manual_interrupt"): void {
     if (!this.agent) {
       return;
@@ -470,6 +498,24 @@ export class AgentLoop {
         compact: false,
       });
     }
+  }
+
+  private extractToolResultSummary(result: Record<string, unknown>): string {
+    const content = Array.isArray(result.content) ? result.content : [];
+    const textParts: string[] = [];
+    for (const item of content) {
+      if (!this.isRecord(item)) {
+        continue;
+      }
+      if (item.type === "text" && typeof item.text === "string" && item.text.trim()) {
+        textParts.push(item.text);
+      }
+    }
+    const preferred = textParts.join("\n\n").trim();
+    if (preferred) {
+      return this.summarizeText(preferred, 1200);
+    }
+    return this.summarizeText(this.extractText(result), 1200);
   }
 
   private extractCompatForLog(model: any): Record<string, unknown> | undefined {

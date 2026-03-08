@@ -53,6 +53,17 @@ Enable SOP consumption during `run` via config:
 }
 ```
 
+Enable HITL retry/intervention loop during `run` via config:
+```json
+{
+  "hitl": {
+    "enabled": true,
+    "retryLimit": 2,
+    "maxInterventions": 1
+  }
+}
+```
+
 Consumption guide priority:
 - `guide_semantic.md` (if present)
 - `sop_compact.md` (if present)
@@ -106,6 +117,7 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `steps.json`
   - `mcp_calls.jsonl`
   - `high_level_logs.json` (`read/judge/action/result/intervention` 统一高层日志)
+  - `intervention_learning.jsonl` (written when HITL is enabled and intervention happens)
   - `runtime.log`
   - `final.png` (best-effort screenshot)
   - `sop_consumption.json` (written when run starts; records selection mode, pinned run id, selected asset, fallback)

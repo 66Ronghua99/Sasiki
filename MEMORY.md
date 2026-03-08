@@ -12,6 +12,11 @@
 - 语义层调用具备环境依赖（网络/鉴权/模型可用性）：任何失败都必须回退到 rule-based 产物，不能阻塞 `sop_compact.md` 输出。
 - API 兼容性坑：部分 OpenAI-compatible 端点对 reasoning/thinking 参数兼容不稳定，语义层失败时应优先将 `thinkingLevel` 设为 `off` 再排查。
 - 代理环境坑：当 shell 设置了 `http_proxy/https_proxy` 时，本地 `localhost:9222` CDP 连接与探活可能被错误代理；自测 replay 前需显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
+- 语义抽象治理：`sop-compact` 不能把单次示教中的具体实例直接提升为通用规则；必须拆分 `workflow_guide`、`decision_model` 与 `observed_examples`，把无法稳定推出的边界显式落为 `uncertainFields`。
+- compact-stage HITL 治理：人工输入应只用于补关键决策边界，并以结构化 `intent_resolution` 覆盖自动推断；高优先级不确定项未解决前，资产不得进入 `ready_for_replay`。
+- 意图注入治理：compact 阶段的意图来源必须分层合并，优先级固定为 `intent_resolution > inferred_from_trace > intent_seed > default_rule`，避免后续 replay 同时消费多份相互冲突的“意图文本”。
+- 工件真源治理：当 compact 同时产出结构化 JSON 与可读文档时，必须固定 `JSON` 为单一真源，`MD` 仅作为渲染结果，避免 replay 侧消费两套不一致的 guide。
+- 状态门禁治理：compact 阶段的资产状态只能由 `compact_manifest.json` 单点声明；`ready_for_replay` 必须同时通过 admission matrix、结构完整性、污染检测与 question 映射完整性校验。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
@@ -42,6 +47,7 @@
 - 协作操作系统治理：用户级 `AGENTS.md` 需要长期保持“方法论协议”定位（原则、Gate、文件职责、渐进加载）；项目状态与阶段结论只写入 `PROGRESS/MEMORY/NEXT_STEP`，避免职责漂移。
 - 高层日志治理：`run` 侧的 HITL / failure aggregation 必须直接消费结构化 `high_level_logs.json`，不要回退到解析 `runtime.log` 文本；runtime 级事件（如 interrupt/final result）需要与 agent 级事件统一 schema 后再合并排序。
 - 工程根解析治理：runtime 的路径解析只能依赖工程根标记（如 `.git`），不能依赖 `PROGRESS.md` / `AGENTS.md` 之类协作文档是否存在。
+- HITL 兼容治理：`hitl.enabled=false` 时必须保持旧版单次执行行为；自动重试和人工介入不能在默认配置下悄悄生效。
 
 ## Environment Requirements
 - Node `>=20`

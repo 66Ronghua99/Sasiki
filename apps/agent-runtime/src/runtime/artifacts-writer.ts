@@ -1,13 +1,14 @@
 /**
- * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts
+ * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/intervention-learning.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts
  * Used By: runtime/run-executor.ts, runtime/observe-executor.ts
  * Last Updated: 2026-03-06
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../domain/agent-types.js";
 import type { HighLevelLogEntry } from "../domain/high-level-log.js";
+import type { InterventionLearningRecord } from "../domain/intervention-learning.js";
 import type { SopAsset } from "../domain/sop-asset.js";
 import type { SopConsumptionRecord } from "../domain/sop-consumption.js";
 import type { DemonstrationRawEvent, SopTrace } from "../domain/sop-trace.js";
@@ -39,6 +40,10 @@ export class ArtifactsWriter {
 
   async writeHighLevelLogs(entries: HighLevelLogEntry[]): Promise<void> {
     await this.writeJson("high_level_logs.json", entries);
+  }
+
+  async appendInterventionLearning(record: InterventionLearningRecord): Promise<void> {
+    await appendFile(path.join(this.runDir, "intervention_learning.jsonl"), `${JSON.stringify(record)}\n`, "utf-8");
   }
 
   async writeDemonstrationRaw(events: DemonstrationRawEvent[]): Promise<void> {

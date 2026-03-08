@@ -8,6 +8,7 @@ import { SopDemonstrationRecorder } from "../core/sop-demonstration-recorder.js"
 import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
 import { PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";
+import { TerminalHitlController } from "../infrastructure/hitl/terminal-hitl-controller.js";
 import { RuntimeLogger } from "../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "./agent-execution-runtime.js";
@@ -80,6 +81,9 @@ export class WorkflowRuntime {
       artifactsDir: config.artifactsDir,
       createRunId: () => this.createRunId(),
       sopConsumptionContext,
+      hitlController: config.hitlEnabled ? new TerminalHitlController() : undefined,
+      hitlRetryLimit: config.hitlRetryLimit,
+      hitlMaxInterventions: config.hitlMaxInterventions,
     });
 
     const sopRecorder = new SopDemonstrationRecorder();

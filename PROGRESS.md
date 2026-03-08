@@ -14,10 +14,14 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
+  - SOP Compact Intent Abstraction v0：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
+  - SOP Compact Intent Abstraction 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP 高层日志基础方案：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
   - 长程任务 SOP 高层日志基础清单：`.plan/checklist_long_task_sop_high_level_logging_foundation.md`
+  - 长程任务 SOP HITL runtime loop：`.plan/20260306_long_task_sop_hitl_runtime_loop.md`
+  - 长程任务 SOP HITL runtime loop 清单：`.plan/checklist_long_task_sop_hitl_runtime_loop.md`
   - PR-3 Phase-3A 方案：`.plan/20260306_watch_once_pr3_phase3a_pinned_runid.md`
   - PR-3 Phase-3A 清单：`.plan/checklist_watch_once_pr3_phase3a_pinned_runid.md`
   - 协作方法论治理方案：`.plan/20260306_collaboration_methodology_agents_governance.md`
@@ -39,21 +43,48 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` 长程任务 SOP HITL 控制与学习闭环（高层日志基础已完成）：
-  - 场景：电商单页上架（标题、主图、商品落地页、图片、SKU、尺码）
-  - 约束：单任务总时长 10 分钟；单点最多重试 2 次，失败/不确定后进入 HITL
-  - 验收：纯自动 `3/3` 跑通（HITL 不计入最终成功）
-  - 当前下一步：接入 `2 次重试 -> HITL` 触发/恢复，并落盘 `intervention_learning.jsonl`
-  - 证据：成功三件套（成功提示 + 最终截图 + 关键字段回读）+ `high_level_logs.json` + `intervention_learning.jsonl` + `failure_topn.json`
-  - 多标签策略：偶发多标签记 warning，不直接判失败
+- `P0-NEXT` SOP Compact 意图抽象闭环（讨论冻结，代码未开始）：
+  - 目标：将 `sop-compact` 从“单次示教改写”升级为“流程/规则/样例/澄清问题”四层结构化产物
+  - 约束：本阶段只改 compact，不改 observe 录制协议；高优先级不确定项未解决前不得进入 `ready_for_replay`
+  - 验收：实现前设计冻结已完成，等待最终 review 后进入实现
+  - 当前下一步：review 已冻结的 pre-implementation 设计包；若通过，再启动实现
+  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` + checklist（schema/状态机/校验已冻结）
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 后续单独优化召回/排序/归一化匹配策略
+- `P1` 长程任务 SOP HITL runtime loop 实测验收：
+  - 在真实失败样例上验证 `2 次重试 -> HITL -> 恢复执行`
+  - 检查 `intervention_learning.jsonl` 与后续 `failure_topn.json`
 - `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
 - `P1` 替换默认运行入口到 Node runtime。
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已冻结 SOP Compact 通用闭环方向（文档讨论完成，待字段级 schema）：
+  - 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
+  - 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
+  - 结论：`sop-compact` 下一阶段优先解决“规则/样例分离 + 不确定项显式化 + compact-stage HITL”，暂不修改录制协议
+- 已输出 SOP Compact 字段级 schema 草案（待 review 冻结）：
+  - 覆盖：`intent_seed/workflow_guide/decision_model/observed_examples/clarification_questions/intent_resolution/compact_manifest`
+  - 门禁：`uncertainFields` 分级、优先级合并规则、`ready_for_replay` Gate v0
+  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
+- 已完成 schema 草案 review 回写（待继续冻结阻塞点）：
+  - 阻塞点：`medium` 放行策略、JSON/MD 主从关系、`observed_examples/clarification_questions/compact_manifest` schema 与状态机
+  - P0 顺序：放行矩阵 -> JSON 单一真源 -> schema + 状态机 + 最小自动校验
+  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` / `.plan/checklist_sop_compact_intent_abstraction_v0.md`
+- 已冻结 `goalType x uncertaintySeverity` 放行矩阵 v0：
+  - 规则：任意 `high unresolved` 一律阻断；`medium` 仅在不影响目标对象/遍历范围/跳过规则/完成条件/提交动作时允许带 warning 放行
+  - 风险分层：`collection_processing/form_submission/multi_step_transaction` 默认更保守
+  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
+- 已完成 SOP Compact 实现前设计冻结：
+  - 决议：`workflow_guide.json` 为单一真源，`MD` 仅渲染；`observed_examples/clarification_questions/compact_manifest` schema、状态机和最小自动校验已冻结
+  - 结论：当前已具备进入实现前的最终 review 条件
+  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` / `.plan/checklist_sop_compact_intent_abstraction_v0.md`
+- 已完成长程任务 SOP HITL runtime loop 代码接线（待失败场景人工验收）：
+  - 设计：`.plan/20260306_long_task_sop_hitl_runtime_loop.md`
+  - 清单：`.plan/checklist_long_task_sop_hitl_runtime_loop.md`
+  - 能力：`hitl.enabled` 配置开关、最多 `2` 次自动重试、终端人工介入、`intervention_learning.jsonl` 落盘、从当前浏览器状态恢复执行
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已修正 Runtime 配置根目录解析与代理自测约定：
   - 设计：`.plan/20260306_runtime_config_root_resolution.md`
   - 清单：`.plan/checklist_runtime_config_root_resolution.md`
