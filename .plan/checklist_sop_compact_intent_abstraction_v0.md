@@ -1,4 +1,9 @@
-# Checklist: SOP Compact Intent Abstraction v0
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-08
+> 本文档作为历史参考保留，不再主动维护。
+> 替代文档：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
+
+# Checklist: SOP Compact Intent Abstraction v0 (Archived)
 
 ## Implementation
 - [x] 输出 `workflow_guide` 字段 schema 草案
@@ -23,11 +28,15 @@
 - [x] review 阻塞点与冻结顺序已回写设计文档
 - [x] `goalType x uncertaintySeverity` 放行矩阵已写入设计文档
 - [x] JSON 单一真源、状态机与最小自动校验已写入设计文档
+- [x] 已落地 `abstraction_input.json` / `execution_guide.json` 工件
+- [x] 已用真实示教样本生成新 compact 工件并验证 `needs_clarification` 保守门禁
+- [x] 已用真实示教样本拿到 `structured_abstraction_succeeded`，`structuredFallback=false`
+- [x] 已验证最终 replay-facing 工件为 `execution_guide.json`
 
 ## Quality Gates
 - [x] 文档讨论阶段不宣称实现完成
-- [ ] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run typecheck`
-- [ ] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run build`
+- [x] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run typecheck`
+- [x] 如进入代码实现，必须通过 `npm --prefix apps/agent-runtime run build`
 
 ## Docs Sync
 - [x] `PROGRESS.md` 已切换 `P0-NEXT` 到 `sop-compact` 抽象闭环

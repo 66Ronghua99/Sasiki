@@ -1,3 +1,3 @@
 # NEXT STEP
 
-进入 “SOP Compact 意图抽象” 阶段：review `.plan/20260308_sop_compact_intent_abstraction_v0.md` 与 checklist 中已冻结的 pre-implementation 设计包（放行矩阵、JSON 单一真源、剩余 schema、状态机、最小自动校验）；若 review 通过，再开始代码实现。
+进入 “SOP Compact V1” 设计冻结阶段：review `.plan/20260308_sop_compact_behavior_semantics_split_v1.md`，确认“deterministic 只做行为抽象、领域语义交给 agent + HITL”的 artifact schema、状态机与迁移计划，确认后再开始代码迁移。

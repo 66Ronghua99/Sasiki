@@ -14,8 +14,8 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
-  - SOP Compact Intent Abstraction v0：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
-  - SOP Compact Intent Abstraction 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
+  - SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+  - SOP Compact Behavior/Semantics Split v1 清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP 高层日志基础方案：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
@@ -40,15 +40,17 @@
   - PR-3 Phase-3 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
   - PR-3 Phase-3 清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
   - PR-3 总清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
+  - 已归档 SOP Compact V0 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
+  - 已归档 SOP Compact V0 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` SOP Compact 意图抽象闭环（讨论冻结，代码未开始）：
-  - 目标：将 `sop-compact` 从“单次示教改写”升级为“流程/规则/样例/澄清问题”四层结构化产物
-  - 约束：本阶段只改 compact，不改 observe 录制协议；高优先级不确定项未解决前不得进入 `ready_for_replay`
-  - 验收：实现前设计冻结已完成，等待最终 review 后进入实现
-  - 当前下一步：review 已冻结的 pre-implementation 设计包；若通过，再启动实现
-  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` + checklist（schema/状态机/校验已冻结）
+- `P0-NEXT` SOP Compact V1 设计 review 与冻结：
+  - 目标：review 已落盘的 V1 artifact schema、状态机与迁移计划，确认后再开始代码迁移
+  - 约束：V1 review 通过前不再扩写 V0 代码路径，也不启动 V1 迁移实现
+  - 验收：确认 `behavior_evidence/behavior_workflow/semantic_intent_draft/execution_guide` 的最小字段和 `clarification_questions` 的 ownership
+  - 当前下一步：review `.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+  - 证据：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md` + `.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 后续单独优化召回/排序/归一化匹配策略
@@ -60,6 +62,25 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 SOP Compact V1 设计包并切换主指针：
+  - 新设计：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+  - 新清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
+  - 结论：V1 明确要求 deterministic 只保留行为抽象，领域语义交给 agent + HITL
+- 已归档 SOP Compact V0 设计与实现方向，准备切换到 V1：
+  - 原因：V0 仍将领域语义（如 `TargetEntity/GoalType`）压进抽象层，导致 deterministic / agent / HITL 边界不清
+  - 现状：V0 的 structured draft、`workflow_guide`、`decision_model`、`execution_guide` 继续保留为历史样本和迁移参考
+  - 替代设计：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+- 已打通 SOP Compact agent 成功路径并收口最终消费工件：
+  - 真实样本 `run_id=20260308_110124_276` 已拿到 `structured_abstraction_succeeded`，`structuredFallback=false`
+  - 最终 replay-facing 工件固定为 `execution_guide.json`，内部工件继续保留 `abstraction_input/workflow_guide/decision_model/observed_examples/clarification_questions/compact_manifest`
+  - deterministic 层已收敛为抽象行为/evidence 提取与 gate 校验，不再用领域字符串匹配直接推断 `targetEntity`
+  - 行为证据可在 agent draft 明显 underfit 时纠偏 `goalType`，例如本样本已从 `single_object_update` 升为 `collection_processing`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已完成 SOP Compact v0 第一版代码接线（evidence-first + execution guide）：
+  - 新工件：`abstraction_input.json`、`workflow_guide.json`、`decision_model.json`、`observed_examples.json`、`clarification_questions.json`、`execution_guide.json`、`compact_manifest.json`
+  - 新约束：核心抽象改为 `agent-driven abstraction, rule-guarded admission`；无 agent draft 时只允许保守输出 `needs_clarification`
+  - 真实样本验证：`run_id=20260308_110124_276` 已生成新工件；当前因模型 `403 free tier exhausted` 走 fallback，但门禁正确阻止 `ready_for_replay`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已冻结 SOP Compact 通用闭环方向（文档讨论完成，待字段级 schema）：
   - 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
   - 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`

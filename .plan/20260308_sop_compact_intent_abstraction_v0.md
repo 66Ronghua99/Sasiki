@@ -1,9 +1,16 @@
-# SOP Compact Intent Abstraction v0 (2026-03-08)
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-08
+> 本文档作为历史参考保留，不再主动维护。
+> 替代文档：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+
+# SOP Compact Intent Abstraction v0 (Archived, 2026-03-08)
 
 ## 0. Normative Source
 本文档中，以下章节为实现期唯一规范源：
 - `## 17. Freeze Order v1`
+- `### Abstraction Execution Model v0`
 - `### Admission Matrix v0`
+- `### Artifact Layering v0`
 - `### Single Source Policy v0`
 - `### Remaining Artifact Schema Decisions v0`
 - `### State Machine v0 Frozen`
@@ -23,10 +30,12 @@
 ## 2. Scope
 本阶段仅聚焦 `sop-compact` 抽象闭环，冻结如下最小输出能力：
 - 从现有 `intent seed + demonstration trace/raw + webElementHints` 中自动拆分：
+  - `abstraction_input`
   - `workflow_guide`
   - `decision_model`
   - `observed_examples`
   - `clarification_questions`
+  - `execution_guide`
   - `compact_manifest`
 - 显式建模不确定项（`uncertainFields`）与资产状态：
   - `draft`
@@ -44,15 +53,17 @@
 
 ## 4. Boundary & Ownership
 - `src/runtime/sop-compact.ts`
-  - 负责编排 compact pipeline：抽象、澄清触发、产物落盘。
+  - 负责编排 compact pipeline：evidence 提取、agent 抽象、澄清触发、产物落盘。
 - `src/core/semantic-compactor.ts`
-  - 负责从 rule compact 和 trace 摘要中生成抽象层候选结果。
+  - 负责基于 `abstraction_input` 生成结构化抽象候选结果。
 - `src/domain/*`
   - 新增或扩展 compact 相关契约：
+    - `abstraction_input`
     - `workflow_guide`
     - `decision_model`
     - `observed_examples`
     - `clarification_questions`
+    - `execution_guide`
     - `compact_manifest`
     - `intent_resolution`
 - `artifacts/e2e/{run_id}`
@@ -67,34 +78,41 @@
   - `webElementHints`
 - 输出状态：`compact_started`
 
-2. Workflow Extraction
-- 从示教中提取稳定流程骨架：
-  - 导航
-  - 遍历
-  - 比较
-  - 编辑
-  - 提交
-  - 总检查
-- 只允许输出可泛化步骤，不得混入具体实例。
+2. Evidence Extraction
+- 先从示教中提取结构化 evidence，不直接决定最终 intent：
+  - action motifs
+  - phase signals
+  - submit / verify / iterate cues
+  - example candidates
+  - uncertainty cues
+- 该层允许关键词或启发式，但只能作为 weak signals，不得直接决定最终 `workflow/decision_model`。
 
-3. Decision Inference
-- 生成候选：
-  - `selectionRules`
-  - `decisionRules`
-  - `doneCriteria`
-  - `uncertainFields`
-- 每条规则必须带 `source` 与 `confidence`。
+3. Agent Abstraction
+- 由 agent 基于 `abstraction_input` 生成结构化候选：
+  - `workflow_guide`
+  - `decision_model`
+  - `observed_examples`
+  - `clarification_questions`
+- 约束：
+  - 不得把 `observed_examples` 提升为 policy
+  - 不得补造 trace 中不存在的动作
+  - 无法确定时必须显式写入 `uncertainFields`
 
 4. Example Isolation
 - 将用户名、具体文本、具体回复话术、特定页面提示等单独沉淀到 `observed_examples`。
 - 对这些内容统一打 `example_only=true` 约束，禁止默认提升为 policy。
 
-5. Uncertainty Classification
+5. Validation + Uncertainty Classification
 - 对不确定项做分级：
   - `high`: 阻塞 replay
   - `medium`: 允许保留但需提示
   - `low`: 记录即可
 - 若存在未解决 `high` 或 admission-blocking `medium`，资产状态置为 `needs_clarification`。
+- deterministic 规则只负责：
+  - pollution check
+  - schema shape check
+  - question mapping check
+  - admission matrix / replay gate
 
 6. Compact-Stage HITL
 - 对未解决 `high` 与 admission-blocking `medium` 生成 2-5 个 `clarification_questions`。
@@ -104,14 +122,21 @@
 
 7. Final Freeze
 - 生成最终：
+  - `abstraction_input`
   - `workflow_guide`
   - `decision_model`
   - `observed_examples`
   - `clarification_questions`
+  - `execution_guide`
   - `compact_manifest`
 - 若仍有未解决 `high` 或 admission-blocking `medium`，则不得进入 `ready_for_replay`。
 
 ## 6. Output Contract v0
+### 6.0 abstraction_input
+- 内部 evidence 真源。
+- 只包含从 trace 中提取出的结构化事实、signals、example candidates、uncertainty cues。
+- 不直接作为 replay 输入。
+
 ### 6.1 workflow_guide
 - 只描述通用流程、目标、范围、完成信号。
 - 不允许出现：
@@ -141,6 +166,19 @@
 ### 6.5 compact_manifest
 - 汇总 runId、输出路径、状态、置信度、不确定项数量。
 
+### 6.6 execution_guide
+- compact 最终冻结出来的 replay 主工件。
+- runtime 未来应只消费该工件，而不是并读多份内部 JSON。
+- 它是 `workflow_guide + decision_model` 的可执行子集，必须包含：
+  - `goal`
+  - `scope`
+  - `workflow`
+  - `decisionRules`
+  - `doneCriteria`
+  - `allowedAssumptions`
+  - `forbiddenOverfittingCues`
+  - `unresolvedUncertainties`
+
 ## 7. HITL Trigger Rules
 触发 compact-stage HITL 的场景：
 - 完成条件不明确。
@@ -157,10 +195,12 @@
 | ID | Scenario | Expected Output | Evidence |
 | --- | --- | --- | --- |
 | AC-1 | 单次示教生成抽象产物 | 同时生成 `workflow_guide/decision_model/observed_examples/compact_manifest` | 新工件文件存在 |
+| AC-1.1 | 内部 evidence 可审计 | 生成 `abstraction_input.json`，可回溯 compact 判定来源 | `abstraction_input.json` |
 | AC-2 | 实例污染隔离 | 用户名、具体文本、固定回复全文不出现在 `workflow_guide` | guide 内容检查 |
 | AC-3 | 决策显式化 | `decision_model` 包含规则、完成条件、不确定项，且带 `source/confidence` | `decision_model.json` |
 | AC-4 | HITL 触发可控 | 存在未解决 `high` 或 admission-blocking `medium` 时生成 `clarification_questions` 并置 `needs_clarification` | `clarification_questions.json` + `compact_manifest.json` |
 | AC-5 | 冻结门禁 | 未解决 `high` 或 admission-blocking `medium` 时不得进入 `ready_for_replay` | `compact_manifest.json` |
+| AC-6 | 最终消费收口 | 生成 `execution_guide.json` 作为 replay 主工件 | `execution_guide.json` |
 
 ## 9. Verification Strategy
 Static:
@@ -569,9 +609,43 @@ Manual:
 review 建议的 P0 收敛顺序：
 1. 先冻结放行矩阵：`goalType x uncertaintySeverity -> replay gate behavior`
 2. 再冻结工件主从关系：`JSON` 为单一真源，`MD` 仅作为渲染产物
-3. 最后冻结字段级 schema 与状态机转移规则，再进入实现
+3. 冻结 execution model：`evidence -> agent abstraction -> deterministic validation`
+4. 最后冻结字段级 schema 与状态机转移规则，再进入实现
 
 ## 17. Freeze Order v1
+### Abstraction Execution Model v0
+最终决议：
+- `sop-compact` 的核心抽象机制是 `agent-driven abstraction, rule-guarded admission`。
+- deterministic 逻辑只允许做两类事情：
+  - evidence extraction
+  - validation / gate / status transition
+- 禁止将以下方式作为主抽象引擎：
+  - `goalType -> workflow template`
+  - 关键词直接决定核心 intent
+  - 为特定 case 不断叠加 adhoc 分支
+
+执行模型固定为三层：
+1. `deterministic evidence extraction`
+- 从 trace 提取结构化事实、signals、example candidates、uncertainty cues
+- 该层允许关键词/启发式，但只能产生 weak signals
+
+2. `schema-constrained agent abstraction`
+- agent 基于 `abstraction_input` 生成：
+  - `workflow_guide`
+  - `decision_model`
+  - `observed_examples`
+  - `clarification_questions`
+- agent 负责解释 evidence 代表什么任务结构，而不是 deterministic 代码先把结构猜完
+
+3. `deterministic validation and admission`
+- 规则负责：
+  - shape check
+  - pollution check
+  - question mapping
+  - admission matrix
+  - replay gate
+- 规则不负责主导 workflow / intent 生成
+
 ### Step A: Admission Matrix
 先定义不同 `goalType` 在不同不确定级别下的放行策略，至少覆盖：
 - `single_object_update`
@@ -624,20 +698,51 @@ review 建议的 P0 收敛顺序：
 - `multi_step_transaction`
   - 默认视为高风险链路，除 presentation-only 的低级不确定项外，不放行。
 
+### Artifact Layering v0
+最终决议：
+- compact 工件分为两层：
+
+1. 内部工件
+- `abstraction_input.json`
+- `workflow_guide.json`
+- `decision_model.json`
+- `observed_examples.json`
+- `clarification_questions.json`
+- `intent_resolution.json`
+- `compact_manifest.json`
+
+2. 最终消费工件
+- `execution_guide.json`
+
+分层规则：
+- 内部工件用于：
+  - 抽象
+  - 审计
+  - 澄清
+  - gate
+- `execution_guide.json` 用于：
+  - replay/runtime 最终消费
+  - 作为“给 agent 的单一抽象执行指南”
+- runtime 不应长期并读多份内部工件来临时拼接执行语义
+- `execution_guide.json` 必须由内部工件单向编译生成，不允许手工独立维护
+
 ### Step B: Single Source of Truth
 冻结工件主从关系：
+- `abstraction_input.json` 为 evidence 真源
 - `workflow_guide.json` 为单一真源
 - `workflow_guide.md` 若存在，仅为渲染结果，不作为 replay 输入
 - `decision_model.json`
 - `observed_examples.json`
 - `clarification_questions.json`
 - `intent_resolution.json`
+- `execution_guide.json`
 - `compact_manifest.json`
 统一由 JSON 契约驱动，避免 run 侧同时消费两套不一致文本。
 
 ### Single Source Policy v0
 最终决议：
 - `workflow_guide.json` 是唯一可消费 guide 契约。
+- `execution_guide.json` 是唯一可消费 replay guide 契约。
 - `workflow_guide.md` 仅用于：
   - 人类 review
   - 调试
@@ -649,6 +754,8 @@ review 建议的 P0 收敛顺序：
 - `workflow_guide.md` 必须由 `workflow_guide.json` 单向渲染生成。
 - 当 `.md` 与 `.json` 表达冲突时，以 `.json` 为准。
 - 若未生成 `.md`，不得阻塞 `ready_for_replay` 判定。
+- `execution_guide.json` 必须由 `workflow_guide.json + decision_model.json + compact_manifest.json` 单向编译生成。
+- 若 `execution_guide.json` 缺失，则即使内部工件存在，也不得视为 compact 最终冻结完成。
 
 ### Step C: Schema + State Machine
 冻结以下状态与转移：
@@ -737,12 +844,14 @@ review 建议的 P0 收敛顺序：
   "runId": "20260308_110124_276",
   "status": "draft",
   "artifacts": {
+    "abstractionInput": "abstraction_input.json",
     "workflowGuideJson": "workflow_guide.json",
     "workflowGuideMd": "workflow_guide.md",
     "decisionModel": "decision_model.json",
     "observedExamples": "observed_examples.json",
     "clarificationQuestions": null,
-    "intentResolution": null
+    "intentResolution": null,
+    "executionGuide": "execution_guide.json"
   },
   "quality": {
     "highUncertaintyCount": 0,
@@ -755,7 +864,7 @@ review 建议的 P0 收敛顺序：
 
 约束：
 - `status` 仅允许 `draft|needs_clarification|ready_for_replay|rejected`
-- `workflowGuideJson`、`decisionModel`、`observedExamples` 必填
+- `abstractionInput`、`workflowGuideJson`、`decisionModel`、`observedExamples`、`executionGuide` 必填
 - `quality.*Count` 必须与 `decision_model.uncertainFields` 一致
 
 ### State Machine v0 Frozen
@@ -787,9 +896,13 @@ review 建议的 P0 收敛顺序：
   - JSON 不可解析
   - 污染检测失败且无法自动隔离
   - `targetsField` 映射不完整
+  - `execution_guide.json` 编译失败
 
 ## 18. Minimum Validation Rules Before Implementation
 进入实现前先冻结最小自动校验清单：
+0. Evidence Shape 校验
+- `abstraction_input.json` 必须存在且可回溯关键 signals / examples / uncertainty cues
+
 1. 实例污染检测
 - `workflow_guide` 不得包含：
   - 用户名
@@ -810,8 +923,15 @@ review 建议的 P0 收敛顺序：
 - `compact_manifest.status=ready_for_replay` 时，必须能根据 `goalType + unresolved uncertainties` 推导出“允许放行”
 - 若推导结果为 block，状态机不得进入 `ready_for_replay`
 
+5. Execution Guide Compile 校验
+- `execution_guide.json` 必须可由内部工件单向编译生成
+- 不允许跳过内部工件直接生成 replay guide
+
 ### Frozen Validation Set v0
-实现前最小自动校验固定为 5 条：
+实现前最小自动校验固定为 6 条：
+0. `abstraction_input_shape_check`
+- 校验 evidence 工件存在且字段完整
+
 1. `workflow_guide_pollution_check`
 - 检测 `workflow_guide` 是否含实例污染
 
@@ -827,5 +947,18 @@ review 建议的 P0 收敛顺序：
 5. `replay_gate_check`
 - 基于 `goalType + unresolved uncertainties + admission matrix` 计算是否允许进入 `ready_for_replay`
 
+6. `execution_guide_compile_check`
+- 校验 `execution_guide.json` 已由内部工件成功编译
+
 ## 19. Updated P0 Next
-实现前设计冻结已完成；下一步等待最终 review，确认后再进入实现。
+当前实现已完成 `evidence -> structured abstraction -> validation -> execution_guide` 主链路，并已在真实样本 `artifacts/e2e/20260308_110124_276` 上拿到：
+- `structured_abstraction_succeeded`
+- `structuredFallback=false`
+- `execution_guide.json` 成功编译
+- `compact_manifest.status=needs_clarification`
+
+下一步进入 compact-stage HITL 注入实现：
+- 消费 `clarification_questions.json`
+- 生成 `intent_resolution.json`
+- 基于内部工件重新编译 `execution_guide.json`
+- 验证状态机从 `needs_clarification` 到 `ready_for_replay` 的 gate 转移

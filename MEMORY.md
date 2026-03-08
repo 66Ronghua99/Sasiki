@@ -17,6 +17,14 @@
 - 意图注入治理：compact 阶段的意图来源必须分层合并，优先级固定为 `intent_resolution > inferred_from_trace > intent_seed > default_rule`，避免后续 replay 同时消费多份相互冲突的“意图文本”。
 - 工件真源治理：当 compact 同时产出结构化 JSON 与可读文档时，必须固定 `JSON` 为单一真源，`MD` 仅作为渲染结果，避免 replay 侧消费两套不一致的 guide。
 - 状态门禁治理：compact 阶段的资产状态只能由 `compact_manifest.json` 单点声明；`ready_for_replay` 必须同时通过 admission matrix、结构完整性、污染检测与 question 映射完整性校验。
+- 抽象执行模型治理：`sop-compact` 的核心 intent/workflow/decision 生成必须由 agent draft 主导；deterministic 逻辑只负责 evidence extraction 与 validation/gate，不能重新退化成关键词分类器或 `goalType -> workflow template`。
+- 关键词使用边界：字符串匹配只允许出现在 `abstraction_input.json` 的 weak signals 层，用于 evidence labeling；没有 agent draft 时只允许输出保守 fallback，并保持 `needs_clarification`，不能假装 replay-ready。
+- 产物分层治理：内部 compact 工件用于抽象/审计/gate，最终 runtime 应只消费 `execution_guide.json` 这一份冻结后的 replay guide，而不是并读多份内部 JSON。
+- 结构化输出治理：模型即使被要求返回 JSON，也经常退化成字符串数组或弱 schema 对象；structured prompt 需要显式给出字段级 JSON 形状示例，merge 层也必须宽容吸收 `string[] -> object[]` 的降级输出。
+- 行为纠偏治理：若 agent draft 将明显的集合处理任务收窄成 `single_object_update`，可由 deterministic 的抽象行为证据（如 `iterate_collection`）做 `goalType` 纠偏；这类纠偏只允许发生在跨域通用行为层，不能回到领域字符串分类。
+- surface 治理：`surface` 推断应优先来自 URL path 等结构信息，不能再依赖站点名 + 业务关键词的耦合判断。
+- V0 归档原因：即使去掉了大部分业务关键词推断，只要 `TargetEntity/GoalType` 仍作为核心 schema 驱动 `decision_model/execution_guide`，抽象层就仍然混入了领域语义；V1 必须把“行为抽象”和“语义用途判定”彻底拆开。
+- HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
