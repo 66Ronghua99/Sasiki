@@ -27,6 +27,8 @@
 - HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
 - 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 - legacy 退役治理：一旦 `execution_guide.v1` 已接管 replay 主链路，就应尽快移除 `structured_abstraction/workflow_guide/decision_model` 的双写和落盘；继续保留只会让样本目录、manifest 和后续 compact-stage HITL 边界继续变脏。
+- compact-stage HITL 目录治理：若外部 artifact 目录不在当前 workspace，可优先把常用样本复制到仓库内 `artifacts/e2e/<run_id>` 再做 HITL 验证；这样既避免 sandbox 写权限摩擦，也能让后续 CLI/脚本只围绕当前 repo 自给自足。
+- compact-stage HITL 入口治理：最小可用形态先做 `inspect unresolved questions + merge intent_resolution` 的 CLI，不要一开始就耦合 runtime 级自动交互；等字段映射与 ready-path 稳定后，再升级成 question-driven 交互入口。
 - prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
 - prompt 结构治理：`semantic_intent_draft` 的输入顺序应优先给 `behavior_workflow`，再给去噪后的 evidence/examples；同时强制 `strict JSON + single-line string values`，可显著降低 MiniMax/OpenRouter 路径下的输出漂移与控制字符风险。
 - evidence 去噪治理：semantic prompt 摘要里应去掉 selector-only candidates、长 query URL、原始 selector 串等低语义密度噪声；在样本 `run_id=20260308_110124_276` 上，这样可把输入从约 `3.5k-4.1k` tokens 压到约 `2.36k-2.70k` tokens。

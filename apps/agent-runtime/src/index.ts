@@ -8,6 +8,7 @@ import type { SemanticMode } from "./core/semantic-compactor.js";
 import { WorkflowRuntime } from "./runtime/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
 import { SopCompactService } from "./runtime/sop-compact.js";
+import { SopCompactHitlService } from "./runtime/sop-compact-hitl.js";
 
 interface RuntimeCliArguments {
   command: "runtime";
@@ -24,7 +25,16 @@ interface SopCompactCliArguments {
   semanticMode?: SemanticMode;
 }
 
-type CliArguments = RuntimeCliArguments | SopCompactCliArguments;
+interface SopCompactHitlCliArguments {
+  command: "sop-compact-hitl";
+  configPath?: string;
+  runId: string;
+  updates: Array<{ field: string; value: boolean | string }>;
+  notes: string[];
+  rerun: boolean;
+}
+
+type CliArguments = RuntimeCliArguments | SopCompactCliArguments | SopCompactHitlCliArguments;
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
@@ -42,6 +52,29 @@ async function main(): Promise<void> {
       },
     });
     const result = await service.compact(args.runId);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+
+  if (args.command === "sop-compact-hitl") {
+    const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
+    const service = new SopCompactHitlService(config.artifactsDir, {
+      mode: config.semanticMode,
+      timeoutMs: config.semanticTimeoutMs,
+      model: config.model,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
+      thinkingLevel: config.thinkingLevel,
+    });
+    const result =
+      args.updates.length === 0 && args.notes.length === 0 && !args.rerun
+        ? await service.inspect(args.runId)
+        : await service.resolve({
+            runId: args.runId,
+            resolvedFields: Object.fromEntries(args.updates.map((item) => [item.field, item.value])),
+            notes: args.notes,
+            rerun: args.rerun,
+          });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
@@ -93,6 +126,9 @@ async function main(): Promise<void> {
 function parseCliArguments(argv: string[]): CliArguments {
   if (argv[0] === "sop-compact") {
     return parseSopCompactArguments(argv.slice(1));
+  }
+  if (argv[0] === "sop-compact-hitl") {
+    return parseSopCompactHitlArguments(argv.slice(1));
   }
   return parseRuntimeArguments(argv);
 }
@@ -179,6 +215,71 @@ function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
   return { command: "sop-compact", configPath, runId: runId.trim(), semanticMode };
 }
 
+function parseSopCompactHitlArguments(argv: string[]): SopCompactHitlCliArguments {
+  let configPath: string | undefined;
+  let runId: string | undefined;
+  const updates: Array<{ field: string; value: boolean | string }> = [];
+  const notes: string[] = [];
+  let rerun = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--config" || arg === "-c") {
+      configPath = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--config=")) {
+      configPath = arg.slice("--config=".length);
+      continue;
+    }
+    if (arg === "--run-id" || arg === "-r") {
+      runId = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--run-id=")) {
+      runId = arg.slice("--run-id=".length);
+      continue;
+    }
+    if (arg === "--set") {
+      updates.push(parseResolutionUpdate(argv[i + 1]));
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--set=")) {
+      updates.push(parseResolutionUpdate(arg.slice("--set=".length)));
+      continue;
+    }
+    if (arg === "--note") {
+      notes.push((argv[i + 1] ?? "").trim());
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--note=")) {
+      notes.push(arg.slice("--note=".length).trim());
+      continue;
+    }
+    if (arg === "--rerun") {
+      rerun = true;
+      continue;
+    }
+    if (!runId) {
+      runId = arg;
+    }
+  }
+  if (!runId?.trim()) {
+    throw new Error("missing run id. usage: sop-compact-hitl --run-id <run_id>");
+  }
+  return {
+    command: "sop-compact-hitl",
+    configPath,
+    runId: runId.trim(),
+    updates: updates.filter((item) => item.field.length > 0),
+    notes: notes.filter((item) => item.length > 0),
+    rerun,
+  };
+}
+
 function parseMode(value: string | undefined): RuntimeMode {
   if (value === "run" || value === "observe") {
     return value;
@@ -193,9 +294,29 @@ function parseSemanticMode(value: string | undefined): SemanticMode {
   throw new Error(`invalid --semantic value: ${value ?? "(missing)"}. expected off|auto|on`);
 }
 
+function parseResolutionUpdate(value: string | undefined): { field: string; value: boolean | string } {
+  const raw = value?.trim() ?? "";
+  const separatorIndex = raw.indexOf("=");
+  if (separatorIndex <= 0) {
+    throw new Error(`invalid --set value: ${value ?? "(missing)"}. expected field=value`);
+  }
+  const field = raw.slice(0, separatorIndex).trim();
+  const serializedValue = raw.slice(separatorIndex + 1).trim();
+  if (!field || !serializedValue) {
+    throw new Error(`invalid --set value: ${value ?? "(missing)"}. expected field=value`);
+  }
+  if (serializedValue === "true") {
+    return { field, value: true };
+  }
+  if (serializedValue === "false") {
+    return { field, value: false };
+  }
+  return { field, value: serializedValue };
+}
+
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
+    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n  npm run dev -- sop-compact-hitl --run-id <run_id> [--set field=value] [--note text] [--rerun] [--config path]\n"
   );
   process.exit(1);
 }

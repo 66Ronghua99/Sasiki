@@ -22,6 +22,7 @@
 - [x] 切换 `execution_guide` 编译入口到 V1 artifacts
 - [x] 将 V0 `decision_model/workflow_guide` 从 replay 主链路中降级为兼容参考
 - [x] 移除 `structured_abstraction/workflow_guide/decision_model` 的主线代码与落盘逻辑，并在 rerun 时清理 stale legacy artifacts
+- [x] 新增最小 `sop-compact-hitl` CLI，支持 inspect unresolved questions 与写入 `intent_resolution.json`
 
 ## Quality Gates
 - [x] 代码、工件与文档已同步，未误报阶段完成状态

@@ -41,6 +41,16 @@ Enable semantic enhancement (`off|auto|on`, default from config):
 npm run dev -- sop-compact --run-id 20260305_120050_475 --semantic auto
 ```
 
+Inspect compact-stage HITL questions from a local artifact run:
+```bash
+npm run dev -- sop-compact-hitl --run-id 20260308_110124_276
+```
+
+Write/merge `intent_resolution.json` through CLI and keep the artifact in the current repo:
+```bash
+npm run dev -- sop-compact-hitl --run-id 20260308_110124_276 --set done_criteria="当前视图内所有待回复会话都已处理完" --set selection_criteria="只处理当前视图内待回复会话" --note "validated locally in repo"
+```
+
 Enable SOP consumption during `run` via config:
 ```json
 {
@@ -161,6 +171,11 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `execution_guide.json` (single replay-facing frozen guide)
   - `compact_manifest.json` (status / artifact layering / gate result, `compact_manifest.v1`)
   - `runtime.log`
+
+Compact-stage HITL notes:
+- `sop-compact-hitl` reads `execution_guide.detailContext.unresolvedQuestions` and optional `clarification_questions.json`
+- `--set field=value` merges into `intent_resolution.json`
+- `--rerun` will write the resolution first and then rerun `sop-compact`
 
 Observe trace notes:
 - Multi-tab flows are supported in recording.

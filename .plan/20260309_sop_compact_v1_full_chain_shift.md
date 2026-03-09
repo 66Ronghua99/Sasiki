@@ -268,3 +268,22 @@ V1 规则：
 - `intent_resolution.json`
 
 不再需要在一堆 legacy 中间件里辨认真正要回答的语义问题。
+
+## 15. 2026-03-09 Minimal Compact-stage HITL Entry
+为避免下一阶段继续依赖手工编辑 `intent_resolution.json`，先补了一个最小 CLI：
+- `sop-compact-hitl --run-id <id>`
+  - inspect 当前 `execution_guide.detailContext.unresolvedQuestions`
+  - 同时读取 `clarification_questions.json`
+- `sop-compact-hitl --run-id <id> --set field=value --note "..."`
+  - 合并写入 `intent_resolution.json`
+- `sop-compact-hitl ... --rerun`
+  - 在写完 resolution 后直接重跑 `sop-compact`
+
+本轮刻意只做到最小 CLI，而不直接做成交互式问答，原因是：
+- 先验证 field mapping、resolution merge、artifact 本地化路径是否稳定
+- 避免在 HITL 交互层还没冻结前，引入更多 UI/terminal 状态机
+
+因此下一步自然演进应是：
+- 从 `--set field=value` 升级到 question-driven
+- 直接按 `unresolvedQuestions` 的顺序向用户提问
+- 自动把回答映射到 `intent_resolution.resolvedFields`

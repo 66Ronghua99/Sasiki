@@ -47,12 +47,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` SOP Compact V1 全链路切换：
-  - 目标：验证 `intent_resolution` 接入后，`execution_guide.v1` 能从 `needs_clarification` 正确转为 `ready_for_replay`
-  - 约束：status/replay gate 必须继续由 V1 semantic 真源驱动；compact 主链路不再回写 `structured_abstraction/workflow_guide/decision_model`
-  - 验收：带 `intent_resolution` 的样本能让 `execution_guide.v1` 保持 `generalPlan + detailContext` 不变形，并在 blocking semantics 被解决后放行 `replayReady=true`
-  - 当前状态：`run_id=20260308_110124_276` 已成功生成 `execution_guide.v1`，并由 `semantic_intent_draft + clarification_questions` 驱动 `needs_clarification`；legacy 输出链已从主线移除
-  - 当前下一步：在清爽的 V1 artifact 集上补一条最小 `intent_resolution` 样本并回放，冻结 `semantic field -> resolution field -> replay gate` 的映射与 ready-path 验收口径
+- `P0-NEXT` Compact-stage HITL 最小入口升级：
+  - 目标：把当前 `sop-compact-hitl` 从 file-based CLI 升级成 question-driven 入口，直接围绕 `unresolvedQuestions/clarification_questions` 提示用户回答
+  - 约束：status/replay gate 仍由 V1 semantic 真源驱动；不得重新引入 `workflow_guide/decision_model` 旧链路
+  - 验收：用户无需手写 `intent_resolution.json` 或手工拼 `--set` 字段名，也能在当前仓库内完成一轮 compact-stage HITL 澄清并得到新的 `execution_guide.v1`
+  - 当前状态：最小 CLI 已可 inspect unresolved questions，也可写入 `intent_resolution.json`；`run_id=20260308_110124_276` 已在本仓库 `artifacts/e2e` 下完成本地化
+  - 当前下一步：基于 `execution_guide.detailContext.unresolvedQuestions` 生成交互式问题顺序和字段映射，减少人工记忆 field name
   - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md` + `.plan/checklist_sop_compact_v1_full_chain_shift.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -65,6 +65,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Compact-stage HITL 最小 CLI 入口（本地 repo 验证版）：
+  - 新增 `sop-compact-hitl` CLI，可直接 inspect `execution_guide.detailContext.unresolvedQuestions`
+  - CLI 支持通过 `--set field=value` / `--note ...` 写入或合并 `intent_resolution.json`
+  - 已在仓库内复制常用测试样本到 `artifacts/e2e/20260308_110124_276`，后续验证不再依赖 `~/codes/Sasiki-dev` artifact 目录
+  - 本地验证：`sop-compact-hitl --run-id 20260308_110124_276` inspect 成功，`--note` 写入路径成功
+  - ready-path 也已验证：带最小 `intent_resolution.json` 的样本可让 `execution_guide.v1` 进入 `ready_for_replay`
 - 已完成 SOP Compact V1 主链路 legacy cleanup（为 compact-stage HITL 清场）：
   - `sop-compact` 不再调用 `structured_abstraction` runner，也不再落盘 `structured_abstraction_draft/raw`
   - `workflow_guide.json`、`workflow_guide.md`、`decision_model.json` 已从主线产物与 manifest 中移除
