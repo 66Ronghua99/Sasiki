@@ -15,6 +15,9 @@ import type {
   SemanticIntentDraft,
   SemanticPurposeHypothesis,
   SemanticUncertainty,
+  ClarificationPriority,
+  ClarificationQuestionV1,
+  ClarificationQuestionsV1,
 } from "../domain/sop-compact-artifacts-v1.js";
 import type { SopCompactSemanticOptions } from "./sop-semantic-runner.js";
 
@@ -31,6 +34,7 @@ export interface SemanticIntentDraftOutcome {
   mode: SemanticMode;
   fallback: boolean;
   draft?: SemanticIntentDraft;
+  clarificationQuestions?: ClarificationQuestionsV1;
   rawText?: string;
   error?: string;
   model?: string;
@@ -67,10 +71,12 @@ export class SopSemanticIntentRunner {
         behaviorWorkflow: input.behaviorWorkflow,
         observedExamples: input.observedExamples,
       });
+      const normalized = this.normalizeResult(result, input);
       return {
         mode,
         fallback: false,
-        draft: this.normalizeDraft(result, input),
+        draft: normalized.draft,
+        clarificationQuestions: normalized.clarificationQuestions,
         rawText: result.rawText,
         model: result.model,
         provider: result.provider,
@@ -85,7 +91,13 @@ export class SopSemanticIntentRunner {
     }
   }
 
-  private normalizeDraft(result: SemanticIntentDraftOutput, input: SemanticIntentDraftRunInput): SemanticIntentDraft {
+  private normalizeResult(
+    result: SemanticIntentDraftOutput,
+    input: SemanticIntentDraftRunInput
+  ): {
+    draft: SemanticIntentDraft;
+    clarificationQuestions?: ClarificationQuestionsV1;
+  } {
     const payload = result.payload;
     const blockingUncertainties = this.normalizeUncertainties(payload.blockingUncertainties);
     const nonBlockingUncertainties = this.normalizeUncertainties(payload.nonBlockingUncertainties);
@@ -108,7 +120,7 @@ export class SopSemanticIntentRunner {
       });
     }
 
-    return {
+    const draft: SemanticIntentDraft = {
       schemaVersion: "semantic_intent_draft.v1",
       taskIntentHypothesis: this.readString(payload.taskIntentHypothesis) ?? input.rawTask,
       scopeHypothesis,
@@ -118,6 +130,20 @@ export class SopSemanticIntentRunner {
       skipHypotheses: this.readStringArray(payload.skipHypotheses),
       blockingUncertainties: this.deduplicateUncertainties(blockingUncertainties),
       nonBlockingUncertainties: this.deduplicateUncertainties(nonBlockingUncertainties),
+    };
+    const clarificationQuestions = this.normalizeClarificationQuestions(
+      payload.clarificationQuestions,
+      draft.blockingUncertainties
+    );
+    return {
+      draft,
+      clarificationQuestions:
+        clarificationQuestions.length > 0
+          ? {
+              schemaVersion: "clarification_questions.v1",
+              questions: clarificationQuestions,
+            }
+          : undefined,
     };
   }
 
@@ -203,6 +229,54 @@ export class SopSemanticIntentRunner {
     return deduped;
   }
 
+  private normalizeClarificationQuestions(
+    value: unknown,
+    blockingUncertainties: SemanticUncertainty[]
+  ): ClarificationQuestionV1[] {
+    const rows = Array.isArray(value)
+      ? value
+      : value && typeof value === "object" && Array.isArray((value as { questions?: unknown[] }).questions)
+        ? (value as { questions: unknown[] }).questions
+        : [];
+    if (rows.length === 0) {
+      return [];
+    }
+    const blockingFieldSeverity = new Map<string, SemanticUncertainty["severity"]>();
+    for (const uncertainty of blockingUncertainties) {
+      if (!blockingFieldSeverity.has(uncertainty.field)) {
+        blockingFieldSeverity.set(uncertainty.field, uncertainty.severity);
+      }
+    }
+    const questions: ClarificationQuestionV1[] = [];
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (!row || typeof row !== "object") {
+        continue;
+      }
+      const record = row as Record<string, unknown>;
+      const targetsSemanticField =
+        this.readString(record.targetsSemanticField) ??
+        this.readString(record.targetsField) ??
+        this.readString(record.field);
+      const question = this.readString(record.question);
+      if (!targetsSemanticField || !question || !blockingFieldSeverity.has(targetsSemanticField)) {
+        continue;
+      }
+      const key = `${targetsSemanticField}::${question}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      questions.push({
+        id: this.readString(record.id) ?? `q_${questions.length + 1}`,
+        targetsSemanticField,
+        question,
+        priority: this.readPriority(record.priority, blockingFieldSeverity.get(targetsSemanticField) ?? "medium"),
+      });
+    }
+    return questions;
+  }
+
   private readString(value: unknown): string | undefined {
     if (typeof value !== "string") {
       return undefined;
@@ -227,5 +301,15 @@ export class SopSemanticIntentRunner {
 
   private readSeverity(value: unknown): "high" | "medium" | "low" {
     return value === "high" || value === "medium" || value === "low" ? value : "medium";
+  }
+
+  private readPriority(
+    value: unknown,
+    fallbackSeverity: SemanticUncertainty["severity"]
+  ): ClarificationPriority {
+    if (value === "high" || value === "medium") {
+      return value;
+    }
+    return fallbackSeverity === "high" ? "high" : "medium";
   }
 }

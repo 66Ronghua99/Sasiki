@@ -17,6 +17,9 @@ export type BehaviorPrimitive =
 export type BehaviorConfidence = "high" | "medium" | "low";
 export type SemanticConfidence = "high" | "medium" | "low";
 export type SemanticSeverity = "high" | "medium" | "low";
+export type ClarificationPriority = "high" | "medium";
+export type ExecutionGuideStatus = "draft" | "needs_clarification" | "ready_for_replay" | "rejected";
+export type ExecutionGuideStepRole = "default" | "branch_point" | "loop" | "submit_point" | "verification_point";
 
 export interface BehaviorEvidenceSignal {
   id: string;
@@ -96,4 +99,74 @@ export interface SemanticIntentDraft {
   skipHypotheses: string[];
   blockingUncertainties: SemanticUncertainty[];
   nonBlockingUncertainties: SemanticUncertainty[];
+}
+
+export interface ClarificationQuestionV1 {
+  id: string;
+  targetsSemanticField: string;
+  question: string;
+  priority: ClarificationPriority;
+}
+
+export interface ClarificationQuestionsV1 {
+  schemaVersion: "clarification_questions.v1";
+  questions: ClarificationQuestionV1[];
+}
+
+export interface ExecutionGuideWorkflowOutlineStep {
+  stepId: string;
+  primitive: BehaviorPrimitive;
+  summary: string;
+  purpose: string;
+  evidenceRefs: string[];
+}
+
+export interface ExecutionGuideSemanticConstraint {
+  id: string;
+  category: "selection" | "skip" | "resolution" | "guardrail";
+  statement: string;
+}
+
+export interface ExecutionGuideStepDetail {
+  stepId: string;
+  primitive: BehaviorPrimitive;
+  summary: string;
+  purpose: string;
+  evidenceRefs: string[];
+  stepRole: ExecutionGuideStepRole;
+}
+
+export interface ExecutionGuideBranchHint {
+  id: string;
+  stepId: string;
+  hint: string;
+  relatedSemanticFields: string[];
+}
+
+export interface ExecutionGuideUnresolvedQuestion {
+  field: string;
+  severity: SemanticSeverity;
+  reason: string;
+  question?: string;
+  priority?: ClarificationPriority;
+}
+
+export interface ExecutionGuideV1 {
+  schemaVersion: "execution_guide.v1";
+  runId: string;
+  status: ExecutionGuideStatus;
+  replayReady: boolean;
+  generalPlan: {
+    goal: string;
+    scope: string;
+    workflowOutline: ExecutionGuideWorkflowOutlineStep[];
+    doneCriteria: string[];
+    semanticConstraints: ExecutionGuideSemanticConstraint[];
+  };
+  detailContext: {
+    stepDetails: ExecutionGuideStepDetail[];
+    branchHints: ExecutionGuideBranchHint[];
+    resolutionNotes: string[];
+    unresolvedQuestions: ExecutionGuideUnresolvedQuestion[];
+  };
 }

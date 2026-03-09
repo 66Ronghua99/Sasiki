@@ -86,12 +86,14 @@ const STRUCTURED_ABSTRACTION_SYSTEM_PROMPT = [
 
 const SEMANTIC_INTENT_DRAFT_SYSTEM_PROMPT = [
   "You are a semantic intent inference engine for browser workflow demonstrations.",
-  "You receive only behavior evidence and concrete examples from one demonstration.",
+  "Infer the most likely task semantics from one demonstration, but stay conservative.",
+  "Use behavior_workflow as the primary structure and use other evidence only as supporting clues.",
   "Infer semantic hypotheses, but do not hardcode domain taxonomies or closed business enums.",
   "If semantics are unclear, express them as uncertainties instead of guessing.",
   "Do not promote examples into universal rules.",
-  "Return one JSON object with keys exactly matching the semantic_intent_draft.v1 schema.",
-  "Do not wrap the JSON in markdown fences.",
+  "Return one RFC8259 JSON object containing the semantic_intent_draft.v1 fields plus clarificationQuestions.",
+  "All string values must stay on a single line and must not contain literal newlines.",
+  "Do not wrap the JSON in markdown fences, comments, or trailing commas.",
 ].join("\n");
 
 export class SemanticCompactor {
@@ -292,14 +294,26 @@ export class SemanticCompactor {
       `traceId: ${input.traceId}`,
       `rawTask: ${input.rawTask}`,
       "",
+      "工作协议：",
+      "A) 优先把 behavior_workflow 当作主骨架，先解释每个 step 的业务用途，再决定整体 task/scope/completion；",
+      "B) behavior_evidence 只作为支持线索或不确定性来源，不要逐条复述页面机械动作；",
+      "C) observed_examples 只代表单次示教里的实例，不得直接提升为通用规则；",
+      "D) 若证据不足，仍要给出最保守的 hypothesis，并把不稳定部分写入 uncertainties；",
+      "E) 所有字符串必须保持单行，禁止在 JSON 字符串里换行；",
+      "",
       "输出要求：",
       "1) 只返回一个 JSON 对象；",
-      "2) 只能输出以下字段：taskIntentHypothesis, scopeHypothesis, completionHypothesis, actionPurposeHypotheses, selectionHypotheses, skipHypotheses, blockingUncertainties, nonBlockingUncertainties；",
+      "2) 只能输出以下字段：taskIntentHypothesis, scopeHypothesis, completionHypothesis, actionPurposeHypotheses, selectionHypotheses, skipHypotheses, blockingUncertainties, nonBlockingUncertainties, clarificationQuestions；",
       "3) 不允许使用 goalType、targetEntity、domain enum 等封闭分类字段；",
-      "4) actionPurposeHypotheses 必须引用 behavior_workflow 的 stepId，并带 evidenceRefs；",
-      "5) 对无法稳定推出的业务用途、范围、完成条件，必须进入 uncertainties；",
-      "6) 不允许把 observed_examples 的具体文本、用户名、选择器直接提升为通用规则；",
-      "7) selectionHypotheses 和 skipHypotheses 只描述语义假设，不描述页面机械动作；",
+      "4) taskIntentHypothesis / scopeHypothesis / completionHypothesis 都必须是单行句子，优先描述语义目标，不复述页面点击路径；",
+      "5) actionPurposeHypotheses 必须引用 behavior_workflow 的 stepId，并带 evidenceRefs；尽量覆盖核心 workflow steps；",
+      "6) 对无法稳定推出的业务用途、范围、完成条件，必须进入 uncertainties；",
+      "7) 不允许把 observed_examples 的具体文本、用户名、选择器直接提升为通用规则；",
+      "8) selectionHypotheses 和 skipHypotheses 只描述语义假设，不描述页面机械动作；",
+      "9) blockingUncertainties 只放会阻塞 replay 的语义缺口；nonBlockingUncertainties 放次要模糊点；",
+      "10) clarificationQuestions 只针对 blockingUncertainties，且每个 unresolved blocking uncertainty 都必须有一条问题覆盖；",
+      "11) clarificationQuestions 每项格式为 {\"id\":\"q_1\",\"targetsSemanticField\":\"completionHypothesis\",\"question\":\"...\",\"priority\":\"high|medium\"}；问题必须是单行句子；",
+      "12) 严格输出合法 JSON：不要 markdown、不要注释、不要额外解释、不要尾逗号；",
       "",
       "期望 JSON 形状示例：",
       JSON.stringify(
@@ -331,16 +345,24 @@ export class SemanticCompactor {
               reason: "选择范围仍依赖页面上下文补充。",
             },
           ],
+          clarificationQuestions: [
+            {
+              id: "q_1",
+              targetsSemanticField: "completionHypothesis",
+              question: "什么页面状态或业务结果才算真正完成？",
+              priority: "high",
+            },
+          ],
         },
         null,
         2
       ),
       "",
-      "Behavior Evidence JSON:",
-      JSON.stringify(behaviorEvidenceSummary, null, 2),
-      "",
       "Behavior Workflow JSON:",
       JSON.stringify(input.behaviorWorkflow, null, 2),
+      "",
+      "Behavior Evidence Summary JSON:",
+      JSON.stringify(behaviorEvidenceSummary, null, 2),
       "",
       "Observed Examples JSON:",
       JSON.stringify(observedExamplesSummary, null, 2),
@@ -368,20 +390,27 @@ export class SemanticCompactor {
       })
       .filter((item): item is { step: Record<string, unknown>; score: number } => Boolean(item))
       .sort((left, right) => right.score - left.score)
-      .slice(0, 16)
-      .map(({ step }) => step);
+      .slice(0, 10)
+      .map(({ step }) => this.summarizeStepEvidence(step));
 
     return {
       schemaVersion: record.schemaVersion,
-      runId: record.runId,
-      traceId: record.traceId,
       site: record.site,
       surface: record.surface,
-      rawTask: record.rawTask,
-      actionSummary: record.actionSummary,
-      phaseSignals: Array.isArray(record.phaseSignals) ? record.phaseSignals : [],
-      exampleCandidates: Array.isArray(record.exampleCandidates) ? record.exampleCandidates.slice(0, 8) : [],
-      uncertaintyCues: Array.isArray(record.uncertaintyCues) ? record.uncertaintyCues.slice(0, 8) : [],
+      actionSummary: this.summarizeActionSummary(record.actionSummary),
+      phaseSignals: Array.isArray(record.phaseSignals)
+        ? record.phaseSignals
+            .map((item) => this.summarizePhaseSignal(item))
+            .filter((item): item is Record<string, unknown> => Boolean(item))
+            .slice(0, 6)
+        : [],
+      exampleCandidates: Array.isArray(record.exampleCandidates)
+        ? record.exampleCandidates
+            .map((item) => this.summarizeExampleCandidate(item))
+            .filter((item): item is Record<string, unknown> => Boolean(item))
+            .slice(0, 4)
+        : [],
+      uncertaintyCues: Array.isArray(record.uncertaintyCues) ? record.uncertaintyCues.slice(0, 4) : [],
       stepEvidenceSample: prioritized,
       stepEvidenceTruncated: stepEvidence.length,
     };
@@ -394,9 +423,213 @@ export class SemanticCompactor {
     const record = value as Record<string, unknown>;
     return {
       schemaVersion: record.schemaVersion,
-      antiPromotionRules: Array.isArray(record.antiPromotionRules) ? record.antiPromotionRules : [],
-      examples: Array.isArray(record.examples) ? record.examples.slice(0, 5) : [],
+      antiPromotionRules: Array.isArray(record.antiPromotionRules) ? record.antiPromotionRules.slice(0, 3) : [],
+      examples: Array.isArray(record.examples)
+        ? record.examples
+            .map((item) => this.summarizeObservedExample(item))
+            .filter((item): item is Record<string, unknown> => Boolean(item))
+            .slice(0, 4)
+        : [],
     };
+  }
+
+  private summarizeActionSummary(value: unknown): Record<string, number> {
+    if (!value || typeof value !== "object") {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).filter(
+        ([, count]) => typeof count === "number" && Number.isFinite(count) && count > 0
+      )
+    ) as Record<string, number>;
+  }
+
+  private summarizePhaseSignal(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    const summarizedEvidence = Array.isArray(record.evidence)
+      ? record.evidence
+          .map((item) => this.summarizeEvidenceToken(item))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 2)
+      : [];
+    return {
+      id: this.normalizePromptText(record.id, 60),
+      primitive: this.normalizePromptText(record.primitive, 60),
+      confidence: this.normalizePromptText(record.confidence, 20),
+      supportingClues: summarizedEvidence,
+    };
+  }
+
+  private summarizeExampleCandidate(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    const type = this.normalizePromptText(record.type, 40);
+    const candidateValue = this.normalizePromptText(record.value, 80);
+    if (!type || !candidateValue || type === "selector") {
+      return undefined;
+    }
+    return {
+      id: this.normalizePromptText(record.id, 40),
+      sourceStepIndex: typeof record.sourceStepIndex === "number" ? record.sourceStepIndex : undefined,
+      type,
+      value: candidateValue,
+    };
+  }
+
+  private summarizeStepEvidence(value: Record<string, unknown>): Record<string, unknown> {
+    const targetType = this.normalizePromptText(value.targetType, 30);
+    const summary: Record<string, unknown> = {
+      stepIndex: typeof value.stepIndex === "number" ? value.stepIndex : undefined,
+      action: this.normalizePromptText(value.action, 30),
+      tabId: this.normalizePromptText(value.tabId, 30),
+    };
+    if (targetType && targetType !== "selector") {
+      summary.targetType = targetType;
+    }
+    const textHint = this.normalizePromptText(value.textHint, 80);
+    const assertionHint = this.normalizePromptText(value.assertionHint, 80);
+    const roleHint = this.normalizePromptText(value.roleHint, 40);
+    if (textHint) {
+      summary.textHint = textHint;
+    }
+    if (assertionHint) {
+      summary.assertionHint = assertionHint;
+    }
+    if (roleHint) {
+      summary.roleHint = roleHint;
+    }
+    const targetValue = this.summarizeTargetValue(targetType, value.targetValue);
+    if (targetValue) {
+      summary.targetValue = targetValue;
+    }
+    return Object.fromEntries(Object.entries(summary).filter(([, item]) => item !== undefined));
+  }
+
+  private summarizeObservedExample(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    const observedSignals =
+      record.observedSignals && typeof record.observedSignals === "object"
+        ? this.summarizeObservedSignals(record.observedSignals as Record<string, unknown>)
+        : undefined;
+    const observedAction =
+      record.observedAction && typeof record.observedAction === "object"
+        ? {
+            description: this.normalizePromptText(
+              (record.observedAction as Record<string, unknown>).description,
+              100
+            ),
+          }
+        : undefined;
+    if ((!observedSignals || Object.keys(observedSignals).length === 0) && !observedAction?.description) {
+      return undefined;
+    }
+    return {
+      id: this.normalizePromptText(record.id, 40),
+      entityType: this.normalizePromptText(record.entityType, 40),
+      observedSignals,
+      observedAction: observedAction?.description ? observedAction : undefined,
+      exampleOnly: true,
+    };
+  }
+
+  private summarizeObservedSignals(value: Record<string, unknown>): Record<string, unknown> {
+    const summarized: Record<string, unknown> = {};
+    const textHint =
+      this.normalizePromptText(value.text_hint, 80) ?? this.normalizePromptText(value.textHint, 80);
+    const assertionHint =
+      this.normalizePromptText(value.assertion_hint, 80) ?? this.normalizePromptText(value.assertionHint, 80);
+    const roleHint = this.normalizePromptText(value.role, 40) ?? this.normalizePromptText(value.roleHint, 40);
+    const urlHint =
+      typeof value.url === "string"
+        ? this.normalizeUrlForPrompt(value.url)
+        : typeof value.href === "string"
+          ? this.normalizeUrlForPrompt(value.href)
+          : undefined;
+    if (textHint) {
+      summarized.text_hint = textHint;
+    }
+    if (assertionHint) {
+      summarized.assertion_hint = assertionHint;
+    }
+    if (roleHint) {
+      summarized.role = roleHint;
+    }
+    if (urlHint) {
+      summarized.url = urlHint;
+    }
+    return summarized;
+  }
+
+  private summarizeTargetValue(targetType: string | undefined, value: unknown): string | undefined {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      return undefined;
+    }
+    if (targetType === "url") {
+      return this.normalizeUrlForPrompt(value);
+    }
+    if (targetType === "text") {
+      if (value.trim().toLowerCase() === "wait") {
+        return undefined;
+      }
+      return this.normalizePromptText(value, 80);
+    }
+    if (targetType === "selector") {
+      return undefined;
+    }
+    return this.normalizePromptText(value, 80);
+  }
+
+  private summarizeEvidenceToken(value: unknown): string | undefined {
+    const text = this.normalizePromptText(value, 120);
+    if (!text) {
+      return undefined;
+    }
+    const separatorIndex = text.indexOf(":");
+    if (separatorIndex < 0) {
+      return text;
+    }
+    const prefix = text.slice(0, separatorIndex);
+    const payload = text.slice(separatorIndex + 1);
+    if (prefix === "navigate") {
+      const url = this.normalizeUrlForPrompt(payload);
+      return url ? `${prefix}:${url}` : prefix;
+    }
+    if ((prefix === "click" || prefix === "type") && /nth-of-type|>\s*/.test(payload)) {
+      return `${prefix}:selector`;
+    }
+    const normalizedPayload = this.normalizePromptText(payload, 60);
+    return normalizedPayload ? `${prefix}:${normalizedPayload}` : prefix;
+  }
+
+  private normalizeUrlForPrompt(value: string): string | undefined {
+    try {
+      const parsed = new URL(value);
+      return this.normalizePromptText(`${parsed.host}${parsed.pathname}`, 80);
+    } catch {
+      return this.normalizePromptText(value, 80);
+    }
+  }
+
+  private normalizePromptText(value: unknown, limit = 120): string | undefined {
+    if (typeof value !== "string") {
+      return undefined;
+    }
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (normalized.length === 0) {
+      return undefined;
+    }
+    if (normalized.length <= limit) {
+      return normalized;
+    }
+    return `${normalized.slice(0, Math.max(0, limit - 3))}...`;
   }
 
   private extractText(content: unknown[]): string | undefined {

@@ -6,14 +6,11 @@
 import type {
   AbstractionInput,
   AbstractionSignal,
-  ClarificationQuestion,
-  ClarificationQuestions,
   CompactManifest,
   CompactManifestStatus,
   DecisionModel,
   DecisionRuleEntry,
   ExampleCandidate,
-  ExecutionGuide,
   GoalType,
   IntentResolution,
   IntentSeed,
@@ -34,6 +31,16 @@ import type {
   BehaviorStepEvidence,
   BehaviorWorkflow,
   BehaviorWorkflowStep,
+  ClarificationQuestionV1,
+  ClarificationQuestionsV1,
+  ExecutionGuideBranchHint,
+  ExecutionGuideSemanticConstraint,
+  ExecutionGuideStepDetail,
+  ExecutionGuideUnresolvedQuestion,
+  ExecutionGuideV1,
+  ExecutionGuideWorkflowOutlineStep,
+  SemanticIntentDraft,
+  SemanticUncertainty,
 } from "../domain/sop-compact-artifacts-v1.js";
 import type { SopTrace, SopTraceStep } from "../domain/sop-trace.js";
 import type { BuiltCompact } from "./sop-rule-compact-builder.js";
@@ -46,13 +53,14 @@ interface BuildSopIntentArtifactsInput {
   generatedAt: string;
   intentResolution?: IntentResolution;
   agentDraft?: StructuredAbstractionDraft;
+  semanticIntentDraft?: SemanticIntentDraft;
+  clarificationQuestions?: ClarificationQuestionsV1;
 }
 
 export interface StructuredAbstractionDraft {
   workflowGuide?: Partial<WorkflowGuide>;
   decisionModel?: Partial<DecisionModel>;
   observedExamples?: Partial<ObservedExamples>;
-  clarificationQuestions?: Partial<ClarificationQuestions>;
 }
 
 interface BuildSopIntentArtifactsResult {
@@ -62,8 +70,8 @@ interface BuildSopIntentArtifactsResult {
   workflowGuideMarkdown: string;
   decisionModel: DecisionModel;
   observedExamples: ObservedExamples;
-  clarificationQuestions?: ClarificationQuestions;
-  executionGuide: ExecutionGuide;
+  clarificationQuestions?: ClarificationQuestionsV1;
+  executionGuide: ExecutionGuideV1;
   manifest: CompactManifest;
 }
 
@@ -130,9 +138,9 @@ export class SopIntentAbstractionBuilder {
       input.built,
       input.generatedAt
     );
+    const behaviorWorkflow = this.buildBehaviorWorkflowFromSignals(abstractionInput.phaseSignals);
     this.ensureAbstractionInputShape(abstractionInput);
 
-    const agentDraftProvided = Boolean(input.agentDraft);
     const fallback = this.buildFallbackArtifacts(intentSeed, abstractionInput);
     const mergedWorkflowGuideDraft = this.mergeWorkflowGuide(input.agentDraft?.workflowGuide, fallback.workflowGuide, abstractionInput);
     const mergedDecisionModel = this.mergeDecisionModel(input.agentDraft?.decisionModel, fallback.decisionModel, abstractionInput);
@@ -146,23 +154,37 @@ export class SopIntentAbstractionBuilder {
 
     this.applyIntentResolution(mergedDecisionModel, input.intentResolution);
 
-    const clarificationQuestions = this.mergeClarificationQuestions(
-      input.agentDraft?.clarificationQuestions,
-      mergedDecisionModel,
+    const clarificationQuestions = this.buildClarificationQuestions(
+      input.semanticIntentDraft,
+      input.clarificationQuestions,
       input.intentResolution
     );
 
     const pollutionDetected = this.detectWorkflowGuidePollution(mergedWorkflowGuide, mergedObservedExamples);
-    this.ensureQuestionMapping(mergedDecisionModel, clarificationQuestions);
+    this.ensureClarificationCoverage(input.semanticIntentDraft, clarificationQuestions, input.intentResolution);
 
+    const uncertaintyCounts = this.summarizeUncertaintyCounts(
+      input.semanticIntentDraft,
+      input.intentResolution,
+      mergedDecisionModel
+    );
     const status = this.resolveStatus({
-      decisionModel: mergedDecisionModel,
+      semanticIntentDraft: input.semanticIntentDraft,
       clarificationQuestions,
       pollutionDetected,
-      agentDraftProvided,
+      intentResolution: input.intentResolution,
     });
 
-    const executionGuide = this.buildExecutionGuide(input.runId, mergedWorkflowGuide, mergedDecisionModel, status);
+    const executionGuide = this.buildExecutionGuide(
+      input.runId,
+      intentSeed,
+      abstractionInput,
+      behaviorWorkflow,
+      input.semanticIntentDraft,
+      clarificationQuestions,
+      input.intentResolution,
+      status
+    );
     const manifest: CompactManifest = {
       schemaVersion: "compact_manifest.v0",
       runId: input.runId,
@@ -178,17 +200,17 @@ export class SopIntentAbstractionBuilder {
         executionGuide: "execution_guide.json",
       },
       quality: {
-        highUncertaintyCount: mergedDecisionModel.uncertainFields.filter((field) => field.severity === "high").length,
-        mediumUncertaintyCount: mergedDecisionModel.uncertainFields.filter((field) => field.severity === "medium").length,
-        lowUncertaintyCount: mergedDecisionModel.uncertainFields.filter((field) => field.severity === "low").length,
+        highUncertaintyCount: uncertaintyCounts.high,
+        mediumUncertaintyCount: uncertaintyCounts.medium,
+        lowUncertaintyCount: uncertaintyCounts.low,
         exampleCount: mergedObservedExamples.examples.length,
         pollutionDetected,
       },
     };
 
     this.ensureDecisionModelShape(mergedDecisionModel);
-    this.ensureManifestConsistency(mergedDecisionModel, mergedObservedExamples, manifest);
-    this.ensureReplayGate(mergedDecisionModel, manifest.status, pollutionDetected);
+    this.ensureManifestConsistency(input.semanticIntentDraft, input.intentResolution, mergedDecisionModel, mergedObservedExamples, manifest);
+    this.ensureReplayGate(input.semanticIntentDraft, clarificationQuestions, input.intentResolution, manifest.status, pollutionDetected);
     this.ensureExecutionGuideCompile(executionGuide, manifest.status);
 
     return {
@@ -234,17 +256,28 @@ export class SopIntentAbstractionBuilder {
   }
 
   private buildBehaviorWorkflow(behaviorEvidence: BehaviorEvidence): BehaviorWorkflow {
-    const steps: BehaviorWorkflowStep[] = behaviorEvidence.phaseSignals.map((signal, index) => ({
+    return this.buildBehaviorWorkflowFromSignals(
+      behaviorEvidence.phaseSignals.map((signal) => ({
+        id: signal.id,
+        kind: this.toAbstractionSignalKind(signal.primitive),
+        confidence: signal.confidence,
+        evidence: signal.evidence,
+      }))
+    );
+  }
+
+  private buildBehaviorWorkflowFromSignals(phaseSignals: AbstractionSignal[]): BehaviorWorkflow {
+    const steps: BehaviorWorkflowStep[] = phaseSignals.map((signal, index) => ({
       id: `behavior_step_${index + 1}`,
-      primitive: signal.primitive,
-      summary: this.behaviorPrimitiveSummary(signal.primitive),
+      primitive: this.toBehaviorPrimitive(signal.kind),
+      summary: this.behaviorPrimitiveSummary(this.toBehaviorPrimitive(signal.kind)),
       evidenceRefs: [signal.id],
     }));
-    const branchPoints = behaviorEvidence.phaseSignals
-      .filter((signal) => signal.primitive === "switch_context" || signal.primitive === "locate_candidate")
+    const branchPoints = phaseSignals
+      .filter((signal) => signal.kind === "switch_context" || signal.kind === "locate_object")
       .map((signal) => signal.id);
-    const observedLoops = behaviorEvidence.phaseSignals
-      .filter((signal) => signal.primitive === "iterate_collection")
+    const observedLoops = phaseSignals
+      .filter((signal) => signal.kind === "iterate_collection")
       .map((signal) => signal.id);
     const submitPoints = steps.filter((step) => step.primitive === "submit_action").map((step) => step.id);
     const verificationPoints = steps.filter((step) => step.primitive === "verify_outcome").map((step) => step.id);
@@ -598,71 +631,35 @@ export class SopIntentAbstractionBuilder {
     };
   }
 
-  private mergeClarificationQuestions(
-    draft: Partial<ClarificationQuestions> | undefined,
-    decisionModel: DecisionModel,
+  private buildClarificationQuestions(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    questions: ClarificationQuestionsV1 | undefined,
     intentResolution?: IntentResolution
-  ): ClarificationQuestions | undefined {
-    const unresolved = new Set(decisionModel.uncertainFields.map((field) => field.field));
-    const resolvedFields = new Set(Object.keys(intentResolution?.resolvedFields ?? {}));
-    const blockingFields = decisionModel.uncertainFields.filter((field) => this.isBlockingUncertainty(decisionModel.goalType, field));
-
-    const questions: ClarificationQuestion[] = [];
-    const seen = new Set<string>();
-    const pushQuestion = (question: ClarificationQuestion): void => {
-      if (seen.has(question.targetsField) || !unresolved.has(question.targetsField) || resolvedFields.has(question.targetsField)) {
-        return;
-      }
-      seen.add(question.targetsField);
-      questions.push(question);
-    };
-
-    const draftQuestions = this.toArray((draft as { questions?: unknown } | undefined)?.questions);
-    if (draftQuestions.length > 0) {
-      for (const raw of draftQuestions) {
-        if (!raw || typeof raw !== "object") {
-          if (typeof raw === "string" && raw.trim()) {
-            const targetField = blockingFields.find(
-              (field) => !seen.has(field.field) && unresolved.has(field.field) && !resolvedFields.has(field.field)
-            );
-            if (!targetField) {
-              continue;
-            }
-            pushQuestion({
-              id: `q_${questions.length + 1}`,
-              topic: this.clarificationTemplate(targetField.field).topic,
-              question: raw.trim(),
-              targetsField: targetField.field,
-              priority: targetField.severity === "high" ? "high" : "medium",
-            });
-          }
-          continue;
-        }
-        const target = typeof (raw as { targetsField?: unknown }).targetsField === "string" ? (raw as { targetsField: string }).targetsField : "";
-        const question = typeof (raw as { question?: unknown }).question === "string" ? (raw as { question: string }).question.trim() : "";
-        const topic = typeof (raw as { topic?: unknown }).topic === "string" ? (raw as { topic: string }).topic.trim() : "intent";
-        const priority = (raw as { priority?: unknown }).priority === "high" ? "high" : "medium";
-        if (!target || !question) {
-          continue;
-        }
-        pushQuestion({
-          id: typeof (raw as { id?: unknown }).id === "string" ? (raw as { id: string }).id : `q_${questions.length + 1}`,
-          topic,
-          question,
-          targetsField: target,
-          priority,
-        });
-      }
-    }
-
-    for (const field of blockingFields) {
-      pushQuestion(this.buildClarificationQuestion(field, questions.length + 1));
-    }
-
-    if (questions.length === 0) {
+  ): ClarificationQuestionsV1 | undefined {
+    if (!semanticIntentDraft || !questions) {
       return undefined;
     }
-    return { schemaVersion: "clarification_questions.v0", questions: questions.slice(0, QUESTION_MAX) };
+    const blockingFields = new Set(
+      semanticIntentDraft.blockingUncertainties
+        .map((uncertainty) => uncertainty.field)
+        .filter((field) => !this.isSemanticFieldResolved(field, intentResolution))
+    );
+    const deduped = questions.questions.filter((question, index, rows) => {
+      if (!blockingFields.has(question.targetsSemanticField)) {
+        return false;
+      }
+      return rows.findIndex((candidate) =>
+        candidate.targetsSemanticField === question.targetsSemanticField &&
+        candidate.question === question.question
+      ) === index;
+    });
+    if (deduped.length === 0) {
+      return undefined;
+    }
+    return {
+      schemaVersion: "clarification_questions.v1",
+      questions: deduped.slice(0, QUESTION_MAX),
+    };
   }
 
   private buildFallbackWorkflowGuide(
@@ -891,39 +888,375 @@ export class SopIntentAbstractionBuilder {
 
   private buildExecutionGuide(
     runId: string,
-    workflowGuide: WorkflowGuide,
-    decisionModel: DecisionModel,
+    intentSeed: IntentSeed,
+    abstractionInput: AbstractionInput,
+    behaviorWorkflow: BehaviorWorkflow,
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    clarificationQuestions: ClarificationQuestionsV1 | undefined,
+    intentResolution: IntentResolution | undefined,
     status: CompactManifestStatus
-  ): ExecutionGuide {
+  ): ExecutionGuideV1 {
+    const semanticState = this.resolveSemanticState(intentSeed, abstractionInput, semanticIntentDraft, intentResolution);
+    const workflowOutline = this.buildWorkflowOutline(behaviorWorkflow, semanticIntentDraft);
+    const semanticConstraints = this.buildSemanticConstraints(semanticState, semanticIntentDraft);
+    const doneCriteria = this.buildDoneCriteria(semanticState, semanticIntentDraft);
+    const stepDetails = this.buildStepDetails(behaviorWorkflow, semanticIntentDraft);
+    const branchHints = this.buildBranchHints(behaviorWorkflow, semanticIntentDraft);
+    const unresolvedQuestions = this.buildUnresolvedQuestions(semanticIntentDraft, clarificationQuestions, intentResolution);
+
     return {
-      schemaVersion: "execution_guide.v0",
+      schemaVersion: "execution_guide.v1",
       runId,
       status,
       replayReady: status === "ready_for_replay",
-      goal: workflowGuide.goal,
-      scope: {
-        ...workflowGuide.scope,
-        goalType: decisionModel.goalType,
-        targetEntity: decisionModel.targetEntity,
+      generalPlan: {
+        goal: semanticState.goal,
+        scope: semanticState.scope,
+        workflowOutline,
+        doneCriteria,
+        semanticConstraints,
       },
-      workflow: workflowGuide.steps,
-      decisionRules: decisionModel.decisionRules,
-      doneCriteria: decisionModel.doneCriteria,
-      allowedAssumptions: this.buildAllowedAssumptions(decisionModel),
-      forbiddenOverfittingCues: [
-        "不要把 observed_examples 中的具体用户名、文本片段、回复全文当作通用规则",
-        "不要把单次示教中的局部页面文案直接当作全局完成条件",
-      ],
-      unresolvedUncertainties: decisionModel.uncertainFields,
+      detailContext: {
+        stepDetails,
+        branchHints,
+        resolutionNotes: intentResolution?.notes ?? [],
+        unresolvedQuestions,
+      },
     };
   }
 
-  private buildAllowedAssumptions(decisionModel: DecisionModel): string[] {
-    const assumptions = ["仅根据当前页面可见状态和结构化 guide 做决策"];
-    if (decisionModel.uncertainFields.some((field) => field.severity === "medium")) {
-      assumptions.push("允许在不影响目标范围、完成条件和提交动作的前提下使用保守策略");
+  private resolveSemanticState(
+    intentSeed: IntentSeed,
+    abstractionInput: AbstractionInput,
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    intentResolution?: IntentResolution
+  ): {
+    goal: string;
+    scope: string;
+    completion: string;
+    selection: string[];
+    skip: string[];
+    resolutionRules: string[];
+  } {
+    const resolvedFields = intentResolution?.resolvedFields ?? {};
+    const fallbackGoal = intentSeed.rawTask.trim() || "执行当前浏览器任务";
+    const goal =
+      this.readResolvedSemanticText(["taskIntentHypothesis", "target_identity"], resolvedFields) ??
+      semanticIntentDraft?.taskIntentHypothesis ??
+      fallbackGoal;
+    const scope =
+      this.readResolvedSemanticText(["scopeHypothesis", "target_scope", "selection_criteria"], resolvedFields) ??
+      semanticIntentDraft?.scopeHypothesis ??
+      `在 ${abstractionInput.site} 的 ${abstractionInput.surface} 工作区内处理与任务相关的对象。`;
+    const completion =
+      this.readResolvedSemanticText(["completionHypothesis", "done_criteria"], resolvedFields) ??
+      semanticIntentDraft?.completionHypothesis ??
+      "相关对象已按当前任务要求处理完成，并出现可回读的页面完成信号。";
+    const selection = this.mergeResolvedSemanticList(
+      semanticIntentDraft?.selectionHypotheses ?? [],
+      resolvedFields,
+      ["selectionHypotheses", "selection_criteria"]
+    );
+    const skip = this.mergeResolvedSemanticList(
+      semanticIntentDraft?.skipHypotheses ?? [],
+      resolvedFields,
+      ["skipHypotheses", "skip_condition"]
+    );
+    const resolutionRules = [
+      this.readResolvedSemanticText(["reply_style_policy"], resolvedFields),
+      this.readResolvedSemanticText(["actionPurposeHypotheses", "submit_requirement"], resolvedFields),
+    ].filter((item): item is string => Boolean(item));
+    return { goal, scope, completion, selection, skip, resolutionRules };
+  }
+
+  private buildWorkflowOutline(
+    behaviorWorkflow: BehaviorWorkflow,
+    semanticIntentDraft: SemanticIntentDraft | undefined
+  ): ExecutionGuideWorkflowOutlineStep[] {
+    const purposeByStep = this.buildPurposeIndex(semanticIntentDraft);
+    return behaviorWorkflow.steps.map((step) => ({
+      stepId: step.id,
+      primitive: step.primitive,
+      summary: step.summary,
+      purpose: purposeByStep.get(step.id) ?? step.summary,
+      evidenceRefs: step.evidenceRefs,
+    }));
+  }
+
+  private buildSemanticConstraints(
+    semanticState: {
+      selection: string[];
+      skip: string[];
+      resolutionRules: string[];
+    },
+    semanticIntentDraft: SemanticIntentDraft | undefined
+  ): ExecutionGuideSemanticConstraint[] {
+    const constraints: ExecutionGuideSemanticConstraint[] = [];
+    const pushConstraint = (
+      category: ExecutionGuideSemanticConstraint["category"],
+      statement: string | undefined
+    ): void => {
+      if (!statement || constraints.some((item) => item.category === category && item.statement === statement)) {
+        return;
+      }
+      constraints.push({
+        id: `constraint_${constraints.length + 1}`,
+        category,
+        statement,
+      });
+    };
+    for (const item of semanticState.selection) {
+      pushConstraint("selection", item);
     }
-    return assumptions;
+    for (const item of semanticState.skip) {
+      pushConstraint("skip", item);
+    }
+    for (const item of semanticState.resolutionRules) {
+      pushConstraint("resolution", item);
+    }
+    pushConstraint("guardrail", "不要把单次示教中的具体文案、用户名或 selector 直接提升为通用规则。");
+    if (!semanticIntentDraft) {
+      pushConstraint("guardrail", "当前语义草案缺失，只能把本 guide 作为保守参考，不能直接放行 replay。");
+    }
+    return constraints;
+  }
+
+  private buildDoneCriteria(
+    semanticState: { completion: string },
+    semanticIntentDraft: SemanticIntentDraft | undefined
+  ): string[] {
+    const criteria = [semanticState.completion];
+    if (semanticIntentDraft?.blockingUncertainties.length) {
+      criteria.push("若完成标准仍不清晰，先进入澄清而不是继续假设。");
+    }
+    return criteria;
+  }
+
+  private buildStepDetails(
+    behaviorWorkflow: BehaviorWorkflow,
+    semanticIntentDraft: SemanticIntentDraft | undefined
+  ): ExecutionGuideStepDetail[] {
+    const purposeByStep = this.buildPurposeIndex(semanticIntentDraft);
+    const branchPointSteps = new Set(
+      behaviorWorkflow.branchPoints
+        .map((signalId) => this.findBehaviorStepIdBySignal(behaviorWorkflow, signalId))
+        .filter((stepId): stepId is string => Boolean(stepId))
+    );
+    const loopSteps = new Set(
+      behaviorWorkflow.observedLoops
+        .map((signalId) => this.findBehaviorStepIdBySignal(behaviorWorkflow, signalId))
+        .filter((stepId): stepId is string => Boolean(stepId))
+    );
+    const submitSteps = new Set(behaviorWorkflow.submitPoints);
+    const verificationSteps = new Set(behaviorWorkflow.verificationPoints);
+    return behaviorWorkflow.steps.map((step) => ({
+      stepId: step.id,
+      primitive: step.primitive,
+      summary: step.summary,
+      purpose: purposeByStep.get(step.id) ?? step.summary,
+      evidenceRefs: step.evidenceRefs,
+      stepRole: this.resolveStepRole(step.id, branchPointSteps, loopSteps, submitSteps, verificationSteps),
+    }));
+  }
+
+  private buildBranchHints(
+    behaviorWorkflow: BehaviorWorkflow,
+    semanticIntentDraft: SemanticIntentDraft | undefined
+  ): ExecutionGuideBranchHint[] {
+    const hints: ExecutionGuideBranchHint[] = [];
+    const pushHint = (stepId: string | undefined, hint: string, relatedSemanticFields: string[]): void => {
+      if (!stepId || hints.some((item) => item.stepId === stepId && item.hint === hint)) {
+        return;
+      }
+      hints.push({
+        id: `branch_hint_${hints.length + 1}`,
+        stepId,
+        hint,
+        relatedSemanticFields,
+      });
+    };
+    for (const signalId of behaviorWorkflow.branchPoints) {
+      pushHint(
+        this.findBehaviorStepIdBySignal(behaviorWorkflow, signalId),
+        "遇到上下文切换或候选对象分流时，保持当前任务范围，不要把单次示教中的具体对象当成固定入口。",
+        ["scopeHypothesis", "selectionHypotheses"]
+      );
+    }
+    for (const signalId of behaviorWorkflow.observedLoops) {
+      pushHint(
+        this.findBehaviorStepIdBySignal(behaviorWorkflow, signalId),
+        "按当前选择范围逐个处理候选对象；若范围或停止条件不清晰，先看 unresolvedQuestions。",
+        ["scopeHypothesis", "completionHypothesis"]
+      );
+    }
+    for (const stepId of behaviorWorkflow.submitPoints) {
+      pushHint(stepId, "仅在当前对象满足发送/提交条件时执行该动作。", ["completionHypothesis"]);
+    }
+    for (const stepId of behaviorWorkflow.verificationPoints) {
+      pushHint(stepId, "提交后回读页面状态，确认是否出现完成信号或状态更新。", ["completionHypothesis"]);
+    }
+    if (hints.length === 0 && semanticIntentDraft?.selectionHypotheses.length) {
+      pushHint(behaviorWorkflow.steps[0]?.id, semanticIntentDraft.selectionHypotheses[0], ["selectionHypotheses"]);
+    }
+    return hints;
+  }
+
+  private buildUnresolvedQuestions(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    clarificationQuestions: ClarificationQuestionsV1 | undefined,
+    intentResolution?: IntentResolution
+  ): ExecutionGuideUnresolvedQuestion[] {
+    if (!semanticIntentDraft) {
+      return [
+        {
+          field: "semantic_intent_draft",
+          severity: "high",
+          reason: "语义草案缺失，execution_guide.v1 只能保守编译。",
+        },
+      ];
+    }
+    const questionByField = new Map<string, ClarificationQuestionV1>();
+    for (const question of clarificationQuestions?.questions ?? []) {
+      questionByField.set(question.targetsSemanticField, question);
+    }
+    return this.getUnresolvedSemanticUncertainties(semanticIntentDraft, intentResolution).map((uncertainty) => {
+      const question = questionByField.get(uncertainty.field);
+      return {
+        field: uncertainty.field,
+        severity: uncertainty.severity,
+        reason: uncertainty.reason,
+        question: question?.question,
+        priority: question?.priority,
+      };
+    });
+  }
+
+  private buildPurposeIndex(semanticIntentDraft: SemanticIntentDraft | undefined): Map<string, string> {
+    const index = new Map<string, string>();
+    for (const hypothesis of semanticIntentDraft?.actionPurposeHypotheses ?? []) {
+      if (!hypothesis.stepId || !hypothesis.purpose || index.has(hypothesis.stepId)) {
+        continue;
+      }
+      index.set(hypothesis.stepId, hypothesis.purpose);
+    }
+    return index;
+  }
+
+  private summarizeUncertaintyCounts(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    intentResolution: IntentResolution | undefined,
+    fallbackDecisionModel: DecisionModel
+  ): { high: number; medium: number; low: number } {
+    const uncertainties = semanticIntentDraft
+      ? [
+          ...this.getUnresolvedSemanticUncertainties(semanticIntentDraft, intentResolution),
+          ...semanticIntentDraft.nonBlockingUncertainties.filter(
+            (uncertainty) => !this.isSemanticFieldResolved(uncertainty.field, intentResolution)
+          ),
+        ]
+      : fallbackDecisionModel.uncertainFields;
+    return uncertainties.reduce(
+      (summary, uncertainty) => {
+        summary[uncertainty.severity] += 1;
+        return summary;
+      },
+      { high: 0, medium: 0, low: 0 }
+    );
+  }
+
+  private getUnresolvedSemanticUncertainties(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    intentResolution?: IntentResolution
+  ): SemanticUncertainty[] {
+    if (!semanticIntentDraft) {
+      return [];
+    }
+    return semanticIntentDraft.blockingUncertainties.filter(
+      (uncertainty) => !this.isSemanticFieldResolved(uncertainty.field, intentResolution)
+    );
+  }
+
+  private isSemanticFieldResolved(field: string, intentResolution?: IntentResolution): boolean {
+    if (!intentResolution) {
+      return false;
+    }
+    return this.semanticFieldAliases(field).some((candidate) =>
+      Object.prototype.hasOwnProperty.call(intentResolution.resolvedFields, candidate)
+    );
+  }
+
+  private semanticFieldAliases(field: string): string[] {
+    switch (field) {
+      case "taskIntentHypothesis":
+        return ["taskIntentHypothesis", "target_identity"];
+      case "scopeHypothesis":
+        return ["scopeHypothesis", "target_scope", "selection_criteria"];
+      case "completionHypothesis":
+        return ["completionHypothesis", "done_criteria"];
+      case "selectionHypotheses":
+        return ["selectionHypotheses", "selection_criteria"];
+      case "skipHypotheses":
+        return ["skipHypotheses", "skip_condition"];
+      case "actionPurposeHypotheses":
+        return ["actionPurposeHypotheses", "reply_style_policy", "submit_requirement"];
+      default:
+        return [field];
+    }
+  }
+
+  private readResolvedSemanticText(keys: string[], resolvedFields: Record<string, boolean | string>): string | undefined {
+    for (const key of keys) {
+      const value = resolvedFields[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+    return undefined;
+  }
+
+  private mergeResolvedSemanticList(
+    base: string[],
+    resolvedFields: Record<string, boolean | string>,
+    keys: string[]
+  ): string[] {
+    const merged = [...base];
+    for (const key of keys) {
+      const value = resolvedFields[key];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        continue;
+      }
+      const normalized = value.trim();
+      if (!merged.includes(normalized)) {
+        merged.push(normalized);
+      }
+    }
+    return merged;
+  }
+
+  private findBehaviorStepIdBySignal(behaviorWorkflow: BehaviorWorkflow, signalId: string): string | undefined {
+    return behaviorWorkflow.steps.find((step) => step.evidenceRefs.includes(signalId))?.id;
+  }
+
+  private resolveStepRole(
+    stepId: string,
+    branchPointSteps: Set<string>,
+    loopSteps: Set<string>,
+    submitSteps: Set<string>,
+    verificationSteps: Set<string>
+  ): ExecutionGuideStepDetail["stepRole"] {
+    if (submitSteps.has(stepId)) {
+      return "submit_point";
+    }
+    if (verificationSteps.has(stepId)) {
+      return "verification_point";
+    }
+    if (loopSteps.has(stepId)) {
+      return "loop";
+    }
+    if (branchPointSteps.has(stepId)) {
+      return "branch_point";
+    }
+    return "default";
   }
 
   private applyIntentResolution(decisionModel: DecisionModel, intentResolution?: IntentResolution): void {
@@ -980,37 +1313,53 @@ export class SopIntentAbstractionBuilder {
     }
   }
 
-  private ensureQuestionMapping(
-    decisionModel: DecisionModel,
-    clarificationQuestions: ClarificationQuestions | undefined
+  private ensureClarificationCoverage(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    clarificationQuestions: ClarificationQuestionsV1 | undefined,
+    intentResolution?: IntentResolution
   ): void {
-    if (!clarificationQuestions) {
-      const hasBlocking = decisionModel.uncertainFields.some((field) => this.isBlockingUncertainty(decisionModel.goalType, field));
-      if (hasBlocking) {
-        throw new Error("question_mapping_check failed: blocking uncertainty exists but no clarification_questions were generated");
-      }
+    if (!semanticIntentDraft) {
       return;
     }
-    const uncertainFieldSet = new Set(decisionModel.uncertainFields.map((field) => field.field));
+    const blockingFieldSet = new Set(
+      semanticIntentDraft.blockingUncertainties
+        .map((uncertainty) => uncertainty.field)
+        .filter((field) => !this.isSemanticFieldResolved(field, intentResolution))
+    );
+    if (blockingFieldSet.size === 0) {
+      return;
+    }
+    if (!clarificationQuestions || clarificationQuestions.questions.length === 0) {
+      throw new Error("clarification_coverage_check failed: blocking uncertainty exists but no clarification_questions were generated");
+    }
+    const coveredFields = new Set<string>();
     for (const question of clarificationQuestions.questions) {
-      if (!uncertainFieldSet.has(question.targetsField)) {
-        throw new Error(`question_mapping_check failed: missing uncertainField for ${question.targetsField}`);
+      if (!blockingFieldSet.has(question.targetsSemanticField)) {
+        throw new Error(
+          `clarification_coverage_check failed: missing blocking uncertainty for ${question.targetsSemanticField}`
+        );
+      }
+      coveredFields.add(question.targetsSemanticField);
+    }
+    for (const field of blockingFieldSet) {
+      if (!coveredFields.has(field)) {
+        throw new Error(`clarification_coverage_check failed: missing question for ${field}`);
       }
     }
   }
 
   private ensureManifestConsistency(
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    intentResolution: IntentResolution | undefined,
     decisionModel: DecisionModel,
     observedExamples: ObservedExamples,
     manifest: CompactManifest
   ): void {
-    const high = decisionModel.uncertainFields.filter((field) => field.severity === "high").length;
-    const medium = decisionModel.uncertainFields.filter((field) => field.severity === "medium").length;
-    const low = decisionModel.uncertainFields.filter((field) => field.severity === "low").length;
+    const counts = this.summarizeUncertaintyCounts(semanticIntentDraft, intentResolution, decisionModel);
     if (
-      manifest.quality.highUncertaintyCount !== high ||
-      manifest.quality.mediumUncertaintyCount !== medium ||
-      manifest.quality.lowUncertaintyCount !== low ||
+      manifest.quality.highUncertaintyCount !== counts.high ||
+      manifest.quality.mediumUncertaintyCount !== counts.medium ||
+      manifest.quality.lowUncertaintyCount !== counts.low ||
       manifest.quality.exampleCount !== observedExamples.examples.length
     ) {
       throw new Error("manifest_consistency_check failed: manifest quality counts do not match source artifacts");
@@ -1018,18 +1367,27 @@ export class SopIntentAbstractionBuilder {
   }
 
   private ensureReplayGate(
-    decisionModel: DecisionModel,
+    semanticIntentDraft: SemanticIntentDraft | undefined,
+    clarificationQuestions: ClarificationQuestionsV1 | undefined,
+    intentResolution: IntentResolution | undefined,
     status: CompactManifestStatus,
     pollutionDetected: boolean
   ): void {
-    const hasBlocking = decisionModel.uncertainFields.some((field) => this.isBlockingUncertainty(decisionModel.goalType, field));
-    if (status === "ready_for_replay" && (hasBlocking || pollutionDetected)) {
+    const hasBlocking = this.getUnresolvedSemanticUncertainties(semanticIntentDraft, intentResolution).length > 0;
+    const hasQuestions = (clarificationQuestions?.questions.length ?? 0) > 0;
+    if (status === "ready_for_replay" && (!semanticIntentDraft || hasBlocking || pollutionDetected || hasQuestions)) {
       throw new Error("replay_gate_check failed: manifest status is ready_for_replay but admission rules block replay");
     }
   }
 
-  private ensureExecutionGuideCompile(executionGuide: ExecutionGuide, status: CompactManifestStatus): void {
-    if (!executionGuide.goal || executionGuide.workflow.length === 0 || executionGuide.status !== status) {
+  private ensureExecutionGuideCompile(executionGuide: ExecutionGuideV1, status: CompactManifestStatus): void {
+    if (
+      executionGuide.status !== status ||
+      !executionGuide.generalPlan.goal ||
+      !executionGuide.generalPlan.scope ||
+      executionGuide.generalPlan.workflowOutline.length === 0 ||
+      executionGuide.detailContext.stepDetails.length === 0
+    ) {
       throw new Error("execution_guide_compile_check failed: execution guide is incomplete");
     }
   }
@@ -1047,20 +1405,23 @@ export class SopIntentAbstractionBuilder {
   }
 
   private resolveStatus(input: {
-    decisionModel: DecisionModel;
-    clarificationQuestions?: ClarificationQuestions;
+    semanticIntentDraft: SemanticIntentDraft | undefined;
+    clarificationQuestions?: ClarificationQuestionsV1;
     pollutionDetected: boolean;
-    agentDraftProvided: boolean;
+    intentResolution?: IntentResolution;
   }): CompactManifestStatus {
     if (input.pollutionDetected) {
       return "rejected";
     }
-    const hasBlocking = input.decisionModel.uncertainFields.some((field) => this.isBlockingUncertainty(input.decisionModel.goalType, field));
+    if (!input.semanticIntentDraft) {
+      return "rejected";
+    }
+    const hasBlocking = this.getUnresolvedSemanticUncertainties(input.semanticIntentDraft, input.intentResolution).length > 0;
     if (hasBlocking) {
       return input.clarificationQuestions ? "needs_clarification" : "rejected";
     }
-    if (!input.agentDraftProvided) {
-      return input.clarificationQuestions ? "needs_clarification" : "rejected";
+    if (input.clarificationQuestions?.questions.length) {
+      return "needs_clarification";
     }
     return "ready_for_replay";
   }
@@ -1205,42 +1566,6 @@ export class SopIntentAbstractionBuilder {
         (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim().length > 0
       )
     );
-  }
-
-  private buildClarificationQuestion(field: UncertainField, index: number): ClarificationQuestion {
-    const template = this.clarificationTemplate(field.field);
-    return {
-      id: `q_${index}_${field.field}`,
-      topic: template.topic,
-      question: template.question,
-      targetsField: field.field,
-      priority: field.severity === "high" ? "high" : "medium",
-    };
-  }
-
-  private clarificationTemplate(field: string): { topic: string; question: string } {
-    switch (field) {
-      case "target_scope":
-        return { topic: "scope", question: "当前任务到底要处理哪些对象，哪些对象不在范围内？" };
-      case "skip_condition":
-        return { topic: "completion", question: "哪些对象可以跳过，哪些对象必须继续处理？" };
-      case "done_criteria":
-        return { topic: "completion", question: "这个任务在页面上出现什么状态时，才算真正完成？" };
-      case "submit_requirement":
-        return { topic: "submission", question: "该任务是否必须执行发送或提交动作，成功后应看到什么信号？" };
-      case "selection_criteria":
-        return { topic: "selection", question: "在候选结果里，应按什么标准选择目标对象？" };
-      case "required_field_mapping":
-        return { topic: "field_mapping", question: "关键字段应该如何映射，哪些字段是必填的？" };
-      case "validation_expectation":
-        return { topic: "validation", question: "提交前需要满足哪些格式或校验要求？" };
-      case "reply_style_policy":
-        return { topic: "content_policy", question: "内容应按当前对象上下文生成，还是允许复用固定模板？" };
-      case "confirmation_boundary":
-        return { topic: "confirmation", question: "流程里哪些确认步骤必须人工核对后才能继续？" };
-      default:
-        return { topic: "intent", question: "请明确该字段的决策边界。" };
-    }
   }
 
   private deriveGoalType(abstractionInput: AbstractionInput): GoalType {
@@ -1535,6 +1860,27 @@ export class SopIntentAbstractionBuilder {
         return "iterate_collection";
       case "inspect_object":
         return "inspect_state";
+      case "edit_content":
+        return "edit_content";
+      case "submit_action":
+        return "submit_action";
+      case "verify_outcome":
+        return "verify_outcome";
+    }
+  }
+
+  private toAbstractionSignalKind(primitive: BehaviorPrimitive): AbstractionSignal["kind"] {
+    switch (primitive) {
+      case "open_surface":
+        return "open_surface";
+      case "switch_context":
+        return "switch_context";
+      case "locate_candidate":
+        return "locate_object";
+      case "iterate_collection":
+        return "iterate_collection";
+      case "inspect_state":
+        return "inspect_object";
       case "edit_content":
         return "edit_content";
       case "submit_action":

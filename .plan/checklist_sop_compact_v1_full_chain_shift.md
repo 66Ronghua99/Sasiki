@@ -12,15 +12,17 @@
 - [x] `.plan/20260309_sop_compact_v1_full_chain_shift.md` 已落盘
 - [x] 当前问题有样本证据：`artifacts/e2e/20260308_110124_276/*`
 - [x] 当前主设计引用仍保留：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+- [x] `run_id=20260308_110124_276` 已在 tightened `semantic_intent` prompt 下重新生成 `semantic_intent_draft.json` / `clarification_questions.json`，问题集足够清晰，可作为 Phase-3 输入
+- [x] `run_id=20260308_110124_276` 已生成 `execution_guide.v1`，并确认其包含 `generalPlan + detailContext`
 
 ## Implementation
-- [ ] 移除 `clarification_questions` 模板补齐
-- [ ] 建立 `blockingUncertainties -> clarification_questions` coverage gate
-- [ ] 定义 `execution_guide.v1` 的 `generalPlan + detailContext` schema
-- [ ] 切换 `execution_guide` 编译入口到 V1 artifacts
-- [ ] 将 V0 `decision_model/workflow_guide` 从 replay 主链路中降级为兼容参考
+- [x] 移除 `clarification_questions` 模板补齐
+- [x] 建立 `blockingUncertainties -> clarification_questions` coverage gate
+- [x] 定义 `execution_guide.v1` 的 `generalPlan + detailContext` schema
+- [x] 切换 `execution_guide` 编译入口到 V1 artifacts
+- [x] 将 V0 `decision_model/workflow_guide` 从 replay 主链路中降级为兼容参考
 
 ## Quality Gates
 - [x] 本轮仅做文档同步，不误报代码已完成
-- [ ] 进入实现后通过 `npm --prefix apps/agent-runtime run typecheck`
-- [ ] 进入实现后通过 `npm --prefix apps/agent-runtime run build`
+- [x] 进入实现后通过 `npm --prefix apps/agent-runtime run typecheck`
+- [x] 进入实现后通过 `npm --prefix apps/agent-runtime run build`

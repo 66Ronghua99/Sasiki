@@ -110,7 +110,7 @@ export class SopCompactService {
       guidePath: semanticGuidePath,
     });
     const intentResolution = await this.readIntentResolution(intentResolutionPath);
-    const abstraction = abstractionBuilder.build({
+    const initialAbstraction = abstractionBuilder.build({
       runId,
       trace,
       built,
@@ -124,7 +124,17 @@ export class SopCompactService {
       rawTask: trace.taskHint,
       behaviorEvidence,
       behaviorWorkflow,
-      observedExamples: abstraction.observedExamples,
+      observedExamples: initialAbstraction.observedExamples,
+    });
+    const abstraction = abstractionBuilder.build({
+      runId,
+      trace,
+      built,
+      generatedAt,
+      intentResolution,
+      agentDraft: structured.draft as StructuredAbstractionDraft | undefined,
+      semanticIntentDraft: semanticIntent.draft,
+      clarificationQuestions: semanticIntent.clarificationQuestions,
     });
 
     await this.persistSemanticOutputs(runDir, runId, semantic, structured, semanticIntent);

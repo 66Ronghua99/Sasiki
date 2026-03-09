@@ -27,10 +27,17 @@
 - HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
 - 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 - prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
+- prompt 结构治理：`semantic_intent_draft` 的输入顺序应优先给 `behavior_workflow`，再给去噪后的 evidence/examples；同时强制 `strict JSON + single-line string values`，可显著降低 MiniMax/OpenRouter 路径下的输出漂移与控制字符风险。
+- evidence 去噪治理：semantic prompt 摘要里应去掉 selector-only candidates、长 query URL、原始 selector 串等低语义密度噪声；在样本 `run_id=20260308_110124_276` 上，这样可把输入从约 `3.5k-4.1k` tokens 压到约 `2.36k-2.70k` tokens。
+- replay gate 真源治理：`execution_guide.v1` 接管后，`ready_for_replay` 必须由 `semantic_intent_draft.blockingUncertainties + clarification_questions + intent_resolution` 决定；不能再回退到 V0 `decision_model.uncertainFields`。
+- execution guide 编译治理：`execution_guide.v1` 应固定输出 `generalPlan + detailContext`，其中 `workflowOutline/stepDetails` 由 `behavior_workflow` 提供骨架，`goal/scope/doneCriteria/constraints` 由 `semantic_intent_draft` 与 `intent_resolution` 提供语义。
+- MiniMax 结构化稳定性治理：在 OpenRouter + MiniMax 的 strict JSON 路径上，`thinkingLevel=off` 比 `high` 更适合作为回归验收配置；高 thinking 可用于探索，但 ready-path 验收优先选更稳定的结构化配置。
 - OpenRouter 解析治理：当 `baseUrl` 指向 `openrouter.ai` 时，模型解析必须优先按 OpenAI-compatible 路径处理，并保留完整 OpenRouter model token；不能再被 `minimax/...` 这类 provider 前缀带到 `anthropic-messages` 等错误 API。
 - clarification ownership 治理：只要 `clarification_questions` 仍存在“模型问题 + 模板补题”混合路径，最终 question 风格和语义边界就会不一致；V1 必须改为 agent-owned，deterministic 只做 coverage check。
+- clarification coverage 治理：`clarification_questions` 的 coverage 真源必须是 `semantic_intent_draft.blockingUncertainties`；deterministic 只允许做 field-level normalize/filter，不能再按 fallback 模板自动补题。
 - step kind 稳定性治理：当 prompt 只靠自然语言描述枚举约束时，模型仍会输出 `click/select/edit` 等本体行为词；若最终 schema 仍依赖后处理翻译，说明结构契约层级还不对。
 - replay guide 分层治理：最终 `execution_guide` 不能只有通用流程，也不能只保留示教细节；run 阶段需要一个同时具备 `generalPlan + detailContext` 的单一消费工件，前者给方向，后者给局部动作线索与历史记忆访问。
+- legacy replay freeze 治理：在 `execution_guide.v1` 接管前，`execution_guide.v0` 不能再被标记成 `ready_for_replay`；否则会把仍依赖 `goalType/targetEntity` 的不完整 guide 提前放行。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
