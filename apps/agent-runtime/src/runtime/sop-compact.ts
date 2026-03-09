@@ -1,20 +1,19 @@
 /**
  * Deps: node:fs/promises, node:path, domain/sop-trace.ts, runtime/sop-rule-compact-builder.ts, runtime/sop-semantic-runner.ts, runtime/sop-compact-renderer.ts
  * Used By: index.ts
- * Last Updated: 2026-03-05
+ * Last Updated: 2026-03-09
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SemanticMode } from "../core/semantic-compactor.js";
 import type { IntentResolution } from "../domain/sop-compact-artifacts.js";
 import type { SopTrace } from "../domain/sop-trace.js";
 import { renderSopCompactMarkdown } from "./sop-compact-renderer.js";
-import { SopIntentAbstractionBuilder, type StructuredAbstractionDraft } from "./sop-intent-abstraction-builder.js";
+import { SopIntentAbstractionBuilder } from "./sop-intent-abstraction-builder.js";
 import { SopRuleCompactBuilder } from "./sop-rule-compact-builder.js";
 import { SopSemanticIntentRunner, type SemanticIntentDraftOutcome } from "./sop-semantic-intent-runner.js";
 import { SopSemanticRunner, type SopCompactSemanticOptions, type SemanticOutcome } from "./sop-semantic-runner.js";
-import { SopStructuredAbstractionRunner, type StructuredAbstractionOutcome } from "./sop-structured-abstraction-runner.js";
 
 interface SopCompactServiceOptions {
   semantic?: SopCompactSemanticOptions;
@@ -30,11 +29,6 @@ export interface SopCompactResult {
   behaviorWorkflowPath: string;
   semanticIntentDraftPath?: string;
   semanticIntentRawPath?: string;
-  structuredDraftPath?: string;
-  structuredRawPath?: string;
-  workflowGuideJsonPath: string;
-  workflowGuideMdPath: string;
-  decisionModelPath: string;
   observedExamplesPath: string;
   clarificationQuestionsPath?: string;
   intentResolutionPath?: string;
@@ -45,11 +39,18 @@ export interface SopCompactResult {
   semanticFallback: boolean;
   semanticGuidePath?: string;
   semanticIntentFallback: boolean;
-  structuredFallback: boolean;
   sourceSteps: number;
   compactSteps: number;
   tabs: string[];
 }
+
+const LEGACY_ARTIFACT_NAMES = [
+  "structured_abstraction_draft.json",
+  "structured_abstraction_raw.txt",
+  "workflow_guide.json",
+  "workflow_guide.md",
+  "decision_model.json",
+];
 
 export class SopCompactService {
   private readonly artifactsDir: string;
@@ -66,9 +67,6 @@ export class SopCompactService {
       thinkingLevel: "minimal",
     };
     this.ruleBuilder = new SopRuleCompactBuilder();
-    // process.stdout.write(
-      // `Initialized SopCompactService with artifactsDir=${this.artifactsDir} and semanticOptions=${JSON.stringify(this.semanticOptions)}\n`
-    // );
   }
 
   async compact(runId: string): Promise<SopCompactResult> {
@@ -81,11 +79,6 @@ export class SopCompactService {
     const behaviorWorkflowPath = path.join(runDir, "behavior_workflow.json");
     const semanticIntentDraftPath = path.join(runDir, "semantic_intent_draft.json");
     const semanticIntentRawPath = path.join(runDir, "semantic_intent_raw.txt");
-    const structuredDraftPath = path.join(runDir, "structured_abstraction_draft.json");
-    const structuredRawPath = path.join(runDir, "structured_abstraction_raw.txt");
-    const workflowGuideJsonPath = path.join(runDir, "workflow_guide.json");
-    const workflowGuideMdPath = path.join(runDir, "workflow_guide.md");
-    const decisionModelPath = path.join(runDir, "decision_model.json");
     const observedExamplesPath = path.join(runDir, "observed_examples.json");
     const clarificationQuestionsPath = path.join(runDir, "clarification_questions.json");
     const intentResolutionPath = path.join(runDir, "intent_resolution.json");
@@ -98,11 +91,6 @@ export class SopCompactService {
     const generatedAt = new Date().toISOString();
     const { abstractionInput } = abstractionBuilder.buildEvidenceInput(runId, trace, built, generatedAt);
     const { behaviorEvidence, behaviorWorkflow } = abstractionBuilder.buildBehaviorArtifactsFromEvidence(abstractionInput, trace);
-    const structured = await new SopStructuredAbstractionRunner(this.semanticOptions).run({
-      runId,
-      traceId: trace.traceId,
-      abstractionInput,
-    });
     const semantic = await new SopSemanticRunner(this.semanticOptions).run({
       runId,
       trace,
@@ -116,7 +104,6 @@ export class SopCompactService {
       built,
       generatedAt,
       intentResolution,
-      agentDraft: structured.draft as StructuredAbstractionDraft | undefined,
     });
     const semanticIntent = await new SopSemanticIntentRunner(this.semanticOptions).run({
       runId,
@@ -132,40 +119,21 @@ export class SopCompactService {
       built,
       generatedAt,
       intentResolution,
-      agentDraft: structured.draft as StructuredAbstractionDraft | undefined,
       semanticIntentDraft: semanticIntent.draft,
       clarificationQuestions: semanticIntent.clarificationQuestions,
     });
 
-    await this.persistSemanticOutputs(runDir, runId, semantic, structured, semanticIntent);
+    await this.persistSemanticOutputs(runDir, runId, semantic, semanticIntent);
     await writeFile(abstractionInputPath, `${JSON.stringify(abstraction.abstractionInput, null, 2)}\n`, "utf-8");
     await writeFile(behaviorEvidencePath, `${JSON.stringify(behaviorEvidence, null, 2)}\n`, "utf-8");
     await writeFile(behaviorWorkflowPath, `${JSON.stringify(behaviorWorkflow, null, 2)}\n`, "utf-8");
-    if (semanticIntent.draft) {
-      await writeFile(semanticIntentDraftPath, `${JSON.stringify(semanticIntent.draft, null, 2)}\n`, "utf-8");
-    }
-    if (semanticIntent.rawText) {
-      await writeFile(semanticIntentRawPath, `${semanticIntent.rawText.trim()}\n`, "utf-8");
-    }
-    if (structured.draft) {
-      await writeFile(structuredDraftPath, `${JSON.stringify(structured.draft, null, 2)}\n`, "utf-8");
-    }
-    if (structured.rawText) {
-      await writeFile(structuredRawPath, `${structured.rawText.trim()}\n`, "utf-8");
-    }
-    await writeFile(workflowGuideJsonPath, `${JSON.stringify(abstraction.workflowGuide, null, 2)}\n`, "utf-8");
-    await writeFile(workflowGuideMdPath, abstraction.workflowGuideMarkdown, "utf-8");
-    await writeFile(decisionModelPath, `${JSON.stringify(abstraction.decisionModel, null, 2)}\n`, "utf-8");
+    await this.syncOptionalJson(semanticIntentDraftPath, semanticIntent.draft);
+    await this.syncOptionalText(semanticIntentRawPath, semanticIntent.rawText);
     await writeFile(observedExamplesPath, `${JSON.stringify(abstraction.observedExamples, null, 2)}\n`, "utf-8");
-    if (abstraction.clarificationQuestions) {
-      await writeFile(
-        clarificationQuestionsPath,
-        `${JSON.stringify(abstraction.clarificationQuestions, null, 2)}\n`,
-        "utf-8"
-      );
-    }
+    await this.syncOptionalJson(clarificationQuestionsPath, abstraction.clarificationQuestions);
     await writeFile(executionGuidePath, `${JSON.stringify(abstraction.executionGuide, null, 2)}\n`, "utf-8");
     await writeFile(compactManifestPath, `${JSON.stringify(abstraction.manifest, null, 2)}\n`, "utf-8");
+    await this.cleanupLegacyArtifacts(runDir);
 
     const markdown = renderSopCompactMarkdown({
       runId,
@@ -187,11 +155,6 @@ export class SopCompactService {
       behaviorWorkflowPath,
       semanticIntentDraftPath: semanticIntent.draft ? semanticIntentDraftPath : undefined,
       semanticIntentRawPath: semanticIntent.rawText ? semanticIntentRawPath : undefined,
-      structuredDraftPath: structured.draft ? structuredDraftPath : undefined,
-      structuredRawPath: structured.rawText ? structuredRawPath : undefined,
-      workflowGuideJsonPath,
-      workflowGuideMdPath,
-      decisionModelPath,
       observedExamplesPath,
       clarificationQuestionsPath: abstraction.clarificationQuestions ? clarificationQuestionsPath : undefined,
       intentResolutionPath: intentResolution ? intentResolutionPath : undefined,
@@ -202,7 +165,6 @@ export class SopCompactService {
       semanticFallback: semantic.fallback,
       semanticGuidePath: semantic.guidePath,
       semanticIntentFallback: semanticIntent.fallback,
-      structuredFallback: structured.fallback,
       sourceSteps: trace.steps.length,
       compactSteps: built.stepCount,
       tabs: built.tabs,
@@ -227,28 +189,10 @@ export class SopCompactService {
     runDir: string,
     runId: string,
     semantic: SemanticOutcome,
-    structured: StructuredAbstractionOutcome,
     semanticIntent: SemanticIntentDraftOutcome
   ): Promise<void> {
     if (semantic.guidePath && semantic.guideMarkdown) {
       await writeFile(semantic.guidePath, semantic.guideMarkdown, "utf-8");
-    }
-    if (structured.mode !== "off") {
-      if (!structured.fallback) {
-        await this.appendRuntimeLog(runDir, "INFO", "structured_abstraction_succeeded", {
-          runId,
-          mode: structured.mode,
-          model: structured.model,
-          provider: structured.provider,
-          stopReason: structured.stopReason,
-        });
-      } else {
-        await this.appendRuntimeLog(runDir, "WARN", "structured_abstraction_fallback", {
-          runId,
-          mode: structured.mode,
-          reason: structured.error,
-        });
-      }
     }
     if (semanticIntent.mode !== "off") {
       if (!semanticIntent.fallback) {
@@ -286,6 +230,36 @@ export class SopCompactService {
       mode: semantic.mode,
       reason: semantic.error,
     });
+  }
+
+  private async syncOptionalJson(filePath: string, value: unknown): Promise<void> {
+    if (value === undefined) {
+      await this.removeIfExists(filePath);
+      return;
+    }
+    await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
+  }
+
+  private async syncOptionalText(filePath: string, value: string | undefined): Promise<void> {
+    if (!value?.trim()) {
+      await this.removeIfExists(filePath);
+      return;
+    }
+    await writeFile(filePath, `${value.trim()}\n`, "utf-8");
+  }
+
+  private async cleanupLegacyArtifacts(runDir: string): Promise<void> {
+    await Promise.all(
+      LEGACY_ARTIFACT_NAMES.map((artifactName) => this.removeIfExists(path.join(runDir, artifactName)))
+    );
+  }
+
+  private async removeIfExists(filePath: string): Promise<void> {
+    try {
+      await unlink(filePath);
+    } catch {
+      // Ignore missing files so re-runs can converge artifacts idempotently.
+    }
   }
 
   private async appendRuntimeLog(

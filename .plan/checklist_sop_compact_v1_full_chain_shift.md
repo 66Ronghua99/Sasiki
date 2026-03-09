@@ -21,8 +21,9 @@
 - [x] 定义 `execution_guide.v1` 的 `generalPlan + detailContext` schema
 - [x] 切换 `execution_guide` 编译入口到 V1 artifacts
 - [x] 将 V0 `decision_model/workflow_guide` 从 replay 主链路中降级为兼容参考
+- [x] 移除 `structured_abstraction/workflow_guide/decision_model` 的主线代码与落盘逻辑，并在 rerun 时清理 stale legacy artifacts
 
 ## Quality Gates
-- [x] 本轮仅做文档同步，不误报代码已完成
+- [x] 代码、工件与文档已同步，未误报阶段完成状态
 - [x] 进入实现后通过 `npm --prefix apps/agent-runtime run typecheck`
 - [x] 进入实现后通过 `npm --prefix apps/agent-runtime run build`

@@ -90,7 +90,7 @@
 - 不修改 runtime HITL 主链路
 - 不改 SOP 检索模块
 - 不追求一次性消灭所有 fallback
-- 不要求现在就删除所有 V0 中间工件
+- 不要求在切换前就删除所有 V0 中间工件；但在 V1 主链路稳定后应立即清理不再消费的 legacy 输出
 
 ## 6. New Architectural Direction
 ### 6.1 Deterministic Owns Only Three Things
@@ -223,11 +223,11 @@ V1 规则：
 
 ### 10.3 Phase-4
 目标：
-- 将 V0 `workflow_guide/decision_model` 从 replay 主链路中退役
+- 将 V0 `workflow_guide/decision_model` 从 replay 主链路中退役，并从主线输出中移除
 
 验收：
-- V0 工件仅作为历史/兼容参考
 - replay 主链路完全 V1 化
+- rerun 后样本目录不再残留新的 V0 输出，旧 legacy 文件会被自动清理
 
 ## 11. Acceptance Criteria
 1. `clarification_questions` 全量 agent-owned
@@ -251,3 +251,20 @@ V1 规则：
 1. 先把 `clarification_questions` 改成 agent-owned
 2. 再冻结 `execution_guide.v1` 的 `generalPlan + detailContext` schema
 3. 最后切换 replay 主编译入口到 V1
+
+## 14. 2026-03-09 Legacy Cleanup Follow-up
+在 `execution_guide.v1` 接管 replay 主编译入口后，继续保留 `structured_abstraction_draft`、`workflow_guide`、`decision_model` 的双写只会增加两类噪声：
+- 样本目录会继续出现“实际已废弃但仍然存在”的旧工件，影响后续 compact-stage HITL 阅读
+- builder / service / manifest 会被迫长期保留 V0 合并和兼容分支，模糊 V1 真源边界
+
+因此主线收口规则更新为：
+- compact 主链路只保留 `abstraction_input`、`behavior_evidence`、`behavior_workflow`、`semantic_intent_draft`、`observed_examples`、`clarification_questions`、`intent_resolution`、`execution_guide`、`compact_manifest`
+- `compact_manifest` 升级到 `v1`，只声明当前真实在用的 V1 artifacts
+- rerun `sop-compact` 时自动删除旧的 `structured_abstraction*`、`workflow_guide*`、`decision_model.json`
+
+这一步完成后，下一阶段 compact-stage HITL 就可以只围绕：
+- `execution_guide.detailContext.unresolvedQuestions`
+- `clarification_questions.json`
+- `intent_resolution.json`
+
+不再需要在一堆 legacy 中间件里辨认真正要回答的语义问题。

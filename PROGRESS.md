@@ -49,10 +49,10 @@
 ## TODO
 - `P0-NEXT` SOP Compact V1 全链路切换：
   - 目标：验证 `intent_resolution` 接入后，`execution_guide.v1` 能从 `needs_clarification` 正确转为 `ready_for_replay`
-  - 约束：status/replay gate 必须继续由 V1 semantic 真源驱动；V0 `workflow_guide/decision_model` 仅保留为历史/兼容参考
+  - 约束：status/replay gate 必须继续由 V1 semantic 真源驱动；compact 主链路不再回写 `structured_abstraction/workflow_guide/decision_model`
   - 验收：带 `intent_resolution` 的样本能让 `execution_guide.v1` 保持 `generalPlan + detailContext` 不变形，并在 blocking semantics 被解决后放行 `replayReady=true`
-  - 当前状态：`run_id=20260308_110124_276` 已成功生成 `execution_guide.v1`，并由 `semantic_intent_draft + clarification_questions` 驱动 `needs_clarification`
-  - 当前下一步：补一条最小 `intent_resolution` 样本并回放，冻结 `semantic field -> resolution field -> replay gate` 的映射与 ready-path 验收口径
+  - 当前状态：`run_id=20260308_110124_276` 已成功生成 `execution_guide.v1`，并由 `semantic_intent_draft + clarification_questions` 驱动 `needs_clarification`；legacy 输出链已从主线移除
+  - 当前下一步：在清爽的 V1 artifact 集上补一条最小 `intent_resolution` 样本并回放，冻结 `semantic field -> resolution field -> replay gate` 的映射与 ready-path 验收口径
   - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md` + `.plan/checklist_sop_compact_v1_full_chain_shift.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -65,6 +65,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 SOP Compact V1 主链路 legacy cleanup（为 compact-stage HITL 清场）：
+  - `sop-compact` 不再调用 `structured_abstraction` runner，也不再落盘 `structured_abstraction_draft/raw`
+  - `workflow_guide.json`、`workflow_guide.md`、`decision_model.json` 已从主线产物与 manifest 中移除
+  - rerun `sop-compact` 时会自动清理上述 legacy artifacts，避免旧文件继续污染样本目录
+  - `compact_manifest` 已升级为 `v1`，当前只声明 V1 主链路实际使用的 artifacts
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 SOP Compact V1 Full-Chain Shift Phase-2（agent-owned clarification + coverage gate）：
   - `semantic_intent_draft` prompt 现已要求模型同时返回 `clarificationQuestions`，并归一化落盘为 `clarification_questions.v1`
   - 已移除 `clarification_questions` 的模板补齐；coverage gate 改为校验 `semantic_intent_draft.blockingUncertainties -> clarification_questions`
@@ -75,7 +81,7 @@
 - 已完成 SOP Compact V1 Full-Chain Shift Phase-3（`execution_guide.v1` 接管 replay 主编译入口）：
   - `execution_guide.json` 已切为 `execution_guide.v1`，包含 `generalPlan + detailContext`，不再输出 `goalType/targetEntity`
   - replay status 与 compile gate 已切到 `semantic_intent_draft.blockingUncertainties + clarification_questions + intent_resolution`
-  - V0 `workflow_guide/decision_model` 继续落盘，但仅作为历史/兼容参考，不再主导 replay-ready 判定
+  - 迁移期曾保留 V0 `workflow_guide/decision_model` 作为对照；当前主线已完成清理，不再继续双写
   - 样本复验：`run_id=20260308_110124_276` 在 `thinkingLevel=off` 下成功生成 `execution_guide.v1`，状态为 `needs_clarification`
   - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 SOP Compact 当前问题归因与 V1 全链路切换设计冻结：

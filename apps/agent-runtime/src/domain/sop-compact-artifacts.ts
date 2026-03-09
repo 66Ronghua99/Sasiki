@@ -1,44 +1,10 @@
 /**
  * Deps: none
- * Used By: runtime/sop-compact.ts, runtime/sop-intent-abstraction-builder.ts
- * Last Updated: 2026-03-08
+ * Used By: runtime/sop-compact.ts, runtime/sop-intent-abstraction-builder.ts, runtime/sop-semantic-intent-runner.ts
+ * Last Updated: 2026-03-09
  */
 
-export type WorkflowStepKind =
-  | "navigate"
-  | "iterate_collection"
-  | "filter"
-  | "state_change"
-  | "decision_gate"
-  | "conditional_action"
-  | "verification";
-
-export type GoalType =
-  | "single_object_update"
-  | "collection_processing"
-  | "search_and_select"
-  | "form_submission"
-  | "multi_step_transaction";
-
-export type TargetEntity =
-  | "conversation_thread"
-  | "product"
-  | "order"
-  | "listing"
-  | "form"
-  | "generic_page_object";
-
-export type RuleSource =
-  | "intent_seed"
-  | "inferred_from_trace"
-  | "inferred_from_examples"
-  | "human_clarified"
-  | "default_rule"
-  | "uncertain";
-
 export type RuleConfidence = "high" | "medium" | "low";
-export type UncertainSeverity = "high" | "medium" | "low";
-export type ClarificationPriority = "high" | "medium";
 export type CompactManifestStatus = "draft" | "needs_clarification" | "ready_for_replay" | "rejected";
 export type EvidenceSignalKind =
   | "open_surface"
@@ -88,76 +54,18 @@ export interface IntentSeed {
   capturedAt: string;
 }
 
-export interface WorkflowGuideStep {
-  id: string;
-  kind: WorkflowStepKind;
-  summary: string;
-}
-
-export interface WorkflowGuide {
-  schemaVersion: "workflow_guide.v0";
-  taskName: string;
-  goal: string;
-  scope: {
-    site: string;
-    surface: string;
-    targetCollection: string;
-  };
-  preconditions: string[];
-  steps: WorkflowGuideStep[];
-  completionSignals: string[];
-}
-
-export interface DecisionRuleEntry {
-  id: string;
-  rule?: string;
-  condition?: string;
-  action?: string;
-  source: RuleSource;
-  confidence: RuleConfidence;
-}
-
-export interface UncertainField {
-  field: string;
-  severity: UncertainSeverity;
-  reason: string;
-}
-
-export interface DecisionModel {
-  schemaVersion: "decision_model.v0";
-  goalType: GoalType;
-  targetEntity: TargetEntity;
-  selectionRules: DecisionRuleEntry[];
-  decisionRules: DecisionRuleEntry[];
-  doneCriteria: DecisionRuleEntry[];
-  uncertainFields: UncertainField[];
-}
-
 export interface ObservedExample {
   id: string;
-  entityType: TargetEntity;
+  entityType: string;
   observedSignals: Record<string, string>;
   observedAction: Record<string, string>;
   exampleOnly: true;
 }
 
 export interface ObservedExamples {
-  schemaVersion: "observed_examples.v0";
+  schemaVersion: "observed_examples.v1";
   examples: ObservedExample[];
   antiPromotionRules: string[];
-}
-
-export interface ClarificationQuestion {
-  id: string;
-  topic: string;
-  question: string;
-  targetsField: string;
-  priority: ClarificationPriority;
-}
-
-export interface ClarificationQuestions {
-  schemaVersion: "clarification_questions.v0";
-  questions: ClarificationQuestion[];
 }
 
 export interface IntentResolution {
@@ -168,14 +76,14 @@ export interface IntentResolution {
 }
 
 export interface CompactManifest {
-  schemaVersion: "compact_manifest.v0";
+  schemaVersion: "compact_manifest.v1";
   runId: string;
   status: CompactManifestStatus;
   artifacts: {
     abstractionInput: string;
-    workflowGuideJson: string;
-    workflowGuideMd: string | null;
-    decisionModel: string;
+    behaviorEvidence: string;
+    behaviorWorkflow: string;
+    semanticIntentDraft: string | null;
     observedExamples: string;
     clarificationQuestions: string | null;
     intentResolution: string | null;
@@ -188,22 +96,4 @@ export interface CompactManifest {
     exampleCount: number;
     pollutionDetected: boolean;
   };
-}
-
-export interface ExecutionGuide {
-  schemaVersion: "execution_guide.v0";
-  runId: string;
-  status: CompactManifestStatus;
-  replayReady: boolean;
-  goal: string;
-  scope: WorkflowGuide["scope"] & {
-    goalType: GoalType;
-    targetEntity: TargetEntity;
-  };
-  workflow: WorkflowGuideStep[];
-  decisionRules: DecisionRuleEntry[];
-  doneCriteria: DecisionRuleEntry[];
-  allowedAssumptions: string[];
-  forbiddenOverfittingCues: string[];
-  unresolvedUncertainties: UncertainField[];
 }
