@@ -1,12 +1,21 @@
 /**
  * Deps: runtime/*, domain/agent-types.ts
  * Used By: npm scripts (dev/build runtime entry)
- * Last Updated: 2026-03-06
+ * Last Updated: 2026-03-09
  */
+import { createInterface } from "node:readline/promises";
+import process from "node:process";
+
 import type { RuntimeMode } from "./domain/agent-types.js";
 import type { SemanticMode } from "./core/semantic-compactor.js";
 import { WorkflowRuntime } from "./runtime/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
+import {
+  SopCompactClarificationService,
+  type SopCompactClarificationAnswer,
+  type SopCompactClarificationRequest,
+  type SopCompactClarificationResult,
+} from "./runtime/sop-compact-clarification.js";
 import { SopCompactService } from "./runtime/sop-compact.js";
 import { SopCompactHitlService } from "./runtime/sop-compact-hitl.js";
 
@@ -34,7 +43,17 @@ interface SopCompactHitlCliArguments {
   rerun: boolean;
 }
 
-type CliArguments = RuntimeCliArguments | SopCompactCliArguments | SopCompactHitlCliArguments;
+interface SopCompactClarifyCliArguments {
+  command: "sop-compact-clarify";
+  configPath?: string;
+  runId: string;
+}
+
+type CliArguments =
+  | RuntimeCliArguments
+  | SopCompactCliArguments
+  | SopCompactHitlCliArguments
+  | SopCompactClarifyCliArguments;
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
@@ -75,6 +94,21 @@ async function main(): Promise<void> {
             notes: args.notes,
             rerun: args.rerun,
           });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+
+  if (args.command === "sop-compact-clarify") {
+    const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
+    const service = new SopCompactClarificationService(config.artifactsDir, {
+      mode: config.semanticMode,
+      timeoutMs: config.semanticTimeoutMs,
+      model: config.model,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
+      thinkingLevel: config.thinkingLevel,
+    });
+    const result = await runSopCompactClarifyCli(service, args.runId);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
@@ -129,6 +163,9 @@ function parseCliArguments(argv: string[]): CliArguments {
   }
   if (argv[0] === "sop-compact-hitl") {
     return parseSopCompactHitlArguments(argv.slice(1));
+  }
+  if (argv[0] === "sop-compact-clarify") {
+    return parseSopCompactClarifyArguments(argv.slice(1));
   }
   return parseRuntimeArguments(argv);
 }
@@ -280,6 +317,43 @@ function parseSopCompactHitlArguments(argv: string[]): SopCompactHitlCliArgument
   };
 }
 
+function parseSopCompactClarifyArguments(argv: string[]): SopCompactClarifyCliArguments {
+  let configPath: string | undefined;
+  let runId: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--config" || arg === "-c") {
+      configPath = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--config=")) {
+      configPath = arg.slice("--config=".length);
+      continue;
+    }
+    if (arg === "--run-id" || arg === "-r") {
+      runId = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--run-id=")) {
+      runId = arg.slice("--run-id=".length);
+      continue;
+    }
+    if (!runId) {
+      runId = arg;
+    }
+  }
+  if (!runId?.trim()) {
+    throw new Error("missing run id. usage: sop-compact-clarify --run-id <run_id>");
+  }
+  return {
+    command: "sop-compact-clarify",
+    configPath,
+    runId: runId.trim(),
+  };
+}
+
 function parseMode(value: string | undefined): RuntimeMode {
   if (value === "run" || value === "observe") {
     return value;
@@ -316,9 +390,87 @@ function parseResolutionUpdate(value: string | undefined): { field: string; valu
 
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n  npm run dev -- sop-compact-hitl --run-id <run_id> [--set field=value] [--note text] [--rerun] [--config path]\n"
+    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n  npm run dev -- sop-compact-clarify --run-id <run_id> [--config path]\n  npm run dev -- sop-compact-hitl --run-id <run_id> [--set field=value] [--note text] [--rerun] [--config path]\n"
   );
   process.exit(1);
+}
+
+async function runSopCompactClarifyCli(
+  service: SopCompactClarificationService,
+  runId: string
+): Promise<SopCompactClarificationResult> {
+  const initial = await service.start({ runId });
+  if (initial.kind === "clarification_result") {
+    return initial;
+  }
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    let request: SopCompactClarificationRequest | undefined = initial;
+    while (request) {
+      process.stdout.write(
+        `\n[compact-stage HITL] round ${request.round}/${request.maxRounds}, remaining blockers: ${request.remainingBlockingKeys.join(", ")}\n`
+      );
+      const answers: SopCompactClarificationAnswer[] = [];
+      let deferred = false;
+      for (const question of request.questions) {
+        process.stdout.write(`\n[${question.priority}] ${question.prompt}\nreason: ${question.reason}\n`);
+        while (true) {
+          const raw = (await rl.question("answer (/skip to skip, /defer to stop this round): ")).trim();
+          if (!raw) {
+            continue;
+          }
+          if (raw === "/skip") {
+            answers.push({
+              questionId: question.questionId,
+              decision: "skip",
+            });
+            break;
+          }
+          if (raw === "/defer" || raw === "/stop") {
+            answers.push({
+              questionId: question.questionId,
+              decision: "defer",
+            });
+            deferred = true;
+            break;
+          }
+          answers.push({
+            questionId: question.questionId,
+            decision: "answer",
+            answer: raw,
+          });
+          break;
+        }
+        if (deferred) {
+          break;
+        }
+      }
+      const result = await service.submitAnswers({
+        runId,
+        round: request.round,
+        maxRounds: request.maxRounds,
+        answers,
+      });
+      if (
+        result.status === "needs_clarification" &&
+        result.exitReason === "remaining_blockers" &&
+        result.clarificationRequest
+      ) {
+        request = result.clarificationRequest;
+        continue;
+      }
+      return result;
+    }
+  } finally {
+    rl.close();
+  }
+
+  throw new Error("clarification loop exited without final result");
 }
 
 main().catch((error) => {

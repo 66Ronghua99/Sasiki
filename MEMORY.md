@@ -29,6 +29,15 @@
 - legacy 退役治理：一旦 `execution_guide.v1` 已接管 replay 主链路，就应尽快移除 `structured_abstraction/workflow_guide/decision_model` 的双写和落盘；继续保留只会让样本目录、manifest 和后续 compact-stage HITL 边界继续变脏。
 - compact-stage HITL 目录治理：若外部 artifact 目录不在当前 workspace，可优先把常用样本复制到仓库内 `artifacts/e2e/<run_id>` 再做 HITL 验证；这样既避免 sandbox 写权限摩擦，也能让后续 CLI/脚本只围绕当前 repo 自给自足。
 - compact-stage HITL 入口治理：最小可用形态先做 `inspect unresolved questions + merge intent_resolution` 的 CLI，不要一开始就耦合 runtime 级自动交互；等字段映射与 ready-path 稳定后，再升级成 question-driven 交互入口。
+- compact-stage HITL 内联化治理：一旦离线 `inspect/resolve` 已验证 `intent_resolution -> recompile` ready-path，下一阶段主目标应切换为“同一条 compact workflow 内完成提问与回答”；离线 CLI 只保留为 debug/backfill，不再继续代表产品主路径。
+- HITL contract 治理：用户输入层应只暴露 `questionId + answer` 心智，不应暴露 `resolvedFields` 等内部字段；内部映射继续落在 `intent_resolution`，并保持后续 V1 compile/gate 真源不变。
+- inline loop 终止治理：compact-stage HITL 必须有显式终止条件，至少覆盖 `maxRounds`、`user_deferred`、`no_progress`；否则实现层很容易退化成无限等待或隐式 skip。
+- question merge 治理：当 `unresolvedQuestions` 与 `clarification_questions` 同时存在时，必须固定“前者决定 blocking membership/order，后者只补 phrasing”的主从关系，不能在实现里临时按字符串内容拼接排序。
+- recompile failure 治理：用户答案一旦已写入 `intent_resolution.json`，即使模型不可用或网络超时，也应以结构化 `recompile_failed` 退出并保留已写入结果，不能静默丢失人工澄清。
+- contract-first 回归治理：`compact-stage HITL` 的 request/answer/result contract 可先在“已有 `semantic_intent_draft` 的 deterministic clean sample”上验证，先证明 service 逻辑正确，再单独验证 live semantic recompile。
+- live semantic 验收治理：`sop-compact-clarify` 的成功 ready-path 与 failure-path 要分开验收；当外部 semantic endpoint 持续 `Connection error` 时，只能宣称 failure-path 已验证，不能误报整条 inline loop 已 E2E 验收。
+- 闭环完成治理：当 `compact_manifest.status=ready_for_replay` 与 `execution_guide.replayReady=true` 已在 clean sample 上同时成立时，应立即把 `SOP Compact` 阶段从 `P0-NEXT` 移出，避免 `NEXT_STEP` 继续指向已完成目标。
+- 字段语义提问治理：即使主闭环通过，若用户回答把 `scope` 答成“回复策略”、把 `doneCriteria` 答成“处理范围”，也说明问题文案仍有字段语义漂移；这类体验问题应进入下一阶段优化，而不应阻塞当前闭环完成判定。
 - prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
 - prompt 结构治理：`semantic_intent_draft` 的输入顺序应优先给 `behavior_workflow`，再给去噪后的 evidence/examples；同时强制 `strict JSON + single-line string values`，可显著降低 MiniMax/OpenRouter 路径下的输出漂移与控制字符风险。
 - evidence 去噪治理：semantic prompt 摘要里应去掉 selector-only candidates、长 query URL、原始 selector 串等低语义密度噪声；在样本 `run_id=20260308_110124_276` 上，这样可把输入从约 `3.5k-4.1k` tokens 压到约 `2.36k-2.70k` tokens。

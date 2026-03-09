@@ -14,6 +14,8 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
+  - Compact-stage HITL Inline Loop：`.plan/20260309_compact_stage_hitl_inline_loop.md`
+  - Compact-stage HITL Inline Loop 清单：`.plan/checklist_compact_stage_hitl_inline_loop.md`
   - SOP Compact V1 Full-Chain Shift：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
   - SOP Compact V1 Full-Chain Shift 清单：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
   - SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
@@ -47,13 +49,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` Compact-stage HITL 最小入口升级：
-  - 目标：把当前 `sop-compact-hitl` 从 file-based CLI 升级成 question-driven 入口，直接围绕 `unresolvedQuestions/clarification_questions` 提示用户回答
-  - 约束：status/replay gate 仍由 V1 semantic 真源驱动；不得重新引入 `workflow_guide/decision_model` 旧链路
-  - 验收：用户无需手写 `intent_resolution.json` 或手工拼 `--set` 字段名，也能在当前仓库内完成一轮 compact-stage HITL 澄清并得到新的 `execution_guide.v1`
-  - 当前状态：最小 CLI 已可 inspect unresolved questions，也可写入 `intent_resolution.json`；`run_id=20260308_110124_276` 已在本仓库 `artifacts/e2e` 下完成本地化
-  - 当前下一步：基于 `execution_guide.detailContext.unresolvedQuestions` 生成交互式问题顺序和字段映射，减少人工记忆 field name
-  - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md` + `.plan/checklist_sop_compact_v1_full_chain_shift.md`
+- `P0-NEXT` 检索能力模块化（独立迭代，不阻塞已完成的 compact 主闭环）：
+  - 目标：将 SOP 检索从当前消费注入流程中解耦为独立模块，收口召回/排序/归一化匹配边界
+  - 约束：不回退 `execution_guide.v1` 单一消费工件；不破坏当前 `sop-compact-clarify` / `sop-compact-hitl` 的 asset 目录约定
+  - 验收：形成独立设计与最小闭环，实现 pinned 与检索两条消费路径的边界清晰化
+  - 当前状态：`SOP Compact` 主闭环已完成，当前可以切到独立模块化阶段
+  - 证据：当前 compact 交付已冻结在 `.plan/20260309_compact_stage_hitl_inline_loop.md` + `.plan/checklist_compact_stage_hitl_inline_loop.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 后续单独优化召回/排序/归一化匹配策略
@@ -65,6 +66,26 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Compact-stage HITL inline loop 的 live ready-path 验收：
+  - 样本：`artifacts/e2e/20260308_110124_276_inline_try1`
+  - 结果：`compact_manifest.status=ready_for_replay`，`execution_guide.replayReady=true`
+  - 这证明主路径已实现：`任务识别 -> 提问 -> 用户回答 -> 自动 recompile -> execution_guide.v1`
+  - 说明：当前样本中的 `scopeHypothesis` 回答语义仍可继续优化，但不影响本阶段闭环完成
+  - 证据：`.plan/20260309_compact_stage_hitl_inline_loop.md` / `.plan/checklist_compact_stage_hitl_inline_loop.md`
+- 已完成 Compact-stage HITL inline loop 的 contract-first 实现：
+  - 新增独立于 CLI 的 `SopCompactClarificationService`，负责 `clarificationRequest -> questionId/answer -> clarificationResult`
+  - 新增单命令入口 `sop-compact-clarify`，在同一条 workflow 内完成首轮 compact、提问、回写 `intent_resolution.json` 与自动 recompile
+  - 已固定问题合并规则：`unresolvedQuestions` 决定 inclusion/order，`clarification_questions` 只补 phrasing
+  - 已固定 loop 控制：`maxRounds=2`、`user_deferred`、`no_progress`、`recompile_failed`
+  - deterministic contract 验证已完成：`artifacts/e2e/20260308_110124_276_inline_deterministic`
+  - live failure-path 验证已完成：`artifacts/e2e/20260308_110124_276_inline_clean` / `artifacts/e2e/20260308_110124_276_inline_qwen`
+  - live ready-path 验证已完成：`artifacts/e2e/20260308_110124_276_inline_try1`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已冻结 Compact-stage HITL Inline Loop 需求与迁移边界：
+  - 明确当前离线 `sop-compact-hitl` 证明的是能力闭环，不是目标交互形态
+  - 下一阶段主目标改为：`任务识别 -> 不确定项提问 -> 用户回答 -> 自动 recompile -> execution_guide.v1`
+  - 已冻结最小架构：不引入第二个 refinement agent；继续复用 `intent_resolution` 与 V1 compile/gate 真源
+  - 证据：`.plan/20260309_compact_stage_hitl_inline_loop.md` / `.plan/checklist_compact_stage_hitl_inline_loop.md`
 - 已完成 Compact-stage HITL 最小 CLI 入口（本地 repo 验证版）：
   - 新增 `sop-compact-hitl` CLI，可直接 inspect `execution_guide.detailContext.unresolvedQuestions`
   - CLI 支持通过 `--set field=value` / `--note ...` 写入或合并 `intent_resolution.json`

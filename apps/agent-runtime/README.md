@@ -36,17 +36,22 @@ Compact one recorded run into structured SOP assets plus high-level markdown:
 npm run dev -- sop-compact --run-id 20260305_120050_475
 ```
 
+Run the inline compact-stage clarification workflow in one command:
+```bash
+npm run dev -- sop-compact-clarify --run-id 20260308_110124_276
+```
+
 Enable semantic enhancement (`off|auto|on`, default from config):
 ```bash
 npm run dev -- sop-compact --run-id 20260305_120050_475 --semantic auto
 ```
 
-Inspect compact-stage HITL questions from a local artifact run:
+Inspect compact-stage HITL questions from a local artifact run (`debug/backfill` only):
 ```bash
 npm run dev -- sop-compact-hitl --run-id 20260308_110124_276
 ```
 
-Write/merge `intent_resolution.json` through CLI and keep the artifact in the current repo:
+Write/merge `intent_resolution.json` through CLI and keep the artifact in the current repo (`debug/backfill` only):
 ```bash
 npm run dev -- sop-compact-hitl --run-id 20260308_110124_276 --set done_criteria="当前视图内所有待回复会话都已处理完" --set selection_criteria="只处理当前视图内待回复会话" --note "validated locally in repo"
 ```
@@ -173,9 +178,13 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   - `runtime.log`
 
 Compact-stage HITL notes:
-- `sop-compact-hitl` reads `execution_guide.detailContext.unresolvedQuestions` and optional `clarification_questions.json`
-- `--set field=value` merges into `intent_resolution.json`
-- `--rerun` will write the resolution first and then rerun `sop-compact`
+- `sop-compact-clarify` is now the main inline path: it runs `sop-compact`, asks clarification questions in the same workflow, writes `intent_resolution.json`, then auto-recompiles.
+- Question ordering is driven by `execution_guide.detailContext.unresolvedQuestions`; optional `clarification_questions.json` only contributes phrasing.
+- The inline loop stops at `maxRounds=2`, `user_deferred`, `no_progress`, or `recompile_failed`.
+- `sop-compact-hitl` remains available as `debug/backfill` tooling:
+  - it reads `execution_guide.detailContext.unresolvedQuestions` and optional `clarification_questions.json`
+  - `--set field=value` merges into `intent_resolution.json`
+  - `--rerun` will write the resolution first and then rerun `sop-compact`
 
 Observe trace notes:
 - Multi-tab flows are supported in recording.
