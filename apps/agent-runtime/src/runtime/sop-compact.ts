@@ -66,9 +66,9 @@ export class SopCompactService {
       thinkingLevel: "minimal",
     };
     this.ruleBuilder = new SopRuleCompactBuilder();
-    process.stdout.write(
-      `Initialized SopCompactService with artifactsDir=${this.artifactsDir} and semanticOptions=${JSON.stringify(this.semanticOptions)}\n`
-    );
+    // process.stdout.write(
+      // `Initialized SopCompactService with artifactsDir=${this.artifactsDir} and semanticOptions=${JSON.stringify(this.semanticOptions)}\n`
+    // );
   }
 
   async compact(runId: string): Promise<SopCompactResult> {

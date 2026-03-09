@@ -1,5 +1,10 @@
 # Checklist: SOP Compact Behavior / Semantics Split v1
 
+> [!NOTE]
+> **基础清单** | 更新日期：2026-03-09
+> 本清单保留为 V1 基础分层与早期迁移记录。
+> 当前更高优先级的全链路切换清单见：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
+
 ## Design Freeze
 - [x] 已归档 V0 设计文档并给出替代路径
 - [x] 已说明 V0 归档原因

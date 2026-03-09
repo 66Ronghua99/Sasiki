@@ -28,6 +28,9 @@
 - 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 - prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
 - OpenRouter 解析治理：当 `baseUrl` 指向 `openrouter.ai` 时，模型解析必须优先按 OpenAI-compatible 路径处理，并保留完整 OpenRouter model token；不能再被 `minimax/...` 这类 provider 前缀带到 `anthropic-messages` 等错误 API。
+- clarification ownership 治理：只要 `clarification_questions` 仍存在“模型问题 + 模板补题”混合路径，最终 question 风格和语义边界就会不一致；V1 必须改为 agent-owned，deterministic 只做 coverage check。
+- step kind 稳定性治理：当 prompt 只靠自然语言描述枚举约束时，模型仍会输出 `click/select/edit` 等本体行为词；若最终 schema 仍依赖后处理翻译，说明结构契约层级还不对。
+- replay guide 分层治理：最终 `execution_guide` 不能只有通用流程，也不能只保留示教细节；run 阶段需要一个同时具备 `generalPlan + detailContext` 的单一消费工件，前者给方向，后者给局部动作线索与历史记忆访问。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

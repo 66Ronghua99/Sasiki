@@ -14,6 +14,8 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
+  - SOP Compact V1 Full-Chain Shift：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
+  - SOP Compact V1 Full-Chain Shift 清单：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
   - SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
   - SOP Compact Behavior/Semantics Split v1 清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
@@ -45,12 +47,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` SOP Compact V1 增量迁移 Phase-2：
-  - 目标：把 `clarification_questions` 从 V0 fallback/merge 路径迁移到 V1 agent-owned 语义链路，并补 coverage gate
-  - 约束：继续保持 add-first；在新链路稳定前，`execution_guide.json` 仍沿用 V0 编译与消费，不切换 replay 真源
-  - 验收：新增或重写的 `clarification_questions` 必须可回链到 `semantic_intent_draft.blockingUncertainties`；若 blocking uncertainty 无问题覆盖，则状态阻断
-  - 当前下一步：实现 `semantic_intent_draft -> clarification_questions` 的 agent-owned 产物与 coverage 校验
-  - 证据：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md` + `.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
+- `P0-NEXT` SOP Compact V1 全链路切换：
+  - 目标：将 replay 主链路整体转向 V1，通过 prompt schema 约束和模型 reasoning 替代大多数 V0 rule-based merge/fallback
+  - 约束：最终 `execution_guide.json` 必须既足够 general，又保留可被 run 阶段访问的 detail context；在 V1 guide 编译稳定前，不把不完整产物放行给 replay
+  - 验收：`clarification_questions` 改为 agent-owned；`execution_guide.v1` 不再依赖 `goalType/targetEntity`，并同时包含 `generalPlan + detailContext`
+  - 当前下一步：先实现 `semantic_intent_draft -> clarification_questions` 的 agent-owned 产物与 coverage gate，再冻结 `execution_guide.v1` schema
+  - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md` + `.plan/checklist_sop_compact_v1_full_chain_shift.md`
 - `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 后续单独优化召回/排序/归一化匹配策略
@@ -62,6 +64,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 SOP Compact 当前问题归因与 V1 全链路切换设计冻结：
+  - 归因 1：`clarification_questions` 当前仍为模型产出 + 模板补齐的混合物
+  - 归因 2：`structured_abstraction_draft` 的 step kind 仍依赖后处理归一化，说明 schema 约束不够强
+  - 归因 3：`execution_guide` 当前仍由 V0 `workflow_guide + decision_model` 编译，V1 语义草案尚未成为 replay 主真源
+  - 新方向：下一步全链路切到 V1，保留 general workflow，同时保留 detail context 供 run 随时访问历史细节
+  - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
 - 已完成 SOP Compact V1 增量迁移 Phase-1（语义草案双写，add-first）：
   - 新增工件：`semantic_intent_draft.json` / `semantic_intent_raw.txt`
   - 新增链路：`behavior_evidence.json + behavior_workflow.json + observed_examples.json -> semantic_intent_draft.json`

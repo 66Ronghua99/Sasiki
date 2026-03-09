@@ -1,7 +1,12 @@
 # SOP Compact Behavior / Semantics Split v1 (2026-03-08)
 
 ## 0. Normative Source
-本文档为 `sop-compact` 下一阶段的唯一设计依据。若历史文档与本文冲突，以本文为准。
+> [!NOTE]
+> **基础设计文档** | 更新日期：2026-03-09
+> 本文档保留为 V1 基础分层设计与早期迁移依据。
+> 当前更高优先级的全链路切换设计见：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
+
+本文档为 `sop-compact` 的 V1 基础设计依据。若与 `.plan/20260309_sop_compact_v1_full_chain_shift.md` 冲突，以后者为准。
 
 本文替代以下已归档文档：
 - `.plan/20260308_sop_compact_intent_abstraction_v0.md`
