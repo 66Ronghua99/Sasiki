@@ -7,6 +7,11 @@ import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../domain/agent-types.js";
+import type {
+  CompactCapabilityOutput,
+  CompactHumanLoopEvent,
+  CompactSessionState,
+} from "../domain/compact-reasoning.js";
 import type { HighLevelLogEntry } from "../domain/high-level-log.js";
 import type { InterventionLearningRecord } from "../domain/intervention-learning.js";
 import type { SopAsset } from "../domain/sop-asset.js";
@@ -65,6 +70,18 @@ export class ArtifactsWriter {
 
   async writeSopConsumption(record: SopConsumptionRecord): Promise<void> {
     await this.writeJson("sop_consumption.json", record);
+  }
+
+  async writeCompactSessionState(state: CompactSessionState): Promise<void> {
+    await this.writeJson("compact_session_state.json", state);
+  }
+
+  async appendCompactHumanLoop(event: CompactHumanLoopEvent): Promise<void> {
+    await appendFile(path.join(this.runDir, "compact_human_loop.jsonl"), `${JSON.stringify(event)}\n`, "utf-8");
+  }
+
+  async writeCompactCapabilityOutput(output: CompactCapabilityOutput): Promise<void> {
+    await this.writeJson("compact_capability_output.json", output);
   }
 
   async writeRuntimeLog(runtimeLog: string): Promise<void> {

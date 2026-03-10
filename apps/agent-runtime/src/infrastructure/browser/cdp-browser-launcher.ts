@@ -150,6 +150,27 @@ export class CdpBrowserLauncher {
     }
   }
 
+  async prepareObserveSession(): Promise<void> {
+    if (this.process) {
+      return;
+    }
+    if (!this.isLocalEndpoint(this.config.cdpEndpoint)) {
+      this.logger.warn("cdp_observe_prepare_skipped", {
+        reason: "non_local_endpoint",
+        endpoint: this.config.cdpEndpoint,
+      });
+      return;
+    }
+    if (!(await this.isEndpointReady())) {
+      this.logger.warn("cdp_observe_prepare_skipped", {
+        reason: "endpoint_not_ready",
+        endpoint: this.config.cdpEndpoint,
+      });
+      return;
+    }
+    await this.resetPagesOnLaunchIfNeeded();
+  }
+
   private async closeBrowserOverCdp(): Promise<boolean> {
     if (!this.isLocalEndpoint(this.config.cdpEndpoint)) {
       this.logger.warn("cdp_close_skipped", { reason: "non_local_endpoint", endpoint: this.config.cdpEndpoint });

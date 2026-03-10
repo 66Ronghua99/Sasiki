@@ -30,8 +30,16 @@ export interface ExampleCandidate {
   value: string;
 }
 
+export interface NoiseObservation {
+  id: string;
+  kind: "foreign_site_tab" | "placeholder_surface" | "background_context";
+  summary: string;
+  evidenceRefs: string[];
+  affects: Array<"surface" | "task_intent" | "scope" | "completion_criteria" | "final_action">;
+}
+
 export interface AbstractionInput {
-  schemaVersion: "abstraction_input.v0";
+  schemaVersion: "abstraction_input.v1";
   runId: string;
   traceId: string;
   site: string;
@@ -43,6 +51,7 @@ export interface AbstractionInput {
   phaseSignals: AbstractionSignal[];
   exampleCandidates: ExampleCandidate[];
   uncertaintyCues: string[];
+  noiseObservations: NoiseObservation[];
 }
 
 export interface IntentSeed {
@@ -68,11 +77,29 @@ export interface ObservedExamples {
   antiPromotionRules: string[];
 }
 
+export type IntentResolutionCoreField = "task_intent" | "scope" | "completion_criteria" | "final_action";
+export type RejectedAnswerReasonCode =
+  | "placeholder_phrase"
+  | "missing_object_and_action"
+  | "missing_scope_boundary"
+  | "missing_completion_signal"
+  | "missing_final_action_decision";
+
+export interface RejectedClarificationAnswer {
+  questionId?: string;
+  field: IntentResolutionCoreField;
+  answer: string;
+  reasonCode: RejectedAnswerReasonCode;
+  reason: string;
+  rejectedAt: string;
+}
+
 export interface IntentResolution {
   schemaVersion: "intent_resolution.v0";
   resolvedFields: Record<string, boolean | string>;
   notes: string[];
   resolvedAt: string;
+  rejectedAnswers?: RejectedClarificationAnswer[];
 }
 
 export interface CompactManifest {
@@ -87,6 +114,7 @@ export interface CompactManifest {
     observedExamples: string;
     clarificationQuestions: string | null;
     intentResolution: string | null;
+    frozenSemanticIntent: string | null;
     executionGuide: string;
   };
   quality: {

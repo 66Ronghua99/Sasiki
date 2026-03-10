@@ -29,6 +29,17 @@
 - 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
 - legacy 退役治理：一旦 `execution_guide.v1` 已接管 replay 主链路，就应尽快移除 `structured_abstraction/workflow_guide/decision_model` 的双写和落盘；继续保留只会让样本目录、manifest 和后续 compact-stage HITL 边界继续变脏。
 - compact-stage HITL 目录治理：若外部 artifact 目录不在当前 workspace，可优先把常用样本复制到仓库内 `artifacts/e2e/<run_id>` 再做 HITL 验证；这样既避免 sandbox 写权限摩擦，也能让后续 CLI/脚本只围绕当前 repo 自给自足。
+- observe 卫生基线治理：当本地 CDP endpoint 已处于 ready 状态时，observe 启动前仍必须主动把页面收敛到单空白 tab；否则 pre-existing foreign tabs 会污染录制样本的 `surface/open_surface`，即使本次 runtime 没有重新启动浏览器也一样。
+- observe 首帧治理：即使 foreign tabs 已被清掉，收敛后的单空白页仍会在 trace 中留下 `about:blank` 作为首个 `open_surface`；后续 compact 侧必须把这类 placeholder surface 视作可降噪输入，不能继续把 `path:blank` 当作主工作区语义。
+- compact surface/phase-signal 治理：`inferSurface/open_surface` 必须优先选择 same-site 且非 placeholder 的 URL；foreign site tab 和 `about:blank` 只能进入 `noiseObservations`，不能继续成为主 `surface` 证据。
+- question-first core field 治理：`task_intent/scope/completion_criteria/final_action` 四个核心字段不能直接采信模型的强语义文案；应由 deterministic guardrail 先生成保守 hypothesis + generic questions，模型只辅助 supporting hypotheses。
+- semantic intent fallback 治理：即使 semantic intent 请求超时、abort 或返回非法 JSON，也必须继续落盘 deterministic 的 `semantic_intent_draft.v2 / clarification_questions.v2 / frozen_semantic_intent.v1`，不能再因为 draft 缺失把 compact 直接打成 `rejected`。
+- search submit 去噪治理：搜索框中的 `Enter` 不能再被抽象成 `submit_action`；否则会把“发起搜索”错误提升成“最终对象动作”，进而污染 final_action/completion 语义。
+- placeholder answer gate 治理：`intent_resolution` 里的 core field 回答必须先过 deterministic 校验；占位短语或缺少动作/范围/完成信号的答案不能再冻结字段，并应落盘到 `rejectedAnswers[]` 供后续排查。
+- frozen compile 治理：guide compiler 只能消费 `frozen_semantic_intent.json`，不允许直接并读 `intent_resolution.json`；冻结后的 `goal/scope/doneCriteria/final_action` 必须直接继承用户答案，即使最终状态仍未放行为 `ready_for_replay`。
+- final action 映射治理：当 `final_action` 明确且行为骨架里没有显式 `submit_action` 时，只要 evidenceRefs 能对齐到 generic observed step，就允许把该 step 复用为最终动作槽位，并在 `resolutionNotes[]` 记录旧 purpose -> 新 purpose 的覆盖链路。
+- browse-only downgrade 治理：当 `final_action` 冻结为“只浏览不操作”时，与该动作 evidence 对齐的 observed action slot 必须降级为 `optional_observed_action`，并在 `branchHints[]` 标注 observed-only，避免 replay 误把它当成必做步骤。
+- missing behavior support 治理：若 `final_action` 已冻结但当前 `behavior_workflow` 中不存在任何兼容动作槽位，`compileEligibility.reason` 必须变为 `missing_behavior_support_for_frozen_action`，状态继续保持 `needs_clarification`。
 - compact-stage HITL 入口治理：最小可用形态先做 `inspect unresolved questions + merge intent_resolution` 的 CLI，不要一开始就耦合 runtime 级自动交互；等字段映射与 ready-path 稳定后，再升级成 question-driven 交互入口。
 - compact-stage HITL 内联化治理：一旦离线 `inspect/resolve` 已验证 `intent_resolution -> recompile` ready-path，下一阶段主目标应切换为“同一条 compact workflow 内完成提问与回答”；离线 CLI 只保留为 debug/backfill，不再继续代表产品主路径。
 - HITL contract 治理：用户输入层应只暴露 `questionId + answer` 心智，不应暴露 `resolvedFields` 等内部字段；内部映射继续落在 `intent_resolution`，并保持后续 V1 compile/gate 真源不变。
@@ -51,6 +62,18 @@
 - step kind 稳定性治理：当 prompt 只靠自然语言描述枚举约束时，模型仍会输出 `click/select/edit` 等本体行为词；若最终 schema 仍依赖后处理翻译，说明结构契约层级还不对。
 - replay guide 分层治理：最终 `execution_guide` 不能只有通用流程，也不能只保留示教细节；run 阶段需要一个同时具备 `generalPlan + detailContext` 的单一消费工件，前者给方向，后者给局部动作线索与历史记忆访问。
 - legacy replay freeze 治理：在 `execution_guide.v1` 接管前，`execution_guide.v0` 不能再被标记成 `ready_for_replay`；否则会把仍依赖 `goalType/targetEntity` 的不完整 guide 提前放行。
+- compact 主链重构治理：一旦确认 field-based compact 主链无法自然吸收 human feedback，就不应继续补丁式叠加 `semantic_intent_draft / clarification_questions / intent_resolution`；应整体切换到多轮 `agent + human loop tool` 架构。
+- compact session 真源治理：新 compact 主路径中，`compact_session_state` 是唯一中间真源；任何“当前理解、open decisions、已吸收人类反馈”都必须回写到这里，不能再扩散为多份平行中间 JSON。
+- compact capability 真源治理：新 compact 主路径只允许一个最终交付工件 `compact_capability_output`；后续若 run 需要消费，应由它下游编译，而不是让多轮推理反过来迎合旧 guide schema。
+- human loop 角色治理：human loop 只负责把人类反馈带回 agent 推理链，不负责字段验证、schema 映射或 replay-ready 判定；一旦 human loop 退化成表单补全，说明架构又回到了旧路径。
+- patch apply 治理：`workflowSkeleton` 允许增量 merge，`taskUnderstanding/openDecisions/convergence` 应整段 replace，避免会话状态因为历史碎片拼接越写越脏。
+- finalize 边界治理：finalizer 只做结构化整理，不应重新发明 session 中没有的语义结论；未收敛内容宁可留在 `remainingUncertainties`，也不能为了“完整”强行定论。
+- compact 入口治理：一旦新多轮 agent loop 已接管 `sop-compact`，旧 `sop-compact-hitl` 和 `sop-compact-clarify` 应明确标记为 archived command，避免团队成员误把旧路径当主线继续扩展。
+- live 验证治理：`Slice 1` 的第一优先级不是接 `run`，而是在真实 trace 上检查三类工件是否真实反映多轮推理过程；只有会话状态和 capability output 稳定后，才值得讨论下游消费编译。
+- compact agent JSON 解析治理：模型在 strict JSON 路径上仍可能在字符串内部吐出未转义控制字符；`JsonModelClient` 应先尝试直接 `JSON.parse`，若命中 control character 类错误，再仅对字符串内部控制字符做转义后重试，避免把结构本身也改坏。
+- compact human loop 控制流治理：如果模型同一轮同时返回 `humanLoopRequest` 和 `ready_to_finalize`，运行时必须优先执行 human loop，不能先把 request 丢弃再继续下一轮；否则会表现成“模型自己跑完了、完全没经过 HITL”。
+- compact middle-round 治理：中间轮不应继续让主 reasoner 同时承担“高质量共推理”和“严格 JSON 输出”两种职责；更稳的形态是 `freeform reasoner -> summarize substep -> patch apply`，其中只有 summarize/finalize 负责结构化输出。
+- compact summarize fallback 治理：即使 summarize 子步骤漏掉 `humanLoopRequest` 或把 `openDecisions` 清空，只要 freeform reasoning 仍明确暴露 unresolved question，运行时就应回填问题并继续 human loop，避免自由文本里已经在问人、但状态机误判成“无需提问”。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

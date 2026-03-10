@@ -1,3 +1,8 @@
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-10
+> 本文档作为历史参考保留，不再主动维护。
+> 替代文档：`.plan/20260310_interactive_reasoning_sop_compact.md`
+
 # Compact-Stage HITL Inline Loop (2026-03-09)
 
 ## 0. Normative Source

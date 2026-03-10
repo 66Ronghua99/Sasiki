@@ -107,6 +107,9 @@ export class WorkflowRuntime {
       await this.cdpLauncher.start();
       this.started = true;
     }
+    if (mode === "observe") {
+      await this.cdpLauncher.prepareObserveSession();
+    }
     if (mode === "run") {
       await this.agentRuntime.start();
     }

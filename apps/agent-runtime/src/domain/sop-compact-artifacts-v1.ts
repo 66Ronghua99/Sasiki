@@ -17,9 +17,18 @@ export type BehaviorPrimitive =
 export type BehaviorConfidence = "high" | "medium" | "low";
 export type SemanticConfidence = "high" | "medium" | "low";
 export type SemanticSeverity = "high" | "medium" | "low";
-export type ClarificationPriority = "high" | "medium";
+export type ClarificationPriority = "P0" | "P1";
 export type ExecutionGuideStatus = "draft" | "needs_clarification" | "ready_for_replay" | "rejected";
-export type ExecutionGuideStepRole = "default" | "branch_point" | "loop" | "submit_point" | "verification_point";
+export type ExecutionGuideStepRole =
+  | "default"
+  | "branch_point"
+  | "loop"
+  | "submit_point"
+  | "verification_point"
+  | "optional_observed_action";
+export type SemanticCoreFieldKey = "task_intent" | "scope" | "completion_criteria" | "final_action";
+export type SemanticDraftFieldStatus = "unresolved" | "resolved";
+export type FrozenSemanticFieldStatus = "frozen" | "unresolved";
 
 export interface BehaviorEvidenceSignal {
   id: string;
@@ -89,28 +98,88 @@ export interface SemanticUncertainty {
   reason: string;
 }
 
+export interface SemanticCoreFieldDraft {
+  hypothesis: string;
+  status: SemanticDraftFieldStatus;
+  confidence: SemanticConfidence;
+  evidenceRefs: string[];
+}
+
+export interface SemanticSupportingHypotheses {
+  selection: string[];
+  skip: string[];
+  branch: string[];
+}
+
+export interface SemanticClarificationRequirement {
+  questionId: string;
+  field: SemanticCoreFieldKey;
+  priority: ClarificationPriority;
+  blocking: boolean;
+  prompt: string;
+  reason: string;
+  evidenceRefs: string[];
+  resolutionRuleId: string;
+}
+
 export interface SemanticIntentDraft {
-  schemaVersion: "semantic_intent_draft.v1";
-  taskIntentHypothesis: string;
-  scopeHypothesis: string;
-  completionHypothesis: string;
+  schemaVersion: "semantic_intent_draft.v2";
+  coreFields: Record<SemanticCoreFieldKey, SemanticCoreFieldDraft>;
+  supportingHypotheses: SemanticSupportingHypotheses;
   actionPurposeHypotheses: SemanticPurposeHypothesis[];
-  selectionHypotheses: string[];
-  skipHypotheses: string[];
+  noiseObservations: string[];
+  clarificationRequirements: SemanticClarificationRequirement[];
   blockingUncertainties: SemanticUncertainty[];
   nonBlockingUncertainties: SemanticUncertainty[];
 }
 
-export interface ClarificationQuestionV1 {
-  id: string;
-  targetsSemanticField: string;
-  question: string;
-  priority: ClarificationPriority;
+export interface ClarificationQuestionContext {
+  workflowSummary: string[];
+  observedLoopSummary?: string;
+  candidateActionSummary?: string;
+  evidenceRefs: string[];
 }
 
-export interface ClarificationQuestionsV1 {
-  schemaVersion: "clarification_questions.v1";
-  questions: ClarificationQuestionV1[];
+export interface ClarificationQuestionV2 {
+  questionId: string;
+  field: SemanticCoreFieldKey;
+  prompt: string;
+  priority: ClarificationPriority;
+  blocking: boolean;
+  reason: string;
+  evidenceRefs: string[];
+  questionContext: ClarificationQuestionContext;
+}
+
+export interface ClarificationQuestionsV2 {
+  schemaVersion: "clarification_questions.v2";
+  source: "semantic_intent_draft.clarificationRequirements";
+  questions: ClarificationQuestionV2[];
+}
+
+export interface FrozenSemanticField {
+  value?: string;
+  status: FrozenSemanticFieldStatus;
+  source: "user_answer" | "semantic_hypothesis" | "default_guardrail";
+  derivedFromQuestionId?: string;
+  evidenceRefs: string[];
+}
+
+export interface FrozenSemanticIntentV1 {
+  schemaVersion: "frozen_semantic_intent.v1";
+  coreFields: Record<SemanticCoreFieldKey, FrozenSemanticField>;
+  supportingHypotheses: SemanticSupportingHypotheses;
+  actionPurposeHypotheses: SemanticPurposeHypothesis[];
+  noiseObservations: string[];
+  frozenFrom: {
+    semanticIntentDraft: "semantic_intent_draft.json";
+    intentResolution: "intent_resolution.json" | null;
+  };
+  remainingUnresolved: SemanticCoreFieldKey[];
+  compileEligibility: {
+    eligible: boolean;
+    reason: string;
+  };
 }
 
 export interface ExecutionGuideWorkflowOutlineStep {

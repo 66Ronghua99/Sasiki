@@ -32,6 +32,7 @@ export interface SopCompactResult {
   observedExamplesPath: string;
   clarificationQuestionsPath?: string;
   intentResolutionPath?: string;
+  frozenSemanticIntentPath?: string;
   executionGuidePath: string;
   compactManifestPath: string;
   status: "draft" | "needs_clarification" | "ready_for_replay" | "rejected";
@@ -82,6 +83,7 @@ export class SopCompactService {
     const observedExamplesPath = path.join(runDir, "observed_examples.json");
     const clarificationQuestionsPath = path.join(runDir, "clarification_questions.json");
     const intentResolutionPath = path.join(runDir, "intent_resolution.json");
+    const frozenSemanticIntentPath = path.join(runDir, "frozen_semantic_intent.json");
     const executionGuidePath = path.join(runDir, "execution_guide.json");
     const compactManifestPath = path.join(runDir, "compact_manifest.json");
 
@@ -113,24 +115,31 @@ export class SopCompactService {
       behaviorWorkflow,
       observedExamples: initialAbstraction.observedExamples,
     });
+    const semanticIntentDraft =
+      semanticIntent.draft
+        ? {
+            ...semanticIntent.draft,
+            noiseObservations: abstractionInput.noiseObservations.map((item) => item.id),
+          }
+        : undefined;
     const abstraction = abstractionBuilder.build({
       runId,
       trace,
       built,
       generatedAt,
       intentResolution,
-      semanticIntentDraft: semanticIntent.draft,
-      clarificationQuestions: semanticIntent.clarificationQuestions,
+      semanticIntentDraft,
     });
 
     await this.persistSemanticOutputs(runDir, runId, semantic, semanticIntent);
     await writeFile(abstractionInputPath, `${JSON.stringify(abstraction.abstractionInput, null, 2)}\n`, "utf-8");
     await writeFile(behaviorEvidencePath, `${JSON.stringify(behaviorEvidence, null, 2)}\n`, "utf-8");
     await writeFile(behaviorWorkflowPath, `${JSON.stringify(behaviorWorkflow, null, 2)}\n`, "utf-8");
-    await this.syncOptionalJson(semanticIntentDraftPath, semanticIntent.draft);
+    await this.syncOptionalJson(semanticIntentDraftPath, semanticIntentDraft);
     await this.syncOptionalText(semanticIntentRawPath, semanticIntent.rawText);
     await writeFile(observedExamplesPath, `${JSON.stringify(abstraction.observedExamples, null, 2)}\n`, "utf-8");
     await this.syncOptionalJson(clarificationQuestionsPath, abstraction.clarificationQuestions);
+    await this.syncOptionalJson(frozenSemanticIntentPath, abstraction.frozenSemanticIntent);
     await writeFile(executionGuidePath, `${JSON.stringify(abstraction.executionGuide, null, 2)}\n`, "utf-8");
     await writeFile(compactManifestPath, `${JSON.stringify(abstraction.manifest, null, 2)}\n`, "utf-8");
     await this.cleanupLegacyArtifacts(runDir);
@@ -153,11 +162,12 @@ export class SopCompactService {
       abstractionInputPath,
       behaviorEvidencePath,
       behaviorWorkflowPath,
-      semanticIntentDraftPath: semanticIntent.draft ? semanticIntentDraftPath : undefined,
+      semanticIntentDraftPath: semanticIntentDraft ? semanticIntentDraftPath : undefined,
       semanticIntentRawPath: semanticIntent.rawText ? semanticIntentRawPath : undefined,
       observedExamplesPath,
       clarificationQuestionsPath: abstraction.clarificationQuestions ? clarificationQuestionsPath : undefined,
       intentResolutionPath: intentResolution ? intentResolutionPath : undefined,
+      frozenSemanticIntentPath: abstraction.frozenSemanticIntent ? frozenSemanticIntentPath : undefined,
       executionGuidePath,
       compactManifestPath,
       status: abstraction.manifest.status,

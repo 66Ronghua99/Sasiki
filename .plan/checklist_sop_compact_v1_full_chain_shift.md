@@ -1,3 +1,8 @@
+> [!NOTE]
+> **归档文档** | 归档日期：2026-03-10
+> 本文档作为历史参考保留，不再主动维护。
+> 替代文档：`.plan/checklist_interactive_reasoning_sop_compact.md`
+
 # Checklist: SOP Compact V1 Full-Chain Shift
 
 ## Design Freeze

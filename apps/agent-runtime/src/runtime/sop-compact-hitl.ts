@@ -8,7 +8,7 @@ import path from "node:path";
 
 import type { IntentResolution } from "../domain/sop-compact-artifacts.js";
 import type {
-  ClarificationQuestionsV1,
+  ClarificationQuestionsV2,
   ExecutionGuideUnresolvedQuestion,
   ExecutionGuideV1,
 } from "../domain/sop-compact-artifacts-v1.js";
@@ -22,7 +22,7 @@ export interface SopCompactHitlInspectResult {
   status: ExecutionGuideV1["status"];
   replayReady: boolean;
   unresolvedQuestions: ExecutionGuideUnresolvedQuestion[];
-  clarificationQuestions: ClarificationQuestionsV1["questions"];
+  clarificationQuestions: ClarificationQuestionsV2["questions"];
   intentResolutionPath?: string;
 }
 
@@ -85,6 +85,7 @@ export class SopCompactHitlService {
       },
       notes: [...(previousResolution?.notes ?? []), ...input.notes],
       resolvedAt: new Date().toISOString(),
+      rejectedAnswers: previousResolution?.rejectedAnswers ?? [],
     };
     const intentResolutionPath = path.join(runDir, "intent_resolution.json");
     await writeFile(intentResolutionPath, `${JSON.stringify(intentResolution, null, 2)}\n`, "utf-8");
@@ -121,10 +122,10 @@ export class SopCompactHitlService {
     return JSON.parse(raw) as ExecutionGuideV1;
   }
 
-  private async readClarificationQuestions(runDir: string): Promise<ClarificationQuestionsV1 | undefined> {
+  private async readClarificationQuestions(runDir: string): Promise<ClarificationQuestionsV2 | undefined> {
     try {
       const raw = await readFile(path.join(runDir, "clarification_questions.json"), "utf-8");
-      return JSON.parse(raw) as ClarificationQuestionsV1;
+      return JSON.parse(raw) as ClarificationQuestionsV2;
     } catch {
       return undefined;
     }

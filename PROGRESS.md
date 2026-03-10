@@ -14,12 +14,8 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
-  - Compact-stage HITL Inline Loop：`.plan/20260309_compact_stage_hitl_inline_loop.md`
-  - Compact-stage HITL Inline Loop 清单：`.plan/checklist_compact_stage_hitl_inline_loop.md`
-  - SOP Compact V1 Full-Chain Shift：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
-  - SOP Compact V1 Full-Chain Shift 清单：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
-  - SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
-  - SOP Compact Behavior/Semantics Split v1 清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
+  - Interactive Reasoning SOP Compact：`.plan/20260310_interactive_reasoning_sop_compact.md`
+  - Interactive Reasoning SOP Compact 清单：`.plan/checklist_interactive_reasoning_sop_compact.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
   - 长程任务 SOP 高层日志基础方案：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
@@ -44,19 +40,28 @@
   - PR-3 Phase-3 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
   - PR-3 Phase-3 清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
   - PR-3 总清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
+  - 已归档 SOP Compact Question-First Clarify：`.plan/20260310_sop_compact_question_first_clarify.md`
+  - 已归档 SOP Compact Question-First Clarify 清单：`.plan/checklist_sop_compact_question_first_clarify.md`
+  - 已归档 Compact-stage HITL Inline Loop：`.plan/20260309_compact_stage_hitl_inline_loop.md`
+  - 已归档 Compact-stage HITL Inline Loop 清单：`.plan/checklist_compact_stage_hitl_inline_loop.md`
+  - 已归档 SOP Compact V1 Full-Chain Shift：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
+  - 已归档 SOP Compact V1 Full-Chain Shift 清单：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
+  - 已归档 SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
+  - 已归档 SOP Compact Behavior/Semantics Split v1 清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
   - 已归档 SOP Compact V0 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
   - 已归档 SOP Compact V0 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` 检索能力模块化（独立迭代，不阻塞已完成的 compact 主闭环）：
-  - 目标：将 SOP 检索从当前消费注入流程中解耦为独立模块，收口召回/排序/归一化匹配边界
-  - 约束：不回退 `execution_guide.v1` 单一消费工件；不破坏当前 `sop-compact-clarify` / `sop-compact-hitl` 的 asset 目录约定
-  - 验收：形成独立设计与最小闭环，实现 pinned 与检索两条消费路径的边界清晰化
-  - 当前状态：`SOP Compact` 主闭环已完成，当前可以切到独立模块化阶段
-  - 证据：当前 compact 交付已冻结在 `.plan/20260309_compact_stage_hitl_inline_loop.md` + `.plan/checklist_compact_stage_hitl_inline_loop.md`
-- `P1` 检索能力模块化（独立迭代，不阻塞主闭环）：
+- `P0-NEXT` Interactive Reasoning SOP Compact live validation：
+  - 目标：在更贴近目标任务的 benchmark 上验证新的两步中间轮：`freeform reasoner -> summarize substep -> human loop -> capability output`
+  - 约束：继续保持 `compact_session_state` 为唯一中间真源、`compact_capability_output` 为唯一最终真源；本阶段仍不接 `run` 消费
+  - 验收：录制并执行一条“小红书 creator platform 发图文并保存草稿”的真实样本，确认首轮输出先给自然语言理解，再出现关键 `clarification_request`，并最终落盘 `compact_session_state.json / compact_human_loop.jsonl / compact_capability_output.json`
+  - 当前状态：`rewrite_slice_1_minimal_agent_loop_v0` 已切到两步中间轮；在 `20260310_110821_112` 上已验证首轮不再是字段问卷，`compact_human_loop.jsonl` 已出现 `clarification_request` 与 `human_reply`。当前剩余工作是把 capability quality 验证从旧“小红书博主搜索”样本切到 creator-platform 草稿保存 benchmark
+  - 证据：`.plan/20260310_interactive_reasoning_sop_compact.md` + `.plan/checklist_interactive_reasoning_sop_compact.md`
+- `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
+  - 前提：新的 compact 主路径已稳定产出可信的 `compact_capability_output`
   - 后续单独优化召回/排序/归一化匹配策略
 - `P1` 长程任务 SOP HITL runtime loop 实测验收：
   - 在真实失败样例上验证 `2 次重试 -> HITL -> 恢复执行`
@@ -66,6 +71,38 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Interactive Reasoning SOP Compact `Slice 1` 最小代码闭环：
+  - 新 contract：`apps/agent-runtime/src/domain/compact-reasoning.ts`
+  - 新 human loop tool：`apps/agent-runtime/src/contracts/compact-human-loop-tool.ts`、`apps/agent-runtime/src/infrastructure/hitl/terminal-compact-human-loop-tool.ts`
+  - 新模型 JSON 客户端：`apps/agent-runtime/src/core/json-model-client.ts`
+  - 新主服务：`apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
+  - `sop-compact` CLI 已切到新的多轮 agent loop，落盘 `compact_session_state.json / compact_human_loop.jsonl / compact_capability_output.json`
+  - `sop-compact-hitl` 与 `sop-compact-clarify` 已降为 archived command，不再代表主路径
+  - 中间轮已从“单步 strict JSON”切到 `freeform reasoner + summarize substep`；主 reasoner 不再直接承担 JSON 约束，summarize 层单独负责 `compact_session_patch`
+  - 已补 compact agent JSON 解析容错：当模型在 JSON 字符串内部返回未转义控制字符时，parser 会先做字符串内控制字符转义，再重试解析
+  - 已修复 compact agent human loop 控制流：若模型同时返回 `humanLoopRequest` 与 `ready_to_finalize`，系统现在优先进入 human loop；同时禁止“在仍有关键 open decisions 且从未获得 human feedback 时直接 finalize”
+  - 已补 compact middle-round fallback：若 summarize 未显式给出 `humanLoopRequest/openDecisions`，运行时会从 freeform reasoning 的 unresolved question 中回填，避免“模型明明在问人但 human loop 没接上”
+  - live 样本 `artifacts/e2e/20260310_110821_112/compact_human_loop.jsonl` 已出现新的 `assistant_response -> clarification_request -> human_reply` 链路
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已冻结新的 `interactive_reasoning_sop_compact` 主架构并切换文档指针：
+  - 新方向：`sop-compact` 改为多轮 agent workflow，`human loop` 改为推理 tool，最终只产出 `compact_capability_output`
+  - 新 active design：`.plan/20260310_interactive_reasoning_sop_compact.md`
+  - 新 active checklist：`.plan/checklist_interactive_reasoning_sop_compact.md`
+  - 旧 `question_first_semantic_freeze / compact-stage inline HITL / v1 full-chain shift` 文档已转入归档路径，不再作为后续实现依据
+- 已完成 Question-First Semantic Freeze Phase C + Phase D 主样本闭环：
+  - Phase C：`SopCompactClarificationService` 已接入 deterministic placeholder answer gate；占位回答不会再冻结 core field，并会结构化落盘 `intent_resolution.rejectedAnswers[]`
+  - Phase C 样本：`artifacts/e2e/20260310_110821_112` 在占位 `task_intent/scope/completion` 下继续保持 `needs_clarification`，即使只补 `final_action` 也不会进入 `ready_for_replay`
+  - Phase D：guide compiler 已切到 strict frozen compile，`execution_guide.goal/scope/doneCriteria` 直接继承 `frozen_semantic_intent.json`
+  - Phase D 正向样本：`artifacts/e2e/20260310_110821_112_phase_d_explicit` 已生成 `ready_for_replay` guide，且 `behavior_step_5` 被重写为最终点赞动作槽位，`resolutionNotes[]` 明确记录旧 purpose -> 新 purpose 的覆盖链路
+  - Phase D browse-only 样本：`artifacts/e2e/20260310_110821_112_phase_d_browse_only` 已将 `behavior_step_5.stepRole` 降级为 `optional_observed_action`，并在 `branchHints[]` 标注 observed-only
+  - Phase D 负向 gate：通过 `tsx` synthetic regression 证明，一旦移除兼容动作骨架，`buildFrozenSemanticIntent(...).compileEligibility.reason=missing_behavior_support_for_frozen_action`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
+- 已完成 Question-First Semantic Freeze Phase A + Phase B：
+  - Phase A：observe 会在已 ready 的本地 CDP 会话上主动收敛到单空白 tab，并在结束后关闭浏览器
+  - Phase B：compact 首轮已切到 `semantic_intent_draft.v2 / clarification_questions.v2 / frozen_semantic_intent.v1`，并在核心字段未冻结时只生成 placeholder `execution_guide.v1`
+  - noisy sample `artifacts/e2e/20260310_110821_112`：`surface` 已从 TikTok 噪音修正为 `path:explore`，`compact_manifest.status=needs_clarification`，`execution_guide.goal/scope` 不再直接给出“关注博主/汇总内容”强结论
+  - Phase A sample `artifacts/e2e/20260310_115847_198`：`surface=path:explore`，`about:blank` 只进入 `noiseObservations`
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已修正 observe 录制器的页面关闭竞态：
   - 根因：CDP attach 后若新页面在 `page.addInitScript()` / `page.evaluate()` 前瞬时关闭，后台 `registerPage()` 会抛出未捕获异常，导致 observe 进程提前终止并留下空的 `demonstration_raw.jsonl`
   - 修复：将 page/context/browser closed 视为可忽略生命周期竞态，跳过已关闭 tab，并在 page close 时清理 tab 映射

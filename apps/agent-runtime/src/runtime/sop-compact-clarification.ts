@@ -6,16 +6,22 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { IntentResolution } from "../domain/sop-compact-artifacts.js";
+import type { IntentResolution, RejectedClarificationAnswer } from "../domain/sop-compact-artifacts.js";
 import type {
   ClarificationPriority,
-  ClarificationQuestionV1,
-  ClarificationQuestionsV1,
+  ClarificationQuestionV2,
+  ClarificationQuestionsV2,
+  SemanticCoreFieldKey,
   ExecutionGuideStatus,
   ExecutionGuideUnresolvedQuestion,
   ExecutionGuideV1,
 } from "../domain/sop-compact-artifacts-v1.js";
 import { SopCompactService, type SopCompactResult } from "./sop-compact.js";
+import {
+  semanticCoreFieldAliases,
+  toRejectedAnswerRecord,
+  validateCoreFieldAnswer,
+} from "./sop-core-field-answer-gate.js";
 import type { SopCompactSemanticOptions } from "./sop-semantic-runner.js";
 
 const DEFAULT_MAX_ROUNDS = 2;
@@ -91,6 +97,7 @@ export interface SopCompactClarificationResult {
   compactResult?: SopCompactResult;
   clarificationRequest?: SopCompactClarificationRequest;
   errorSummary?: string;
+  rejectedAnswers: RejectedClarificationAnswer[];
 }
 
 export class SopCompactClarificationService {
@@ -139,6 +146,7 @@ export class SopCompactClarificationService {
     const skippedQuestionIds: string[] = [];
     const noteFragments: string[] = [];
     const resolvedFields: Record<string, string> = {};
+    const rejectedAnswers: RejectedClarificationAnswer[] = [];
     let deferredQuestionId: string | undefined;
 
     for (const item of input.answers) {
@@ -164,17 +172,37 @@ export class SopCompactClarificationService {
         skippedQuestionIds.push(item.questionId);
         continue;
       }
+      const validation = validateCoreFieldAnswer(question.sourceKey as SemanticCoreFieldKey, normalizedAnswer, item.questionId);
+      if (!validation.accepted || !validation.normalizedValue || !validation.rejection) {
+        rejectedAnswers.push(
+          toRejectedAnswerRecord(
+            validation.rejection ?? {
+              questionId: item.questionId,
+              field: question.sourceKey as SemanticCoreFieldKey,
+              answer: normalizedAnswer,
+              reasonCode: "placeholder_phrase",
+              reason: "答案未通过核心字段最小完整性校验。",
+            },
+            new Date().toISOString()
+          )
+        );
+        continue;
+      }
       answeredQuestionIds.push(item.questionId);
-      resolvedFields[question.sourceKey] = normalizedAnswer;
+      resolvedFields[question.sourceKey] = validation.normalizedValue;
     }
 
     if (answeredQuestionIds.length === 0) {
+      const intentResolutionPath =
+        rejectedAnswers.length > 0
+          ? await this.writeIntentResolution(input.runId, {}, noteFragments, rejectedAnswers)
+          : request.intentResolutionPath;
       return {
         kind: "clarification_result",
         runId: input.runId,
         runDir: request.runDir,
         status: "needs_clarification",
-        exitReason: "user_deferred",
+        exitReason: rejectedAnswers.length > 0 ? "no_progress" : "user_deferred",
         round: input.round,
         maxRounds,
         replayReady: false,
@@ -182,12 +210,18 @@ export class SopCompactClarificationService {
         answeredQuestionIds,
         skippedQuestionIds,
         deferredQuestionId,
-        intentResolutionPath: request.intentResolutionPath,
+        intentResolutionPath,
         clarificationRequest: request,
+        rejectedAnswers,
       };
     }
 
-    const intentResolutionPath = await this.writeIntentResolution(input.runId, resolvedFields, noteFragments);
+    const intentResolutionPath = await this.writeIntentResolution(
+      input.runId,
+      resolvedFields,
+      noteFragments,
+      rejectedAnswers
+    );
     let compactResult: SopCompactResult;
     try {
       compactResult = await this.compact(input.runId);
@@ -201,6 +235,7 @@ export class SopCompactClarificationService {
         deferredQuestionId,
         intentResolutionPath,
         errorSummary: this.formatError(error),
+        rejectedAnswers,
       });
     }
 
@@ -215,6 +250,7 @@ export class SopCompactClarificationService {
         intentResolutionPath,
         compactResult,
         errorSummary: "sop-compact recompile returned rejected; see runtime.log for semantic failure details.",
+        rejectedAnswers,
       });
     }
 
@@ -239,6 +275,7 @@ export class SopCompactClarificationService {
           intentResolutionPath,
           compactResult,
           clarificationRequest: nextOutcome,
+          rejectedAnswers,
         };
       }
       if (input.round >= maxRounds) {
@@ -258,6 +295,7 @@ export class SopCompactClarificationService {
           intentResolutionPath,
           compactResult,
           clarificationRequest: nextOutcome,
+          rejectedAnswers,
         };
       }
       return {
@@ -276,6 +314,7 @@ export class SopCompactClarificationService {
         intentResolutionPath,
         compactResult,
         clarificationRequest: nextOutcome,
+        rejectedAnswers,
       };
     }
 
@@ -288,6 +327,7 @@ export class SopCompactClarificationService {
       deferredQuestionId,
       intentResolutionPath,
       compactResult,
+      rejectedAnswers,
     };
   }
 
@@ -315,6 +355,7 @@ export class SopCompactClarificationService {
           intentResolutionPath: request.intentResolutionPath,
           compactResult,
           clarificationRequest: request,
+          rejectedAnswers: [],
         };
       }
       return request;
@@ -338,6 +379,7 @@ export class SopCompactClarificationService {
         skippedQuestionIds: [],
         intentResolutionPath,
         compactResult,
+        rejectedAnswers: [],
       };
     }
 
@@ -384,14 +426,14 @@ export class SopCompactClarificationService {
 
   private mergeQuestions(
     unresolvedQuestions: ExecutionGuideUnresolvedQuestion[],
-    clarificationQuestions: ClarificationQuestionV1[]
+    clarificationQuestions: ClarificationQuestionV2[]
   ): SopCompactClarificationQuestion[] {
-    const phrasingByField = new Map<string, ClarificationQuestionV1>();
+    const phrasingByField = new Map<string, ClarificationQuestionV2>();
     for (const question of clarificationQuestions) {
-      if (!question.targetsSemanticField || phrasingByField.has(question.targetsSemanticField)) {
+      if (!question.field || phrasingByField.has(question.field)) {
         continue;
       }
-      phrasingByField.set(question.targetsSemanticField, question);
+      phrasingByField.set(question.field, question);
     }
     const seenFields = new Set<string>();
     const usedIds = new Set<string>();
@@ -402,8 +444,8 @@ export class SopCompactClarificationService {
       }
       seenFields.add(unresolved.field);
       const phrasing = phrasingByField.get(unresolved.field);
-      const prompt = phrasing?.question?.trim() || unresolved.question?.trim() || unresolved.reason.trim();
-      const baseId = phrasing?.id?.trim() || `clarify_${this.slugify(unresolved.field)}`;
+      const prompt = phrasing?.prompt?.trim() || unresolved.question?.trim() || unresolved.reason.trim();
+      const baseId = phrasing?.questionId?.trim() || `clarify_${this.slugify(unresolved.field)}`;
       merged.push({
         questionId: this.makeUniqueQuestionId(baseId, usedIds),
         prompt,
@@ -423,7 +465,7 @@ export class SopCompactClarificationService {
   }
 
   private priorityFromSeverity(severity: ExecutionGuideUnresolvedQuestion["severity"]): ClarificationPriority {
-    return severity === "high" ? "high" : "medium";
+    return severity === "high" ? "P0" : "P1";
   }
 
   private makeUniqueQuestionId(baseId: string, usedIds: Set<string>): string {
@@ -454,18 +496,26 @@ export class SopCompactClarificationService {
   private async writeIntentResolution(
     runId: string,
     resolvedFields: Record<string, string>,
-    notes: string[]
+    notes: string[],
+    rejectedAnswers: RejectedClarificationAnswer[]
   ): Promise<string> {
     const runDir = this.resolveRunDir(runId);
     const previousResolution = await this.readIntentResolution(runDir);
+    const nextResolvedFields: Record<string, boolean | string> = {
+      ...(previousResolution?.resolvedFields ?? {}),
+      ...resolvedFields,
+    };
+    for (const rejectedAnswer of rejectedAnswers) {
+      for (const alias of semanticCoreFieldAliases(rejectedAnswer.field)) {
+        delete nextResolvedFields[alias];
+      }
+    }
     const intentResolution: IntentResolution = {
       schemaVersion: "intent_resolution.v0",
-      resolvedFields: {
-        ...(previousResolution?.resolvedFields ?? {}),
-        ...resolvedFields,
-      },
+      resolvedFields: nextResolvedFields,
       notes: [...(previousResolution?.notes ?? []), ...notes],
       resolvedAt: new Date().toISOString(),
+      rejectedAnswers: this.mergeRejectedAnswers(previousResolution?.rejectedAnswers ?? [], rejectedAnswers),
     };
     const intentResolutionPath = path.join(runDir, "intent_resolution.json");
     await writeFile(intentResolutionPath, `${JSON.stringify(intentResolution, null, 2)}\n`, "utf-8");
@@ -482,6 +532,7 @@ export class SopCompactClarificationService {
     intentResolutionPath?: string;
     compactResult?: SopCompactResult;
     errorSummary: string;
+    rejectedAnswers?: RejectedClarificationAnswer[];
   }): SopCompactClarificationResult {
     return {
       kind: "clarification_result",
@@ -499,6 +550,7 @@ export class SopCompactClarificationService {
       intentResolutionPath: input.intentResolutionPath,
       compactResult: input.compactResult,
       errorSummary: input.errorSummary,
+      rejectedAnswers: input.rejectedAnswers ?? [],
     };
   }
 
@@ -518,10 +570,10 @@ export class SopCompactClarificationService {
     return JSON.parse(raw) as ExecutionGuideV1;
   }
 
-  private async readClarificationQuestions(runDir: string): Promise<ClarificationQuestionsV1 | undefined> {
+  private async readClarificationQuestions(runDir: string): Promise<ClarificationQuestionsV2 | undefined> {
     try {
       const raw = await readFile(path.join(runDir, "clarification_questions.json"), "utf-8");
-      return JSON.parse(raw) as ClarificationQuestionsV1;
+      return JSON.parse(raw) as ClarificationQuestionsV2;
     } catch {
       return undefined;
     }
@@ -543,5 +595,22 @@ export class SopCompactClarificationService {
     } catch {
       return undefined;
     }
+  }
+
+  private mergeRejectedAnswers(
+    previous: RejectedClarificationAnswer[],
+    current: RejectedClarificationAnswer[]
+  ): RejectedClarificationAnswer[] {
+    const merged: RejectedClarificationAnswer[] = [];
+    const seen = new Set<string>();
+    for (const row of [...previous, ...current]) {
+      const key = `${row.questionId ?? ""}::${row.field}::${row.answer}::${row.reasonCode}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(row);
+    }
+    return merged;
   }
 }

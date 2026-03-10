@@ -1,1 +1,11 @@
-在当前仓库已完成 `SOP Compact` 主闭环后，下一步切到“检索能力模块化”阶段：先基于当前 `execution_guide.v1` 单一消费工件，冻结 pinned 消费路径与检索消费路径的职责边界，形成独立设计与 checklist；随后再把 SOP 检索从当前消费注入流程中拆为独立模块，明确召回、排序、归一化匹配与 fallback 策略。要求保持当前 `sop-compact-clarify` / `sop-compact-hitl` 的 artifact 约定不变，不回退 compact 主链路。完成后更新 `PROGRESS/MEMORY/NEXT_STEP`，并通过 `npm --prefix apps/agent-runtime run typecheck` 与 `build`。
+执行 Interactive Reasoning SOP Compact 的下一条 benchmark live 验证：
+- 以 `.plan/20260310_interactive_reasoning_sop_compact.md` 和 `.plan/checklist_interactive_reasoning_sop_compact.md` 作为唯一 active 依据
+- 录制一条“小红书 creator platform 发图文并保存草稿”的真实样本
+- 对新样本执行：
+  - `npm --prefix apps/agent-runtime run dev -- sop-compact --run-id <new_run_id>`
+- 验证新的两步中间轮是否符合预期：
+  - 首轮先给自然语言理解，而不是字段问卷
+  - `compact_human_loop.jsonl` 中出现关键 `clarification_request`
+  - human reply 后继续推进 `compact_session_state.json`
+  - 最终生成 `compact_capability_output.json`
+- 若 live 样本暴露新的 contract 或 prompt 边界问题，只修新多轮 agent 主链，不回头修旧 `question_first` 路径
