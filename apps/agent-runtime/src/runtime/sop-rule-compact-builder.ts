@@ -1,7 +1,7 @@
 /**
  * Deps: domain/sop-trace.ts
- * Used By: runtime/sop-compact.ts, runtime/sop-semantic-runner.ts, runtime/sop-compact-renderer.ts
- * Last Updated: 2026-03-05
+ * Used By: runtime/interactive-sop-compact.ts
+ * Last Updated: 2026-03-10
  */
 import type { SopTrace, SopTraceStep } from "../domain/sop-trace.js";
 

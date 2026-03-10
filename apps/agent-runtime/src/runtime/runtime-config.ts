@@ -6,7 +6,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+import type { LlmThinkingLevel } from "../domain/llm-thinking.js";
+
+export type RuntimeThinkingLevel = LlmThinkingLevel;
 export type RuntimeSemanticMode = "off" | "auto" | "on";
 export const DEFAULT_SOP_ASSET_ROOT_DIR = "~/.sasiki/sop_assets";
 const DEFAULT_ARTIFACTS_SUBDIR = path.join("artifacts", "e2e");

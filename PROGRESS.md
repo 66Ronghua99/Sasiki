@@ -71,6 +71,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Interactive Reasoning SOP Compact 轻量架构整理：
+  - 将 `interactive-sop-compact.ts` 中的 prompt、session reducer、turn normalizer 拆分为独立模块，降低单文件编排复杂度
+  - 新增共享 `LlmThinkingLevel` 类型，去掉 compact/runtime 配置里的重复定义
+  - compact 工件已改为 session 级落盘：同一 `runId` 重跑时会生成 `compact_sessions/<sessionId>/...`，同时保留顶层 latest alias，减少 transcript 污染
+  - `sop-rule-compact-builder` 与 `artifacts-writer` 的模块元信息已回收至当前主路径
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 Interactive Reasoning SOP Compact 阶段冻结与旧路径清理：
   - live benchmark `artifacts/e2e/20260310_153315_481` 已验证新的 `freeform reasoner -> summarize substep -> human loop -> compact_capability_output` 主链
   - `sop-compact` 已完成从旧 field/schema compiler 到多轮 agent loop 的迁移，当前产物已能复述流程骨架并通过少量 HITL 收敛任务理解

@@ -26,6 +26,7 @@
 - [x] 新建 `finalizer` 输出 `compact_capability_output.json`
 - [x] 新主路径不再生成旧 field-based compact artifacts
 - [x] 旧 field-based compact 主链代码已清理，避免 archived command 继续绑定 legacy implementation
+- [x] 已完成轻量架构整理：prompt / session reducer / turn normalizer 拆分，compact artifact 改为 session 级落盘
 
 ## Verification
 - [x] 选定一条真实 trace 作为 `Slice 1` 主回归样本（`20260310_153315_481`）

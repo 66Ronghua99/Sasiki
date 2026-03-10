@@ -76,6 +76,9 @@
 - compact summarize fallback 治理：即使 summarize 子步骤漏掉 `humanLoopRequest` 或把 `openDecisions` 清空，只要 freeform reasoning 仍明确暴露 unresolved question，运行时就应回填问题并继续 human loop，避免自由文本里已经在问人、但状态机误判成“无需提问”。
 - compact 阶段收口治理：当新的 interactive compact 已在真实 benchmark 上完成迁移验证后，应尽快清理旧 field-based compact 代码，而不是长期保留“archived command + 旧实现”双轨并存；否则团队很容易继续沿旧路径修补，造成架构回摆。
 - compact 会话落盘治理：同一个 `run_id` 多次重跑 `sop-compact` 时，`compact_human_loop.jsonl` 与 `runtime.log` 容易混入多次 session 记录；后续进入 replay/refinement 阶段前，应补 session 级分段或 rerun 清理策略，避免审计证据变脏。
+- compact session artifact 治理：`sop-compact` 重跑同一 `run_id` 时，`compact_session_state / compact_human_loop / compact_capability_output` 应同时写入 `compact_sessions/<sessionId>/...`，顶层文件只保留 latest alias；否则 transcript 很快污染到不可审计。
+- compact 主编排治理：当 `interactive-sop-compact.ts` 同时承担 prompt、state machine、normalizer、finalizer、I/O 时，后续 replay/refinement 很容易继续把职责堆回一个文件；应尽早把 prompt、session reducer、turn normalizer 拆成独立模块，主 service 只保留 orchestration。
+- JSON 提取治理：structured-output 模型即使前半段给出合法对象，也可能在后面继续吐解释文本；JSON 提取应优先截取首个平衡对象，而不是简单使用 `first { + last }`，否则一次尾随文本就会把整轮 compact 打断。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

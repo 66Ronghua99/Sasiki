@@ -1,15 +1,14 @@
 import { completeSimple, type ThinkingLevel } from "@mariozechner/pi-ai";
 
+import type { LlmThinkingLevel } from "../domain/llm-thinking.js";
 import { ModelResolver } from "./model-resolver.js";
-
-type CompactThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface JsonModelClientConfig {
   model: string;
   apiKey: string;
   baseUrl?: string;
   timeoutMs: number;
-  thinkingLevel: CompactThinkingLevel;
+  thinkingLevel: LlmThinkingLevel;
 }
 
 export interface JsonCompletionResult<T extends Record<string, unknown>> {
@@ -107,17 +106,63 @@ export class JsonModelClient {
 
   private extractJsonObject<T extends Record<string, unknown>>(text: string): T {
     const normalized = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-    const start = normalized.indexOf("{");
-    const end = normalized.lastIndexOf("}");
-    if (start < 0 || end <= start) {
+    const candidate = this.extractFirstBalancedObject(normalized);
+    if (!candidate) {
       throw new Error("compact reasoning output did not return a JSON object");
     }
-    const candidate = normalized.slice(start, end + 1);
     const parsed = this.parseJsonObject(candidate);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("compact reasoning payload must be a JSON object");
     }
     return parsed as T;
+  }
+
+  private extractFirstBalancedObject(text: string): string | undefined {
+    const start = text.indexOf("{");
+    if (start < 0) {
+      return undefined;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaping = false;
+
+    for (let index = start; index < text.length; index += 1) {
+      const char = text[index];
+
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaping = true;
+        continue;
+      }
+
+      if (char === "\"") {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) {
+        continue;
+      }
+
+      if (char === "{") {
+        depth += 1;
+        continue;
+      }
+
+      if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          return text.slice(start, index + 1);
+        }
+      }
+    }
+
+    return undefined;
   }
 
   private parseJsonObject(candidate: string): Record<string, unknown> {
@@ -184,7 +229,7 @@ export class JsonModelClient {
     return result;
   }
 
-  private toReasoningLevel(level: CompactThinkingLevel): ThinkingLevel | undefined {
+  private toReasoningLevel(level: LlmThinkingLevel): ThinkingLevel | undefined {
     if (level === "off") {
       return undefined;
     }

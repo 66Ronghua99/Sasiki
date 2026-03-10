@@ -1,7 +1,7 @@
 /**
  * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/intervention-learning.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts
- * Used By: runtime/run-executor.ts, runtime/observe-executor.ts
- * Last Updated: 2026-03-06
+ * Used By: runtime/run-executor.ts, runtime/observe-executor.ts, runtime/interactive-sop-compact.ts
+ * Last Updated: 2026-03-10
  */
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -72,16 +72,32 @@ export class ArtifactsWriter {
     await this.writeJson("sop_consumption.json", record);
   }
 
-  async writeCompactSessionState(state: CompactSessionState): Promise<void> {
+  async resetCompactSessionArtifacts(sessionId: string): Promise<void> {
+    await this.ensureCompactSessionDir(sessionId);
+    await this.writeRaw("compact_human_loop.jsonl", "");
+    await this.writeCompactSessionRaw(sessionId, "compact_human_loop.jsonl", "");
+  }
+
+  async writeCompactSessionState(state: CompactSessionState, sessionId?: string): Promise<void> {
     await this.writeJson("compact_session_state.json", state);
+    if (sessionId) {
+      await this.writeCompactSessionJson(sessionId, "compact_session_state.json", state);
+    }
   }
 
-  async appendCompactHumanLoop(event: CompactHumanLoopEvent): Promise<void> {
-    await appendFile(path.join(this.runDir, "compact_human_loop.jsonl"), `${JSON.stringify(event)}\n`, "utf-8");
+  async appendCompactHumanLoop(event: CompactHumanLoopEvent, sessionId?: string): Promise<void> {
+    const line = `${JSON.stringify(event)}\n`;
+    await appendFile(path.join(this.runDir, "compact_human_loop.jsonl"), line, "utf-8");
+    if (sessionId) {
+      await appendFile(this.compactSessionPath(sessionId, "compact_human_loop.jsonl"), line, "utf-8");
+    }
   }
 
-  async writeCompactCapabilityOutput(output: CompactCapabilityOutput): Promise<void> {
+  async writeCompactCapabilityOutput(output: CompactCapabilityOutput, sessionId?: string): Promise<void> {
     await this.writeJson("compact_capability_output.json", output);
+    if (sessionId) {
+      await this.writeCompactSessionJson(sessionId, "compact_capability_output.json", output);
+    }
   }
 
   async writeRuntimeLog(runtimeLog: string): Promise<void> {
@@ -108,6 +124,10 @@ export class ArtifactsWriter {
     return path.join(this.runDir, "final.png");
   }
 
+  compactSessionDir(sessionId: string): string {
+    return path.join(this.runDir, "compact_sessions", sessionId);
+  }
+
   private async writeJson(filename: string, value: unknown): Promise<void> {
     await writeFile(path.join(this.runDir, filename), `${JSON.stringify(value, null, 2)}\n`, "utf-8");
   }
@@ -116,5 +136,27 @@ export class ArtifactsWriter {
     const lines = rows.map((row) => JSON.stringify(row)).join("\n");
     const output = lines ? `${lines}\n` : "";
     await writeFile(path.join(this.runDir, filename), output, "utf-8");
+  }
+
+  private compactSessionPath(sessionId: string, filename: string): string {
+    return path.join(this.compactSessionDir(sessionId), filename);
+  }
+
+  private async ensureCompactSessionDir(sessionId: string): Promise<void> {
+    await mkdir(this.compactSessionDir(sessionId), { recursive: true });
+  }
+
+  private async writeCompactSessionJson(sessionId: string, filename: string, value: unknown): Promise<void> {
+    await this.ensureCompactSessionDir(sessionId);
+    await writeFile(this.compactSessionPath(sessionId, filename), `${JSON.stringify(value, null, 2)}\n`, "utf-8");
+  }
+
+  private async writeCompactSessionRaw(sessionId: string, filename: string, content: string): Promise<void> {
+    await this.ensureCompactSessionDir(sessionId);
+    await writeFile(this.compactSessionPath(sessionId, filename), content, "utf-8");
+  }
+
+  private async writeRaw(filename: string, content: string): Promise<void> {
+    await writeFile(path.join(this.runDir, filename), content, "utf-8");
   }
 }
