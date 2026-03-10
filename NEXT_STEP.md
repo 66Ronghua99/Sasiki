@@ -1,11 +1,11 @@
-执行 Interactive Reasoning SOP Compact 的下一条 benchmark live 验证：
-- 以 `.plan/20260310_interactive_reasoning_sop_compact.md` 和 `.plan/checklist_interactive_reasoning_sop_compact.md` 作为唯一 active 依据
-- 录制一条“小红书 creator platform 发图文并保存草稿”的真实样本
-- 对新样本执行：
-  - `npm --prefix apps/agent-runtime run dev -- sop-compact --run-id <new_run_id>`
-- 验证新的两步中间轮是否符合预期：
-  - 首轮先给自然语言理解，而不是字段问卷
-  - `compact_human_loop.jsonl` 中出现关键 `clarification_request`
-  - human reply 后继续推进 `compact_session_state.json`
-  - 最终生成 `compact_capability_output.json`
-- 若 live 样本暴露新的 contract 或 prompt 边界问题，只修新多轮 agent 主链，不回头修旧 `question_first` 路径
+冻结下一阶段 `replay + refinement` 的最小闭环需求与设计：
+- 以上一阶段已冻结的 compact 产物为上游输入：
+  - `artifacts/e2e/20260310_153315_481/compact_session_state.json`
+  - `artifacts/e2e/20260310_153315_481/compact_human_loop.jsonl`
+  - `artifacts/e2e/20260310_153315_481/compact_capability_output.json`
+- 明确边界：
+  - `compact` 负责学出流程能力
+  - `runtime replay` 负责执行时观察、提问、验证、refinement
+- 先写新的 `.plan/{date}_replay_refinement_*.md` 设计文档和 checklist，再进入实现
+- 首期 benchmark 仍限定为“小红书 creator platform 填内容并存草稿（无图片）”
+- 不回头重开旧 field-based SOP Compact 主链；当前 compact 阶段只接受必要 bugfix

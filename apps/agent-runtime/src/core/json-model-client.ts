@@ -1,14 +1,15 @@
 import { completeSimple, type ThinkingLevel } from "@mariozechner/pi-ai";
 
 import { ModelResolver } from "./model-resolver.js";
-import type { SemanticThinkingLevel } from "./semantic-compactor.js";
+
+type CompactThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface JsonModelClientConfig {
   model: string;
   apiKey: string;
   baseUrl?: string;
   timeoutMs: number;
-  thinkingLevel: SemanticThinkingLevel;
+  thinkingLevel: CompactThinkingLevel;
 }
 
 export interface JsonCompletionResult<T extends Record<string, unknown>> {
@@ -183,7 +184,7 @@ export class JsonModelClient {
     return result;
   }
 
-  private toReasoningLevel(level: SemanticThinkingLevel): ThinkingLevel | undefined {
+  private toReasoningLevel(level: CompactThinkingLevel): ThinkingLevel | undefined {
     if (level === "off") {
       return undefined;
     }

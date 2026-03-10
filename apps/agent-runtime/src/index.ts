@@ -6,9 +6,8 @@
 import process from "node:process";
 
 import type { RuntimeMode } from "./domain/agent-types.js";
-import type { SemanticMode } from "./core/semantic-compactor.js";
 import { WorkflowRuntime } from "./runtime/workflow-runtime.js";
-import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
+import { RuntimeConfigLoader, type RuntimeSemanticMode } from "./runtime/runtime-config.js";
 import { InteractiveSopCompactService } from "./runtime/interactive-sop-compact.js";
 
 interface RuntimeCliArguments {
@@ -23,29 +22,10 @@ interface SopCompactCliArguments {
   command: "sop-compact";
   configPath?: string;
   runId: string;
-  semanticMode?: SemanticMode;
+  semanticMode?: RuntimeSemanticMode;
 }
 
-interface SopCompactHitlCliArguments {
-  command: "sop-compact-hitl";
-  configPath?: string;
-  runId: string;
-  updates: Array<{ field: string; value: boolean | string }>;
-  notes: string[];
-  rerun: boolean;
-}
-
-interface SopCompactClarifyCliArguments {
-  command: "sop-compact-clarify";
-  configPath?: string;
-  runId: string;
-}
-
-type CliArguments =
-  | RuntimeCliArguments
-  | SopCompactCliArguments
-  | SopCompactHitlCliArguments
-  | SopCompactClarifyCliArguments;
+type CliArguments = RuntimeCliArguments | SopCompactCliArguments;
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
@@ -65,18 +45,6 @@ async function main(): Promise<void> {
     const result = await service.compact(args.runId);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
-  }
-
-  if (args.command === "sop-compact-hitl") {
-    throw new Error(
-      "sop-compact-hitl is archived. use `sop-compact --run-id <run_id>` on the new interactive reasoning path."
-    );
-  }
-
-  if (args.command === "sop-compact-clarify") {
-    throw new Error(
-      "sop-compact-clarify is archived. use `sop-compact --run-id <run_id>` on the new interactive reasoning path."
-    );
   }
 
   if (args.mode === "observe" && !args.task) {
@@ -127,11 +95,10 @@ function parseCliArguments(argv: string[]): CliArguments {
   if (argv[0] === "sop-compact") {
     return parseSopCompactArguments(argv.slice(1));
   }
-  if (argv[0] === "sop-compact-hitl") {
-    return parseSopCompactHitlArguments(argv.slice(1));
-  }
-  if (argv[0] === "sop-compact-clarify") {
-    return parseSopCompactClarifyArguments(argv.slice(1));
+  if (argv[0] === "sop-compact-hitl" || argv[0] === "sop-compact-clarify") {
+    throw new Error(
+      `${argv[0]} is archived. use \`sop-compact --run-id <run_id>\` on the interactive reasoning path instead.`
+    );
   }
   return parseRuntimeArguments(argv);
 }
@@ -178,7 +145,7 @@ function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
 function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
   let configPath: string | undefined;
   let runId: string | undefined;
-  let semanticMode: SemanticMode | undefined;
+  let semanticMode: RuntimeSemanticMode | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--config" || arg === "-c") {
@@ -218,108 +185,6 @@ function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
   return { command: "sop-compact", configPath, runId: runId.trim(), semanticMode };
 }
 
-function parseSopCompactHitlArguments(argv: string[]): SopCompactHitlCliArguments {
-  let configPath: string | undefined;
-  let runId: string | undefined;
-  const updates: Array<{ field: string; value: boolean | string }> = [];
-  const notes: string[] = [];
-  let rerun = false;
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === "--config" || arg === "-c") {
-      configPath = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--config=")) {
-      configPath = arg.slice("--config=".length);
-      continue;
-    }
-    if (arg === "--run-id" || arg === "-r") {
-      runId = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--run-id=")) {
-      runId = arg.slice("--run-id=".length);
-      continue;
-    }
-    if (arg === "--set") {
-      updates.push(parseResolutionUpdate(argv[i + 1]));
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--set=")) {
-      updates.push(parseResolutionUpdate(arg.slice("--set=".length)));
-      continue;
-    }
-    if (arg === "--note") {
-      notes.push((argv[i + 1] ?? "").trim());
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--note=")) {
-      notes.push(arg.slice("--note=".length).trim());
-      continue;
-    }
-    if (arg === "--rerun") {
-      rerun = true;
-      continue;
-    }
-    if (!runId) {
-      runId = arg;
-    }
-  }
-  if (!runId?.trim()) {
-    throw new Error("missing run id. usage: sop-compact-hitl --run-id <run_id>");
-  }
-  return {
-    command: "sop-compact-hitl",
-    configPath,
-    runId: runId.trim(),
-    updates: updates.filter((item) => item.field.length > 0),
-    notes: notes.filter((item) => item.length > 0),
-    rerun,
-  };
-}
-
-function parseSopCompactClarifyArguments(argv: string[]): SopCompactClarifyCliArguments {
-  let configPath: string | undefined;
-  let runId: string | undefined;
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === "--config" || arg === "-c") {
-      configPath = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--config=")) {
-      configPath = arg.slice("--config=".length);
-      continue;
-    }
-    if (arg === "--run-id" || arg === "-r") {
-      runId = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--run-id=")) {
-      runId = arg.slice("--run-id=".length);
-      continue;
-    }
-    if (!runId) {
-      runId = arg;
-    }
-  }
-  if (!runId?.trim()) {
-    throw new Error("missing run id. usage: sop-compact-clarify --run-id <run_id>");
-  }
-  return {
-    command: "sop-compact-clarify",
-    configPath,
-    runId: runId.trim(),
-  };
-}
-
 function parseMode(value: string | undefined): RuntimeMode {
   if (value === "run" || value === "observe") {
     return value;
@@ -327,31 +192,11 @@ function parseMode(value: string | undefined): RuntimeMode {
   throw new Error(`invalid --mode value: ${value ?? "(missing)"}. expected run|observe`);
 }
 
-function parseSemanticMode(value: string | undefined): SemanticMode {
+function parseSemanticMode(value: string | undefined): RuntimeSemanticMode {
   if (value === "off" || value === "auto" || value === "on") {
     return value;
   }
   throw new Error(`invalid --semantic value: ${value ?? "(missing)"}. expected off|auto|on`);
-}
-
-function parseResolutionUpdate(value: string | undefined): { field: string; value: boolean | string } {
-  const raw = value?.trim() ?? "";
-  const separatorIndex = raw.indexOf("=");
-  if (separatorIndex <= 0) {
-    throw new Error(`invalid --set value: ${value ?? "(missing)"}. expected field=value`);
-  }
-  const field = raw.slice(0, separatorIndex).trim();
-  const serializedValue = raw.slice(separatorIndex + 1).trim();
-  if (!field || !serializedValue) {
-    throw new Error(`invalid --set value: ${value ?? "(missing)"}. expected field=value`);
-  }
-  if (serializedValue === "true") {
-    return { field, value: true };
-  }
-  if (serializedValue === "false") {
-    return { field, value: false };
-  }
-  return { field, value: serializedValue };
 }
 
 function printUsageAndExit(): void {

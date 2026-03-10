@@ -25,22 +25,23 @@
 - [x] 重写 terminal human loop controller 以服务 agent tool
 - [x] 新建 `finalizer` 输出 `compact_capability_output.json`
 - [x] 新主路径不再生成旧 field-based compact artifacts
+- [x] 旧 field-based compact 主链代码已清理，避免 archived command 继续绑定 legacy implementation
 
 ## Verification
-- [x] 选定一条真实 trace 作为 `Slice 1` 主回归样本（`20260310_110821_112`）
+- [x] 选定一条真实 trace 作为 `Slice 1` 主回归样本（`20260310_153315_481`）
 - [x] 首轮 agent 输出不是字段问卷
 - [x] `compact_human_loop.jsonl` 已出现 `clarification_request` 与 `human_reply`
-- [ ] human reply 后 `taskUnderstanding` 与 `openDecisions` 发生变化
-- [ ] `compact_session_state.json` 可持续更新至会话结束
-- [ ] 最终生成 `compact_capability_output.json`
-- [ ] 未接入 `run` 的前提下，闭环仍可独立验证
+- [x] human reply 后 `taskUnderstanding` 与 `openDecisions` 发生变化
+- [x] `compact_session_state.json` 可持续更新至会话结束
+- [x] 最终生成 `compact_capability_output.json`
+- [x] 未接入 `run` 的前提下，闭环仍可独立验证
 
 ## Quality Gates
 - [x] `npm --prefix apps/agent-runtime run typecheck`
 - [x] `npm --prefix apps/agent-runtime run build`
 
 ## Docs Sync
-- [x] `PROGRESS.md` 已将新路径设置为 active `P0-NEXT`
-- [x] `NEXT_STEP.md` 已切换到 `rewrite_slice_1_minimal_agent_loop_v0`
+- [x] `PROGRESS.md` 已将本阶段标记为冻结完成，并把 `P0-NEXT` 切到 `replay + refinement`
+- [x] `NEXT_STEP.md` 已切换到下一阶段需求/设计冻结
 - [x] `MEMORY.md` 已写入新的 compact 架构治理边界
 - [x] Reference List 已指向新的 active design + checklist

@@ -53,12 +53,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` Interactive Reasoning SOP Compact live validation：
-  - 目标：在更贴近目标任务的 benchmark 上验证新的两步中间轮：`freeform reasoner -> summarize substep -> human loop -> capability output`
-  - 约束：继续保持 `compact_session_state` 为唯一中间真源、`compact_capability_output` 为唯一最终真源；本阶段仍不接 `run` 消费
-  - 验收：录制并执行一条“小红书 creator platform 发图文并保存草稿”的真实样本，确认首轮输出先给自然语言理解，再出现关键 `clarification_request`，并最终落盘 `compact_session_state.json / compact_human_loop.jsonl / compact_capability_output.json`
-  - 当前状态：`rewrite_slice_1_minimal_agent_loop_v0` 已切到两步中间轮；在 `20260310_110821_112` 上已验证首轮不再是字段问卷，`compact_human_loop.jsonl` 已出现 `clarification_request` 与 `human_reply`。当前剩余工作是把 capability quality 验证从旧“小红书博主搜索”样本切到 creator-platform 草稿保存 benchmark
-  - 证据：`.plan/20260310_interactive_reasoning_sop_compact.md` + `.plan/checklist_interactive_reasoning_sop_compact.md`
+- `P0-NEXT` Replay + Refinement requirement freeze：
+  - 目标：基于当前已冻结的 `compact_capability_output`，定义下一阶段“消费 + 执行中 refinement”闭环；明确 `compact` 与 `runtime replay` 的边界，不再继续扩展旧 compact 主链
+  - 范围：先聚焦“小红书 creator platform 填内容并存草稿（无图片）”这一条 runtime benchmark；把需求冻结为“replay + refinement”设计包，而不是立即大规模改代码
+  - 当前状态：`Interactive Reasoning SOP Compact` 已完成主链迁移、human loop 深度集成和 live benchmark 验证；旧 field-based compact 代码已清理，当前进入下一阶段需求冻结前的整理期
+  - 下一步产物：新的 `.plan/{date}_replay_refinement_*.md` 设计文档与 checklist
+  - 证据入口：`artifacts/e2e/20260310_153315_481/compact_session_state.json`、`artifacts/e2e/20260310_153315_481/compact_human_loop.jsonl`、`artifacts/e2e/20260310_153315_481/compact_capability_output.json`
 - `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 前提：新的 compact 主路径已稳定产出可信的 `compact_capability_output`
@@ -71,6 +71,11 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Interactive Reasoning SOP Compact 阶段冻结与旧路径清理：
+  - live benchmark `artifacts/e2e/20260310_153315_481` 已验证新的 `freeform reasoner -> summarize substep -> human loop -> compact_capability_output` 主链
+  - `sop-compact` 已完成从旧 field/schema compiler 到多轮 agent loop 的迁移，当前产物已能复述流程骨架并通过少量 HITL 收敛任务理解
+  - 旧 field-based compact 代码已清理：移除 `semantic_compactor`、`sop-compact-hitl`、`sop-compact-clarify`、`sop-intent-abstraction-builder` 等 legacy 主路径实现，避免团队后续继续沿错误方向增量修补
+  - 当前阶段结论：SOP Compact 主迁移已完成，后续只做小修小补；下一阶段主目标切到 `replay + refinement`
 - 已完成 Interactive Reasoning SOP Compact `Slice 1` 最小代码闭环：
   - 新 contract：`apps/agent-runtime/src/domain/compact-reasoning.ts`
   - 新 human loop tool：`apps/agent-runtime/src/contracts/compact-human-loop-tool.ts`、`apps/agent-runtime/src/infrastructure/hitl/terminal-compact-human-loop-tool.ts`

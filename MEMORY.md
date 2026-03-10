@@ -74,6 +74,8 @@
 - compact human loop 控制流治理：如果模型同一轮同时返回 `humanLoopRequest` 和 `ready_to_finalize`，运行时必须优先执行 human loop，不能先把 request 丢弃再继续下一轮；否则会表现成“模型自己跑完了、完全没经过 HITL”。
 - compact middle-round 治理：中间轮不应继续让主 reasoner 同时承担“高质量共推理”和“严格 JSON 输出”两种职责；更稳的形态是 `freeform reasoner -> summarize substep -> patch apply`，其中只有 summarize/finalize 负责结构化输出。
 - compact summarize fallback 治理：即使 summarize 子步骤漏掉 `humanLoopRequest` 或把 `openDecisions` 清空，只要 freeform reasoning 仍明确暴露 unresolved question，运行时就应回填问题并继续 human loop，避免自由文本里已经在问人、但状态机误判成“无需提问”。
+- compact 阶段收口治理：当新的 interactive compact 已在真实 benchmark 上完成迁移验证后，应尽快清理旧 field-based compact 代码，而不是长期保留“archived command + 旧实现”双轨并存；否则团队很容易继续沿旧路径修补，造成架构回摆。
+- compact 会话落盘治理：同一个 `run_id` 多次重跑 `sop-compact` 时，`compact_human_loop.jsonl` 与 `runtime.log` 容易混入多次 session 记录；后续进入 replay/refinement 阶段前，应补 session 级分段或 rerun 清理策略，避免审计证据变脏。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

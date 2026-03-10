@@ -1,6 +1,12 @@
 # Interactive Reasoning SOP Compact (2026-03-10)
 
 > [!NOTE]
+> Stage status: Frozen on 2026-03-10.
+> 本阶段已完成主链迁移、live benchmark 验证和 legacy cleanup。
+> 关键证据：`artifacts/e2e/20260310_153315_481/compact_session_state.json`、`artifacts/e2e/20260310_153315_481/compact_human_loop.jsonl`、`artifacts/e2e/20260310_153315_481/compact_capability_output.json`
+> 下一阶段主指针：`replay + refinement`
+
+> [!NOTE]
 > Active implementation doc.
 > 本文档用于冻结 `SOP Compact` 的新主路径：从单轮 field/schema compiler 切换为多轮 `agent + human loop tool` 的共推理流程。
 

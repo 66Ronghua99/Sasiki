@@ -19,7 +19,18 @@ import { validateSopTrace } from "../domain/sop-trace.js";
 import { TerminalCompactHumanLoopTool } from "../infrastructure/hitl/terminal-compact-human-loop-tool.js";
 import { ArtifactsWriter } from "./artifacts-writer.js";
 import { SopRuleCompactBuilder, type BuiltCompact } from "./sop-rule-compact-builder.js";
-import type { SopCompactSemanticOptions } from "./sop-semantic-runner.js";
+
+type CompactSemanticMode = "off" | "auto" | "on";
+type CompactThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+interface CompactSemanticOptions {
+  mode: CompactSemanticMode;
+  timeoutMs: number;
+  model: string;
+  apiKey: string;
+  baseUrl?: string;
+  thinkingLevel: CompactThinkingLevel;
+}
 
 const REASONER_SYSTEM_PROMPT = [
   "You are the SOP compact reasoning agent for browser workflow demonstrations.",
@@ -69,7 +80,7 @@ interface CompactTraceSummary {
 }
 
 interface InteractiveSopCompactOptions {
-  semantic: SopCompactSemanticOptions;
+  semantic: CompactSemanticOptions;
   hardLimit?: number;
   humanLoopTool?: CompactHumanLoopTool;
 }
@@ -88,7 +99,7 @@ export interface InteractiveSopCompactResult {
 
 export class InteractiveSopCompactService {
   private readonly artifactsDir: string;
-  private readonly semanticOptions: SopCompactSemanticOptions;
+  private readonly semanticOptions: CompactSemanticOptions;
   private readonly hardLimit: number;
   private readonly humanLoopTool: CompactHumanLoopTool;
   private readonly modelClient: JsonModelClient;
