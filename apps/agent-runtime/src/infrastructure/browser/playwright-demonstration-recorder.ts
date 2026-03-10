@@ -207,7 +207,16 @@ export class PlaywrightDemonstrationRecorder {
     }
     const tabId = this.nextTabId();
     this.tabIds.set(page, tabId);
-    const openerTabId = await this.resolveOpenerTabId(page);
+    let openerTabId: string | undefined;
+    try {
+      openerTabId = await this.resolveOpenerTabId(page);
+    } catch (error) {
+      if (this.isIgnorablePageLifecycleError(error)) {
+        this.tabIds.delete(page);
+        return;
+      }
+      throw error;
+    }
 
     const onConsole = (message: ConsoleMessage): void => {
       this.captureConsoleEvent(message, tabId, openerTabId);
@@ -218,18 +227,38 @@ export class PlaywrightDemonstrationRecorder {
       }
       this.pushEvent("navigate", page.url(), { reason: "main_frame_navigated" }, tabId, openerTabId);
     };
+    const onClose = (): void => {
+      this.tabIds.delete(page);
+    };
 
     page.on("console", onConsole);
     page.on("framenavigated", onFrameNavigated);
+    page.on("close", onClose);
     this.listeners.push(() => page.off("console", onConsole));
     this.listeners.push(() => page.off("framenavigated", onFrameNavigated));
+    this.listeners.push(() => page.off("close", onClose));
 
-    await page.addInitScript({ content: OBSERVE_CAPTURE_SCRIPT });
+    if (page.isClosed()) {
+      this.tabIds.delete(page);
+      return;
+    }
+
     try {
+      await page.addInitScript({ content: OBSERVE_CAPTURE_SCRIPT });
       await page.evaluate(OBSERVE_CAPTURE_SCRIPT);
-    } catch {
+    } catch (error) {
+      if (this.isIgnorablePageLifecycleError(error)) {
+        this.tabIds.delete(page);
+        return;
+      }
       // Cross-origin and navigation races can make evaluate fail; init script still covers future documents.
     }
+
+    if (page.isClosed()) {
+      this.tabIds.delete(page);
+      return;
+    }
+
     this.pushEvent("navigate", page.url(), { reason: "tab_attached" }, tabId, openerTabId);
   }
 
@@ -289,6 +318,20 @@ export class PlaywrightDemonstrationRecorder {
   private nextTabId(): string {
     this.tabCounter += 1;
     return `tab-${this.tabCounter}`;
+  }
+
+  private isIgnorablePageLifecycleError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("target page, context or browser has been closed") ||
+      message.includes("page has been closed") ||
+      message.includes("target closed") ||
+      message.includes("browser has been closed") ||
+      message.includes("context has been closed")
+    );
   }
 
   private requireContext(): BrowserContext {

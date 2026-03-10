@@ -19,6 +19,7 @@
 - 状态门禁治理：compact 阶段的资产状态只能由 `compact_manifest.json` 单点声明；`ready_for_replay` 必须同时通过 admission matrix、结构完整性、污染检测与 question 映射完整性校验。
 - 抽象执行模型治理：`sop-compact` 的核心 intent/workflow/decision 生成必须由 agent draft 主导；deterministic 逻辑只负责 evidence extraction 与 validation/gate，不能重新退化成关键词分类器或 `goalType -> workflow template`。
 - 关键词使用边界：字符串匹配只允许出现在 `abstraction_input.json` 的 weak signals 层，用于 evidence labeling；没有 agent draft 时只允许输出保守 fallback，并保持 `needs_clarification`，不能假装 replay-ready。
+- observe 录制竞态治理：CDP attach 后新页面可能在 recorder 注入 `addInitScript/evaluate` 前就被关闭；这类 page/context/browser closed 错误必须视为可忽略竞态并跳过该 tab，不能让未捕获异常直接终止 observe 并留下空的 `demonstration_raw.jsonl`。
 - 产物分层治理：内部 compact 工件用于抽象/审计/gate，最终 runtime 应只消费 `execution_guide.json` 这一份冻结后的 replay guide，而不是并读多份内部 JSON。
 - 结构化输出治理：模型即使被要求返回 JSON，也经常退化成字符串数组或弱 schema 对象；structured prompt 需要显式给出字段级 JSON 形状示例，merge 层也必须宽容吸收 `string[] -> object[]` 的降级输出。
 - 行为纠偏治理：若 agent draft 将明显的集合处理任务收窄成 `single_object_update`，可由 deterministic 的抽象行为证据（如 `iterate_collection`）做 `goalType` 纠偏；这类纠偏只允许发生在跨域通用行为层，不能回到领域字符串分类。

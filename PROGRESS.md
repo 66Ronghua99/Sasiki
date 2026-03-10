@@ -66,6 +66,10 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已修正 observe 录制器的页面关闭竞态：
+  - 根因：CDP attach 后若新页面在 `page.addInitScript()` / `page.evaluate()` 前瞬时关闭，后台 `registerPage()` 会抛出未捕获异常，导致 observe 进程提前终止并留下空的 `demonstration_raw.jsonl`
+  - 修复：将 page/context/browser closed 视为可忽略生命周期竞态，跳过已关闭 tab，并在 page close 时清理 tab 映射
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 Compact-stage HITL inline loop 的 live ready-path 验收：
   - 样本：`artifacts/e2e/20260308_110124_276_inline_try1`
   - 结果：`compact_manifest.status=ready_for_replay`，`execution_guide.replayReady=true`
