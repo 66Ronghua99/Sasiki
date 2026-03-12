@@ -56,15 +56,15 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` Replay + Online Refinement Slice-1 implementation：
-  - 目标：实现 `Option B sidecar orchestrator` 的最小闭环（instrumentation + pinned replay + advisory knowledge injection）
-  - 范围：先接线 `refine agent` 编排、operator gateway、refinement artifacts 与 consumption bundle；不做检索泛化与多站点扩展
-  - 当前状态：并行 Track A/B/C/D 与 Track-E（兼容接线）已落代码；默认 `refinement.enabled=false` 仍走 legacy run
+- `P0-NEXT` Replay + Online Refinement Slice-2 验证：
+  - 目标：从“能跑通”推进到“可量化收益”（二轮 knowledge 加载与 token 收敛）
+  - 范围：继续 pinned `--sop-run-id` 单 benchmark，不扩展检索泛化
+  - 当前状态：Slice-1 已接线到 runtime 并完成 HITL 实测，artifact 契约齐全；但 `promoteDecision` 仍以 `hold` 为主，二轮 `knowledge_loaded_count` 尚未大于 0
   - 下一步产物：
-    - 在 runtime 中把 orchestrator 与 artifacts writer 实际接线到执行路径
-    - 补齐 `refinement_steps/snapshot_index/refinement_knowledge/consumption_bundle` 的真实落盘调用
-    - 跑 benchmark 两轮日志验证 `knowledge_loaded_count>0` 与 token 收敛
-  - 证据入口：`.plan/20260312_replay_refinement_requirement_v0.md`、`.plan/20260312_replay_refinement_online_design.md`、`.plan/checklist_replay_refinement_online.md`
+    - 触发至少 1 条 `promoteDecision=promote`，验证 `refinement_knowledge.jsonl` 非空且字段完整
+    - 运行两轮同任务样本，验证第二轮 `knowledge_loaded_count>0`
+    - 验证第二轮 `consumption_bundle.tokenEstimate <= 第一轮 * 0.8`
+  - 证据入口：`.plan/20260312_replay_refinement_online_design.md`、`.plan/checklist_replay_refinement_online.md`、`artifacts/e2e/20260313_011336_096`、`artifacts/e2e/20260313_011652_024`
 - `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 前提：新的 compact 主路径已稳定产出可信的 `compact_capability_output`
@@ -77,6 +77,22 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Replay + Online Refinement Slice-1 runtime 接线与实测闭环：
+  - `WorkflowRuntime` 已按 `refinement.enabled` 分流：`false -> RunExecutor`，`true -> OnlineRefinementRunExecutor`
+  - `OnlineRefinementRunExecutor` 已接线：
+    - 单步 operator 执行（`AgentLoop.stopAfterFirstToolExecutionEnd`）
+    - pre/post snapshot 采集与 `snapshot_index.jsonl`
+    - bundle 编译与 `consumption_bundle.json`
+    - refine decision 三段式（evaluate -> critic -> finalize）
+    - promotion/upsert 到 `RefinementMemoryStore`（promote 时生效）
+    - artifacts 落盘：`refinement_steps.jsonl` / `refinement_knowledge.jsonl` / `steps.json` / `mcp_calls.jsonl` / `assistant_turns.json`
+  - 已完成真实 benchmark run：
+    - `20260313_011336_096`：长文草稿路径可推进至“写长文”页面，状态 `max_steps`
+    - `20260313_011652_024`：触发两次 HITL（含 `no_progress -> HITL`），人工输入后以 `abort run` 收尾，状态 `online_refinement:user_stopped`
+  - 已验证契约完整性：
+    - 两个 run 均产出 `consumption_bundle.json`、`refinement_steps.jsonl`、`snapshot_index.jsonl`、`refinement_knowledge.jsonl`
+    - `snapshot_index.jsonl` 已验证 snapshotId 不重复（capture seq 生效）
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 Replay + Online Refinement 阶段需求冻结与架构冻结：
   - 已把项目级 `AGENTS.md` 从 user-level 重复内容切换为 project-level 约束，并固化三条核心原则（多轮 agent 闭环、agent-first MVP、三类 agent 命名）
   - 已完成 requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`

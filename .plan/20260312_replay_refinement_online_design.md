@@ -9,6 +9,63 @@
 
 本阶段目标：新增 `refine agent` 在线闭环，形成“执行证据采集 -> 相关性沉淀 -> 下轮压缩消费”能力，不回退到 heuristic 规则机。
 
+### 1.1 End-to-End Topology (As-Is)
+```mermaid
+flowchart TB
+  CLI["CLI runtime command (index.ts)"] --> WR["WorkflowRuntime"]
+
+  WR -->|"mode=run"| RE["RunExecutor (legacy)"]
+  RE --> AL["AgentLoop"]
+  RE --> LH["Legacy HITL (TerminalHitlController)"]
+
+  AL --> MTB["McpToolBridge"]
+  MTB --> MSC["McpStdioClient"]
+  MSC --> MCP["Playwright MCP Server"]
+  MCP --> BR["Browser (Chrome/CDP)"]
+
+  WR -. "refinement.enabled=true (current: fallback warning only)" .-> ORO["OnlineRefinementOrchestrator (not wired to run path)"]
+  ORO --> BOG["BrowserOperatorGateway (runOperation callback)"]
+  ORO --> DE["DecisionEngine interface (refine agent placeholder)"]
+  ORO --> RHL["RefinementHitlLoop"]
+
+  ORO --> CCF["CoreConsumptionFilter"]
+  ORO --> RMS["RefinementMemoryStore"]
+  ORO --> AW["ArtifactsWriter refinement APIs"]
+```
+
+### 1.2 Target Topology (To-Be)
+```mermaid
+flowchart TB
+  CLI["CLI runtime command"] --> WR["WorkflowRuntime"]
+
+  WR -->|"refinement.enabled=false"| RE["RunExecutor (legacy compatible)"]
+  WR -->|"refinement.enabled=true"| ORO["OnlineRefinementOrchestrator"]
+
+  ORO --> RA["Refine Agent (step decision + evaluate + promote)"]
+  ORO --> CA["Core Agent (browser operator subagent)"]
+
+  ORO --> CCF["CoreConsumptionFilter (bundle compile)"]
+  CCF --> RMS["RefinementMemoryStore (surfaceKey+taskKey)"]
+
+  CA --> AL["AgentLoop execution layer"]
+  AL --> MTB["McpToolBridge (pre/post hook)"]
+  MTB --> MCP["Playwright MCP"]
+  MCP --> BR["Browser (CDP)"]
+
+  MTB --> SI["snapshot_index.jsonl (before/after)"]
+  MTB --> FV["filtered-view observation text"]
+
+  ORO --> HITL["Refinement HITL loop"]
+  ORO --> RK["refinement_knowledge.jsonl"]
+  ORO --> RS["refinement_steps.jsonl + consumption_bundle.json"]
+```
+
+### 1.3 Ownership Clarification
+- `runtime` 负责 run-level 启动与模式切换（legacy/refinement）。
+- `orchestrator` 负责回合状态机推进，不直接操作浏览器。
+- `refine agent` 负责“下一步意图与评估/晋升决策”。
+- `core agent` 负责浏览器动作执行（经 `AgentLoop -> MCP`）。
+
 ## 2. Boundary and Ownership
 ### 2.1 Refine Agent Orchestration
 - 负责 replay/refinement session 生命周期。

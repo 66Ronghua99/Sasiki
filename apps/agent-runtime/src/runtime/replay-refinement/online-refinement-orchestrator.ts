@@ -1,6 +1,6 @@
 /**
  * Deps: contracts/logger.ts, runtime/replay-refinement/browser-operator-gateway.ts, runtime/replay-refinement/refinement-hitl-loop.ts
- * Used By: runtime/workflow-runtime.ts (future wiring)
+ * Used By: runtime/replay-refinement/online-refinement-run-executor.ts
  * Last Updated: 2026-03-12
  */
 import type { Logger } from "../../contracts/logger.js";

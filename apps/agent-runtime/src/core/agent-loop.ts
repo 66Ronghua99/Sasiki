@@ -18,8 +18,9 @@ import type {
   McpCallRecord,
 } from "../domain/agent-types.js";
 import type { HighLevelLogEntry, HighLevelLogStatus } from "../domain/high-level-log.js";
+import type { ToolCallHookContext } from "../domain/refinement-session.js";
 import { ModelResolver } from "./model-resolver.js";
-import { McpToolBridge } from "./mcp-tool-bridge.js";
+import { McpToolBridge, type McpToolCallHookObserver } from "./mcp-tool-bridge.js";
 
 export interface AgentLoopConfig {
   model: string;
@@ -37,6 +38,10 @@ export interface AgentLoopProgressSnapshot {
 
 export interface AgentLoopSnapshotOptions {
   includeLastSnapshot?: boolean;
+}
+
+export interface AgentLoopRunOptions {
+  stopAfterFirstToolExecutionEnd?: boolean;
 }
 
 const SYSTEM_PROMPT = [
@@ -107,7 +112,15 @@ export class AgentLoop {
     this.agent = null;
   }
 
-  async run(task: string): Promise<AgentRunResult> {
+  setToolHookObserver(observer: McpToolCallHookObserver | null): void {
+    this.toolAdapter.setHookObserver(observer);
+  }
+
+  setToolHookContext(context: Partial<ToolCallHookContext>): void {
+    this.toolAdapter.setHookContext(context);
+  }
+
+  async run(task: string, options?: AgentLoopRunOptions): Promise<AgentRunResult> {
     const agent = this.requireAgent();
     const steps: AgentStepRecord[] = [];
     const mcpCalls: McpCallRecord[] = [];
@@ -117,6 +130,19 @@ export class AgentLoop {
     this.latestProgress = this.activeProgress;
     const runningCalls = new Map<string, { name: string; args: Record<string, unknown> }>();
     const toolCallTurnIndexes = new Map<string, number>();
+    const singleStepStop = {
+      enabled: options?.stopAfterFirstToolExecutionEnd === true,
+      requested: false,
+      matchedToolCallId: undefined as string | undefined,
+      matchedToolName: undefined as string | undefined,
+      matchedStepIndex: undefined as number | undefined,
+    };
+
+    if (singleStepStop.enabled) {
+      this.logger.info("agent_single_step_mode_enabled", {
+        stopAfterFirstToolExecutionEnd: true,
+      });
+    }
 
     let status: AgentRunStatus = "completed";
     let finishReason = "agent loop completed";
@@ -124,7 +150,21 @@ export class AgentLoop {
       const unsubscribe = agent.subscribe((event) => {
         this.collectStepEvent(event, steps, mcpCalls, runningCalls, highLevelLogs, toolCallTurnIndexes);
         this.collectAssistantTurnEvent(event, assistantTurns, highLevelLogs, toolCallTurnIndexes);
-        const failure = this.detectFailure(event);
+        if (singleStepStop.enabled && event.type === "tool_execution_end" && !singleStepStop.requested) {
+          singleStepStop.requested = true;
+          singleStepStop.matchedToolCallId = event.toolCallId;
+          singleStepStop.matchedToolName = event.toolName;
+          singleStepStop.matchedStepIndex = steps.length;
+          this.logger.info("agent_single_step_stop_requested", {
+            stopAfterFirstToolExecutionEnd: true,
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            stepIndex: steps.length,
+            mcpEndCount: mcpCalls.filter((call) => call.phase === "end").length,
+          });
+          agent.abort();
+        }
+        const failure = this.detectFailure(event, singleStepStop.requested);
         if (!failure) {
           return;
         }
@@ -140,10 +180,23 @@ export class AgentLoop {
       }
 
       if (status === "completed") {
-        const stateError = agent.state.error;
-        if (stateError) {
-          status = "failed";
-          finishReason = stateError;
+        if (singleStepStop.requested) {
+          finishReason = "planned_single_step_stop_after_tool_execution_end";
+          this.logger.info("agent_single_step_stop_completed", {
+            stopAfterFirstToolExecutionEnd: true,
+            finishReason,
+            toolCallId: singleStepStop.matchedToolCallId,
+            toolName: singleStepStop.matchedToolName,
+            stepIndex: singleStepStop.matchedStepIndex,
+            stepCount: steps.length,
+            mcpCallCount: mcpCalls.length,
+          });
+        } else {
+          const stateError = agent.state.error;
+          if (stateError) {
+            status = "failed";
+            finishReason = stateError;
+          }
         }
       }
 
@@ -437,7 +490,7 @@ export class AgentLoop {
     return /"isError":\s*true/.test(excerpt) || /### Error/.test(excerpt);
   }
 
-  private detectFailure(event: AgentEvent): string | null {
+  private detectFailure(event: AgentEvent, allowAbortedStop: boolean): string | null {
     if (event.type !== "message_end") {
       return null;
     }
@@ -449,6 +502,13 @@ export class AgentLoop {
     }
     const stopReason = event.message.stopReason;
     if (stopReason === "error" || stopReason === "aborted") {
+      if (stopReason === "aborted" && allowAbortedStop) {
+        this.logger.info("assistant_message_aborted_planned_single_step", {
+          stopReason,
+          errorMessage: event.message.errorMessage,
+        });
+        return null;
+      }
       const error = event.message.errorMessage;
       this.logger.error("assistant_message_failed", {
         stopReason,

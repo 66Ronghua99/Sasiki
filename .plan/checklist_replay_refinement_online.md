@@ -31,29 +31,29 @@
 - [x] 已冻结 filtered-view 注入时机（mutation tool end）与 HITL payload 对齐规则
 
 ## Slice-1 Implementation
-- [ ] Phase 1: 仅接线 step capture + artifacts 落盘（不跑 refine LLM）
-- [ ] Phase 1: 在 `McpToolBridge` 增加 pre/post snapshot hook（支持 `summary_fallback`）
-- [ ] Phase 1: 扩展 artifacts writer 输出 `refinement_steps.jsonl`
-- [ ] Phase 2: 接入 refine LLM `evaluate -> critic -> finalize` 三段式 JSON 调用（无 HITL）
-- [ ] Phase 2: 实现 `promoteDecision/confidence/rationale` 落盘
-- [ ] Phase 2: 实现第一轮 bundle 编译（仅 `compact_capability_output` 输入）
-- [ ] Phase 3: 接入 refinement HITL pause/resume（CLI stdin）
-- [ ] Phase 3: 实现跨 run knowledge store（`surfaceKey + taskKey` 索引加载）
-- [ ] 扩展 runtime config 与 workflow runtime 接线（`refinement.enabled` 开关）
+- [x] Phase 1: 仅接线 step capture + artifacts 落盘（不跑 refine LLM）
+- [x] Phase 1: 在 `McpToolBridge` 增加 pre/post snapshot hook（支持 `summary_fallback`）
+- [x] Phase 1: 扩展 artifacts writer 输出 `refinement_steps.jsonl`
+- [x] Phase 2: 接入 refine LLM `evaluate -> critic -> finalize` 三段式 JSON 调用（无 HITL）
+- [x] Phase 2: 实现 `promoteDecision/confidence/rationale` 落盘
+- [x] Phase 2: 实现第一轮 bundle 编译（仅 `compact_capability_output` 输入）
+- [x] Phase 3: 接入 refinement HITL pause/resume（CLI stdin）
+- [x] Phase 3: 实现跨 run knowledge store（`surfaceKey + taskKey` 索引加载）
+- [x] 扩展 runtime config 与 workflow runtime 接线（`refinement.enabled` 开关）
 
 ## Evidence
-- [ ] 产出 `refinement_steps.jsonl`
-- [ ] 产出 `consumption_bundle.json`
-- [ ] 产出 `snapshot_index.jsonl`
-- [ ] 产出 `refinement_knowledge.jsonl`（允许为空）
+- [x] 产出 `refinement_steps.jsonl`
+- [x] 产出 `consumption_bundle.json`
+- [x] 产出 `snapshot_index.jsonl`
+- [x] 产出 `refinement_knowledge.jsonl`（允许为空）
 - [ ] 第二轮 benchmark 的 `consumption_bundle.tokenEstimate <= 第一轮 * 0.8`
 - [ ] 第二轮 benchmark 任务仍成功（草稿保存）
 - [ ] 每条 promoted knowledge 包含 `rationale + critic_challenge + final_decision`
 - [ ] 第二轮日志存在 `knowledge_loaded_count>0`
 
 ## Quality Gates
-- [ ] `npm --prefix apps/agent-runtime run typecheck`
-- [ ] `npm --prefix apps/agent-runtime run build`
+- [x] `npm --prefix apps/agent-runtime run typecheck`
+- [x] `npm --prefix apps/agent-runtime run build`
 
 ## Docs Sync
 - [x] `AGENTS.md` 已更新为项目级治理文档

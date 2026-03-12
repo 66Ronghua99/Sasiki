@@ -14,6 +14,7 @@ import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "./agent-execution-runtime.js";
 import { ObserveExecutor } from "./observe-executor.js";
 import { ObserveRuntime } from "./observe-runtime.js";
+import { OnlineRefinementRunExecutor } from "./replay-refinement/online-refinement-run-executor.js";
 import { RunExecutor } from "./run-executor.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 import { SopAssetStore } from "./sop-asset-store.js";
@@ -75,19 +76,35 @@ export class WorkflowRuntime {
       assetStore: sopAssetStore,
     });
 
-    const runExecutor = new RunExecutor({
-      loop,
-      logger,
-      artifactsDir: config.artifactsDir,
-      createRunId: () => this.createRunId(),
-      sopConsumptionContext,
-      hitlController: config.hitlEnabled ? new TerminalHitlController() : undefined,
-      hitlRetryLimit: config.hitlRetryLimit,
-      hitlMaxInterventions: config.hitlMaxInterventions,
-    });
+    const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
+    const runExecutor = config.refinementEnabled
+      ? new OnlineRefinementRunExecutor({
+          loop,
+          logger,
+          artifactsDir: config.artifactsDir,
+          createRunId: () => this.createRunId(),
+          model: config.model,
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
+          thinkingLevel: config.thinkingLevel,
+          maxRounds: config.refinementMaxRounds,
+          tokenBudget: config.refinementTokenBudget,
+          knowledgeTopN: config.refinementKnowledgeTopN,
+          hitlController,
+        })
+      : new RunExecutor({
+          loop,
+          logger,
+          artifactsDir: config.artifactsDir,
+          createRunId: () => this.createRunId(),
+          sopConsumptionContext,
+          hitlController,
+          hitlRetryLimit: config.hitlRetryLimit,
+          hitlMaxInterventions: config.hitlMaxInterventions,
+        });
 
     if (config.refinementEnabled) {
-      logger.warn("refinement_enabled_fallback_to_legacy_run", {
+      logger.info("refinement_runtime_enabled", {
         refinementMode: config.refinementMode,
         refinementMaxRounds: config.refinementMaxRounds,
         refinementTokenBudget: config.refinementTokenBudget,

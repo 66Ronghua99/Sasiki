@@ -5,16 +5,20 @@
  */
 import type { AgentLoop } from "../core/agent-loop.js";
 import type { AgentRunRequest, AgentRunResult } from "../domain/agent-types.js";
-import { RunExecutor } from "./run-executor.js";
+
+export interface AgentRunExecutor {
+  execute(request: AgentRunRequest): Promise<AgentRunResult>;
+  requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean>;
+}
 
 export interface AgentExecutionRuntimeOptions {
   loop: AgentLoop;
-  runExecutor: RunExecutor;
+  runExecutor: AgentRunExecutor;
 }
 
 export class AgentExecutionRuntime {
   private readonly loop: AgentLoop;
-  private readonly runExecutor: RunExecutor;
+  private readonly runExecutor: AgentRunExecutor;
   private loopInitialized = false;
 
   constructor(options: AgentExecutionRuntimeOptions) {

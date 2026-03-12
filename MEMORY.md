@@ -86,6 +86,9 @@
 - confidence 治理：promotion `confidence` 由 agent 后验判断输出，并通过 critic 回合挑战；不要引入 if/else 打分规则来决定语义晋升。
 - human override 治理：v0 不做离线重标注台；HITL 只记录当下纠偏指令（`human_intervention_note`），通过后续回合再学习吸收。
 - snapshot hook 治理：refinement 的 before/after snapshot 应通过 tool-call 前后 hook 采集；不要求新增 MCP 工具，优先复用 `browser_snapshot`，不可用时降级 summary。
+- single-step 停止治理：`stopAfterFirstToolExecutionEnd` 会触发 `assistant stopReason=aborted`，运行时必须视为计划内终止而非失败，否则 refinement 单步 operator 会被误判为 hard failure。
+- snapshot 索引唯一性治理：before/after snapshot 若仅按 `stepIndex+phase` 命名，在 retry/HITL 场景会覆盖文件；必须追加 capture sequence，保证 `snapshotId/path` 全局唯一可追溯。
+- HITL 证据治理：HITL 输入不能只留在 `runtime.log`，还需同步回写到 `refinement_steps.jsonl.human_intervention_note[]`，否则离线审计无法按 step 追溯人工纠偏。
 - cross-run 验证治理：若没有 `surfaceKey + taskKey` 的知识索引加载，二轮 token 收敛 AC 不可判定，不得宣称闭环完成。
 - MCP 兼容治理：refinement 改造不得改变 tool return 外层结构；只允许改写 observation text，并保留原始 `details` 供审计与回放。
 - step 度量治理：v0 以 `mutation tool call` 为记录真源，`pageStepId` 仅用于同页连续操作聚合，避免 page-step 与 tool-call 双口径冲突。
