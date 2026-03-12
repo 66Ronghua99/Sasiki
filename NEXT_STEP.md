@@ -1,11 +1,6 @@
-冻结下一阶段 `replay + refinement` 的最小闭环需求与设计：
-- 以上一阶段已冻结的 compact 产物为上游输入：
-  - `artifacts/e2e/20260310_153315_481/compact_session_state.json`
-  - `artifacts/e2e/20260310_153315_481/compact_human_loop.jsonl`
-  - `artifacts/e2e/20260310_153315_481/compact_capability_output.json`
-- 明确边界：
-  - `compact` 负责学出流程能力
-  - `runtime replay` 负责执行时观察、提问、验证、refinement
-- 先写新的 `.plan/{date}_replay_refinement_*.md` 设计文档和 checklist，再进入实现
-- 首期 benchmark 仍限定为“小红书 creator platform 填内容并存草稿（无图片）”
-- 不回头重开旧 field-based SOP Compact 主链；当前 compact 阶段只接受必要 bugfix
+执行 Replay + Online Refinement `Slice-1` 最小实现：
+- 以上一阶段 `compact_capability_output` 为输入，按 `.plan/20260312_replay_refinement_online_design.md` 的 Option B 接线 sidecar orchestrator
+- 首期仅支持 pinned `--sop-run-id` + 单 benchmark（小红书 creator 长文草稿保存，无图片）
+- 必须先打通 artifacts 闭环：`refinement_steps.jsonl`、`consumption_bundle.json`、`refinement_knowledge.jsonl`（有 HITL 时）
+- 保持兼容：`refinement.enabled=false` 时 run 行为不变
+- 完成后回写 `.plan/checklist_replay_refinement_online.md` 与 `PROGRESS/MEMORY`
