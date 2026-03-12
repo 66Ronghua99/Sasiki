@@ -58,6 +58,13 @@ export interface RuntimeConfigFile {
     retryLimit?: number;
     maxInterventions?: number;
   };
+  refinement?: {
+    enabled?: boolean;
+    mode?: "filtered_view" | "full_snapshot_debug";
+    maxRounds?: number;
+    tokenBudget?: number;
+    knowledgeTopN?: number;
+  };
 }
 
 export interface RuntimeConfig {
@@ -91,6 +98,11 @@ export interface RuntimeConfig {
   hitlEnabled: boolean;
   hitlRetryLimit: number;
   hitlMaxInterventions: number;
+  refinementEnabled: boolean;
+  refinementMode: "filtered_view" | "full_snapshot_debug";
+  refinementMaxRounds: number;
+  refinementTokenBudget: number;
+  refinementKnowledgeTopN: number;
 }
 
 export interface RuntimeConfigSourceOptions {
@@ -169,6 +181,23 @@ export class RuntimeConfigLoader {
         file?.hitl?.maxInterventions,
         process.env.HITL_MAX_INTERVENTIONS,
         1
+      ),
+      refinementEnabled: this.readBoolean(file?.refinement?.enabled, process.env.REFINEMENT_ENABLED, false),
+      refinementMode: this.readRefinementMode(
+        file?.refinement?.mode,
+        process.env.REFINEMENT_MODE,
+        "filtered_view"
+      ),
+      refinementMaxRounds: this.readPositiveInt(file?.refinement?.maxRounds, process.env.REFINEMENT_MAX_ROUNDS, 12),
+      refinementTokenBudget: this.readPositiveInt(
+        file?.refinement?.tokenBudget,
+        process.env.REFINEMENT_TOKEN_BUDGET,
+        1000
+      ),
+      refinementKnowledgeTopN: this.readPositiveInt(
+        file?.refinement?.knowledgeTopN,
+        process.env.REFINEMENT_KNOWLEDGE_TOP_N,
+        8
       ),
     };
   }
@@ -283,6 +312,21 @@ export class RuntimeConfigLoader {
     }
     if (this.isSemanticMode(envValue)) {
       return envValue;
+    }
+    return fallback;
+  }
+
+  private static readRefinementMode(
+    configValue: RuntimeConfig["refinementMode"] | undefined,
+    envValue: string | undefined,
+    fallback: RuntimeConfig["refinementMode"]
+  ): RuntimeConfig["refinementMode"] {
+    if (configValue === "filtered_view" || configValue === "full_snapshot_debug") {
+      return configValue;
+    }
+    const normalized = envValue?.trim().toLowerCase();
+    if (normalized === "filtered_view" || normalized === "full_snapshot_debug") {
+      return normalized;
     }
     return fallback;
   }

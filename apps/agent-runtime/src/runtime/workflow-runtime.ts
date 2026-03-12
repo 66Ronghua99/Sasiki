@@ -86,6 +86,15 @@ export class WorkflowRuntime {
       hitlMaxInterventions: config.hitlMaxInterventions,
     });
 
+    if (config.refinementEnabled) {
+      logger.warn("refinement_enabled_fallback_to_legacy_run", {
+        refinementMode: config.refinementMode,
+        refinementMaxRounds: config.refinementMaxRounds,
+        refinementTokenBudget: config.refinementTokenBudget,
+        refinementKnowledgeTopN: config.refinementKnowledgeTopN,
+      });
+    }
+
     const sopRecorder = new SopDemonstrationRecorder();
     const observeExecutor = new ObserveExecutor({
       logger,

@@ -59,8 +59,11 @@
 - `P0-NEXT` Replay + Online Refinement Slice-1 implementation：
   - 目标：实现 `Option B sidecar orchestrator` 的最小闭环（instrumentation + pinned replay + advisory knowledge injection）
   - 范围：先接线 `refine agent` 编排、operator gateway、refinement artifacts 与 consumption bundle；不做检索泛化与多站点扩展
-  - 当前状态：需求与架构已冻结，项目级 AGENTS 边界已更新
-  - 下一步产物：`apps/agent-runtime/src/runtime/replay-refinement/*` 与对应 domain contract 初版代码
+  - 当前状态：并行 Track A/B/C/D 与 Track-E（兼容接线）已落代码；默认 `refinement.enabled=false` 仍走 legacy run
+  - 下一步产物：
+    - 在 runtime 中把 orchestrator 与 artifacts writer 实际接线到执行路径
+    - 补齐 `refinement_steps/snapshot_index/refinement_knowledge/consumption_bundle` 的真实落盘调用
+    - 跑 benchmark 两轮日志验证 `knowledge_loaded_count>0` 与 token 收敛
   - 证据入口：`.plan/20260312_replay_refinement_requirement_v0.md`、`.plan/20260312_replay_refinement_online_design.md`、`.plan/checklist_replay_refinement_online.md`
 - `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
@@ -87,6 +90,28 @@
   - 已冻结消费与桥接契约：`filtered-view` 主路径、`full_snapshot_debug` 仅调试、MCP 返回兼容边界、mutation hook 白名单、`snapshot_index.jsonl`、`surfaceKey/taskKey` 归一、`tokenEstimate` 口径、`tool_call` 计量单位与 `pageStepId` 聚合规则
   - 已完成文档回滚存档：`.plan/archive/20260312_replay_refinement_contract_freeze_v1/`（包含 requirement/design/checklist + README 索引）
   - 下一阶段主指针已切换为 Slice-1 implementation（sidecar orchestrator）
+- 已完成 Replay + Online Refinement Slice-1 并行开发第一轮实现（worker + reviewer 流程）：
+  - 并行分工基线：`.plan/20260312_replay_refinement_parallel_tracks.md`
+  - 已落地 contracts/domain：
+    - `apps/agent-runtime/src/domain/refinement-session.ts`
+    - `apps/agent-runtime/src/domain/refinement-knowledge.ts`
+  - 已落地 runtime/replay-refinement 初版模块：
+    - `apps/agent-runtime/src/runtime/replay-refinement/browser-operator-gateway.ts`
+    - `apps/agent-runtime/src/runtime/replay-refinement/refinement-hitl-loop.ts`
+    - `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-orchestrator.ts`
+    - `apps/agent-runtime/src/runtime/replay-refinement/refinement-memory-store.ts`
+    - `apps/agent-runtime/src/runtime/replay-refinement/core-consumption-filter.ts`
+  - 已改造 bridge/writer/config：
+    - `apps/agent-runtime/src/core/mcp-tool-bridge.ts`
+    - `apps/agent-runtime/src/runtime/artifacts-writer.ts`
+    - `apps/agent-runtime/src/runtime/runtime-config.ts`
+    - `apps/agent-runtime/src/runtime/workflow-runtime.ts`
+  - reviewer 高优问题已修复：
+    - 解决 `core-consumption-filter` trim 死循环风险
+    - 解决 empty key 进入 cross-run index 的污染风险
+    - 解决 `goal_achieved` 在 promotion 前提前退出的问题
+    - 解决 bridge `hookOrigin` 内部字段泄漏到 MCP tool args 的问题
+  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
 - 已完成 Interactive Reasoning SOP Compact 轻量架构整理：
   - 将 `interactive-sop-compact.ts` 中的 prompt、session reducer、turn normalizer 拆分为独立模块，降低单文件编排复杂度
   - 新增共享 `LlmThinkingLevel` 类型，去掉 compact/runtime 配置里的重复定义

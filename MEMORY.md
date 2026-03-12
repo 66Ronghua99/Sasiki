@@ -89,6 +89,9 @@
 - cross-run 验证治理：若没有 `surfaceKey + taskKey` 的知识索引加载，二轮 token 收敛 AC 不可判定，不得宣称闭环完成。
 - MCP 兼容治理：refinement 改造不得改变 tool return 外层结构；只允许改写 observation text，并保留原始 `details` 供审计与回放。
 - step 度量治理：v0 以 `mutation tool call` 为记录真源，`pageStepId` 仅用于同页连续操作聚合，避免 page-step 与 tool-call 双口径冲突。
+- filter trim 治理：`tokenBudget` 裁剪循环必须有“长度不再下降就退出”的防卡死保护；尤其 `summary` 尾部加省略号时容易出现长度不变死循环。
+- key 归一治理：`surfaceKey/taskKey` 归一失败时不能回退到通用占位 key 并入索引；必须拒绝 promoted index 写入，避免跨 run 知识污染。
+- promotion 顺序治理：`goal_achieved` 判断不能放在 promotion 之前；否则最后一步 completion signal 无法沉淀进知识库。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。

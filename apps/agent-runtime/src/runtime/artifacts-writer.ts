@@ -1,7 +1,7 @@
 /**
- * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/intervention-learning.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts
+ * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/intervention-learning.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts, domain/refinement-knowledge.ts
  * Used By: runtime/run-executor.ts, runtime/observe-executor.ts, runtime/interactive-sop-compact.ts
- * Last Updated: 2026-03-10
+ * Last Updated: 2026-03-12
  */
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -14,6 +14,11 @@ import type {
 } from "../domain/compact-reasoning.js";
 import type { HighLevelLogEntry } from "../domain/high-level-log.js";
 import type { InterventionLearningRecord } from "../domain/intervention-learning.js";
+import type {
+  PromotedKnowledgeRecord,
+  RefinementSnapshotIndexRecord,
+  RefinementStepRecord,
+} from "../domain/refinement-knowledge.js";
 import type { SopAsset } from "../domain/sop-asset.js";
 import type { SopConsumptionRecord } from "../domain/sop-consumption.js";
 import type { DemonstrationRawEvent, SopTrace } from "../domain/sop-trace.js";
@@ -70,6 +75,30 @@ export class ArtifactsWriter {
 
   async writeSopConsumption(record: SopConsumptionRecord): Promise<void> {
     await this.writeJson("sop_consumption.json", record);
+  }
+
+  async writeRefinementSteps(records: RefinementStepRecord[]): Promise<void> {
+    await this.writeJsonLines("refinement_steps.jsonl", records);
+  }
+
+  async writeSnapshotIndex(records: RefinementSnapshotIndexRecord[]): Promise<void> {
+    await this.writeJsonLines("snapshot_index.jsonl", records);
+  }
+
+  async writeRefinementKnowledge(records: PromotedKnowledgeRecord[]): Promise<void> {
+    await this.writeJsonLines("refinement_knowledge.jsonl", records);
+  }
+
+  async writeConsumptionBundle(bundle: unknown): Promise<void> {
+    await this.writeJson("consumption_bundle.json", bundle);
+  }
+
+  async initializeRefinementArtifacts(): Promise<void> {
+    await Promise.all([
+      this.writeRefinementSteps([]),
+      this.writeSnapshotIndex([]),
+      this.writeRefinementKnowledge([]),
+    ]);
   }
 
   async resetCompactSessionArtifacts(sessionId: string): Promise<void> {
