@@ -14,6 +14,9 @@
 ## Reference List (Progressive Loading)
 - 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
 - 进入当前阶段再加载（L1）：
+  - Replay + Online Refinement Requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`
+  - Replay + Online Refinement Architecture：`.plan/20260312_replay_refinement_online_design.md`
+  - Replay + Online Refinement 清单：`.plan/checklist_replay_refinement_online.md`
   - Interactive Reasoning SOP Compact：`.plan/20260310_interactive_reasoning_sop_compact.md`
   - Interactive Reasoning SOP Compact 清单：`.plan/checklist_interactive_reasoning_sop_compact.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
@@ -53,12 +56,12 @@
   - 其他历史文档：`.plan/*.md`
 
 ## TODO
-- `P0-NEXT` Replay + Refinement requirement freeze：
-  - 目标：基于当前已冻结的 `compact_capability_output`，定义下一阶段“消费 + 执行中 refinement”闭环；明确 `compact` 与 `runtime replay` 的边界，不再继续扩展旧 compact 主链
-  - 范围：先聚焦“小红书 creator platform 填内容并存草稿（无图片）”这一条 runtime benchmark；把需求冻结为“replay + refinement”设计包，而不是立即大规模改代码
-  - 当前状态：`Interactive Reasoning SOP Compact` 已完成主链迁移、human loop 深度集成和 live benchmark 验证；旧 field-based compact 代码已清理，当前进入下一阶段需求冻结前的整理期
-  - 下一步产物：新的 `.plan/{date}_replay_refinement_*.md` 设计文档与 checklist
-  - 证据入口：`artifacts/e2e/20260310_153315_481/compact_session_state.json`、`artifacts/e2e/20260310_153315_481/compact_human_loop.jsonl`、`artifacts/e2e/20260310_153315_481/compact_capability_output.json`
+- `P0-NEXT` Replay + Online Refinement Slice-1 implementation：
+  - 目标：实现 `Option B sidecar orchestrator` 的最小闭环（instrumentation + pinned replay + advisory knowledge injection）
+  - 范围：先接线 `refine agent` 编排、operator gateway、refinement artifacts 与 consumption bundle；不做检索泛化与多站点扩展
+  - 当前状态：需求与架构已冻结，项目级 AGENTS 边界已更新
+  - 下一步产物：`apps/agent-runtime/src/runtime/replay-refinement/*` 与对应 domain contract 初版代码
+  - 证据入口：`.plan/20260312_replay_refinement_requirement_v0.md`、`.plan/20260312_replay_refinement_online_design.md`、`.plan/checklist_replay_refinement_online.md`
 - `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
   - 将 SOP 检索从当前消费注入流程中解耦为独立模块
   - 前提：新的 compact 主路径已稳定产出可信的 `compact_capability_output`
@@ -71,6 +74,19 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成 Replay + Online Refinement 阶段需求冻结与架构冻结：
+  - 已把项目级 `AGENTS.md` 从 user-level 重复内容切换为 project-level 约束，并固化三条核心原则（多轮 agent 闭环、agent-first MVP、三类 agent 命名）
+  - 已完成 requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`
+  - 已完成 architecture design：`.plan/20260312_replay_refinement_online_design.md`
+  - 已完成阶段 checklist：`.plan/checklist_replay_refinement_online.md`
+  - 已补字段字典与写入语义：`page-scoped step`、snapshot 离线索引、`no_progress -> HITL`、`tokenBudget=1000`
+  - 已冻结 knowledge promotion：`confidence` 由 agent 后验判断（含 critic challenge），不采用 rule-based 评分
+  - 已补 review 友好化：`Critical Questions` 改为 `Decision Log`、3 个 contract 最小 JSON 示例、loop 状态机终止条件、量化验收阈值（`tokenEstimate <= round1 * 0.8`）
+  - 已补 Slice-1 阻塞项设计闭环：B1 快照 hook 机制、B2 refine LLM I/O schema、B3 跨 run knowledge 索引结构
+  - 已补 G1/G2/G3：首轮 bundle 编译路径、HITL pause/resume 共存策略、Phase1/2/3 分层执行顺序
+  - 已冻结消费与桥接契约：`filtered-view` 主路径、`full_snapshot_debug` 仅调试、MCP 返回兼容边界、mutation hook 白名单、`snapshot_index.jsonl`、`surfaceKey/taskKey` 归一、`tokenEstimate` 口径、`tool_call` 计量单位与 `pageStepId` 聚合规则
+  - 已完成文档回滚存档：`.plan/archive/20260312_replay_refinement_contract_freeze_v1/`（包含 requirement/design/checklist + README 索引）
+  - 下一阶段主指针已切换为 Slice-1 implementation（sidecar orchestrator）
 - 已完成 Interactive Reasoning SOP Compact 轻量架构整理：
   - 将 `interactive-sop-compact.ts` 中的 prompt、session reducer、turn normalizer 拆分为独立模块，降低单文件编排复杂度
   - 新增共享 `LlmThinkingLevel` 类型，去掉 compact/runtime 配置里的重复定义

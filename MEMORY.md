@@ -79,6 +79,16 @@
 - compact session artifact 治理：`sop-compact` 重跑同一 `run_id` 时，`compact_session_state / compact_human_loop / compact_capability_output` 应同时写入 `compact_sessions/<sessionId>/...`，顶层文件只保留 latest alias；否则 transcript 很快污染到不可审计。
 - compact 主编排治理：当 `interactive-sop-compact.ts` 同时承担 prompt、state machine、normalizer、finalizer、I/O 时，后续 replay/refinement 很容易继续把职责堆回一个文件；应尽早把 prompt、session reducer、turn normalizer 拆成独立模块，主 service 只保留 orchestration。
 - JSON 提取治理：structured-output 模型即使前半段给出合法对象，也可能在后面继续吐解释文本；JSON 提取应优先截取首个平衡对象，而不是简单使用 `first { + last }`，否则一次尾随文本就会把整轮 compact 打断。
+- replay/refinement 架构治理：在线优化阶段优先采用 sidecar orchestrator（`refine agent` 编排 + browser operator gateway），不要继续把职责堆回 `RunExecutor` 单模块。
+- relevance ownership 治理：任务相关/无关判定应由 `refine agent + HITL` 形成，infra 只做裁剪、去重、限额和 surface gating，不能回退为 heuristic 规则机主导。
+- knowledge promotion 治理：refinement 知识进入消费层前必须具备 provenance（`runId + stepIndex + snapshot hash`）；缺 provenance 的结论一律只保留在原始 episode，不可复用。
+- rollout 范围治理：Replay + Online Refinement 首期必须固定在 pinned run + 单 benchmark，先验证 agent 能力和 token 收敛，再放开检索与跨任务泛化。
+- confidence 治理：promotion `confidence` 由 agent 后验判断输出，并通过 critic 回合挑战；不要引入 if/else 打分规则来决定语义晋升。
+- human override 治理：v0 不做离线重标注台；HITL 只记录当下纠偏指令（`human_intervention_note`），通过后续回合再学习吸收。
+- snapshot hook 治理：refinement 的 before/after snapshot 应通过 tool-call 前后 hook 采集；不要求新增 MCP 工具，优先复用 `browser_snapshot`，不可用时降级 summary。
+- cross-run 验证治理：若没有 `surfaceKey + taskKey` 的知识索引加载，二轮 token 收敛 AC 不可判定，不得宣称闭环完成。
+- MCP 兼容治理：refinement 改造不得改变 tool return 外层结构；只允许改写 observation text，并保留原始 `details` 供审计与回放。
+- step 度量治理：v0 以 `mutation tool call` 为记录真源，`pageStepId` 仅用于同页连续操作聚合，避免 page-step 与 tool-call 双口径冲突。
 
 ## Migrated Experience (from PROGRESS)
 - 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
