@@ -3,4 +3,5 @@
 - 必做一：跑两轮同任务 benchmark（小红书长文草稿保存），确保第二轮任务成功且 `knowledge_loaded_count>0`
 - 必做二：触发至少一条 `promoteDecision=promote`，验证 `refinement_knowledge.jsonl` 含 `rationale + critic_challenge + final_decision`
 - 必做三：复核第二轮 `consumption_bundle.tokenEstimate <= 第一轮 * 0.8`
-- 证据回写：`.plan/checklist_replay_refinement_online.md`、`PROGRESS.md`、`MEMORY.md`
+- 执行基线：`.plan/20260313_execution_kernel_refine_core_rollout.md` + `.plan/checklist_execution_kernel_refine_core_rollout.md`
+- 证据回写：`.plan/checklist_replay_refinement_online.md`、`.plan/checklist_execution_kernel_refine_core_rollout.md`、`PROGRESS.md`、`MEMORY.md`

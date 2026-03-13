@@ -80,6 +80,7 @@
 - compact 主编排治理：当 `interactive-sop-compact.ts` 同时承担 prompt、state machine、normalizer、finalizer、I/O 时，后续 replay/refinement 很容易继续把职责堆回一个文件；应尽早把 prompt、session reducer、turn normalizer 拆成独立模块，主 service 只保留 orchestration。
 - JSON 提取治理：structured-output 模型即使前半段给出合法对象，也可能在后面继续吐解释文本；JSON 提取应优先截取首个平衡对象，而不是简单使用 `first { + last }`，否则一次尾随文本就会把整轮 compact 打断。
 - replay/refinement 架构治理：在线优化阶段优先采用 sidecar orchestrator（`refine agent` 编排 + browser operator gateway），不要继续把职责堆回 `RunExecutor` 单模块。
+- execution kernel 治理：`Core Brain` 与 `Refine Brain` 可以是两条决策路径，但浏览器执行能力必须共享同一 `Execution Kernel`（`AgentLoop + McpToolBridge + MCP`）；不要复制两套 operator 实现。
 - relevance ownership 治理：任务相关/无关判定应由 `refine agent + HITL` 形成，infra 只做裁剪、去重、限额和 surface gating，不能回退为 heuristic 规则机主导。
 - knowledge promotion 治理：refinement 知识进入消费层前必须具备 provenance（`runId + stepIndex + snapshot hash`）；缺 provenance 的结论一律只保留在原始 episode，不可复用。
 - rollout 范围治理：Replay + Online Refinement 首期必须固定在 pinned run + 单 benchmark，先验证 agent 能力和 token 收敛，再放开检索与跨任务泛化。

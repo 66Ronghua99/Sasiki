@@ -7,7 +7,8 @@
 
 现状问题：`run` 消费层仍主要把 guide/hints 拼入 task prompt，缺少执行期的在线学习闭环，导致页面快照和上下文持续膨胀。
 
-本阶段目标：新增 `refine agent` 在线闭环，形成“执行证据采集 -> 相关性沉淀 -> 下轮压缩消费”能力，不回退到 heuristic 规则机。
+本阶段目标：新增 `refine agent` 在线闭环，形成“执行证据采集 -> 相关性沉淀 -> 下轮压缩消费”能力，不回退到 heuristic 规则机。  
+本版冻结架构语义：`Shared Execution Kernel + Two Brains + Mode-Gated Orchestrator`，避免后续实现把 `core` 与 `refine` 职责再次混写。
 
 ### 1.1 End-to-End Topology (As-Is)
 ```mermaid
@@ -33,23 +34,30 @@ flowchart TB
   ORO --> AW["ArtifactsWriter refinement APIs"]
 ```
 
-### 1.2 Target Topology (To-Be)
+### 1.2 Target Topology (To-Be, Frozen)
 ```mermaid
 flowchart TB
   CLI["CLI runtime command"] --> WR["WorkflowRuntime"]
 
-  WR -->|"refinement.enabled=false"| RE["RunExecutor (legacy compatible)"]
-  WR -->|"refinement.enabled=true"| ORO["OnlineRefinementOrchestrator"]
+  WR -->|"refinement.enabled=false"| CDCP["Core-Direct Control Plane (RunExecutor or thin orchestrator)"]
+  WR -->|"refinement.enabled=true"| ORO["OnlineRefinementOrchestrator (mandatory)"]
 
-  ORO --> RA["Refine Agent (step decision + evaluate + promote)"]
-  ORO --> CA["Core Agent (browser operator subagent)"]
+  ORO --> RB["Refine Brain (decide/evaluate/promote)"]
+  ORO --> BOG["BrowserOperatorGateway (turn adapter)"]
+  CDCP --> CB["Core Brain (task execution)"]
+  BOG --> CB
 
   ORO --> CCF["CoreConsumptionFilter (bundle compile)"]
   CCF --> RMS["RefinementMemoryStore (surfaceKey+taskKey)"]
 
-  CA --> AL["AgentLoop execution layer"]
-  AL --> MTB["McpToolBridge (pre/post hook)"]
-  MTB --> MCP["Playwright MCP"]
+  subgraph SEK["Shared Execution Kernel"]
+    AL["AgentLoop execution kernel"]
+    MTB["McpToolBridge (tool protocol + pre/post hook)"]
+    MCP["Playwright MCP"]
+  end
+  CB --> AL
+  AL --> MTB
+  MTB --> MCP
   MCP --> BR["Browser (CDP)"]
 
   MTB --> SI["snapshot_index.jsonl (before/after)"]
@@ -61,21 +69,33 @@ flowchart TB
 ```
 
 ### 1.3 Ownership Clarification
-- `runtime` 负责 run-level 启动与模式切换（legacy/refinement）。
-- `orchestrator` 负责回合状态机推进，不直接操作浏览器。
-- `refine agent` 负责“下一步意图与评估/晋升决策”。
-- `core agent` 负责浏览器动作执行（经 `AgentLoop -> MCP`）。
+- `Shared Execution Kernel`（`AgentLoop + McpToolBridge + MCP`）是唯一浏览器执行内核，`refinement/core-direct` 两种模式共享。
+- `Refine Brain` 只负责优化/训练闭环：评估、HITL 决策、知识晋升；不直接调用浏览器工具。
+- `Core Brain` 只负责任务执行与页面动作决策；通过 shared kernel 与浏览器交互。
+- `Orchestrator` 在 `refinement mode` 是必选主控；在 `core-direct mode` 可选为薄控制平面（也可直接走 `RunExecutor`）。
+
+### 1.4 Mode Matrix (Concise Freeze)
+| Runtime Switch | Logical Mode | Orchestrator Role | Active Brain(s) | Browser Execution Path | HITL Owner | Knowledge Promotion |
+| --- | --- | --- | --- | --- | --- | --- |
+| `refinement.enabled=true` | `refinement` | Mandatory state machine | `Refine Brain` + `Core Brain` | `BrowserOperatorGateway -> Core Brain -> Shared Execution Kernel` | `refinement-hitl-loop` | Enabled (`promote/hold`) |
+| `refinement.enabled=false` | `core-direct` | Optional thin control plane (or none) | `Core Brain` only | `Core Brain -> Shared Execution Kernel` | legacy HITL (if enabled) | Disabled |
 
 ## 2. Boundary and Ownership
-### 2.1 Refine Agent Orchestration
+### 2.1 Refine Brain + Orchestrator (Refinement Mode)
 - 负责 replay/refinement session 生命周期。
 - 负责回合推进、是否触发 HITL、是否提升为 knowledge。
 - 不直接执行底层浏览器工具，不绑定 selector 细节。
+- 在 `refinement mode` 中为强制入口，不允许绕过 orchestrator 直接进入工具层。
 
 ### 2.2 Browser Operator Gateway
-- 把现有 `AgentLoop` 作为 browser operator subagent 使用。
-- 接收 core bundle + 当前回合上下文，执行页面操作。
-- 回传步骤级工具调用、前后 snapshot、动作结果。
+- 位于编排层与执行层之间，负责“一回合输入 -> 一次 Core Brain 执行 -> 结构化结果输出”。
+- 接收 `consumption_bundle + turn context`，调用 Core Brain 执行页面操作。
+- 回传步骤级工具调用、前后 snapshot、动作结果；不做工具协议兼容转换。
+
+### 2.2.1 Gateway Layering: `BrowserOperatorGateway` vs `McpToolBridge`
+- `BrowserOperatorGateway`：编排层 gateway，管理 turn 级输入输出与结果归档语义（pageStep/toolCall/outcome）。
+- `McpToolBridge`：工具协议层 gateway，负责 MCP tool schema/execute 适配与 pre/post hook 注入。
+- 约束：`BrowserOperatorGateway` 不改写 MCP 原始 `details`；`McpToolBridge` 不承担回合决策与知识晋升。
 
 ### 2.3 HITL Loop (Refinement)
 - 负责在关键无进展步骤触发人工介入。
@@ -108,13 +128,13 @@ flowchart TB
 
 ## 4. Recommended Shape
 ### 4.1 Runtime Flow
-`compact_capability_output -> core consumption filter -> browser operator gateway -> step capture -> refinement review -> HITL(conditional) -> knowledge promotion -> next-round bundle`
+`compact_capability_output -> core consumption filter -> BrowserOperatorGateway -> Core Brain -> Shared Execution Kernel -> step capture -> Refine Brain evaluate/promote -> HITL(conditional) -> next-round bundle`
 
 ### 4.1.1 Loop State Machine (v0)
 `INIT -> OPERATE -> EVALUATE -> (HITL | PROMOTE_OR_HOLD) -> NEXT_PAGE_STEP -> ... -> FINALIZE`
 
 状态说明：
-- `OPERATE`：operator 执行当前 page-step 内动作。
+- `OPERATE`：Core Brain（经 Shared Execution Kernel）执行当前 page-step 内动作。
 - `EVALUATE`：refine agent 判断 `outcome/relevance`。
 - `HITL`：当 `outcome=no_progress` 立即进入。
 - `PROMOTE_OR_HOLD`：refiner + critic + refiner-final 产出 `promoteDecision/confidence`。
@@ -130,7 +150,7 @@ flowchart TB
 - 不忽视现有单轮/单次 workflow 结构（`RunExecutor + AgentLoop`）；将其作为 legacy 执行通路保留。
 - 新架构采用“sidecar 增量迁移”：
   - `refinement.enabled=false`：继续旧通路（兼容保底）。
-  - `refinement.enabled=true`：进入 `OnlineRefinementOrchestrator`，将 `AgentLoop` 作为 browser operator 子能力调用。
+  - `refinement.enabled=true`：进入 `OnlineRefinementOrchestrator`，通过 `BrowserOperatorGateway` 驱动 Core Brain，再落到 shared kernel。
 - 迁移原则：先 adapter 化，不做大规模重构；待 Slice-1 稳定后再评估回收 legacy 分支。
 
 ### 4.1.3 Slice-1 Blocking Decisions (Resolved)
@@ -139,15 +159,16 @@ flowchart TB
   - 执行：目标 tool call（click/type/select/run_code 等）。
   - 后置：`browser_snapshot` 获取 `afterSnapshot`。
   - 若 snapshot tool 不可用，降级使用 `AgentLoop.captureObservationSummary()`，并标记 `snapshot_mode=summary_fallback`。
+  - 写入归属：`snapshot_index.jsonl` 由 execution adapter（当前 `OnlineRefinementRunExecutor`）统一落盘；`McpToolBridge` 只负责提供 hook 观测能力。
 - B2 refine agent I/O schema：采用三次独立 LLM call（`refiner -> critic -> refiner-final`），每次均是结构化 JSON 输出。
 - B3 跨 run 继承：新增 `RefinementKnowledgeStore` 的全局索引，按 `surfaceKey + taskKey` 检索，支持第二轮加载首轮知识。
 
 ### 4.1.4 Core Consumption Strategy Freeze (Resolved)
 - 主路径（v0 默认）：`MCP hook filtered-view`。
   - full snapshot 仍完整落盘（用于离线审计和回放）。
-  - core agent 在在线执行时默认只消费过滤后的 view（低 token）。
+  - Core Brain 在在线执行时默认只消费过滤后的 view（低 token）。
 - 备选路径（v0 仅 debug）：`full snapshot file read`。
-  - 不作为默认执行路径，不要求 core agent 具备通用 bash 浏览文件能力。
+  - 不作为默认执行路径，不要求 Core Brain 具备通用 bash 浏览文件能力。
   - 仅用于排障（如 filtered-view 明显失真）时人工启用。
 - 原则：先稳定在线执行主路径，再考虑“coding-agent 读文件”扩展形态，避免 agent 在文件系统中打转。
 
@@ -274,8 +295,8 @@ flowchart TB
 ### 4.2.1 Field Dictionary (Write Semantics)
 | Field | Meaning | Writer | Notes |
 | --- | --- | --- | --- |
-| `beforeSnapshot` | 动作前页面状态索引 | operator gateway | 以 `path + summary + snapshot_hash` 存储，完整原文离线保留 |
-| `afterSnapshot` | 动作后页面状态索引 | operator gateway | 用于比较动作影响 |
+| `beforeSnapshot` | 动作前页面状态索引 | execution adapter（gateway/executor） | 来源优先 hook；无 hook 时回退 `captureObservationSummary` |
+| `afterSnapshot` | 动作后页面状态索引 | execution adapter（gateway/executor） | 用于比较动作影响，写入 `snapshot_index.jsonl` |
 | `assistantIntent` | 当前动作意图 | refine agent | 从 reasoning 摘要提炼，不做规则猜测 |
 | `outcome` | 本步推进结果 | refine agent | `no_progress` 会直接触发 HITL |
 | `relevance` | 本步任务相关性 | refine agent | v0 无人工离线重标注机制 |
@@ -323,7 +344,7 @@ flowchart TB
   - `toolArgs`
   - `isError`
   - MCP 原始 `details` 对象
-- 约束目标：让 core agent 感知更精简的页面上下文，同时保证上层工具协议兼容与审计可回放。
+- 约束目标：让 Core Brain 感知更精简的页面上下文，同时保证上层工具协议兼容与审计可回放。
 - normalized result（v0）：
   - `resultKind`：`text|json|binary_ref|empty`
   - `normalizedText`：用于 `resultExcerpt` 与 filtered-view 的统一文本源
@@ -527,7 +548,7 @@ flowchart TB
 ### 4.4.1 HITL Pause/Resume Integration (Gap Closure)
 - v0 交互方式：CLI stdin（沿用终端交互能力，不做文件轮询）。
 - 协议：
-  - `EVALUATE` 输出 `hitlNeeded=true` -> orchestrator 暂停 operator。
+  - `EVALUATE` 输出 `hitlNeeded=true` -> orchestrator 暂停 Core Brain 当前 turn。
   - `refinement-hitl-loop` 获取用户输入并写入 `human_intervention_note`。
   - orchestrator 以 `resumeInstruction` 恢复下一步。
 - 与旧机制共存规则：
@@ -548,7 +569,7 @@ flowchart TB
 - `consumption.mode`（v0）：
   - `filtered_view`（默认）：在线注入 filtered snapshot 视图。
   - `full_snapshot_debug`：仅 debug 模式启用，允许读取 full snapshot 引用信息。
-- `filtered_view` 模式下，core agent 不直接读取 snapshot 文件系统；full snapshot 仅作为离线证据与回放输入。
+- `filtered_view` 模式下，Core Brain 不直接读取 snapshot 文件系统；full snapshot 仅作为离线证据与回放输入。
 - 两种模式都必须写同构工件：
   - `consumption_bundle.json`
   - `refinement_steps.jsonl`
@@ -556,7 +577,7 @@ flowchart TB
 
 ### 4.4.4 Injection Timing Contract (Blocking Closure)
 - `filtered-view` 注入时机固定：
-  - 在 mutation tool `tool_execution_end` 后生成，并作为该次 tool 返回 `content[0].text` 提供给 core agent。
+  - 在 mutation tool `tool_execution_end` 后生成，并作为该次 tool 返回 `content[0].text` 提供给 Core Brain。
 - 非 mutation tool 返回保持原样，不附加 filtered-view。
 - 回放一致性要求：
   - 同一 `runId + stepIndex + toolCallId` 必须能回放到同一份 `tool_observation_view.v0`（在相同 estimatorVersion 下）。
@@ -574,7 +595,7 @@ flowchart TB
 ## 5. Migration and Risk
 - 风险 1：知识污染。控制策略：raw episode 全量保留，但只有 promoted knowledge 进入消费层。
 - 风险 2：事件错位。控制策略：以“浏览器 mutation 工具调用”作为 step 主键，不从最终 steps 倒推。
-- 风险 3：双 HITL 循环冲突。控制策略：refinement 开启时由 refine orchestration 接管 HITL，旧 loop 仅作底线 fallback。
+- 风险 3：双 HITL 循环冲突。控制策略：refinement 开启时由 `OnlineRefinementOrchestrator + refinement-hitl-loop` 接管 HITL，旧 loop 仅作底线 fallback。
 - 风险 4：DOM 过拟合。控制策略：优先沉淀 affordance/branch/success signal，弱化 selector。
 - 风险 5：token 反增。控制策略：bundle 强制 token budget + snapshot chars cap。
 
@@ -607,3 +628,19 @@ flowchart TB
 - `knowledge_loaded_count` 验收口径：
   - round2 必须 `>0`
   - 与 `consumption_bundle.json` 的 `surfaceScopedKnowledge` 长度一致或可解释
+
+## 7.1 Decision Audit Contract (Blocking Closure)
+- v0 必须保留两类能力：
+  - 运行期 API：`getDecisionAudit(toolCallId)`、`listDecisionAudits()`
+  - 运行期日志：`refinement_decision_evaluate_*`、`refinement_decision_promote_*`
+- `DecisionAudit` 最小字段：
+  - `toolCallId`
+  - `evaluate.result`（含 `assistantIntent/outcome/relevance/hitlNeeded`）
+  - `evaluate.rationale`
+  - `criticChallenge[]`
+  - `promote.result`（含 `promoteDecision/confidence/rationale`）
+  - `promote.finalKnowledge[]`
+  - `updatedAt`
+- 约束：
+  - `promoteDecision=promote` 时，写入 knowledge 的记录必须可回链到对应 `DecisionAudit.toolCallId`
+  - `promoteDecision=hold` 时，也必须保留 audit（不可静默丢失）

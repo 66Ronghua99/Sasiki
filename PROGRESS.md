@@ -17,6 +17,8 @@
   - Replay + Online Refinement Requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`
   - Replay + Online Refinement Architecture：`.plan/20260312_replay_refinement_online_design.md`
   - Replay + Online Refinement 清单：`.plan/checklist_replay_refinement_online.md`
+  - Execution Kernel + Refine/Core Rollout：`.plan/20260313_execution_kernel_refine_core_rollout.md`
+  - Execution Kernel + Refine/Core Rollout 清单：`.plan/checklist_execution_kernel_refine_core_rollout.md`
   - Interactive Reasoning SOP Compact：`.plan/20260310_interactive_reasoning_sop_compact.md`
   - Interactive Reasoning SOP Compact 清单：`.plan/checklist_interactive_reasoning_sop_compact.md`
   - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
@@ -77,6 +79,12 @@
 - `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
 
 ## DONE
+- 已完成“Execution Kernel + Two Brains”架构澄清与任务化分解：
+  - 已在 architecture 文档冻结 `Shared Execution Kernel`、`Refine Brain`、`Core Brain` 的边界与模式矩阵（`refinement.enabled=true|false`）
+  - 已补 `Decision Audit` 契约与 snapshot 写入归属，消除 mode/gateway/snapshot 三处口径冲突
+  - 已新增 rollout 文档与 checklist，支持 architecture -> worker 并行执行：
+    - `.plan/20260313_execution_kernel_refine_core_rollout.md`
+    - `.plan/checklist_execution_kernel_refine_core_rollout.md`
 - 已完成 Replay + Online Refinement Slice-1 runtime 接线与实测闭环：
   - `WorkflowRuntime` 已按 `refinement.enabled` 分流：`false -> RunExecutor`，`true -> OnlineRefinementRunExecutor`
   - `OnlineRefinementRunExecutor` 已接线：
