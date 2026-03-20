@@ -172,7 +172,7 @@ export class ReactRefinementRunExecutor {
         type: "guidance_loaded",
         count: input.loadedKnowledgeCount,
       },
-      ...session.candidateKnowledge().map((candidate) => ({
+      ...session.candidateKnowledge().map((candidate: { candidateId: string; category: string; cue: string }) => ({
         type: "candidate_recorded",
         candidateId: candidate.candidateId,
         category: candidate.category,

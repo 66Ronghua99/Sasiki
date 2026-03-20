@@ -3,8 +3,8 @@ import test from "node:test";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contracts/tool-client.js";
 import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../src/domain/attention-knowledge.js";
-import { createRefineReactSession } from "../../src/runtime/replay-refinement/refine-react-session.js";
-import { RefineReactToolClient } from "../../src/runtime/replay-refinement/refine-react-tool-client.js";
+import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
+import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";

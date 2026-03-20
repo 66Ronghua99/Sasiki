@@ -41,6 +41,12 @@ const SHIM_ONLY_FILES = new Set([
   "runtime/providers/refine-run-bootstrap-provider.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
+  "runtime/replay-refinement/attention-guidance-loader.ts",
+  "runtime/replay-refinement/refine-react-session.ts",
+  "runtime/replay-refinement/refine-react-tool-client.ts",
+  "runtime/replay-refinement/refine-browser-snapshot-parser.ts",
+  "runtime/replay-refinement/refine-browser-tools.ts",
+  "runtime/replay-refinement/refine-runtime-tools.ts",
   "runtime/interactive-sop-compact.ts",
   "runtime/interactive-sop-compact-prompts.ts",
 ]);
@@ -226,9 +232,9 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
     if (
       fromRel === REFINE_EXECUTOR_FILE &&
       [
-        "runtime/replay-refinement/attention-guidance-loader.ts",
-        "runtime/replay-refinement/attention-knowledge-store.ts",
-        "runtime/replay-refinement/refine-hitl-resume-store.ts",
+        "application/refine/attention-guidance-loader.ts",
+        "infrastructure/persistence/attention-knowledge-store.ts",
+        "infrastructure/persistence/refine-hitl-resume-store.ts",
       ].includes(toRel)
     ) {
       errors.push(addError(
