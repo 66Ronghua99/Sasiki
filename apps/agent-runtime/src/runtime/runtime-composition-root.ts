@@ -1,9 +1,9 @@
 /**
- * Deps: core/*, infrastructure/*, runtime/*
+ * Deps: kernel/*, infrastructure/*, runtime/*
  * Used By: runtime/workflow-runtime.ts
  * Last Updated: 2026-03-21
  */
-import { AgentLoop } from "../core/agent-loop.js";
+import { AgentLoop } from "../kernel/agent-loop.js";
 import { SopDemonstrationRecorder } from "./observe-support/sop-demonstration-recorder.js";
 import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
 import { PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";

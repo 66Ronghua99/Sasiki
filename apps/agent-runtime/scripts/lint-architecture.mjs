@@ -11,13 +11,15 @@ const srcRoot = path.join(projectRoot, "src");
 
 const DEFAULT_MAX_LINES = 500;
 const LEGACY_MAX_LINES = new Map([
-  ["core/agent-loop.ts", 760],
+  ["kernel/agent-loop.ts", 760],
 ]);
 const COMPOSITION_ROOT_FILE = "runtime/runtime-composition-root.ts";
 const PROMPT_PROVIDER_FILE = "runtime/providers/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
 const LEGACY_ADAPTER_SHIM_FILES = new Set([
+  "core/agent-loop.ts",
+  "core/mcp-tool-bridge.ts",
   "core/model-resolver.ts",
   "core/json-model-client.ts",
   "runtime/artifacts-writer.ts",
@@ -34,12 +36,13 @@ const EXECUTOR_FILES = new Set([
   REFINE_EXECUTOR_FILE,
 ]);
 
-const LAYER_ORDER = ["domain", "contracts", "core", "runtime", "infrastructure"];
+const LAYER_ORDER = ["domain", "contracts", "kernel", "core", "runtime", "infrastructure"];
 const ALLOWED_DEPENDENCIES = {
   domain: new Set(["domain", "contracts"]),
   contracts: new Set(["domain", "contracts"]),
+  kernel: new Set(["domain", "contracts", "kernel", "infrastructure"]),
   core: new Set(["domain", "contracts", "core"]),
-  runtime: new Set(["domain", "contracts", "core", "runtime", "infrastructure"]),
+  runtime: new Set(["domain", "contracts", "kernel", "core", "runtime", "infrastructure"]),
   infrastructure: new Set(["domain", "contracts", "infrastructure"]),
 };
 

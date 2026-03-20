@@ -1,11 +1,11 @@
 /**
- * Deps: core/agent-loop.ts, runtime/replay-refinement/*, infrastructure/persistence/*
+ * Deps: kernel/agent-loop.ts, runtime/replay-refinement/*, infrastructure/persistence/*
  * Used By: runtime/runtime-composition-root.ts
  * Last Updated: 2026-03-20
  */
 import type { HitlController } from "../../contracts/hitl-controller.js";
 import type { Logger } from "../../contracts/logger.js";
-import type { AgentLoop } from "../../core/agent-loop.js";
+import type { AgentLoop } from "../../kernel/agent-loop.js";
 import type { AgentRunRequest, AgentRunResult, AssistantTurnRecord } from "../../domain/agent-types.js";
 import type { HitlInterventionRequest } from "../../domain/intervention-learning.js";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";

@@ -1,9 +1,9 @@
 /**
- * Deps: core/agent-loop.ts, domain/agent-types.ts, runtime/run-executor.ts
+ * Deps: kernel/agent-loop.ts, domain/agent-types.ts, runtime/run-executor.ts
  * Used By: runtime/workflow-runtime.ts
  * Last Updated: 2026-03-06
  */
-import type { AgentLoop } from "../core/agent-loop.js";
+import type { AgentLoop } from "../kernel/agent-loop.js";
 import type { AgentRunRequest, AgentRunResult } from "../domain/agent-types.js";
 
 export interface AgentRunExecutor {
