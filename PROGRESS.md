@@ -11,29 +11,44 @@
 
 ## Current Code Status
 - 当前活跃闭环已经切换为 `agent runtime global layer taxonomy`，之前的 `executor/bootstrap boundary refactor` 与 `runtime surface pruning` 只保留为已完成或已被更大方向覆盖的历史背景。
-- Task 6 已完成：`application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
-- Task 5 已完成：`application/shell/`、`application/config/` 与 `application/providers/` 现在是 shell/composition、runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim where applicable。
-- Task 7 已完成：`application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
-- CLI 当前有两类入口：
-  - `runtime`：支持 `run` / `observe`
-  - `runtime --resume-run-id <run_id>`：用于 paused refinement run 的同 run 恢复
-  - `sop-compact`：支持多轮 interactive compact session
-- 浏览器执行主链当前分为两条：
-  - legacy run：`AgentLoop -> McpToolBridge -> Playwright MCP`
-  - refine runtime：`AgentLoop -> RefineReactToolClient -> Playwright MCP`
-- `WorkflowRuntime` 仍按 `refinement.enabled` 分流：
-  - `false -> RunExecutor`
-  - `true -> ReactRefinementRunExecutor`
-- `refinementMode` 配置字段保留兼容，但在新 refinement 路径中显式 no-op（仅日志告知 ignored）。
-- old stitched refinement 子树已移除；当前 refinement 只保留 `ReactRefinementRunExecutor` 这一条活跃代码路径。
-- 当前仓库已接入的验证命令是：
-  - `npm --prefix apps/agent-runtime run lint:docs`
-  - `npm --prefix apps/agent-runtime run lint:arch`
-  - `npm --prefix apps/agent-runtime run lint`
-  - `npm --prefix apps/agent-runtime run test`
-  - `npm --prefix apps/agent-runtime run hardgate`
-  - `npm --prefix apps/agent-runtime run typecheck`
-  - `npm --prefix apps/agent-runtime run build`
+- **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
+- **Task 8 已完成**: `runtime/` 已收窄到 session/state/execution semantics；`runtime/agent-execution-runtime.ts` 是剩余的真实 runtime 实现，其余 `runtime/` 路径为兼容 shim。
+- **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
+- **Task 6 已完成**: `application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
+- **Task 5 已完成**: `application/shell/`、`application/config/` 与 `application/providers/` 现在是 shell/composition、runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim where applicable。
+- **Task 4 已完成**: `kernel/` 现在是 true execution kernel 的 canonical home（`agent-loop.ts`, `mcp-tool-bridge.ts`）；`core/` 仅保留为迁移期 shim。
+- **Task 3 已完成**: LLM adapters (`infrastructure/llm/`), config loading (`infrastructure/config/`), persistence adapters (`infrastructure/persistence/`) 已迁移到 infrastructure 层。
+- **Task 2 已完成**: legacy direct run 作为活跃产品面已移除；CLI 外部契约冻结为 `observe` / `refine` / `sop-compact`；legacy `runtime` / `--mode run|observe` 只保留为显式 upgrade error。
+- **Task 1 已完成**: 活跃架构文档已冻结为全局 taxonomy spec 和 implementation plan。
+
+## Active Architecture Truth
+
+新的全局层级taxonomy已经是 canonical truth：
+
+```
+apps/agent-runtime/src/
+  domain/           - 产品概念、状态schema、跨层契约
+  contracts/        - 能力接口（logger, tool-client, HITL等）
+  kernel/           - 可复用执行内核（agent-loop, mcp-tool-bridge）
+  application/      - 用例编排层
+    shell/          - CLI shell, command-router, composition-root
+    config/         - runtime-config loader/types
+    providers/      - tool-surface, execution-context providers
+    observe/        - observe orchestration + recording support
+    compact/        - SOP compact workflow
+    refine/         - refine bootstrap, prompts, tooling, orchestration, executor
+  runtime/          - 执行态/session/state（收窄语义）
+    agent-execution-runtime.ts  - 剩余的真实 runtime 实现
+    # 其余 runtime/ 文件为迁移期兼容 shim
+  infrastructure/   - 外部适配器
+    llm/            - model-resolver, json-model-client
+    config/         - runtime-bootstrap-provider
+    persistence/    - artifacts-writer, sop-asset-store, attention-knowledge-store, refine-hitl-resume-store
+    mcp/            - mcp-stdio-client
+    browser/        - cdp-browser-launcher, cookie-loader
+    hitl/           - terminal-hitl-controller
+  utils/            - 纯工具函数
+```
 
 ## Active References (L0)
 - `PROGRESS.md`
@@ -57,347 +72,31 @@
 - `.plan/checklist_replay_refinement_online.md`
 - `.plan/checklist_execution_kernel_refine_core_rollout.md`
 - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
-- `docs/superpowers/specs/2026-03-20-provider-composition-root-refactor.md`
-- `docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md`
-- `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
-- `docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md`
-- `docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
-- `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
-- `docs/superpowers/plans/2026-03-20-refine-react-tool-surface-hardening-implementation.md`
-- `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
-- `docs/superpowers/plans/2026-03-20-provider-composition-root-refactor-implementation.md`
 
 说明：
 - 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 继续 active taxonomy plan 的 Task 6 子切片，把 observe / compact 按 ownership 重新归位。
-- `P0` 继续 active taxonomy plan 的 Task 8，把 runtime 收窄到 session / state / execution semantics。
-- 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
+- 当前 taxonomy reorganization plan 已全部完成。
+- 后续工作将转入 stability / e2e / tooling optimization 轨道（与 taxonomy 重组是独立工作流）。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
 - 已完成 Harness migration bootstrap，并补齐仓库级入口文档与模板。
-- 已完成第一轮“重启同步”：
-  - 当前文档入口已改为以 `.harness/bootstrap.toml`、`docs/project/current-state.md` 和当前代码为准
-  - 历史 `.plan/*` 已降级为 background references
-- 已完成新的架构草案：
-  - `docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md`
-  - 当前草案将 refinement 重构为 `refine agent` 主导的 ReAct 体系
+- 已完成第一轮“重启同步”。
 - 已完成新的全局 taxonomy spec 与 active plan：
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
-  - 已明确当前目标层级为：
-    - `domain`
-    - `contracts`
-    - `kernel`
-    - `application`
-    - `runtime`
-    - `infrastructure`
-    - `utils`
-  - 已明确：
-    - `provider` 是模式，不是稳定顶层目录
-    - `core` 应收窄并最终替换为 `kernel`
-    - `runtime` 需要从 catch-all 层收窄为执行态/session/state
-    - LLM/config/persistence adapter 应从 `core/` 和泛化 `runtime/` 中剥离
-- 已完成 Task 1 docs freeze：
-  - `docs/architecture/layers.md` 已改到新 taxonomy 语义
-  - `docs/testing/strategy.md` 已改到新 taxonomy gate 语义
-  - `PROGRESS.md` / `NEXT_STEP.md` / `docs/project/current-state.md` 已指向 active spec + active plan
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run lint:docs`：通过
-    - `git diff --check`：通过
-- 已完成 Task 2 legacy product surface pruning：
-  - CLI 外部契约已冻结为 `observe` / `refine` / `sop-compact`
-  - legacy `runtime` / `--mode run|observe` 只保留为显式 upgrade error
-  - `RunExecutor`、`LegacyRunBootstrapProvider`、`SopConsumptionContextBuilder` 活跃路径已移除并删除对应源码/测试
-  - `runtime-composition-root` 现仅保留 `ReactRefinementRunExecutor` + `refine-react` tool surface 作为活跃 agent runtime surface
-  - `runtime-bootstrap-provider` / `runtime-config` 不再暴露 `sopConsumption*` 配置形状
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run test -- test/runtime/runtime-bootstrap-provider.test.ts test/runtime/runtime-composition-root.test.ts`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run lint:arch`：通过（0 errors，2 near-limit warnings）
-    - `npm --prefix apps/agent-runtime run lint`：通过
-    - `npm --prefix apps/agent-runtime run typecheck`：通过
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `npm --prefix apps/agent-runtime run hardgate`：通过
-    - hardgate report：`artifacts/code-gate/2026-03-20T17-29-02-446Z/report.json`
-- 已完成 Task 3 persistence slice：
-  - `ArtifactsWriter`、`SopAssetStore`、`AttentionKnowledgeStore`、`RefineHitlResumeStore` 已在 `src/infrastructure/persistence/` 下落地真源
-  - 旧 `runtime/*` 和 `runtime/replay-refinement/*` 路径保留薄 shim，避免未迁移调用方中断
-  - `observe-executor`、`react-refinement-run-executor`、`execution-context-provider`、`attention-guidance-loader`、`refine-run-bootstrap-provider` 与对应测试已切到新 persistence 路径
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-run-executor.test.ts`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run typecheck`：通过
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `git diff --check`：通过
-- 已完成 Task 3 llm + config slices：
-  - `ModelResolver`、`JsonModelClient` 已迁到 `src/infrastructure/llm/`
-  - `RuntimeBootstrapProvider` 活跃实现已迁到 `src/infrastructure/config/runtime-bootstrap-provider.ts`
-  - `core/*` 与 `runtime/*` 对应旧路径当前仅保留迁移期 shim 或已删除，不再承载真实实现
-  - `lint:arch` 已新增 shim-only 约束，防止这些 legacy adapter 路径重新长回复杂实现
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run test -- test/core/model-resolver.test.ts test/runtime/runtime-bootstrap-provider.test.ts test/replay-refinement/refine-react-run-executor.test.ts`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run lint:arch`：通过（0 errors，2 near-limit warnings）
-    - `npm --prefix apps/agent-runtime run lint`：通过
-    - `npm --prefix apps/agent-runtime run typecheck`：通过
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `npm --prefix apps/agent-runtime run hardgate`：通过
-    - hardgate report：`artifacts/code-gate/2026-03-20T17-37-49-506Z/report.json`
-  - Task 3 commits:
-    - `815242e` `refactor: move llm adapters under infrastructure`
-    - `e494b40` `refactor: move persistence adapters to infrastructure`
-    - `776fcdf` `refactor: move config loading under infrastructure`
-- 已完成 Task 4 slice A observe-support split：
-  - `SopDemonstrationRecorder` / `SopTraceBuilder` / `SopTraceGuideBuilder` 的真源已迁到 `apps/agent-runtime/src/runtime/observe-support/`
-  - `apps/agent-runtime/src/core/` 中同名文件当前只保留薄 shim，便于后续 kernel 收窄前的迁移安全
-  - `observe-executor` 与 `runtime-composition-root` 的主动引用已切到新 observe-support 路径
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run typecheck`：通过
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `git diff --check`：通过
-- 已完成 Task 4 slice B kernel narrowing：
-  - `AgentLoop` 与 `McpToolBridge` 的真源已迁到 `apps/agent-runtime/src/kernel/`
-  - `apps/agent-runtime/src/core/agent-loop.ts` 与 `apps/agent-runtime/src/core/mcp-tool-bridge.ts` 当前仅保留 bare re-export shim
-  - `lint:arch` 已收紧为：
-    - `core/*` shim-only
-    - `core -> kernel` 仅作迁移期兼容
-    - `kernel/*` 作为长期执行内核实现层
-  - fresh verification:
-    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
-    - `npm --prefix apps/agent-runtime run lint:arch`：通过（0 errors，2 near-limit warnings）
-    - `npm --prefix apps/agent-runtime run typecheck`：通过
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `npm --prefix apps/agent-runtime run hardgate`：通过
-  - Task 4 commits:
-    - `4068233` `refactor: move sop observe helpers out of core`
-    - `6947bbd` `refactor: move agent kernel into kernel layer`
-    - `faa763f` `refactor: canonize kernel agent loop`
-- 已完成 Task 5 application skeleton：
-  - `application/shell/`、`application/config/` 与 `application/providers/` 已成为 canonical home
-  - 旧 `runtime/*` shell/config/provider 路径仅保留薄 shim where applicable
-  - Task 5 commits:
-    - `e57d644`
-    - `2ca3d8d`
-- 已完成 Task 7 refine ownership slice：
-  - `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home
-  - `runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths
-  - Task 7 commits：
-    - `d175463`
-    - `f3711fa`
-    - `7721a29`
-    - `4a4778a`
-- 已完成 spec pre-plan freeze 收紧：
-  - 明确 `observe.query` 的结构化约束和反语义劫持边界
-  - 明确 `sourceObservationRef` 同源追踪约束
-  - 明确最小跨 run knowledge 复用握手（`N promote -> N+1 load`）
-  - 明确 `Pre-Plan Gate`：先 subagent review，再 owner review，之后才允许进入 `writing-plans`
-- 已完成一次独立 subagent review，结论为可进入 owner review（无 blocking findings）。
-- 已完成 pre-plan rollback snapshot：
-  - `docs/superpowers/specs/archive/2026-03-20-agent-architecture-redesign-pre-plan-baseline.md`
-  - 该快照用于在进入 `writing-plans` 前保留当前 spec 基线，必要时可直接回退
-- 已完成 owner review，并进入 `writing-plans` 阶段。
-- 已生成 implementation plan：
-  - `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
-- 已完成 contract freeze addendum：
-  - `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
-- 已完成 Task 2/3/4 代码落地：
-  - 新增 refine-react domain contracts 与 `attention-knowledge` domain
-  - 新增 `refine-react-tool-client` + browser/runtime tool adapters
-  - 新增 `react-refinement-run-executor`、`refine-hitl-resume-store`、`attention-knowledge-store`、`attention-guidance-loader`
-  - 新增 focused tests：`refine-react-contracts` / `refine-react-tool-client` / `refine-react-run-executor`
-- 已完成 Task 5 cutover（保守模式）：
-  - `refinement.enabled=true` 已切到 `ReactRefinementRunExecutor`
-  - CLI 增加 `--resume-run-id <run_id>`
-  - `refinementMode` 在新路径中显式记录为 ignored/no-op
-  - 后续已进一步确认旧 stitched refinement 子树无活跃入口引用，并已完成物理删除
-- 已同步仓库内最新 lint / verification 口径到项目文档：
-  - 当前基线明确包含 `lint:docs`、`lint:arch`、`lint`、`test`、`hardgate`、`typecheck`、`build`
-- 已完成一次新鲜验证：
-  - `npm --prefix apps/agent-runtime run test`：通过（10 tests）
-  - `npm --prefix apps/agent-runtime run lint`：通过，`lint:arch` 当时保留 2 个 near-limit warning
-  - `npm --prefix apps/agent-runtime run hardgate`：通过
-  - `npm --prefix apps/agent-runtime run typecheck`：通过
-  - `npm --prefix apps/agent-runtime run build`：通过
-  - hardgate report：`artifacts/code-gate/2026-03-20T03-03-11-821Z/report.json`
-- 已尝试 refinement smoke（阻塞记录）：
-  - 命令：`REFINEMENT_ENABLED=true node apps/agent-runtime/dist/index.js --mode run --resume-run-id smoke_check`
-  - 结果：CDP endpoint `http://127.0.0.1:9222/json/version/` 返回 400，当前机位未产出新的 refinement e2e artifact
-- 已完成多轮真实 refinement smoke（有证据）：
-  - `artifacts/e2e/20260320_121046_992`
-  - `artifacts/e2e/20260320_121354_264`
-  - `artifacts/e2e/20260320_121958_799`
-- 已确认当前 refine-runtime 的工具注入事实：
-  - raw MCP 可用工具包含 `browser_take_screenshot`
-  - refine agent 实际可见工具不含 screenshot
-  - refine `listTools()` 注入 schema 当前为弱 schema（`type: object`）
-  - 工具注入快照：`artifacts/debug/tool-schema-snapshot-20260320.json`
-- 已定义下一轮 active spec / plan：
-  - `docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md`
-  - `docs/superpowers/plans/2026-03-20-refine-react-tool-surface-hardening-implementation.md`
-- 已完成 refine-react 工具面加固 Task 1/2（subagent 执行并集成验证）：
-  - 暴露 `act.screenshot`，支持 `browser_take_screenshot` 优先、`browser_screenshot` fallback
-  - `listTools()` 升级为强 schema（`required` / `enum` / `additionalProperties: false`）
-  - `run.finish.reason` 运行时枚举校验与 schema 对齐
-- 已完成验证门禁（fresh）：
-  - `npm --prefix apps/agent-runtime run lint:docs`：通过
-  - `npm --prefix apps/agent-runtime run lint:arch`：通过（2 个 near-limit warning）
-  - `npm --prefix apps/agent-runtime run lint`：通过
-  - `npm --prefix apps/agent-runtime run hardgate`：通过
-  - `npm --prefix apps/agent-runtime run typecheck`：通过
-  - `npm --prefix apps/agent-runtime run build`：通过
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts`：通过
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts`：通过
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-run-executor.test.ts`：通过
-  - hardgate report：`artifacts/code-gate/2026-03-20T06-00-51-280Z/report.json`
-- 已更新当前模型可见工具 schema 快照（加固后）：
-  - `artifacts/debug/tool-schema-snapshot-20260320-post-hardening.json`
-- 已完成 HITL 终端交互自然语言化改造（spec/plan + code）：
-  - active spec 增加明确 acceptance：终端 HITL 不再输出 schema 样式字段标签
-  - active plan 增加任务：terminal HITL narrative 与单一可选自然语言恢复输入
-  - 代码改动：`apps/agent-runtime/src/infrastructure/hitl/terminal-hitl-controller.ts`
-  - 新增测试：`apps/agent-runtime/test/hitl/terminal-hitl-controller.test.ts`
-  - 验证通过：`lint:docs`、`test -- test/hitl/terminal-hitl-controller.test.ts`、`typecheck`、`build`、`lint`
-- 已完成当前闭环验收收尾：
-  - 用户确认已跑通一条结果并通过 HITL 验收
-  - 当前任务转为已完成，后续进入新的优化任务阶段
-- 已完成新的 refine-react 小切片 landing：
-  - `act.file_upload` 已加入 tool surface
-  - 对 `paths` 做了严格处理
-  - 配套 focused tests 已补齐
-- 已完成 fresh focused verification：
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts test/replay-refinement/refine-react-tool-client.test.ts`：通过（49/49 tests）
-  - `npm --prefix apps/agent-runtime run typecheck`：通过
-  - `npm --prefix apps/agent-runtime run build`：通过
-- 已完成一条新的 refine e2e 尝试：
-  - `run_id`: `20260320_231626_543`
-  - 环境：系统 Chrome + `.sasiki/chrome_profile` + cookies
-  - 结果：失败，`finishReason = run.finish not called`
-  - 新发现：首轮就出现 `act.navigate` 使用自造的 `sourceObservationRef`（`navigate_to_creator_platform`，随后 `initial_navigation`），而不是等到有效 observation 之后再继续
-  - 系统 Chrome 的首轮 observation 可能从 `about:blank` 和额外空白 / omnibox tabs 开始，first-turn 逻辑必须显式处理这个现实
-  - 证据目录：`artifacts/e2e/20260320_231626_543/`
-- 已完成 tab/context consistency 闭环（spec + plan + code）：
-  - 新增 spec：`docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
-  - 新增并完成 plan：`docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
-  - refine tool surface 新增 `act.select_tab`
-  - `observe.page` 解析对齐当前 Playwright markdown（`Page URL` / `Page Title`）并输出 tab 元信息（`tabs` / `activeTabIndex` / `activeTabMatchesPage`）
-  - `observe.query` 解析兼容 YAML `- role [ref=...]` 行格式
-  - `action` 成功语义修复：显式错误输出不再被标记为 `success=true`
-  - `sourceObservationRef` 增加 live active-tab 一致性校验，tab 漂移时显式失败并要求先 `act.select_tab`/`observe.page`
-  - 为满足架构行数门禁，将 snapshot 解析拆分为 `runtime/replay-refinement/refine-browser-snapshot-parser.ts`
-- 已完成新鲜验证（tab/context consistency）：
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/replay-refinement/refine-react-contracts.test.ts`：通过（22 tests）
-  - `npm --prefix apps/agent-runtime run lint`：通过（保留 2 个 near-limit warning + `NEXT_STEP.md` 1 个 warning）
-  - `npm --prefix apps/agent-runtime run hardgate`：通过
-  - `npm --prefix apps/agent-runtime run typecheck`：通过
-  - `npm --prefix apps/agent-runtime run build`：通过
-  - hardgate report：`artifacts/code-gate/2026-03-20T07-14-52-303Z/report.json`
-- 已完成一条真实小红书长文草稿 e2e：
-  - `run_id`: `20260320_152942_514`
-  - 结果：`completed`，确认“输入标题 -> 暂存离开 -> 保存成功 -> 草稿箱可见”闭环成立
-  - 证据目录：`artifacts/e2e/20260320_152942_514/`
-- 已新增可复用 e2e 操作手册（含 proxy 避坑与验收步骤）：
-  - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
-- 已完成当前治理闭环旋转：
-  - `docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md` 已提升为当前 active spec
-  - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md` 已提升为当前 active plan
-  - 旧 refinement 相关 spec / plan 已统一降级为历史背景
-- 已完成 doc-truth-sync 最终审计与 handoff：
-  - evidence 记录已补全为正式 `harness:doc-health` 审计条目
-  - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md` 已通过 `verified_by` 绑定到 evidence
-  - 下一步已转为 legacy-cleanup 规划，不直接进入 provider/composition refactor
-- 已完成低风险 legacy cleanup：
-  - 已确认 stitched refinement 旧子树没有活跃入口引用，并删除 7 个断链文件
-  - 已同步当前 refinement 入口文档到 `ReactRefinementRunExecutor`
-  - 已更新 `lint:arch` 预算与 `lint:docs` 规则，使其对齐当前 governance-only Harness 模型
-  - 新鲜验证：`test` 通过（22 tests），`typecheck` 通过，`build` 通过，`lint` 通过（保留 `runtime/interactive-sop-compact.ts` 1 个 near-limit warning），`hardgate` 通过
-  - hardgate report：`artifacts/code-gate/2026-03-20T09-52-52-308Z/report.json`
-- 已尝试 cleanup 后真实 refinement e2e，但当前 worktree 未完成验收：
-  - 执行时间：2026-03-20
-  - 结果：浏览器可自动拉起、cookies 可注入、CDP 可探活，但 run 在首轮前卡住，未产生新的 `artifacts/e2e/<run_id>/`
-  - 已确认当前 worktree 缺少本地 runtime config 文件，且 shell 环境没有 `LLM_*` / `DASHSCOPE_*` / `OPENROUTER_*` 模型配置
-  - 结论：本轮无法用真实 e2e 最终确认“无行为影响”，当前能确认的是 cleanup 后代码门禁全部通过，阻塞更像环境未配置齐而非 cleanup 回归
-- 已完成 provider / composition-root 重构点检查，并整理出 draft spec / plan：
-  - `docs/superpowers/specs/2026-03-20-provider-composition-root-refactor.md`
-  - `docs/superpowers/plans/2026-03-20-provider-composition-root-refactor-implementation.md`
-  - 当前建议方案是先抽 `composition root + provider seams`，不直接进入插件化 runtime
-- 已将 provider / composition-root 重构的 lint/test 硬验收写入 draft docs：
-  - spec 已增加 `Architecture Lint And Test Acceptance`
-- 已完成 first-turn bootstrap provenance 稳定化（prompt + bootstrap wiring）：
-  - `PromptProvider.buildRefineStartPrompt()` 现在会显式暴露 bootstrap observation ref / page，并写明 provenance 规则
-  - prompt 现在明确约束：
-    - 不允许编造 `sourceObservationRef`
-    - 只有 `observe.page` / `observe.query` 会产出 observation ref
-    - `navigate` / `select_tab` / 其他 page-changing action 之后必须重新 `observe.page`
-  - 新增 focused tests：
-    - `apps/agent-runtime/test/runtime/prompt-provider.test.ts`
-    - `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
-  - 新鲜验证：
-    - `npm --prefix apps/agent-runtime run lint`：通过（保留 2 个 near-limit warning）
-    - `npm --prefix apps/agent-runtime run test`：通过（54 tests）
-    - `npm --prefix apps/agent-runtime run build`：通过
-    - `npm --prefix apps/agent-runtime run hardgate`：通过
-    - hardgate report：`artifacts/code-gate/2026-03-20T15-43-32-639Z/report.json`
-  - 新鲜 e2e 证据：
-    - `run_id`: `20260320_234009_829`
-    - 结果：首轮 synthetic `sourceObservationRef` 已消失，但中途仍出现一次“误把下一次 observationRef 当作已存在”的问题
-    - `run_id`: `20260320_234350_187`
-    - 结果：未再出现 `unknown sourceObservationRef` / `tab mismatch`，但 run 仍显示更底层的 contract/infra 信号：
-      - agent 长时间复用同一个 observation ref 穿过多次 `navigate`
-      - `observe.page` / action result 里仍可能出现 stale page URL 与 active tab 不一致
-      - 当前 `act.*` tool descriptions 过弱，可能不足以让模型稳定理解“action result != new observation”
-    - 证据目录：`artifacts/e2e/20260320_234350_187/`
-  - plan 已把 `lint:arch` 和 `test` 设为显式 blocking gate，并要求扩 `lint-architecture.mjs` 对齐新边界
-  - `docs/testing/strategy.md`、`docs/testing/lint-rule-matrix.md`、`docs/testing/lint-exception-policy.md` 已同步这次重构的结构与测试验收期望
-- 已完成 provider / composition-root 第一刀实现：
-  - 新增 `runtime/command-router.ts`，从 `index.ts` 抽离 CLI parsing
-  - 新增 `runtime/runtime-composition-root.ts`，从 `workflow-runtime.ts` 抽离 browser/MCP/prompt/context/executor 装配
-  - 新增 `runtime/providers/prompt-provider.ts`、`tool-surface-provider.ts`、`execution-context-provider.ts`、`runtime-bootstrap-provider.ts`
-  - `RuntimeConfigLoader` 已委托给 `RuntimeBootstrapProvider`
-  - `workflow-runtime.ts` 已降为薄 facade
-  - `lint-architecture.mjs` 已新增 composition-root / CLI / prompt-provider 边界规则
-  - 新增测试：`test/runtime/command-router.test.ts`、`test/runtime/runtime-bootstrap-provider.test.ts`、`test/runtime/runtime-composition-root.test.ts`
-  - 已根据 reviewer finding 修复 `RuntimeBootstrapProvider` 的 injected `cwd` 相对路径解析，并补回归测试覆盖 explicit `configPath` / `RUNTIME_CONFIG_PATH`
-  - 新鲜验证通过：`lint:arch`、`lint`、`test`、`typecheck`、`build`、`hardgate`
-  - 最新 hardgate report：`artifacts/code-gate/2026-03-20T12-31-06-702Z/report.json`
-- 已完成本地 e2e 启动链路复盘并确定后续默认执行路径：
-  - 默认本地 refine e2e 改为系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`
-  - 已确认 worktree 内本地 `apps/agent-runtime/runtime.config.json` 应按上述路径执行，不再默认让 Playwright bundled Chrome 复用 `.sasiki/chrome_profile`
-  - 已确认 bundled Chrome 启动崩溃的根因是旧 bundled browser 复用被系统 Chrome 升级过的共享 profile，而不是 cookie 注入链路损坏
-  - 已确认系统 Chrome + `.sasiki/chrome_profile` 今天仍能直接进入 `https://creator.xiaohongshu.com/publish`
-  - 当前 refactor 第一阶段收尾完成；后续若继续，需切到新的 approved refactor slice
-- 已完成第二阶段重构边界收口（draft spec）：
-  - 新增 draft spec：`docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md`
-  - 该 draft 明确解释了为什么旧 provider/composition-root plan 不能直接把未完成尾项继续算作同一执行 slice
-  - 下一刀限定为 executor/bootstrap boundary，要求显式 lint、focused tests、full repo verification，以及一条 fresh refinement e2e
-- 已完成第二阶段重构闭环切换：
-  - `docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md` 已提升为当前 active spec
-  - `docs/superpowers/plans/2026-03-20-executor-bootstrap-boundary-refactor-implementation.md` 已建立为当前 active plan
-  - 旧 provider/composition-root spec / plan 已降级为 `superseded`
-- 已完成 executor/bootstrap boundary 重构的主要代码落地：
-  - 新增 `runtime/providers/legacy-run-bootstrap-provider.ts`，从 `run-executor.ts` 抽离 legacy run 的 SOP consumption bootstrap
-  - 新增 `runtime/providers/refine-run-bootstrap-provider.ts`，从 `react-refinement-run-executor.ts` 抽离 resume / pre-observation / guidance preload / prompt ingredients
-  - `runtime-composition-root.ts` 已负责把 bootstrap providers 接入 executors
-  - `run-executor.ts` 与 `react-refinement-run-executor.ts` 已缩窄到执行控制流、artifact、pause/resume 等职责
-  - 新增测试：`test/runtime/legacy-run-bootstrap-provider.test.ts`、`test/runtime/refine-run-bootstrap-provider.test.ts`、`test/runtime/run-executor-regression.test.ts`
-  - `lint-architecture.mjs` 已新增 executor import boundary 约束
-  - 当前 fresh verification 通过：`lint:arch`、`lint`、`test`（46/46）、`typecheck`、`build`、`hardgate`
-  - 最新 hardgate report：`artifacts/code-gate/2026-03-20T14-33-39-707Z/report.json`
-- 已完成 executor/bootstrap boundary 重构的流程级验收：
-  - fresh refine execution `20260320_231626_543` 已成功走到系统 Chrome 启动、cookie 注入、CDP ready、model resolution，并出现 `agent_loop_initialized`
-  - 这说明当前重构在流程接线层面是正确的；后续问题属于首轮导航/bootstrap 稳定性，而不是主线架构 wiring 失效
-  - 证据目录：`artifacts/e2e/20260320_231626_543/`
-- 已完成 refine e2e 卡死问题的第一轮根因排查，并落下可验证修复：
-  - 已修复 OpenRouter `baseUrl` 被误解析成 `openai` provider 的问题；带工具的 `AgentLoop` 不再在模型初始化后长期无响应
-  - 已修复 CDP 启动后 reset page 时误处理 `chrome://` 内部页导致的 hang
-  - 已修复 modal/file chooser 场景下 `observe.page` 可能信任 stale `Page URL` 的解析问题，优先对齐 live active tab
-  - 已补 focused tests：`test/core/model-resolver.test.ts`、`test/infrastructure/cdp-browser-launcher.test.ts`、`test/replay-refinement/refine-react-tool-client.test.ts`
-  - 当前仍未宣称系统 Chrome 下的首轮导航/bootstrap 已稳定；后续需要单独收 first-turn navigation bootstrap
-- 已完成一个新的 refine-react 小闭环：
-  - 新增 `act.file_upload`，让 agent 在 file chooser 场景下可以显式上传或取消，而不是只能猜测性 `navigate`
-  - `paths` 参数现在是严格 `string[]` 契约；省略或空数组表示取消，非数组或非字符串数组会显式报错
-  - focused verification 通过：`test/replay-refinement/refine-react-contracts.test.ts`、`test/replay-refinement/refine-react-tool-client.test.ts`、`typecheck`、`build`
-  - commit：`203a053 feat(refine): add file upload action handling`
+- 已完成 Task 1 (Docs Freeze)。
+- 已完成 Task 2 (Legacy Surface Pruning)。
+- 已完成 Task 3 (Infrastructure Extraction)。
+- 已完成 Task 4 (Kernel Narrowing)。
+- 已完成 Task 5 (Application Skeleton)。
+- 已完成 Task 6 (Observe & Compact Rehome)。
+- 已完成 Task 7 (Refine Rehome)。
+- 已完成 Task 8 (Runtime Narrowing)。
+- 已完成 Task 9 (Final Closure)：
+  - 更新了所有活跃文档，移除旧目录语义引用
+  - 确认了最终 taxonomy 状态
+  - 通过了全部 repo gates

@@ -9,13 +9,20 @@
 - 这个仓库的真实可执行命令在 `apps/agent-runtime/package.json`，不是仓库根目录。
 - 浏览器任务“看起来完成”不等于业务完成；任何完成声明都要有 `artifacts/e2e/<run_id>/` 里的新鲜证据支撑。
 - shared execution kernel 仍是当前代码的核心边界：
-  - legacy run 路径是 `AgentLoop + McpToolBridge + Playwright MCP`
-  - refine 路径是 `AgentLoop + RefineReactToolClient + Playwright MCP`
+  - canonical home: `apps/agent-runtime/src/kernel/agent-loop.ts` + `mcp-tool-bridge.ts`
+  - old `core/` paths are migration shims only
 - `WorkflowRuntime` 当前是 mode-gated split：legacy `RunExecutor` 与 `ReactRefinementRunExecutor` 并存。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
 - `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
-- SOP recorder / trace builder 已迁到 `src/runtime/observe-support/`；`src/core/` 中同名文件如果还在，只应作为迁移 shim，不应再放真实现。
-- persistence adapters 已经开始下沉到 `src/infrastructure/persistence/`；旧 runtime 路径保留为薄 shim 只用于迁移期兼容。
+- SOP recorder / trace builder 的 canonical home: `src/application/observe/support/`；`src/core/` 和 `src/runtime/observe-support/` 中同名文件是迁移期 shim。
+- persistence adapters 的 canonical home: `src/infrastructure/persistence/`；旧 runtime 路径保留为薄 shim。
+- LLM adapters 的 canonical home: `src/infrastructure/llm/`；旧 `core/` 路径是迁移期 shim。
+- config loading 的 canonical home: `src/infrastructure/config/`。
+- application shell / command-router / composition-root 的 canonical home: `src/application/shell/`。
+- refine 全部代码（bootstrap, prompts, tooling, orchestration, executor）的 canonical home: `src/application/refine/`。
+- observe 全部代码（orchestration, recording support）的 canonical home: `src/application/observe/`。
+- compact 全部代码：canonical home `src/application/compact/`。
+- `runtime/` 已收窄到 live execution state；`runtime/agent-execution-runtime.ts` 是剩余的真实实现，其余为兼容 shim。
 - 历史 `.plan/*` 文档现在只作为背景，不再自动代表 active direction；新的方向必须重新写 spec。
 - `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。
 - 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
@@ -29,12 +36,14 @@
 - 大范围重构不要在单个 worktree 中长时间累积；更稳的节奏是每个可独立验证的小步骤完成后立刻回基线分支合并。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
 - Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
-- Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim，不应继续承载实现。
-- Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`，observe 录制/trace helper 已迁到 `runtime/observe-support/*`。
-- Task 5 slice B 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
-- Task 5 完成后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim，真正的 app wiring 不应再散落在 generic runtime root。
-- Task 6 完成后，observe orchestration / recording support 的 canonical home 是 `application/observe/*`，SOP compact 的 canonical home 是 `application/compact/*`；旧 `runtime/*` 中对应路径只应保留薄 shim where applicable。
-- Task 7 完成后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`；`runtime/replay-refinement/*` 与已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 只应作为 shim-only compatibility paths 存在。
+- Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim。
+- Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`。
+- Task 5 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
+- Task 5 之后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim。
+- Task 6 之后，observe orchestration / recording support 的 canonical home 是 `application/observe/*`，SOP compact 的 canonical home 是 `application/compact/*`。
+- Task 7 之后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`。
+- Task 8 之后，`runtime/agent-execution-runtime.ts` 是 runtime 里剩余的真实实现，其余 `runtime/*` 只应作为兼容 shim 或迁移占位。
+- Task 9 之后，全局 taxonomy 重组完成；后续工作转向 stability / e2e / tooling optimization 轨道。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。

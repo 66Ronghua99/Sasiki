@@ -3,7 +3,8 @@ doc_type: plan
 status: active
 implements:
   - docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md
-verified_by: []
+verified_by:
+  - artifacts/code-gate/2026-03-20T19-29-06-330Z/report.json
 supersedes:
   - docs/superpowers/plans/2026-03-21-runtime-surface-pruning-refactor-implementation.md
   - docs/superpowers/plans/2026-03-20-executor-bootstrap-boundary-refactor-implementation.md
@@ -276,11 +277,13 @@ Task 7 completed in commits `d175463`, `f3711fa`, `7721a29`, and `4a4778a`.
 - Modify: lifecycle-focused tests
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Decide which remaining files are true runtime state and which are still application shell wrappers.
-- [ ] Collapse or delete thin pass-through wrappers that no longer justify their existence.
-- [ ] Ensure the surviving `runtime/` area means live execution state only.
-- [ ] Run focused lifecycle tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the runtime-narrowing slice.
+- [x] Decide which remaining files are true runtime state and which are still application shell wrappers.
+- [x] Collapse or delete thin pass-through wrappers that no longer justify their existence.
+- [x] Ensure the surviving `runtime/` area means live execution state only.
+- [x] Run focused lifecycle tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Commit the runtime-narrowing slice.
+
+Task 8 completed in commits `9c98bfd` and `1556fec`.
 
 ### Task 9: Final Docs, Lint Hardening, And Gate Closure
 
@@ -294,9 +297,9 @@ Task 7 completed in commits `d175463`, `f3711fa`, `7721a29`, and `4a4778a`.
 - Modify/archive: superseded specs and plans
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Remove stale references to old directory semantics (`core`, catch-all `runtime`, top-level `providers`) from project docs.
-- [ ] Finalize lint boundaries so the new taxonomy is enforceable and regressions are blocked.
-- [ ] Run:
+- [x] Remove stale references to old directory semantics (`core`, catch-all `runtime`, top-level `providers`) from project docs.
+- [x] Finalize lint boundaries so the new taxonomy is enforceable and regressions are blocked.
+- [x] Run:
   - `npm --prefix apps/agent-runtime run lint:docs`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run lint`
@@ -304,8 +307,8 @@ Task 7 completed in commits `d175463`, `f3711fa`, `7721a29`, and `4a4778a`.
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
-- [ ] Record the final report path under `verified_by`.
-- [ ] Commit the closure slice.
+- [x] Record the final report path under `verified_by`.
+- [x] Commit the closure slice.
 
 ## Sequencing Notes
 
@@ -318,10 +321,10 @@ Task 7 completed in commits `d175463`, `f3711fa`, `7721a29`, and `4a4778a`.
 
 ## Completion Checklist
 
-- [ ] active architecture truth is the global taxonomy, not the old runtime-only layout
-- [ ] legacy direct run is removed as an active product surface
-- [ ] `core/` is narrowed or replaced by `kernel/`
-- [ ] `runtime/` no longer acts as a catch-all application layer
-- [ ] provider-pattern files are owned by application/config/flow areas, not by a fake top-level `providers` layer
-- [ ] LLM/config/persistence adapters live under infrastructure-owned areas
-- [ ] repo-wide verification passes with fresh evidence
+- [x] active architecture truth is the global taxonomy, not the old runtime-only layout
+- [x] legacy direct run is removed as an active product surface
+- [x] `core/` is narrowed or replaced by `kernel/`
+- [x] `runtime/` no longer acts as a catch-all application layer
+- [x] provider-pattern files are owned by application/config/flow areas, not by a fake top-level `providers` layer
+- [x] LLM/config/persistence adapters live under infrastructure-owned areas
+- [x] repo-wide verification passes with fresh evidence

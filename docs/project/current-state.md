@@ -5,10 +5,14 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
-- The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
-- Task 6 is complete: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
-- Task 5 is complete: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
-- Task 7 is complete: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths where applicable.
+- **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
+- **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
+- **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
+- **Task 6 is complete**: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
+- **Task 5 is complete**: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
+- **Task 4 is complete**: `kernel/` is now the canonical home for the true execution kernel; `core/` is shim-only.
+- **Task 3 is complete**: LLM adapters (`infrastructure/llm/`), config loading (`infrastructure/config/`), and persistence adapters (`infrastructure/persistence/`) are now in their canonical infrastructure homes.
+- **Task 2 is complete**: legacy direct run has been removed as an active product surface; CLI contract is now `observe` / `refine` / `sop-compact`.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
@@ -20,6 +24,42 @@
 - `npm --prefix apps/agent-runtime run hardgate`
 - `node apps/agent-runtime/dist/index.js "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"`
 
+## Canonical Architecture
+
+```
+apps/agent-runtime/src/
+  domain/           - Product concepts, state schemas, cross-layer contracts
+  contracts/        - Capability interfaces (logger, tool-client, HITL, etc.)
+  kernel/           - Reusable execution kernel (CANONICAL)
+    - agent-loop.ts
+    - mcp-tool-bridge.ts
+  application/      - Use-case orchestration layer
+    shell/          - CLI shell, command-router, composition-root
+    config/         - Application-facing config contracts
+    providers/      - Tool-surface, execution-context providers
+    observe/        - Observe orchestration + recording support
+    compact/        - SOP compact workflow
+    refine/         - Refine bootstrap, prompts, tooling, orchestration, executor
+  runtime/          - Narrowed to live execution/session/state semantics
+    - agent-execution-runtime.ts  - Remaining real runtime implementation
+    # Other runtime/* files are migration shims
+  infrastructure/   - External adapters
+    llm/            - model-resolver.ts, json-model-client.ts
+    config/         - runtime-bootstrap-provider.ts
+    persistence/    - artifacts-writer, sop-asset-store, attention-knowledge-store, refine-hitl-resume-store
+    mcp/            - mcp-stdio-client.ts
+    browser/        - cdp-browser-launcher.ts, cookie-loader.ts
+    hitl/           - terminal-hitl-controller.ts
+  utils/            - Pure helper functions
+
+# Migration shims (re-export only):
+- core/* → kernel/*
+- runtime/providers/* → application/providers/* or application/refine/*
+- runtime/replay-refinement/* → application/refine/*
+- runtime/observe-executor.ts, runtime/observe-runtime.ts → application/observe/*
+- runtime/interactive-sop-compact.ts → application/compact/*
+```
+
 ## Project Verification Notes
 - `npm --prefix apps/agent-runtime run lint:docs` remains a project-local doc alignment check where needed, but it is not a latest-Harness requirement.
 - `npm --prefix apps/agent-runtime run lint:arch`, `lint`, `test`, `typecheck`, `build`, and `hardgate` remain the current project verification commands.
@@ -28,65 +68,6 @@
   - `~/.sasiki/chrome_profile`
   - `~/.sasiki/cookies/*.json`
   - proxy-disabled launch command with `NO_PROXY` / `no_proxy`
-- Fresh focused verification for the new refine-react slice passed:
-  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
-  - `npm --prefix apps/agent-runtime run typecheck`
-  - `npm --prefix apps/agent-runtime run build`
-- Fresh refinement flow validation also exists for the current refactor baseline:
-  - run id `20260320_231626_543`
-  - system Chrome startup, cookie injection, CDP ready, model resolution, and `agent_loop_initialized` were all observed
-  - this is the current process-level acceptance signal for the refactor; business-level task completion remains a later stabilization concern
-- Fresh provenance-stability validation also exists for the current local route:
-  - repo gates passed again with report `artifacts/code-gate/2026-03-20T15-43-32-639Z/report.json`
-  - run id `20260320_234009_829` confirmed first-turn bootstrap no longer starts with synthetic symbolic refs, but still exposed one later invented observation ref after navigation
-  - run id `20260320_234350_187` no longer shows `unknown sourceObservationRef` or `tab mismatch`; current failure is a real page interaction timeout on `写长文`
-
-## Code-Backed Baseline
-- CLI entrypoints live in `apps/agent-runtime/src/index.ts`:
-  - `observe`
-  - `refine`
-  - `sop-compact`
-  - legacy `runtime` / `--mode run|observe` only survives as a compatibility error with upgrade guidance
-- CLI parsing lives in `apps/agent-runtime/src/runtime/command-router.ts`, so `index.ts` is limited to config loading, lifecycle wiring, and top-level dispatch.
-- Runtime assembly lives in `apps/agent-runtime/src/runtime/runtime-composition-root.ts`:
-  - active agent runtime surface is now always `ReactRefinementRunExecutor`
-  - tool-surface selection is now always `refine-react`
-  - application shell ownership for command routing, composition, and config selection is now canonical under `apps/agent-runtime/src/application/`
-  - prompt selection goes through `apps/agent-runtime/src/application/refine/prompt-provider.ts`
-  - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
-  - bootstrap/config normalization goes through `apps/agent-runtime/src/infrastructure/config/runtime-bootstrap-provider.ts`
-  - refine run bootstrap goes through `apps/agent-runtime/src/application/refine/refine-run-bootstrap-provider.ts`
-  - `apps/agent-runtime/src/runtime/replay-refinement/*` and the old runtime provider paths are shim-only compatibility layers where applicable
-- The current shared browser execution kernel now has canonical ownership under `apps/agent-runtime/src/kernel/`:
-  - `AgentLoop`
-  - `McpToolBridge`
-- LLM adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/llm/`:
-  - `ModelResolver`
-  - `JsonModelClient`
-- SOP observe helpers now have canonical ownership under `apps/agent-runtime/src/runtime/observe-support/`:
-  - `SopDemonstrationRecorder`
-  - `SopTraceBuilder`
-  - `SopTraceGuideBuilder`
-- Persistence adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/persistence/`:
-  - `ArtifactsWriter`
-  - `SopAssetStore`
-  - `AttentionKnowledgeStore`
-  - `RefineHitlResumeStore`
-- The disconnected stitched refinement subtree has been removed after zero-reference verification, and Task 2 also removed the old direct-run path:
-  - deleted `apps/agent-runtime/src/runtime/run-executor.ts`
-  - deleted `apps/agent-runtime/src/runtime/providers/legacy-run-bootstrap-provider.ts`
-  - deleted `apps/agent-runtime/src/runtime/sop-consumption-context.ts`
-- The refine-react tool surface now includes `act.file_upload` with strict `paths` handling and focused tests.
-- Current major code areas:
-  - `kernel`: `apps/agent-runtime/src/kernel/agent-loop.ts`
-  - `observe`: `apps/agent-runtime/src/application/observe/`
-  - `compact`: `apps/agent-runtime/src/application/compact/`
-  - `refine`: `apps/agent-runtime/src/application/refine/react-refinement-run-executor.ts`
-  - `refine tool surface`: `apps/agent-runtime/src/application/refine/refine-react-tool-client.ts`
-  - `attention knowledge persistence`: `apps/agent-runtime/src/infrastructure/persistence/attention-knowledge-store.ts`
-  - `observe support`: `apps/agent-runtime/src/runtime/observe-support/sop-demonstration-recorder.ts`
-  - `refine compatibility shims`: `apps/agent-runtime/src/runtime/replay-refinement/`
-  - `refine provider shims`: `apps/agent-runtime/src/runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts`
 
 ## Current Documentation Truth
 - Active entry docs:
@@ -95,7 +76,9 @@
   - `MEMORY.md`
   - `AGENT_INDEX.md`
   - `.harness/bootstrap.toml`
+  - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
+  - `docs/architecture/layers.md`
 - Active spec / plan:
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
@@ -108,7 +91,6 @@
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- The next repository-level task is Task 8 of the active taxonomy plan.
-- The next task is to narrow runtime to session, state, and execution semantics while keeping the application-owned refine subtree isolated.
-- The key architectural question is now “which remaining runtime files are true live state/execution concerns, and which are still application-shell wrappers or compatibility shims.”
-- Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.
+- The taxonomy reorganization plan (Tasks 1-9) is **complete**.
+- The next phase moves to a **separate stability / e2e / tooling optimization track** (not more taxonomy refactoring).
+- See `NEXT_STEP.md` for the post-plan next actions.
