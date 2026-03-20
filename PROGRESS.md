@@ -11,6 +11,7 @@
 
 ## Current Code Status
 - 当前活跃闭环已经切换为 `agent runtime global layer taxonomy`，之前的 `executor/bootstrap boundary refactor` 与 `runtime surface pruning` 只保留为已完成或已被更大方向覆盖的历史背景。
+- Task 5 slice B 已落地：`application/config/` 与 `application/providers/` 现在是 runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim。
 - CLI 当前有两类入口：
   - `runtime`：支持 `run` / `observe`
   - `runtime --resume-run-id <run_id>`：用于 paused refinement run 的同 run 恢复
@@ -69,7 +70,7 @@
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 进入 active taxonomy plan 的 Task 5：引入 `application/` 骨架，把 shell / composition / provider-or-service 代码从泛化 `runtime/` 根目录迁出，并补齐对应 lint ownership。
+- `P0` 继续 active taxonomy plan 的 Task 5 后续子切片，把剩余 shell / composition 收口工作与 `application/` 归属彻底对齐。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE

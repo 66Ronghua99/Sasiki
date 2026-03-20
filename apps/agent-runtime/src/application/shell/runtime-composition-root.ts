@@ -1,5 +1,5 @@
 /**
- * Deps: kernel/*, infrastructure/*, runtime/*
+ * Deps: kernel/*, infrastructure/*, application/*
  * Used By: application/shell/workflow-runtime.ts
  * Last Updated: 2026-03-21
  */
@@ -13,12 +13,12 @@ import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
 import { ObserveExecutor } from "../../runtime/observe-executor.js";
 import { ObserveRuntime } from "../../runtime/observe-runtime.js";
-import { ExecutionContextProvider } from "../../runtime/providers/execution-context-provider.js";
+import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../../runtime/providers/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../../runtime/providers/refine-run-bootstrap-provider.js";
-import { ToolSurfaceProvider } from "../../runtime/providers/tool-surface-provider.js";
+import { ToolSurfaceProvider } from "../providers/tool-surface-provider.js";
 import { ReactRefinementRunExecutor } from "../../runtime/replay-refinement/react-refinement-run-executor.js";
-import type { RuntimeConfig } from "../../runtime/runtime-config.js";
+import type { RuntimeConfig } from "../config/runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
   refinementEnabled: boolean;

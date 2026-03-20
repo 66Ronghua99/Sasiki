@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { RuntimeConfigLoader } from "../../src/application/config/runtime-config.js";
 import { RuntimeBootstrapProvider } from "../../src/infrastructure/config/runtime-bootstrap-provider.js";
 
 test("runtime bootstrap provider prefers file config over env and resolves relative artifacts under project root", async () => {
@@ -219,4 +220,32 @@ test("runtime bootstrap provider resolves relative RUNTIME_CONFIG_PATH against i
 
   assert.equal(config.configPath, path.join(root, "config", "runtime.env.json"));
   assert.equal(config.model, "env-relative-model");
+});
+
+test("runtime config loader uses the canonical application config home", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sasiki-runtime-config-loader-"));
+  await mkdir(path.join(root, ".git"));
+
+  const configPath = path.join(root, "runtime.config.json");
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      llm: {
+        model: "loader-model",
+      },
+      runtime: {
+        artifactsDir: "loader-artifacts",
+      },
+    })
+  );
+
+  const config = RuntimeConfigLoader.fromSources({
+    configPath,
+    cwd: root,
+    env: {},
+  });
+
+  assert.equal(config.configPath, configPath);
+  assert.equal(config.model, "loader-model");
+  assert.equal(config.artifactsDir, path.join(root, "loader-artifacts"));
 });

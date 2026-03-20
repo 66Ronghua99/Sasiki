@@ -13,18 +13,25 @@ const DEFAULT_MAX_LINES = 500;
 const LEGACY_MAX_LINES = new Map([
   ["kernel/agent-loop.ts", 760],
 ]);
-const COMPOSITION_ROOT_FILE = "runtime/runtime-composition-root.ts";
+const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
 const PROMPT_PROVIDER_FILE = "runtime/providers/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
-const LEGACY_ADAPTER_SHIM_FILES = new Set([
+const SHIM_ONLY_FILES = new Set([
   "core/agent-loop.ts",
   "core/mcp-tool-bridge.ts",
   "core/sop-demonstration-recorder.ts",
   "core/model-resolver.ts",
   "core/json-model-client.ts",
   "runtime/artifacts-writer.ts",
+  "runtime/agent-runtime.ts",
+  "runtime/command-router.ts",
+  "runtime/runtime-composition-root.ts",
+  "runtime/runtime-config.ts",
   "runtime/sop-asset-store.ts",
+  "runtime/workflow-runtime.ts",
+  "runtime/providers/execution-context-provider.ts",
+  "runtime/providers/tool-surface-provider.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
 ]);
@@ -37,14 +44,16 @@ const EXECUTOR_FILES = new Set([
   REFINE_EXECUTOR_FILE,
 ]);
 
-const LAYER_ORDER = ["domain", "contracts", "kernel", "core", "runtime", "infrastructure"];
+const LAYER_ORDER = ["domain", "contracts", "kernel", "application", "core", "runtime", "infrastructure", "utils"];
 const ALLOWED_DEPENDENCIES = {
-  domain: new Set(["domain", "contracts"]),
-  contracts: new Set(["domain", "contracts"]),
-  kernel: new Set(["domain", "contracts", "kernel", "infrastructure"]),
-  core: new Set(["domain", "contracts", "core", "kernel"]),
-  runtime: new Set(["domain", "contracts", "kernel", "core", "runtime", "infrastructure"]),
-  infrastructure: new Set(["domain", "contracts", "infrastructure"]),
+  domain: new Set(["domain", "contracts", "utils"]),
+  contracts: new Set(["domain", "contracts", "utils"]),
+  kernel: new Set(["domain", "contracts", "kernel", "utils"]),
+  application: new Set(["domain", "contracts", "kernel", "runtime", "infrastructure", "utils", "application"]),
+  core: new Set(["domain", "contracts", "core", "kernel", "utils"]),
+  runtime: new Set(["domain", "contracts", "kernel", "runtime", "infrastructure", "utils"]),
+  infrastructure: new Set(["domain", "contracts", "infrastructure", "utils"]),
+  utils: new Set(["utils"]),
 };
 
 function listTsFiles(dir) {
@@ -110,9 +119,16 @@ function addWarning(ruleId, fileRel, message) {
   return { ruleId, fileRel, message };
 }
 
+function stripComments(sourceText) {
+  return sourceText
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/^\s*\/\/.*$/gmu, "")
+    .trim();
+}
+
 function isBareReexportShim(sourceText) {
-  const trimmed = sourceText.trim();
-  return /^export\s+\*\s+from\s+["'][^"']+["'];?$/u.test(trimmed);
+  const trimmed = stripComments(sourceText);
+  return /^export\s+(?:\*\s+from|\{[\s\S]*?\}\s+from)\s+["'][^"']+["'];?$/u.test(trimmed);
 }
 
 function checkFileSize(absPath, sourceText, errors, warnings, srcRoot) {
@@ -140,6 +156,7 @@ function checkFileSize(absPath, sourceText, errors, warnings, srcRoot) {
 function checkImports(absPath, sourceText, errors, srcRoot) {
   const fromRel = relFromSrc(absPath, srcRoot);
   const fromLayer = inferLayer(absPath, srcRoot);
+  const isShimOnlyFile = SHIM_ONLY_FILES.has(fromRel) && isBareReexportShim(sourceText);
   const importRegex = /^import\s+[\s\S]*?\sfrom\s+["']([^"']+)["'];?/gm;
   const localDependencies = new Set();
 
@@ -167,6 +184,10 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
 
     if (!toRel.startsWith("..")) {
       localDependencies.add(toRel);
+    }
+
+    if (fromRel === "kernel/agent-loop.ts" && toRel === "infrastructure/llm/model-resolver.ts") {
+      continue;
     }
 
     if (toRel.startsWith("infrastructure/mcp/") && fromRel !== COMPOSITION_ROOT_FILE && !fromRel.startsWith("infrastructure/mcp/")) {
@@ -225,6 +246,10 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
       }
     }
 
+    if (isShimOnlyFile && toLayer === "application") {
+      continue;
+    }
+
     if (fromLayer !== "other") {
       const allowed = ALLOWED_DEPENDENCIES[fromLayer];
       if (allowed && !allowed.has(toLayer)) {
@@ -240,9 +265,9 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
   return localDependencies;
 }
 
-function checkLegacyAdapterShims(absPath, sourceText, errors, srcRoot) {
+function checkShimOnlyFiles(absPath, sourceText, errors, srcRoot) {
   const rel = relFromSrc(absPath, srcRoot);
-  if (!LEGACY_ADAPTER_SHIM_FILES.has(rel)) {
+  if (!SHIM_ONLY_FILES.has(rel)) {
     return;
   }
   if (!isBareReexportShim(sourceText)) {
@@ -344,7 +369,7 @@ export function analyzeArchitecture({ srcRoot }) {
   for (const absPath of files) {
     const sourceText = fs.readFileSync(absPath, "utf8");
     checkFileSize(absPath, sourceText, errors, warnings, srcRoot);
-    checkLegacyAdapterShims(absPath, sourceText, errors, srcRoot);
+    checkShimOnlyFiles(absPath, sourceText, errors, srcRoot);
     const localDeps = checkImports(absPath, sourceText, errors, srcRoot);
     graph.set(relFromSrc(absPath, srcRoot), localDeps);
   }

@@ -1,10 +1,10 @@
 /**
- * Deps: domain/agent-types.ts, application/shell/runtime-composition-root.ts
+ * Deps: domain/agent-types.ts, application/config/runtime-config.ts, application/shell/runtime-composition-root.ts
  * Used By: index.ts, runtime/agent-runtime.ts
  * Last Updated: 2026-03-21
  */
 import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../../domain/agent-types.js";
-import type { RuntimeConfig } from "../../runtime/runtime-config.js";
+import type { RuntimeConfig } from "../config/runtime-config.js";
 import {
   createRuntimeComposition,
   type BrowserLifecycle,

@@ -1,5 +1,5 @@
 /**
- * Deps: runtime/*, domain/agent-types.ts
+ * Deps: application/*, domain/agent-types.ts
  * Used By: npm scripts (dev/build runtime entry)
  * Last Updated: 2026-03-09
  */
@@ -7,7 +7,7 @@ import process from "node:process";
 
 import { parseCliArguments } from "./application/shell/command-router.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
-import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
+import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
 import { InteractiveSopCompactService } from "./runtime/interactive-sop-compact.js";
 
 async function main(): Promise<void> {
