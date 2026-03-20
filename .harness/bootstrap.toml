@@ -1,0 +1,8 @@
+bootstrap_version = "0.1.0"
+mode = "migration"
+preset = "none"
+entry_skill = "harness:init"
+templates_dir = "docs/superpowers/templates"
+docs_health_command = 'npm --prefix apps/agent-runtime run lint:docs'
+verify_command = 'node .harness/tools/harness-code-hardgate/scripts/code-hardgate.js . --phase all'
+e2e_command = 'npm --prefix apps/agent-runtime run build && node apps/agent-runtime/dist/index.js "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"'

@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "artifact_dir": "artifacts/code-gate",
+  "commands": {
+    "lint": "npm --prefix apps/agent-runtime run lint",
+    "test": "npm --prefix apps/agent-runtime run build"
+  },
+  "flaky_policy": {
+    "max_retries": 0,
+    "allow_retry_success_as_warning": false
+  }
+}
