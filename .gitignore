@@ -215,3 +215,4 @@ node_modules/
 apps/agent-runtime/dist/
 apps/agent-runtime/runtime.config.json
 artifacts/
+.worktrees/
