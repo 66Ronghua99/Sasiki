@@ -25,6 +25,7 @@ The following rules have no waiver path and must be fixed immediately:
 - `docs.required-path`
 - `docs.reference-path`
 - `dep.layer.direction`
+- `dep.import.cycle`
 - `dep.mcp.sdk.boundary`
 - `dep.infra.mcp.entrypoint`
 
