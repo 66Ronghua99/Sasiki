@@ -15,6 +15,11 @@ Protect both runtime behavior and architecture boundaries, with evidence that th
 7. Hardgate aggregation: `npm --prefix apps/agent-runtime run hardgate` for blocking lint/build contract with artifacts.
 8. End-to-end browser verification: run refinement path smoke with `REFINEMENT_ENABLED=true` and inspect artifacts under `artifacts/e2e/<run_id>/`.
 
+## Recommended Runbook
+
+- For the repeatable Xiaohongshu long-note draft flow (including proxy-safe command and acceptance checks), use:
+  - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+
 ## Current Smoke Blocker
 
 - 2026-03-20 local smoke attempted with `REFINEMENT_ENABLED=true node apps/agent-runtime/dist/index.js --mode run --resume-run-id smoke_check`.
