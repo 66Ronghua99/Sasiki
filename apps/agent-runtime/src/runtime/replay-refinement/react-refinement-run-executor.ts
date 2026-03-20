@@ -1,5 +1,5 @@
 /**
- * Deps: kernel/agent-loop.ts, runtime/replay-refinement/*, infrastructure/persistence/*
+ * Deps: kernel/agent-loop.ts, application/refine/*, infrastructure/persistence/*
  * Used By: runtime/runtime-composition-root.ts
  * Last Updated: 2026-03-20
  */
@@ -11,7 +11,7 @@ import type { HitlInterventionRequest } from "../../domain/intervention-learning
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
 import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
 import type { RefineRunBootstrapProvider } from "../../application/refine/refine-run-bootstrap-provider.js";
-import type { RefineReactToolClient } from "./refine-react-tool-client.js";
+import type { RefineReactToolClient } from "../../application/refine/refine-react-tool-client.js";
 
 interface RefinementKnowledgeSink {
   append(records: AttentionKnowledge[]): Promise<void>;

@@ -1,11 +1,11 @@
 /**
- * Deps: contracts/tool-client.ts, runtime/replay-refinement/*
+ * Deps: contracts/tool-client.ts, application/refine/*
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import type { ToolClient } from "../../contracts/tool-client.js";
-import { createRefineReactSession } from "../../runtime/replay-refinement/refine-react-session.js";
-import { RefineReactToolClient } from "../../runtime/replay-refinement/refine-react-tool-client.js";
+import { createRefineReactSession } from "../refine/refine-react-session.js";
+import { RefineReactToolClient } from "../refine/refine-react-tool-client.js";
 
 export interface ToolSurfaceSelection {
   toolSurfaceKind: "refine-react";

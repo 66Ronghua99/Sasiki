@@ -1,7 +1,7 @@
 /**
  * Deps: domain/attention-knowledge.ts, domain/refine-react.ts, application/refine/refine-react-session.ts
  * Used By: application/refine/refine-react-tool-client.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
 import { isAttentionKnowledgeCategory } from "../../domain/attention-knowledge.js";
 import type {

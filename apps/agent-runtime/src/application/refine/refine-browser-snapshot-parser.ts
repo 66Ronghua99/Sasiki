@@ -1,7 +1,7 @@
 /**
  * Deps: domain/refine-react.ts
  * Used By: application/refine/refine-browser-tools.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
 import { URL } from "node:url";
 
@@ -147,33 +147,33 @@ export class RefineBrowserSnapshotParser {
   }
 
   private parseLegacySnapshotElement(line: string): SnapshotLineElement | null {
-    const mapResult = line.match(/^\[(?<role>[^|\]]+)\|(?<ref>[^\]]+)\]\s*(?<text>.*)$/);
-    if (!mapResult?.groups) {
+    const match = line.match(/^\[(?<role>[^|\]]+)\|(?<ref>[^\]]+)\]\s*(?<text>.*)$/);
+    if (!match?.groups) {
       return null;
     }
-    const rawText = (mapResult.groups.text ?? "").trim();
+    const rawText = (match.groups.text ?? "").trim();
     return {
-      role: (mapResult.groups.role ?? "").trim().toLowerCase(),
-      elementRef: (mapResult.groups.ref ?? "").trim(),
+      role: (match.groups.role ?? "").trim().toLowerCase(),
+      elementRef: (match.groups.ref ?? "").trim(),
       rawText,
       normalizedText: rawText.toLowerCase(),
     };
   }
 
   private parseYamlSnapshotElement(line: string): SnapshotLineElement | null {
-    const mapResult = line.match(
+    const match = line.match(
       /^\s*-\s*(?:<changed>\s*)?(?<role>[^\[\]":]+?)(?:\s+"(?<quoted>[^"]*)")?(?:\s+\[[^\]]+\])*?\s+\[ref=(?<ref>[^\]\s]+)\](?:\s+\[[^\]]+\])*\s*:?\s*(?<tail>.*)$/
     );
-    if (!mapResult?.groups) {
+    if (!match?.groups) {
       return null;
     }
-    const role = (mapResult.groups.role ?? "").trim().toLowerCase();
-    const elementRef = (mapResult.groups.ref ?? "").trim();
+    const role = (match.groups.role ?? "").trim().toLowerCase();
+    const elementRef = (match.groups.ref ?? "").trim();
     if (!role || !elementRef) {
       return null;
     }
-    const tail = (mapResult.groups.tail ?? "").trim();
-    const quoted = (mapResult.groups.quoted ?? "").trim();
+    const tail = (match.groups.tail ?? "").trim();
+    const quoted = (match.groups.quoted ?? "").trim();
     const rawText = tail || quoted;
     return {
       role,

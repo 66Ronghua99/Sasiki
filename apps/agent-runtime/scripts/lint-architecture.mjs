@@ -17,6 +17,14 @@ const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
 const PROMPT_PROVIDER_FILE = "application/refine/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
+const REFINE_TOOLING_SHIM_FILES = [
+  "runtime/replay-refinement/attention-guidance-loader.ts",
+  "runtime/replay-refinement/refine-react-session.ts",
+  "runtime/replay-refinement/refine-react-tool-client.ts",
+  "runtime/replay-refinement/refine-runtime-tools.ts",
+  "runtime/replay-refinement/refine-browser-tools.ts",
+  "runtime/replay-refinement/refine-browser-snapshot-parser.ts",
+];
 const SHIM_ONLY_FILES = new Set([
   "core/agent-loop.ts",
   "core/mcp-tool-bridge.ts",
@@ -41,12 +49,7 @@ const SHIM_ONLY_FILES = new Set([
   "runtime/providers/refine-run-bootstrap-provider.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
-  "runtime/replay-refinement/attention-guidance-loader.ts",
-  "runtime/replay-refinement/refine-react-session.ts",
-  "runtime/replay-refinement/refine-react-tool-client.ts",
-  "runtime/replay-refinement/refine-browser-snapshot-parser.ts",
-  "runtime/replay-refinement/refine-browser-tools.ts",
-  "runtime/replay-refinement/refine-runtime-tools.ts",
+  ...REFINE_TOOLING_SHIM_FILES,
   "runtime/interactive-sop-compact.ts",
   "runtime/interactive-sop-compact-prompts.ts",
 ]);
@@ -293,7 +296,7 @@ function checkShimOnlyFiles(absPath, sourceText, errors, srcRoot) {
     errors.push(addError(
       "dep.legacy-adapter.shim-only",
       rel,
-      "Legacy adapter path may remain only as a temporary re-export shim after Task 3 migration."
+      "Legacy adapter path may remain only as a temporary re-export shim after migration."
     ));
   }
 }
