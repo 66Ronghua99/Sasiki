@@ -8,14 +8,37 @@ import { RefineReactToolClient } from "../../src/runtime/replay-refinement/refin
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
+  snapshotText?: string;
+  clickText?: string;
+  tabsListText?: string;
+  tabSelectText?: string;
+  includeBrowserTabsTool?: boolean;
 }
 
 class StubRawToolClient implements ToolClient {
   readonly calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   private readonly tools: ToolDefinition[];
+  private readonly snapshotText: string;
+  private readonly clickText: string;
+  private readonly tabsListText: string;
+  private readonly tabSelectText: string;
 
   constructor(options?: StubRawToolClientOptions) {
     const screenshotToolName = options?.screenshotToolName ?? "browser_take_screenshot";
+    const includeBrowserTabsTool = options?.includeBrowserTabsTool ?? true;
+    this.snapshotText = options?.snapshotText ?? defaultSnapshotText();
+    this.clickText = options?.clickText ?? "clicked";
+    this.tabsListText = options?.tabsListText ?? defaultTabsListText();
+    this.tabSelectText =
+      options?.tabSelectText ??
+      [
+        "### Open tabs",
+        "- 0: [Explore](https://www.xiaohongshu.com/explore)",
+        "- 1: (current) [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
+        "### Page",
+        "- Page URL: https://creator.xiaohongshu.com/publish/publish?source=official",
+        "- Page Title: Creator",
+      ].join("\n");
     this.tools = [
       { name: "browser_snapshot" },
       { name: "browser_click" },
@@ -24,6 +47,9 @@ class StubRawToolClient implements ToolClient {
       { name: "browser_navigate" },
       { name: screenshotToolName },
     ];
+    if (includeBrowserTabsTool) {
+      this.tools.push({ name: "browser_tabs" });
+    }
   }
 
   async connect(): Promise<void> {}
@@ -40,19 +66,13 @@ class StubRawToolClient implements ToolClient {
         content: [
           {
             type: "text",
-            text: [
-              "URL: https://www.xiaohongshu.com/explore",
-              "TITLE: Explore",
-              "[button|el-like] 点赞",
-              "[button|el-buy] Buy now",
-              "[link|el-detail] 查看详情",
-            ].join("\n"),
+            text: this.snapshotText,
           },
         ],
       };
     }
     if (name === "browser_click") {
-      return { content: [{ type: "text", text: `clicked ${String(args.ref ?? "")}` }] };
+      return { content: [{ type: "text", text: `${this.clickText} ${String(args.ref ?? "")}` }] };
     }
     if (name === "browser_type") {
       return { content: [{ type: "text", text: `typed ${String(args.text ?? "")}` }] };
@@ -63,12 +83,49 @@ class StubRawToolClient implements ToolClient {
     if (name === "browser_navigate") {
       return { content: [{ type: "text", text: `navigated ${String(args.url ?? "")}` }] };
     }
+    if (name === "browser_tabs") {
+      const action = typeof args.action === "string" ? args.action : "list";
+      if (action === "list") {
+        return { content: [{ type: "text", text: this.tabsListText }] };
+      }
+      if (action === "select") {
+        return { content: [{ type: "text", text: this.tabSelectText }] };
+      }
+      throw new Error(`unexpected browser_tabs action: ${action}`);
+    }
     if (name === "browser_take_screenshot" || name === "browser_screenshot") {
       const outputArg = readScreenshotOutputArg(args);
       return { content: [{ type: "text", text: `screenshot ${outputArg ?? "captured"}` }] };
     }
     throw new Error(`unexpected raw tool: ${name}`);
   }
+}
+
+function defaultSnapshotText(): string {
+  return [
+    "### Open tabs",
+    "- 0: (current) [Explore](https://www.xiaohongshu.com/explore)",
+    "- 1: [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
+    "### Page",
+    "- Page URL: https://www.xiaohongshu.com/explore",
+    "- Page Title: Explore",
+    "### Snapshot",
+    "```yaml",
+    "- generic [ref=e2]:",
+    "  - button \"点赞\" [ref=el-like] [cursor=pointer]",
+    "  - button \"Buy now\" [ref=el-buy] [cursor=pointer]",
+    "  - link \"查看详情\" [ref=el-detail] [cursor=pointer]",
+    "  - generic [ref=e107] [cursor=pointer]: 上传图文",
+    "```",
+  ].join("\n");
+}
+
+function defaultTabsListText(): string {
+  return [
+    "### Open tabs",
+    "- 0: (current) [Explore](https://www.xiaohongshu.com/explore)",
+    "- 1: [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
+  ].join("\n");
 }
 
 function findTool(tools: ToolDefinition[], name: string): ToolDefinition {
@@ -112,7 +169,7 @@ function readScreenshotOutputArg(args: Record<string, unknown>): string | undefi
   return undefined;
 }
 
-test("composite tool client exposes exactly ten refine-agent facing tools", async () => {
+test("composite tool client exposes exactly eleven refine-agent facing tools", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-1", "task", { taskScope: "search-product" });
   const client = new RefineReactToolClient({ rawClient: raw, session });
@@ -130,6 +187,7 @@ test("composite tool client exposes exactly ten refine-agent facing tools", asyn
       "act.type",
       "act.press",
       "act.navigate",
+      "act.select_tab",
       "act.screenshot",
       "hitl.request",
       "knowledge.record_candidate",
@@ -161,6 +219,13 @@ test("composite tool client emits frozen field-level input schemas for critical 
   assert.deepEqual(readRequired(actClick), ["elementRef", "sourceObservationRef"]);
   assert.equal(readObjectPropertySchema(actClick, "elementRef").type, "string");
   assert.equal(readObjectPropertySchema(actClick, "sourceObservationRef").type, "string");
+
+  const selectTab = readSchema(findTool(tools, "act.select_tab"));
+  assert.equal(selectTab.type, "object");
+  assert.equal(selectTab.additionalProperties, false);
+  assert.deepEqual(readRequired(selectTab), ["tabIndex", "sourceObservationRef"]);
+  assert.equal(readObjectPropertySchema(selectTab, "tabIndex").type, "integer");
+  assert.equal(readObjectPropertySchema(selectTab, "sourceObservationRef").type, "string");
 
   const recordCandidate = readSchema(findTool(tools, "knowledge.record_candidate"));
   assert.equal(recordCandidate.type, "object");
@@ -228,6 +293,30 @@ test("observe.query uses only deterministic structural narrowing and ignores int
   assert.equal(matches[0].normalizedText, "buy now");
 });
 
+test("observe.page parses markdown page identity and tab metadata from snapshot", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-page", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  const page = observation.page as Record<string, unknown>;
+  assert.equal(page.url, "https://www.xiaohongshu.com/explore");
+  assert.equal(page.origin, "https://www.xiaohongshu.com");
+  assert.equal(page.normalizedPath, "/explore");
+  assert.equal(page.title, "Explore");
+  assert.equal(observation.activeTabIndex, 0);
+  assert.equal(observation.activeTabMatchesPage, true);
+  const tabs = observation.tabs as Array<Record<string, unknown>>;
+  assert.equal(tabs.length, 2);
+  assert.equal(tabs[0].index, 0);
+  assert.equal(tabs[0].isActive, true);
+  assert.equal(tabs[1].isActive, false);
+});
+
 test("act.screenshot routes to browser_take_screenshot with mapped parameters", async () => {
   const raw = new StubRawToolClient({ screenshotToolName: "browser_take_screenshot" });
   const session = createRefineReactSession("run-shot-1", "task", { taskScope: "search-product" });
@@ -272,4 +361,74 @@ test("act.screenshot falls back to browser_screenshot when take_screenshot is un
   assert.equal(readScreenshotOutputArg(fallbackCall.args), "artifacts/fallback-screenshot.png");
   assert.equal(fallbackCall.args.fullPage, false);
   assert.ok(!raw.calls.some((call) => call.name === "browser_take_screenshot"));
+});
+
+test("act.select_tab routes to browser_tabs select action", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-tab", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  const action = (await client.callTool("act.select_tab", {
+    tabIndex: 1,
+    sourceObservationRef: observationRef,
+  })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const selectCall = raw.calls.find((call) => call.name === "browser_tabs" && call.args.action === "select");
+  assert.ok(selectCall, "expected act.select_tab to call browser_tabs action=select");
+  assert.equal(selectCall.args.index, 1);
+  const result = action.result as Record<string, unknown>;
+  assert.equal(result.action, "select_tab");
+  assert.equal(result.success, true);
+});
+
+test("action reports success=false when tool output is explicit error text", async () => {
+  const raw = new StubRawToolClient({
+    clickText: "### Error\nTimeoutError: locator.click: Timeout 5000ms exceeded.",
+  });
+  const session = createRefineReactSession("run-click-error", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  const action = (await client.callTool("act.click", {
+    elementRef: "el-like",
+    sourceObservationRef: observationRef,
+  })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const result = action.result as Record<string, unknown>;
+  assert.equal(result.success, false);
+});
+
+test("action fails fast when sourceObservationRef tab is stale against live active tab", async () => {
+  const raw = new StubRawToolClient({
+    tabsListText: [
+      "### Open tabs",
+      "- 0: [Explore](https://www.xiaohongshu.com/explore)",
+      "- 1: (current) [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
+    ].join("\n"),
+  });
+  const session = createRefineReactSession("run-stale-tab", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await assert.rejects(
+    () =>
+      client.callTool("act.click", {
+        elementRef: "el-buy",
+        sourceObservationRef: observationRef,
+      }),
+    /sourceObservationRef|tab/i
+  );
+  await client.disconnect();
 });

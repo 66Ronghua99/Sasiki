@@ -35,6 +35,7 @@ export interface RefineReactSession {
   readonly task: string;
   readonly taskScope: string;
   latestObservation(): PageObservation | undefined;
+  findObservation(observationRef: string): PageObservation | undefined;
   observationHistory(): PageObservation[];
   recordObservation(observation: PageObservation): void;
   recordAction(result: ActionExecutionResult): void;
@@ -76,6 +77,14 @@ class InMemoryRefineReactSession implements RefineReactSession {
 
   latestObservation(): PageObservation | undefined {
     return this.observations.length > 0 ? this.observations[this.observations.length - 1] : undefined;
+  }
+
+  findObservation(observationRef: string): PageObservation | undefined {
+    const target = observationRef.trim();
+    if (!target) {
+      return undefined;
+    }
+    return this.observations.find((item) => item.observationRef === target);
   }
 
   observationHistory(): PageObservation[] {

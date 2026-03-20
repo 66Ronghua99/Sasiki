@@ -12,6 +12,7 @@ export const REFINE_REACT_TOOL_NAMES = [
   "act.type",
   "act.press",
   "act.navigate",
+  "act.select_tab",
   "act.screenshot",
   "hitl.request",
   "knowledge.record_candidate",
@@ -21,8 +22,15 @@ export const REFINE_REACT_TOOL_NAMES = [
 export const OBSERVE_QUERY_ALLOWED_NARROWING_FIELDS = ["mode", "text", "role", "elementRef", "limit"] as const;
 
 export type ObserveQueryMode = "search" | "inspect";
-export type RefineActionName = "click" | "type" | "press" | "navigate" | "screenshot";
+export type RefineActionName = "click" | "type" | "press" | "navigate" | "select_tab" | "screenshot";
 export type RefineFinishReason = "goal_achieved" | "hard_failure";
+
+export interface BrowserTabIdentity {
+  index: number;
+  url: string;
+  title: string;
+  isActive: boolean;
+}
 
 export interface PageIdentity {
   url: string;
@@ -34,6 +42,9 @@ export interface PageIdentity {
 export interface PageObservation {
   observationRef: string;
   page: PageIdentity;
+  tabs: BrowserTabIdentity[];
+  activeTabIndex?: number;
+  activeTabMatchesPage?: boolean;
   snapshot: string;
   capturedAt: string;
 }
@@ -71,6 +82,8 @@ export interface ActionExecutionResult {
   sourceObservationRef: string;
   targetElementRef?: string;
   page: PageIdentity;
+  tabs?: BrowserTabIdentity[];
+  activeTabIndex?: number;
   evidenceRef?: string;
   message?: string;
 }

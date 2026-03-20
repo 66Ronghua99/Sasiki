@@ -81,6 +81,15 @@ const REFINE_REACT_TOOL_SCHEMAS: Record<(typeof REFINE_REACT_TOOL_NAMES)[number]
     required: ["url", "sourceObservationRef"],
     additionalProperties: false,
   },
+  "act.select_tab": {
+    type: "object",
+    properties: {
+      tabIndex: { type: "integer", minimum: 0 },
+      sourceObservationRef: { type: "string" },
+    },
+    required: ["tabIndex", "sourceObservationRef"],
+    additionalProperties: false,
+  },
   "act.screenshot": {
     type: "object",
     properties: {
@@ -234,6 +243,11 @@ export class RefineReactToolClient implements ToolClient {
           url: this.readStringArg(args, "url"),
           sourceObservationRef: this.readStringArg(args, "sourceObservationRef"),
         });
+      case "act.select_tab":
+        return this.browserTools.actSelectTab({
+          tabIndex: this.readRequiredNonNegativeIntegerArg(args, "tabIndex"),
+          sourceObservationRef: this.readStringArg(args, "sourceObservationRef"),
+        });
       case "act.screenshot":
         return this.browserTools.actScreenshot({
           sourceObservationRef: this.readStringArg(args, "sourceObservationRef"),
@@ -294,6 +308,18 @@ export class RefineReactToolClient implements ToolClient {
     }
     const normalized = Math.floor(value);
     return normalized > 0 ? normalized : undefined;
+  }
+
+  private readRequiredNonNegativeIntegerArg(args: Record<string, unknown>, key: string): number {
+    const value = args[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`missing required argument: ${key}`);
+    }
+    const normalized = Math.floor(value);
+    if (normalized < 0) {
+      throw new Error(`invalid argument: ${key}=${value}`);
+    }
+    return normalized;
   }
 
   private readEnumArg<T extends string>(args: Record<string, unknown>, key: string, values: readonly T[]): T {
