@@ -14,6 +14,7 @@
 - `WorkflowRuntime` 当前是 mode-gated split：legacy `RunExecutor` 与 `ReactRefinementRunExecutor` 并存。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
 - `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
+- SOP recorder / trace builder 已迁到 `src/runtime/observe-support/`；`src/core/` 中同名文件如果还在，只应作为迁移 shim，不应再放真实现。
 - persistence adapters 已经开始下沉到 `src/infrastructure/persistence/`；旧 runtime 路径保留为薄 shim 只用于迁移期兼容。
 - 历史 `.plan/*` 文档现在只作为背景，不再自动代表 active direction；新的方向必须重新写 spec。
 - `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。

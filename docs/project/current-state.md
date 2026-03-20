@@ -57,6 +57,10 @@
 - LLM adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/llm/`:
   - `ModelResolver`
   - `JsonModelClient`
+- SOP observe helpers now have canonical ownership under `apps/agent-runtime/src/runtime/observe-support/`:
+  - `SopDemonstrationRecorder`
+  - `SopTraceBuilder`
+  - `SopTraceGuideBuilder`
 - Persistence adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/persistence/`:
   - `ArtifactsWriter`
   - `SopAssetStore`
@@ -73,6 +77,7 @@
   - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
   - `refine tool surface`: `apps/agent-runtime/src/runtime/replay-refinement/refine-react-tool-client.ts`
   - `attention knowledge persistence`: `apps/agent-runtime/src/infrastructure/persistence/attention-knowledge-store.ts`
+  - `observe support`: `apps/agent-runtime/src/runtime/observe-support/sop-demonstration-recorder.ts`
 
 ## Current Documentation Truth
 - Active entry docs:

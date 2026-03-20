@@ -69,7 +69,7 @@
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 进入 active taxonomy plan 的 Task 4：收窄 `core/` 到真正的 `kernel/`，把 `agent-loop` / `mcp-tool-bridge` 之外的 SOP recorder / trace builder 类代码迁出，并补齐对应 lint ownership。
+- `P0` 继续 active taxonomy plan 的 Task 4 后半段：把 `agent-loop` / `mcp-tool-bridge` 收进真正的 `kernel/` 语义，并让 `core/` 仅保留迁移期 shim。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE
@@ -145,7 +145,16 @@
   - Task 3 commits:
     - `815242e` `refactor: move llm adapters under infrastructure`
     - `e494b40` `refactor: move persistence adapters to infrastructure`
-    - pending current config/lint/docs commit for final Task 3 closeout
+    - `776fcdf` `refactor: move config loading under infrastructure`
+- 已完成 Task 4 slice A observe-support split：
+  - `SopDemonstrationRecorder` / `SopTraceBuilder` / `SopTraceGuideBuilder` 的真源已迁到 `apps/agent-runtime/src/runtime/observe-support/`
+  - `apps/agent-runtime/src/core/` 中同名文件当前只保留薄 shim，便于后续 kernel 收窄前的迁移安全
+  - `observe-executor` 与 `runtime-composition-root` 的主动引用已切到新 observe-support 路径
+  - fresh verification:
+    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
+    - `npm --prefix apps/agent-runtime run typecheck`：通过
+    - `npm --prefix apps/agent-runtime run build`：通过
+    - `git diff --check`：通过
 - 已完成 spec pre-plan freeze 收紧：
   - 明确 `observe.query` 的结构化约束和反语义劫持边界
   - 明确 `sourceObservationRef` 同源追踪约束
