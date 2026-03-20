@@ -31,15 +31,18 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 
 ## Module Boundaries
 - `apps/agent-runtime/src/index.ts`：CLI 入口，当前支持 `run` / `observe` / `sop-compact`。
+- `apps/agent-runtime/src/runtime/command-router.ts`：CLI 参数解析与 archived command 拒绝。
+- `apps/agent-runtime/src/runtime/runtime-composition-root.ts`：runtime 级 composition root，负责 browser/MCP/prompt/context/executor 装配。
 - `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`：当前 `sop agent` 主流程。
 - `apps/agent-runtime/src/core/agent-loop.ts`：shared execution kernel 的核心执行环。
 - `apps/agent-runtime/src/runtime/run-executor.ts`：legacy run 主路径。
-- `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-run-executor.ts`：当前 refinement run 入口。
-- `apps/agent-runtime/src/runtime/sop-consumption-context.ts`：legacy consumption 注入入口。
+- `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`：当前 refinement run 入口。
+- `apps/agent-runtime/src/runtime/providers/`：prompt / tool-surface / execution-context / bootstrap provider 边界。
 
 ## Quality Gates
 代码变更交付前至少通过：
 - `npm --prefix apps/agent-runtime run lint`
+- `npm --prefix apps/agent-runtime run test`
 - `npm --prefix apps/agent-runtime run hardgate`
 - `npm --prefix apps/agent-runtime run typecheck`
 - `npm --prefix apps/agent-runtime run build`

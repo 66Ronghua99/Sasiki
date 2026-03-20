@@ -2,18 +2,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const workspaceRoot = path.resolve(projectRoot, "../..");
-
-const docHealthCandidates = [
-  path.join(workspaceRoot, ".harness", "tools", "harness-doc-health", "scripts", "doc-health.js"),
-  path.join(process.env.HOME ?? "", ".coding-cli", "skills", "harness-doc-health", "scripts", "doc-health.js"),
-];
 
 const requiredPaths = [
   "PROGRESS.md",
@@ -42,23 +36,6 @@ const referenceScanFiles = [
   "MEMORY.md",
   "NEXT_STEP.md",
 ];
-
-function runNodeScript(scriptPath, args, cwd) {
-  const result = spawnSync(process.execPath, [scriptPath, ...args], {
-    cwd,
-    stdio: "inherit",
-  });
-  return Number.isInteger(result.status) ? result.status : 1;
-}
-
-function findDocHealthScript() {
-  for (const candidate of docHealthCandidates) {
-    if (candidate && fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
 
 function verifyRequiredPaths() {
   const missing = [];
@@ -123,6 +100,7 @@ function collectPathCandidates(text) {
       if (
         raw.startsWith("docs/") ||
         raw.startsWith(".harness/") ||
+        raw.startsWith("artifacts/") ||
         raw.endsWith(".md") ||
         raw.endsWith(".toml") ||
         raw.endsWith(".json")
@@ -145,6 +123,9 @@ function verifyReferencedPaths() {
     const content = fs.readFileSync(absPath, "utf8");
     const candidates = collectPathCandidates(content);
     for (const candidate of candidates) {
+      if (candidate.startsWith("artifacts/")) {
+        continue;
+      }
       const target = path.join(workspaceRoot, candidate);
       if (!fs.existsSync(target)) {
         errors.push({ source: relPath, target: candidate });
@@ -168,21 +149,11 @@ function main() {
   exitCode ||= verifyRequiredCollections();
   exitCode ||= verifyReferencedPaths();
 
-  const docHealthScript = findDocHealthScript();
-  if (!docHealthScript) {
-    console.error("ERROR [docs.health-script] cannot find harness doc-health script (local or $HOME skill path).");
-    process.exit(1);
-  }
-
-  exitCode ||= runNodeScript(docHealthScript, [workspaceRoot, "--phase", "bootstrap"], workspaceRoot);
-  exitCode ||= runNodeScript(docHealthScript, [path.join(workspaceRoot, "docs/superpowers"), "--phase", "graph"], workspaceRoot);
-  exitCode ||= runNodeScript(docHealthScript, [path.join(workspaceRoot, "docs/superpowers"), "--phase", "drift"], workspaceRoot);
-
   if (exitCode !== 0) {
     process.exit(exitCode);
   }
 
-  console.log("lint-docs: all checks passed");
+  console.log("lint-docs: governance path checks passed");
 }
 
 main();

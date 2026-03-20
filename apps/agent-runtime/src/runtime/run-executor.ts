@@ -22,7 +22,7 @@ import type {
 } from "../domain/intervention-learning.js";
 import type { SopConsumptionRecord, SopConsumptionResult } from "../domain/sop-consumption.js";
 import { ArtifactsWriter } from "./artifacts-writer.js";
-import type { SopConsumptionBuildInput, SopConsumptionContextBuilder } from "./sop-consumption-context.js";
+import type { LegacyRunBootstrapProvider } from "./providers/legacy-run-bootstrap-provider.js";
 
 interface RuntimeLogBuffer extends Logger {
   toText(): string;
@@ -53,7 +53,7 @@ export interface RunExecutorOptions {
   logger: RuntimeLogBuffer;
   artifactsDir: string;
   createRunId: () => string;
-  sopConsumptionContext?: SopConsumptionContextBuilder;
+  bootstrapProvider?: LegacyRunBootstrapProvider;
   hitlController?: HitlController;
   hitlRetryLimit?: number;
   hitlMaxInterventions?: number;
@@ -64,7 +64,7 @@ export class RunExecutor {
   private readonly logger: RuntimeLogBuffer;
   private readonly artifactsDir: string;
   private readonly createRunId: () => string;
-  private readonly sopConsumptionContext?: SopConsumptionContextBuilder;
+  private readonly bootstrapProvider?: LegacyRunBootstrapProvider;
   private readonly hitlController?: HitlController;
   private readonly hitlRetryLimit: number;
   private readonly hitlMaxInterventions: number;
@@ -76,7 +76,7 @@ export class RunExecutor {
     this.logger = options.logger;
     this.artifactsDir = options.artifactsDir;
     this.createRunId = options.createRunId;
-    this.sopConsumptionContext = options.sopConsumptionContext;
+    this.bootstrapProvider = options.bootstrapProvider;
     this.hitlController = options.hitlController;
     this.hitlRetryLimit = Math.max(0, options.hitlRetryLimit ?? 2);
     this.hitlMaxInterventions = Math.max(0, options.hitlMaxInterventions ?? 1);
@@ -96,12 +96,32 @@ export class RunExecutor {
       cumulativeLoopHighLevelLogs: [],
       latestLoopSnapshotCommitted: true,
     };
-    const input = this.toConsumptionInput(request);
-    this.logger.info("run_started", { runId, task: input.task, sopRunId: input.sopRunId, artifactsDir: artifacts.runDir });
+    const task = request.task.trim();
+    const sopRunId = request.sopRunId?.trim();
+    this.logger.info("run_started", { runId, task, sopRunId, artifactsDir: artifacts.runDir });
 
     let loopStarted = false;
     try {
-      const consumption = await this.resolveConsumption(input);
+      const consumption: SopConsumptionResult = this.bootstrapProvider
+        ? await this.bootstrapProvider.prepare(request)
+        : {
+            taskForLoop: task,
+            record: {
+              enabled: false,
+              originalTask: task,
+              taskSource: "request",
+              injected: false,
+              selectionMode: sopRunId ? "pinned" : "none",
+              pinnedRunId: sopRunId,
+              candidateAssetIds: [],
+              candidateCount: 0,
+              guideSource: "none",
+              fallbackUsed: true,
+              fallbackReason: "consumption_not_configured",
+              usedHints: [],
+              generatedAt: new Date().toISOString(),
+            },
+          };
       await artifacts.writeSopConsumption(consumption.record);
       this.logConsumption(runId, consumption.record);
       if (!consumption.taskForLoop.trim()) {
@@ -580,41 +600,6 @@ export class RunExecutor {
     await artifacts.writeMcpCalls(snapshot.mcpCalls);
     await artifacts.writeAssistantTurns(snapshot.assistantTurns);
     await artifacts.writeHighLevelLogs(this.composeHighLevelLogs(snapshot.highLevelLogs, runtimeHighLevelLogs));
-  }
-
-  private toConsumptionInput(request: AgentRunRequest): SopConsumptionBuildInput {
-    return {
-      task: request.task.trim(),
-      sopRunId: request.sopRunId?.trim(),
-    };
-  }
-
-  private async resolveConsumption(input: SopConsumptionBuildInput): Promise<SopConsumptionResult> {
-    if (!this.sopConsumptionContext) {
-      return this.fallbackConsumption(input.task, input.sopRunId, "consumption_not_configured");
-    }
-    return this.sopConsumptionContext.build(input);
-  }
-
-  private fallbackConsumption(task: string, sopRunId: string | undefined, reason: string): SopConsumptionResult {
-    return {
-      taskForLoop: task,
-      record: {
-        enabled: false,
-        originalTask: task,
-        taskSource: "request",
-        injected: false,
-        selectionMode: sopRunId ? "pinned" : "none",
-        pinnedRunId: sopRunId,
-        candidateAssetIds: [],
-        candidateCount: 0,
-        guideSource: "none",
-        fallbackUsed: true,
-        fallbackReason: reason,
-        usedHints: [],
-        generatedAt: new Date().toISOString(),
-      },
-    };
   }
 
   private logConsumption(runId: string, record: SopConsumptionRecord): void {

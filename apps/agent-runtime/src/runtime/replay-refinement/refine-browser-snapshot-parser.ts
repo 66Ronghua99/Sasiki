@@ -28,11 +28,15 @@ export class RefineBrowserSnapshotParser {
     const activeTab = tabs.find((tab) => tab.isActive);
     const rawUrl = this.extractLineValue(lines, ["Page URL", "URL"]);
     const rawTitle = this.extractLineValue(lines, ["Page Title", "TITLE"]) ?? activeTab?.title ?? "Unknown";
-    const page = rawUrl
+    const parsedPage = rawUrl
       ? this.pageIdentityFromUrl(rawUrl, rawTitle)
       : activeTab
         ? this.pageIdentityFromUrl(activeTab.url, activeTab.title)
         : undefined;
+    const page =
+      parsedPage && activeTab && !this.urlsEquivalent(activeTab.url, parsedPage.url)
+        ? this.pageIdentityFromUrl(activeTab.url, activeTab.title)
+        : parsedPage;
     const activeTabIndex = activeTab?.index;
     const activeTabMatchesPage =
       page && activeTab ? this.urlsEquivalent(activeTab.url, page.url) : undefined;

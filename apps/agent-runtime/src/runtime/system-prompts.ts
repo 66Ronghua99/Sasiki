@@ -1,6 +1,6 @@
 /**
  * Deps: none
- * Used By: runtime/workflow-runtime.ts
+ * Used By: runtime/providers/prompt-provider.ts
  * Last Updated: 2026-03-20
  */
 export const RUN_OPERATOR_SYSTEM_PROMPT = [

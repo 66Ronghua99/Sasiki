@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: draft
+status: archived
 implements:
   - docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md
 verified_by: []

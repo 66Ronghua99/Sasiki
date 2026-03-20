@@ -1,164 +1,36 @@
 /**
- * Deps: core/*, domain/agent-types.ts, infrastructure/*, runtime/*
+ * Deps: domain/agent-types.ts, runtime/runtime-composition-root.ts
  * Used By: index.ts, runtime/agent-runtime.ts
- * Last Updated: 2026-03-06
+ * Last Updated: 2026-03-20
  */
-import { AgentLoop } from "../core/agent-loop.js";
-import { SopDemonstrationRecorder } from "../core/sop-demonstration-recorder.js";
 import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
-import { CdpBrowserLauncher } from "../infrastructure/browser/cdp-browser-launcher.js";
-import { PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";
-import { TerminalHitlController } from "../infrastructure/hitl/terminal-hitl-controller.js";
-import { RuntimeLogger } from "../infrastructure/logging/runtime-logger.js";
-import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
-import { AgentExecutionRuntime } from "./agent-execution-runtime.js";
-import { ObserveExecutor } from "./observe-executor.js";
-import { ObserveRuntime } from "./observe-runtime.js";
-import { createRefineReactSession } from "./replay-refinement/refine-react-session.js";
-import { RefineReactToolClient } from "./replay-refinement/refine-react-tool-client.js";
-import { ReactRefinementRunExecutor } from "./replay-refinement/react-refinement-run-executor.js";
-import { RunExecutor } from "./run-executor.js";
 import type { RuntimeConfig } from "./runtime-config.js";
-import { SopAssetStore } from "./sop-asset-store.js";
-import { SopConsumptionContextBuilder } from "./sop-consumption-context.js";
-import { REFINE_REACT_SYSTEM_PROMPT, RUN_OPERATOR_SYSTEM_PROMPT } from "./system-prompts.js";
+import {
+  createRuntimeComposition,
+  type BrowserLifecycle,
+  type RuntimeComposition,
+} from "./runtime-composition-root.js";
 
 export class WorkflowRuntime {
-  private readonly cdpLauncher: CdpBrowserLauncher;
-  private readonly agentRuntime: AgentExecutionRuntime;
-  private readonly observeRuntime: ObserveRuntime;
+  private readonly browserLifecycle: BrowserLifecycle;
+  private readonly agentRuntime: RuntimeComposition["agentRuntime"];
+  private readonly observeRuntime: RuntimeComposition["observeRuntime"];
   private started = false;
 
   constructor(config: RuntimeConfig) {
-    const logger = new RuntimeLogger();
-    this.cdpLauncher = new CdpBrowserLauncher(
-      {
-        cdpEndpoint: config.cdpEndpoint,
-        launchCdp: config.launchCdp,
-        userDataDir: config.cdpUserDataDir,
-        resetPagesOnLaunch: config.cdpResetPagesOnLaunch,
-        headless: config.cdpHeadless,
-        injectCookies: config.cdpInjectCookies,
-        cookiesDir: config.cdpCookiesDir,
-        preferSystemBrowser: config.cdpPreferSystemBrowser,
-        executablePath: config.cdpExecutablePath,
-        startupTimeoutMs: config.cdpStartupTimeoutMs,
-      },
-      logger
-    );
-
-    const toolClient = new McpStdioClient({
-      command: config.mcpCommand,
-      args: [...config.mcpArgs, "--cdp-endpoint", config.cdpEndpoint],
-      env: {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter((pair): pair is [string, string] => typeof pair[1] === "string")
-        ),
-        ...config.mcpEnv,
-        PLAYWRIGHT_MCP_CDP_ENDPOINT: config.cdpEndpoint,
-      },
-    });
-
-    const sopAssetStore = new SopAssetStore(config.sopAssetRootDir);
-    const sopConsumptionContext = new SopConsumptionContextBuilder({
-      enabled: config.sopConsumptionEnabled,
-      topN: config.sopConsumptionTopN,
-      hintsLimit: config.sopConsumptionHintsLimit,
-      maxGuideChars: config.sopConsumptionMaxGuideChars,
-      assetStore: sopAssetStore,
-    });
-
-    const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
-    const runSystemPrompt = config.runSystemPrompt ?? RUN_OPERATOR_SYSTEM_PROMPT;
-    const refineSystemPrompt = config.refineSystemPrompt ?? REFINE_REACT_SYSTEM_PROMPT;
-    const refineToolClient = config.refinementEnabled
-      ? new RefineReactToolClient({
-          rawClient: toolClient,
-          session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
-        })
-      : undefined;
-
-    const runLoop = config.refinementEnabled
-      ? new AgentLoop(
-          {
-            model: config.model,
-            apiKey: config.apiKey,
-            baseUrl: config.baseUrl,
-            thinkingLevel: config.thinkingLevel,
-            systemPrompt: refineSystemPrompt,
-          },
-          refineToolClient as RefineReactToolClient,
-          logger
-        )
-      : new AgentLoop(
-          {
-            model: config.model,
-            apiKey: config.apiKey,
-            baseUrl: config.baseUrl,
-            thinkingLevel: config.thinkingLevel,
-            systemPrompt: runSystemPrompt,
-          },
-          toolClient,
-          logger
-        );
-
-    const runExecutor = config.refinementEnabled
-      ? new ReactRefinementRunExecutor({
-          loop: runLoop,
-          logger,
-          artifactsDir: config.artifactsDir,
-          createRunId: () => this.createRunId(),
-          maxTurns: config.refinementMaxRounds,
-          toolClient: refineToolClient as RefineReactToolClient,
-          hitlController,
-        })
-      : new RunExecutor({
-          loop: runLoop,
-          logger,
-          artifactsDir: config.artifactsDir,
-          createRunId: () => this.createRunId(),
-          sopConsumptionContext,
-          hitlController,
-          hitlRetryLimit: config.hitlRetryLimit,
-          hitlMaxInterventions: config.hitlMaxInterventions,
-        });
-
-    if (config.refinementEnabled) {
-      logger.info("refinement_runtime_enabled", {
-        refinementMode: config.refinementMode,
-        refinementMaxRounds: config.refinementMaxRounds,
-        refinementTokenBudget: config.refinementTokenBudget,
-        refinementKnowledgeTopN: config.refinementKnowledgeTopN,
-      });
-      logger.info("refinement_mode_ignored", {
-        refinementMode: config.refinementMode,
-        note: "refinementMode is retained only for config compatibility and is ignored in react refinement path",
-      });
-    }
-
-    const sopRecorder = new SopDemonstrationRecorder();
-    const observeExecutor = new ObserveExecutor({
-      logger,
-      cdpEndpoint: config.cdpEndpoint,
-      observeTimeoutMs: config.observeTimeoutMs,
-      artifactsDir: config.artifactsDir,
-      createRunId: () => this.createRunId(),
-      sopRecorder,
-      sopAssetStore,
-      createRecorder: () => new PlaywrightDemonstrationRecorder(),
-    });
-
-    this.agentRuntime = new AgentExecutionRuntime({ loop: runLoop, runExecutor });
-    this.observeRuntime = new ObserveRuntime({ observeExecutor });
+    const composition = createRuntimeComposition(config);
+    this.browserLifecycle = composition.browserLifecycle;
+    this.agentRuntime = composition.agentRuntime;
+    this.observeRuntime = composition.observeRuntime;
   }
 
   async start(mode: RuntimeMode = "run"): Promise<void> {
     if (!this.started) {
-      await this.cdpLauncher.start();
+      await this.browserLifecycle.start();
       this.started = true;
     }
     if (mode === "observe") {
-      await this.cdpLauncher.prepareObserveSession();
+      await this.browserLifecycle.prepareObserveSession();
     }
     if (mode === "run") {
       await this.agentRuntime.start();
@@ -185,23 +57,7 @@ export class WorkflowRuntime {
     if (!this.started) {
       return;
     }
-    await this.cdpLauncher.stop();
+    await this.browserLifecycle.stop();
     this.started = false;
-  }
-
-  private createRunId(): string {
-    const now = new Date();
-    const parts = [
-      now.getFullYear().toString().padStart(4, "0"),
-      (now.getMonth() + 1).toString().padStart(2, "0"),
-      now.getDate().toString().padStart(2, "0"),
-      "_",
-      now.getHours().toString().padStart(2, "0"),
-      now.getMinutes().toString().padStart(2, "0"),
-      now.getSeconds().toString().padStart(2, "0"),
-      "_",
-      now.getMilliseconds().toString().padStart(3, "0"),
-    ];
-    return parts.join("");
   }
 }

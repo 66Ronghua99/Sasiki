@@ -9,6 +9,17 @@ Provide a browser-agent runtime that can learn from observed demonstrations, exe
 - CLI surface:
   - `runtime` (`run` / `observe`)
   - `sop-compact`
+- Command routing:
+  - `apps/agent-runtime/src/runtime/command-router.ts` owns argv parsing and archived-command rejection
+- Runtime composition root:
+  - `apps/agent-runtime/src/runtime/runtime-composition-root.ts` owns browser, MCP, prompt, context, and executor assembly
+- Runtime providers:
+  - `prompt-provider.ts` resolves system prompts
+  - `tool-surface-provider.ts` selects raw MCP vs refine-react tool surface
+  - `execution-context-provider.ts` prepares SOP consumption and refinement knowledge/resume context
+  - `runtime-bootstrap-provider.ts` owns config/env normalization
+  - `legacy-run-bootstrap-provider.ts` prepares legacy run bootstrap state before execution
+  - `refine-run-bootstrap-provider.ts` prepares resume/pre-observation/guidance prompt inputs before refine execution
 - Observe pipeline:
   - demonstration recording and trace generation for watch-once input
 - Compact pipeline:
@@ -25,6 +36,7 @@ Provide a browser-agent runtime that can learn from observed demonstrations, exe
 ## Invariants
 
 - The shared execution kernel is the only browser execution path; higher-level brains and orchestrators must not bypass it.
+- Concrete MCP wiring is owned by the composition root, not by CLI parsing or legacy runtime constructors.
 - Runtime claims require fresh evidence in `artifacts/e2e/<run_id>/`.
 - Refinement knowledge must include provenance (`runId`, step identity, snapshot evidence) before it can be reused.
 - Refinement completion requires explicit `run.finish`; if missing, run is not treated as success.

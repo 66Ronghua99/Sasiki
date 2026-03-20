@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: draft
+status: archived
 supersedes: []
 related:
   - .plan/20260310_interactive_reasoning_sop_compact.md

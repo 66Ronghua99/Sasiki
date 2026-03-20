@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: completed
+status: archived
 implements:
   - docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md
 verified_by: []

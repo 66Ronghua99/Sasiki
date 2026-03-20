@@ -136,16 +136,26 @@ node apps/agent-runtime/dist/index.js -c apps/agent-runtime/runtime.config.json 
   1. `CHROME_EXECUTABLE_PATH` (if provided)
   2. System Chrome/Chromium paths
   3. Playwright bundled Chromium (`playwright` / `playwright-core`)
+- Recommended local Sasiki runtime path:
+  - system Chrome binary
+  - `~/.sasiki/chrome_profile` as the persistent Sasiki browser profile
+  - `~/.sasiki/cookies` cookie injection enabled
+- For local e2e on this machine/repo, prefer:
+  - `PREFER_SYSTEM_BROWSER=true`
+  - `CHROME_EXECUTABLE_PATH=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+  - `CDP_USER_DATA_DIR=~/.sasiki/chrome_profile`
+  - `COOKIES_DIR=~/.sasiki/cookies`
 - Config:
   - `PLAYWRIGHT_MCP_CDP_ENDPOINT` (default `http://localhost:9222`)
   - `CDP_USER_DATA_DIR` (default `~/.sasiki/chrome_profile`)
   - `CDP_RESET_PAGES_ON_LAUNCH` (default `true`, only when runtime launches the local browser)
   - `INJECT_COOKIES` (default `true`)
   - `COOKIES_DIR` (default `~/.sasiki/cookies`)
-  - `PREFER_SYSTEM_BROWSER` (default `true`)
-  - `CDP_HEADLESS` (`false` by default)
-  - `CHROME_EXECUTABLE_PATH` (optional override)
+- `PREFER_SYSTEM_BROWSER` (default `true`)
+- `CDP_HEADLESS` (`false` by default)
+- `CHROME_EXECUTABLE_PATH` (optional override)
 - To reduce noise, a runtime-launched local browser is reset to a single blank tab after startup. This keeps the persistent profile for cookies/local state, but does not carry previous tabs into the next run.
+- Do not let an older Playwright bundled Chrome reuse a profile that has already been upgraded by a newer system Chrome build. If bundled Chrome must be used, give it a separate `CDP_USER_DATA_DIR`.
 - If your shell has `http_proxy` / `https_proxy` enabled, set `NO_PROXY=localhost,127.0.0.1,::1` before running local CDP replay.
 
 ## Artifacts

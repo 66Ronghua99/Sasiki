@@ -13,7 +13,12 @@ export interface ModelResolverConfig {
 export class ModelResolver {
   static resolve(config: ModelResolverConfig): Model<any> {
     if (config.baseUrl && this.isOpenRouterBaseUrl(config.baseUrl)) {
-      return this.createCustomModel("openai", this.normalizeOpenRouterModelToken(config.model), config.baseUrl);
+      const modelToken = this.normalizeOpenRouterModelToken(config.model);
+      const resolved = this.resolveModel("openrouter", modelToken);
+      if (resolved) {
+        return config.baseUrl ? { ...resolved, baseUrl: config.baseUrl } : resolved;
+      }
+      return this.createCustomModel("openrouter", modelToken, config.baseUrl);
     }
 
     const parsed = this.parseModel(config.model);
@@ -124,9 +129,6 @@ export class ModelResolver {
     const value = model.trim();
     if (!value) {
       return "openrouter/auto";
-    }
-    if (/^openai\//i.test(value)) {
-      return value.replace(/^openai\//i, "");
     }
     if (/^openrouter\//i.test(value)) {
       return value.replace(/^openrouter\//i, "");

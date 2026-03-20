@@ -1,10 +1,8 @@
 /**
  * Deps: core/agent-loop.ts, runtime/replay-refinement/*, runtime/artifacts-writer.ts
- * Used By: runtime/workflow-runtime.ts
+ * Used By: runtime/runtime-composition-root.ts
  * Last Updated: 2026-03-20
  */
-import path from "node:path";
-
 import type { HitlController } from "../../contracts/hitl-controller.js";
 import type { Logger } from "../../contracts/logger.js";
 import type { AgentLoop } from "../../core/agent-loop.js";
@@ -12,21 +10,22 @@ import type { AgentRunRequest, AgentRunResult, AssistantTurnRecord } from "../..
 import type { HitlInterventionRequest } from "../../domain/intervention-learning.js";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
 import { ArtifactsWriter } from "../artifacts-writer.js";
-import { AttentionGuidanceLoader } from "./attention-guidance-loader.js";
-import { AttentionKnowledgeStore } from "./attention-knowledge-store.js";
-import { createRefineReactSession } from "./refine-react-session.js";
-import { RefineHitlResumeStore } from "./refine-hitl-resume-store.js";
+import type { RefineRunBootstrapProvider } from "../providers/refine-run-bootstrap-provider.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
+
+interface RefinementKnowledgeSink {
+  append(records: AttentionKnowledge[]): Promise<void>;
+}
 
 export interface ReactRefinementRunExecutorOptions {
   loop: AgentLoop;
   logger: Logger;
   artifactsDir: string;
-  createRunId: () => string;
   maxTurns: number;
   toolClient: RefineReactToolClient;
   hitlController?: HitlController;
-  knowledgeStorePath?: string;
+  knowledgeStore: RefinementKnowledgeSink;
+  bootstrapProvider: RefineRunBootstrapProvider;
 }
 
 interface ActiveRunState {
@@ -38,69 +37,39 @@ export class ReactRefinementRunExecutor {
   private readonly loop: AgentLoop;
   private readonly logger: Logger;
   private readonly artifactsDir: string;
-  private readonly createRunId: () => string;
   private readonly maxTurns: number;
   private readonly toolClient: RefineReactToolClient;
   private readonly hitlController?: HitlController;
-  private readonly knowledgeStore: AttentionKnowledgeStore;
-  private readonly guidanceLoader: AttentionGuidanceLoader;
-  private readonly hitlResumeStore: RefineHitlResumeStore;
+  private readonly knowledgeStore: RefinementKnowledgeSink;
+  private readonly bootstrapProvider: RefineRunBootstrapProvider;
   private activeRun: ActiveRunState | null = null;
 
   constructor(options: ReactRefinementRunExecutorOptions) {
     this.loop = options.loop;
     this.logger = options.logger;
     this.artifactsDir = options.artifactsDir;
-    this.createRunId = options.createRunId;
     this.maxTurns = Math.max(1, options.maxTurns);
     this.toolClient = options.toolClient;
     this.hitlController = options.hitlController;
-    const knowledgePath =
-      options.knowledgeStorePath ?? path.join(this.artifactsDir, "refinement", "attention-knowledge-store.json");
-    this.knowledgeStore = new AttentionKnowledgeStore({
-      filePath: knowledgePath,
-    });
-    this.guidanceLoader = new AttentionGuidanceLoader(this.knowledgeStore);
-    this.hitlResumeStore = new RefineHitlResumeStore({
-      baseDir: this.artifactsDir,
-    });
+    this.knowledgeStore = options.knowledgeStore;
+    this.bootstrapProvider = options.bootstrapProvider;
   }
 
   async execute(request: AgentRunRequest): Promise<AgentRunResult> {
-    const runId = this.resolveRunId(request);
-    const resumeRecord = request.resumeRunId?.trim() ? await this.hitlResumeStore.load(request.resumeRunId.trim()) : undefined;
-    const task = request.task.trim() || resumeRecord?.task?.trim() || "";
-    if (!task) {
-      throw new Error("refinement run requires task text or a valid --resume-run-id with stored task context");
-    }
-    const taskScope = this.resolveTaskScope(task);
+    const bootstrap = await this.bootstrapProvider.prepare({
+      request,
+      toolClient: this.toolClient,
+      hitlAnswerProvider: this.hitlAnswerProvider(),
+    });
+    const { runId, task, prompt, loadedGuidanceCount } = bootstrap;
     const artifacts = new ArtifactsWriter(this.artifactsDir, runId);
     await artifacts.ensureDir();
     await artifacts.initializeReactRefinementArtifacts();
     this.activeRun = { runId, artifacts };
 
-    const session = createRefineReactSession(runId, task, { taskScope });
-    this.toolClient.setSession(session);
-    this.toolClient.setHitlAnswerProvider(this.hitlAnswerProvider());
-    const preObservation = await this.toolClient.callTool("observe.page", {});
-    const page = this.extractObservationPage(preObservation);
-    const loadedGuidance = await this.guidanceLoader.load({
-      taskScope,
-      page: {
-        origin: page.origin,
-        normalizedPath: page.normalizedPath,
-      },
-      limit: 8,
-    });
-
-    let injectedHitlInstruction = "";
-    if (resumeRecord) {
-      injectedHitlInstruction = `Resumed from paused run ${resumeRecord.runId}. Human prompt context: ${resumeRecord.prompt}`;
-    }
-
-    const prompt = this.buildAgentPrompt(task, loadedGuidance.guidance, injectedHitlInstruction);
     const loopResult = await this.loop.run(prompt);
     const assistantTurns = loopResult.assistantTurns;
+    const session = this.toolClient.getSession();
 
     const pauseState = session.currentPauseState();
     const finishState = session.finishState();
@@ -121,7 +90,7 @@ export class ReactRefinementRunExecutor {
       finishReason = "hitl.request paused waiting for human input";
       resumeRunId = pauseState.resumeRunId;
       resumeToken = pauseState.resumeToken;
-      await this.hitlResumeStore.save({
+      await this.bootstrapProvider.saveResumeRecord({
         runId,
         task,
         prompt: pauseState.prompt,
@@ -145,7 +114,7 @@ export class ReactRefinementRunExecutor {
     await this.persistArtifacts({
       artifacts,
       loopResult,
-      loadedKnowledgeCount: loadedGuidance.records.length,
+      loadedKnowledgeCount: loadedGuidanceCount,
       promotedKnowledge,
       status,
       finishReason,
@@ -167,7 +136,7 @@ export class ReactRefinementRunExecutor {
       runId,
       status: result.status,
       finishReason: result.finishReason,
-      loadedGuidanceCount: loadedGuidance.records.length,
+      loadedGuidanceCount,
       promotedKnowledgeCount: promotedKnowledge.length,
       pause: Boolean(pauseState),
       resumeRunId,
@@ -187,41 +156,6 @@ export class ReactRefinementRunExecutor {
       signal: signalName,
     });
     return true;
-  }
-
-  private resolveRunId(request: AgentRunRequest): string {
-    const resumeId = request.resumeRunId?.trim();
-    if (resumeId) {
-      return resumeId;
-    }
-    return this.createRunId();
-  }
-
-  private resolveTaskScope(task: string): string {
-    const collapsed = task.replace(/\s+/g, " ").trim();
-    return collapsed.length > 80 ? collapsed.slice(0, 80) : collapsed || "unknown-task";
-  }
-
-  private buildAgentPrompt(task: string, guidance: string, resumeInstruction: string): string {
-    const sections = [
-      `Task: ${task}`,
-      guidance ? guidance : "",
-      resumeInstruction ? resumeInstruction : "",
-      "Use refine-react tools only.",
-      "Call run.finish with reason and summary when done.",
-      "If human help is required, call hitl.request with explicit prompt.",
-    ].filter((line) => line.trim().length > 0);
-    return sections.join("\n\n");
-  }
-
-  private extractObservationPage(value: unknown): { origin: string; normalizedPath: string } {
-    const record = value as Record<string, unknown>;
-    const observation = record.observation as Record<string, unknown>;
-    const page = observation?.page as Record<string, unknown>;
-    const origin = typeof page?.origin === "string" && page.origin.trim() ? page.origin.trim() : "unknown";
-    const normalizedPath =
-      typeof page?.normalizedPath === "string" && page.normalizedPath.trim() ? page.normalizedPath.trim() : "/";
-    return { origin, normalizedPath };
   }
 
   private async persistArtifacts(input: {
