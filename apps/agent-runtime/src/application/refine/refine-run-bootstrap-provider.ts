@@ -1,13 +1,13 @@
 /**
- * Deps: application/refine/prompt-provider.ts, infrastructure/persistence/*, runtime/replay-refinement/*
- * Used By: runtime/replay-refinement/react-refinement-run-executor.ts, application/shell/runtime-composition-root.ts
+ * Deps: application/refine/prompt-provider.ts, infrastructure/persistence/*, application/refine/*
+ * Used By: application/refine/react-refinement-run-executor.ts, application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import type { AgentRunRequest } from "../../domain/agent-types.js";
-import type { HitlAnswerProvider } from "../../runtime/replay-refinement/refine-runtime-tools.js";
-import { createRefineReactSession } from "../../runtime/replay-refinement/refine-react-session.js";
-import type { RefineReactToolClient } from "../../runtime/replay-refinement/refine-react-tool-client.js";
-import type { AttentionGuidanceLoader } from "../../runtime/replay-refinement/attention-guidance-loader.js";
+import type { HitlAnswerProvider } from "./refine-runtime-tools.js";
+import { createRefineReactSession } from "./refine-react-session.js";
+import type { RefineReactToolClient } from "./refine-react-tool-client.js";
+import type { AttentionGuidanceLoader } from "./attention-guidance-loader.js";
 import type { RefineHitlResumeStore, RefineHitlResumeRecord } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
 import type { PromptProvider } from "./prompt-provider.js";
 

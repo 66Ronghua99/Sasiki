@@ -16,7 +16,8 @@ const LEGACY_MAX_LINES = new Map([
 const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
 const PROMPT_PROVIDER_FILE = "application/refine/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
-const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
+const REFINE_EXECUTOR_FILE = "application/refine/react-refinement-run-executor.ts";
+const LEGACY_REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
 const REFINE_TOOLING_SHIM_FILES = [
   "runtime/replay-refinement/attention-guidance-loader.ts",
   "runtime/replay-refinement/refine-react-session.ts",
@@ -49,6 +50,7 @@ const SHIM_ONLY_FILES = new Set([
   "runtime/providers/refine-run-bootstrap-provider.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
+  LEGACY_REFINE_EXECUTOR_FILE,
   ...REFINE_TOOLING_SHIM_FILES,
   "runtime/interactive-sop-compact.ts",
   "runtime/interactive-sop-compact-prompts.ts",
@@ -60,6 +62,7 @@ const CLI_ENTRY_FILES = new Set([
 const EXECUTOR_FILES = new Set([
   LEGACY_EXECUTOR_FILE,
   REFINE_EXECUTOR_FILE,
+  LEGACY_REFINE_EXECUTOR_FILE,
 ]);
 
 const LAYER_ORDER = ["domain", "contracts", "kernel", "application", "core", "runtime", "infrastructure", "utils"];
@@ -245,10 +248,6 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
         fromRel,
         `Refine executor must consume prepared bootstrap/collaborator input instead of importing ${toRel} directly.`
       ));
-    }
-
-    if (fromRel === REFINE_EXECUTOR_FILE && toRel.startsWith("application/refine/")) {
-      continue;
     }
 
     if (CLI_ENTRY_FILES.has(fromRel)) {

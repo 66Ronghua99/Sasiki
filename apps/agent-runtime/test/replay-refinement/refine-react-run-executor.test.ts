@@ -14,7 +14,7 @@ import { AttentionGuidanceLoader } from "../../src/application/refine/attention-
 import { AttentionKnowledgeStore } from "../../src/infrastructure/persistence/attention-knowledge-store.js";
 import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
 import { RefineHitlResumeStore } from "../../src/infrastructure/persistence/refine-hitl-resume-store.js";
-import { ReactRefinementRunExecutor } from "../../src/runtime/replay-refinement/react-refinement-run-executor.js";
+import { ReactRefinementRunExecutor } from "../../src/application/refine/react-refinement-run-executor.js";
 import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
 
 class StubLogger implements Logger {

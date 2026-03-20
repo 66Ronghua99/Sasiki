@@ -17,7 +17,7 @@ import { ExecutionContextProvider } from "../providers/execution-context-provide
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
 import { ToolSurfaceProvider } from "../providers/tool-surface-provider.js";
-import { ReactRefinementRunExecutor } from "../../runtime/replay-refinement/react-refinement-run-executor.js";
+import { ReactRefinementRunExecutor } from "../refine/react-refinement-run-executor.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
