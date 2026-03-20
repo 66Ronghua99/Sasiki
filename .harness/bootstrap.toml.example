@@ -1,0 +1,8 @@
+bootstrap_version = "0.1.0"
+mode = "greenfield"
+preset = "none"
+entry_skill = "harness:init"
+templates_dir = "docs/superpowers/templates"
+docs_health_command = 'node "$HOME/.coding-cli/skills/harness-doc-health/scripts/doc-health.js" . --phase bootstrap'
+verify_command = ""
+e2e_command = ""

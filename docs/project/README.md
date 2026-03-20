@@ -20,9 +20,11 @@ The repository is currently in a restart-sync phase: we are re-establishing the 
 - Current project quality gates include:
   - `npm --prefix apps/agent-runtime run lint:docs`
   - `npm --prefix apps/agent-runtime run lint:arch`
+  - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
+- A standalone runtime `test` script is planned but not yet part of the current code-backed baseline.
 - Runtime verification depends on local CDP Chromium, valid cookies, and Playwright MCP availability.
 
 ## Related Docs

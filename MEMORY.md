@@ -1,141 +1,41 @@
 # MEMORY
 
 ## Doc Ownership
-- `PROGRESS.md` 负责里程碑、DONE/TODO、当前执行引用。
-- `MEMORY.md` 负责可复用经验、踩坑根因、排障约定与环境要求。
-- 新的“经验总结”默认写入 `MEMORY.md`，`PROGRESS.md` 只保留里程碑级状态结论。
+- `MEMORY.md` 只保留在本次重启后仍然成立的经验、环境要求和协作约定。
+- 已经变成“阶段流水账”或“旧方案实现细节”的内容，不再继续堆在这里。
 
-## Known Pitfalls
-- `LLM model` 与 `baseUrl` 容易错配：DashScope 场景优先使用 `openai/qwen-plus`，避免 `MiniMax + DashScope` 导致 4xx/能力不兼容。
-- 浏览器任务“看起来完成”不等于“业务完成”：必须用可验证证据确认（页面状态变化、截图、结构化步骤）。
-- 仅靠 prompt 很难稳定复刻复杂 SOP：需要真实示教数据作为后续优化依据。
-- 语义层调用具备环境依赖（网络/鉴权/模型可用性）：任何失败都必须回退到 rule-based 产物，不能阻塞 `sop_compact.md` 输出。
-- API 兼容性坑：部分 OpenAI-compatible 端点对 reasoning/thinking 参数兼容不稳定，语义层失败时应优先将 `thinkingLevel` 设为 `off` 再排查。
-- 代理环境坑：当 shell 设置了 `http_proxy/https_proxy` 时，本地 `localhost:9222` CDP 连接与探活可能被错误代理；自测 replay 前需显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
-- 语义抽象治理：`sop-compact` 不能把单次示教中的具体实例直接提升为通用规则；必须拆分 `workflow_guide`、`decision_model` 与 `observed_examples`，把无法稳定推出的边界显式落为 `uncertainFields`。
-- compact-stage HITL 治理：人工输入应只用于补关键决策边界，并以结构化 `intent_resolution` 覆盖自动推断；高优先级不确定项未解决前，资产不得进入 `ready_for_replay`。
-- 意图注入治理：compact 阶段的意图来源必须分层合并，优先级固定为 `intent_resolution > inferred_from_trace > intent_seed > default_rule`，避免后续 replay 同时消费多份相互冲突的“意图文本”。
-- 工件真源治理：当 compact 同时产出结构化 JSON 与可读文档时，必须固定 `JSON` 为单一真源，`MD` 仅作为渲染结果，避免 replay 侧消费两套不一致的 guide。
-- 状态门禁治理：compact 阶段的资产状态只能由 `compact_manifest.json` 单点声明；`ready_for_replay` 必须同时通过 admission matrix、结构完整性、污染检测与 question 映射完整性校验。
-- 抽象执行模型治理：`sop-compact` 的核心 intent/workflow/decision 生成必须由 agent draft 主导；deterministic 逻辑只负责 evidence extraction 与 validation/gate，不能重新退化成关键词分类器或 `goalType -> workflow template`。
-- 关键词使用边界：字符串匹配只允许出现在 `abstraction_input.json` 的 weak signals 层，用于 evidence labeling；没有 agent draft 时只允许输出保守 fallback，并保持 `needs_clarification`，不能假装 replay-ready。
-- observe 录制竞态治理：CDP attach 后新页面可能在 recorder 注入 `addInitScript/evaluate` 前就被关闭；这类 page/context/browser closed 错误必须视为可忽略竞态并跳过该 tab，不能让未捕获异常直接终止 observe 并留下空的 `demonstration_raw.jsonl`。
-- 产物分层治理：内部 compact 工件用于抽象/审计/gate，最终 runtime 应只消费 `execution_guide.json` 这一份冻结后的 replay guide，而不是并读多份内部 JSON。
-- 结构化输出治理：模型即使被要求返回 JSON，也经常退化成字符串数组或弱 schema 对象；structured prompt 需要显式给出字段级 JSON 形状示例，merge 层也必须宽容吸收 `string[] -> object[]` 的降级输出。
-- 行为纠偏治理：若 agent draft 将明显的集合处理任务收窄成 `single_object_update`，可由 deterministic 的抽象行为证据（如 `iterate_collection`）做 `goalType` 纠偏；这类纠偏只允许发生在跨域通用行为层，不能回到领域字符串分类。
-- surface 治理：`surface` 推断应优先来自 URL path 等结构信息，不能再依赖站点名 + 业务关键词的耦合判断。
-- V0 归档原因：即使去掉了大部分业务关键词推断，只要 `TargetEntity/GoalType` 仍作为核心 schema 驱动 `decision_model/execution_guide`，抽象层就仍然混入了领域语义；V1 必须把“行为抽象”和“语义用途判定”彻底拆开。
-- HITL 边界治理：当 agent 对“这个行为到底代表什么业务对象/用途/完成标准”不确定时，应直接生成用户澄清问题，而不是由 deterministic fallback 继续拼接业务语义。
-- 增量迁移治理：V0 -> V1 的 schema 重构优先采用 dual-write/add-first；先新增 V1 工件并验证样本，再切换 `execution_guide` 编译入口，最后移除 legacy，避免一次性替换导致回归不可诊断。
-- legacy 退役治理：一旦 `execution_guide.v1` 已接管 replay 主链路，就应尽快移除 `structured_abstraction/workflow_guide/decision_model` 的双写和落盘；继续保留只会让样本目录、manifest 和后续 compact-stage HITL 边界继续变脏。
-- compact-stage HITL 目录治理：若外部 artifact 目录不在当前 workspace，可优先把常用样本复制到仓库内 `artifacts/e2e/<run_id>` 再做 HITL 验证；这样既避免 sandbox 写权限摩擦，也能让后续 CLI/脚本只围绕当前 repo 自给自足。
-- observe 卫生基线治理：当本地 CDP endpoint 已处于 ready 状态时，observe 启动前仍必须主动把页面收敛到单空白 tab；否则 pre-existing foreign tabs 会污染录制样本的 `surface/open_surface`，即使本次 runtime 没有重新启动浏览器也一样。
-- observe 首帧治理：即使 foreign tabs 已被清掉，收敛后的单空白页仍会在 trace 中留下 `about:blank` 作为首个 `open_surface`；后续 compact 侧必须把这类 placeholder surface 视作可降噪输入，不能继续把 `path:blank` 当作主工作区语义。
-- compact surface/phase-signal 治理：`inferSurface/open_surface` 必须优先选择 same-site 且非 placeholder 的 URL；foreign site tab 和 `about:blank` 只能进入 `noiseObservations`，不能继续成为主 `surface` 证据。
-- question-first core field 治理：`task_intent/scope/completion_criteria/final_action` 四个核心字段不能直接采信模型的强语义文案；应由 deterministic guardrail 先生成保守 hypothesis + generic questions，模型只辅助 supporting hypotheses。
-- semantic intent fallback 治理：即使 semantic intent 请求超时、abort 或返回非法 JSON，也必须继续落盘 deterministic 的 `semantic_intent_draft.v2 / clarification_questions.v2 / frozen_semantic_intent.v1`，不能再因为 draft 缺失把 compact 直接打成 `rejected`。
-- search submit 去噪治理：搜索框中的 `Enter` 不能再被抽象成 `submit_action`；否则会把“发起搜索”错误提升成“最终对象动作”，进而污染 final_action/completion 语义。
-- placeholder answer gate 治理：`intent_resolution` 里的 core field 回答必须先过 deterministic 校验；占位短语或缺少动作/范围/完成信号的答案不能再冻结字段，并应落盘到 `rejectedAnswers[]` 供后续排查。
-- frozen compile 治理：guide compiler 只能消费 `frozen_semantic_intent.json`，不允许直接并读 `intent_resolution.json`；冻结后的 `goal/scope/doneCriteria/final_action` 必须直接继承用户答案，即使最终状态仍未放行为 `ready_for_replay`。
-- final action 映射治理：当 `final_action` 明确且行为骨架里没有显式 `submit_action` 时，只要 evidenceRefs 能对齐到 generic observed step，就允许把该 step 复用为最终动作槽位，并在 `resolutionNotes[]` 记录旧 purpose -> 新 purpose 的覆盖链路。
-- browse-only downgrade 治理：当 `final_action` 冻结为“只浏览不操作”时，与该动作 evidence 对齐的 observed action slot 必须降级为 `optional_observed_action`，并在 `branchHints[]` 标注 observed-only，避免 replay 误把它当成必做步骤。
-- missing behavior support 治理：若 `final_action` 已冻结但当前 `behavior_workflow` 中不存在任何兼容动作槽位，`compileEligibility.reason` 必须变为 `missing_behavior_support_for_frozen_action`，状态继续保持 `needs_clarification`。
-- compact-stage HITL 入口治理：最小可用形态先做 `inspect unresolved questions + merge intent_resolution` 的 CLI，不要一开始就耦合 runtime 级自动交互；等字段映射与 ready-path 稳定后，再升级成 question-driven 交互入口。
-- compact-stage HITL 内联化治理：一旦离线 `inspect/resolve` 已验证 `intent_resolution -> recompile` ready-path，下一阶段主目标应切换为“同一条 compact workflow 内完成提问与回答”；离线 CLI 只保留为 debug/backfill，不再继续代表产品主路径。
-- HITL contract 治理：用户输入层应只暴露 `questionId + answer` 心智，不应暴露 `resolvedFields` 等内部字段；内部映射继续落在 `intent_resolution`，并保持后续 V1 compile/gate 真源不变。
-- inline loop 终止治理：compact-stage HITL 必须有显式终止条件，至少覆盖 `maxRounds`、`user_deferred`、`no_progress`；否则实现层很容易退化成无限等待或隐式 skip。
-- question merge 治理：当 `unresolvedQuestions` 与 `clarification_questions` 同时存在时，必须固定“前者决定 blocking membership/order，后者只补 phrasing”的主从关系，不能在实现里临时按字符串内容拼接排序。
-- recompile failure 治理：用户答案一旦已写入 `intent_resolution.json`，即使模型不可用或网络超时，也应以结构化 `recompile_failed` 退出并保留已写入结果，不能静默丢失人工澄清。
-- contract-first 回归治理：`compact-stage HITL` 的 request/answer/result contract 可先在“已有 `semantic_intent_draft` 的 deterministic clean sample”上验证，先证明 service 逻辑正确，再单独验证 live semantic recompile。
-- live semantic 验收治理：`sop-compact-clarify` 的成功 ready-path 与 failure-path 要分开验收；当外部 semantic endpoint 持续 `Connection error` 时，只能宣称 failure-path 已验证，不能误报整条 inline loop 已 E2E 验收。
-- 闭环完成治理：当 `compact_manifest.status=ready_for_replay` 与 `execution_guide.replayReady=true` 已在 clean sample 上同时成立时，应立即把 `SOP Compact` 阶段从 `P0-NEXT` 移出，避免 `NEXT_STEP` 继续指向已完成目标。
-- 字段语义提问治理：即使主闭环通过，若用户回答把 `scope` 答成“回复策略”、把 `doneCriteria` 答成“处理范围”，也说明问题文案仍有字段语义漂移；这类体验问题应进入下一阶段优化，而不应阻塞当前闭环完成判定。
-- prompt 体量治理：`semantic_intent_draft` 若直接吞完整 `behavior_evidence.stepEvidence`，即使在 45s timeout 下也可能被 abort；V1 语义链路需要先对行为证据做摘要视图（phaseSignals/actionSummary/exampleCandidates/stepEvidenceSample），再交给模型解释语义。
-- prompt 结构治理：`semantic_intent_draft` 的输入顺序应优先给 `behavior_workflow`，再给去噪后的 evidence/examples；同时强制 `strict JSON + single-line string values`，可显著降低 MiniMax/OpenRouter 路径下的输出漂移与控制字符风险。
-- evidence 去噪治理：semantic prompt 摘要里应去掉 selector-only candidates、长 query URL、原始 selector 串等低语义密度噪声；在样本 `run_id=20260308_110124_276` 上，这样可把输入从约 `3.5k-4.1k` tokens 压到约 `2.36k-2.70k` tokens。
-- replay gate 真源治理：`execution_guide.v1` 接管后，`ready_for_replay` 必须由 `semantic_intent_draft.blockingUncertainties + clarification_questions + intent_resolution` 决定；不能再回退到 V0 `decision_model.uncertainFields`。
-- execution guide 编译治理：`execution_guide.v1` 应固定输出 `generalPlan + detailContext`，其中 `workflowOutline/stepDetails` 由 `behavior_workflow` 提供骨架，`goal/scope/doneCriteria/constraints` 由 `semantic_intent_draft` 与 `intent_resolution` 提供语义。
-- MiniMax 结构化稳定性治理：在 OpenRouter + MiniMax 的 strict JSON 路径上，`thinkingLevel=off` 比 `high` 更适合作为回归验收配置；高 thinking 可用于探索，但 ready-path 验收优先选更稳定的结构化配置。
-- OpenRouter 解析治理：当 `baseUrl` 指向 `openrouter.ai` 时，模型解析必须优先按 OpenAI-compatible 路径处理，并保留完整 OpenRouter model token；不能再被 `minimax/...` 这类 provider 前缀带到 `anthropic-messages` 等错误 API。
-- clarification ownership 治理：只要 `clarification_questions` 仍存在“模型问题 + 模板补题”混合路径，最终 question 风格和语义边界就会不一致；V1 必须改为 agent-owned，deterministic 只做 coverage check。
-- clarification coverage 治理：`clarification_questions` 的 coverage 真源必须是 `semantic_intent_draft.blockingUncertainties`；deterministic 只允许做 field-level normalize/filter，不能再按 fallback 模板自动补题。
-- step kind 稳定性治理：当 prompt 只靠自然语言描述枚举约束时，模型仍会输出 `click/select/edit` 等本体行为词；若最终 schema 仍依赖后处理翻译，说明结构契约层级还不对。
-- replay guide 分层治理：最终 `execution_guide` 不能只有通用流程，也不能只保留示教细节；run 阶段需要一个同时具备 `generalPlan + detailContext` 的单一消费工件，前者给方向，后者给局部动作线索与历史记忆访问。
-- legacy replay freeze 治理：在 `execution_guide.v1` 接管前，`execution_guide.v0` 不能再被标记成 `ready_for_replay`；否则会把仍依赖 `goalType/targetEntity` 的不完整 guide 提前放行。
-- compact 主链重构治理：一旦确认 field-based compact 主链无法自然吸收 human feedback，就不应继续补丁式叠加 `semantic_intent_draft / clarification_questions / intent_resolution`；应整体切换到多轮 `agent + human loop tool` 架构。
-- compact session 真源治理：新 compact 主路径中，`compact_session_state` 是唯一中间真源；任何“当前理解、open decisions、已吸收人类反馈”都必须回写到这里，不能再扩散为多份平行中间 JSON。
-- compact capability 真源治理：新 compact 主路径只允许一个最终交付工件 `compact_capability_output`；后续若 run 需要消费，应由它下游编译，而不是让多轮推理反过来迎合旧 guide schema。
-- human loop 角色治理：human loop 只负责把人类反馈带回 agent 推理链，不负责字段验证、schema 映射或 replay-ready 判定；一旦 human loop 退化成表单补全，说明架构又回到了旧路径。
-- patch apply 治理：`workflowSkeleton` 允许增量 merge，`taskUnderstanding/openDecisions/convergence` 应整段 replace，避免会话状态因为历史碎片拼接越写越脏。
-- finalize 边界治理：finalizer 只做结构化整理，不应重新发明 session 中没有的语义结论；未收敛内容宁可留在 `remainingUncertainties`，也不能为了“完整”强行定论。
-- compact 入口治理：一旦新多轮 agent loop 已接管 `sop-compact`，旧 `sop-compact-hitl` 和 `sop-compact-clarify` 应明确标记为 archived command，避免团队成员误把旧路径当主线继续扩展。
-- live 验证治理：`Slice 1` 的第一优先级不是接 `run`，而是在真实 trace 上检查三类工件是否真实反映多轮推理过程；只有会话状态和 capability output 稳定后，才值得讨论下游消费编译。
-- compact agent JSON 解析治理：模型在 strict JSON 路径上仍可能在字符串内部吐出未转义控制字符；`JsonModelClient` 应先尝试直接 `JSON.parse`，若命中 control character 类错误，再仅对字符串内部控制字符做转义后重试，避免把结构本身也改坏。
-- compact human loop 控制流治理：如果模型同一轮同时返回 `humanLoopRequest` 和 `ready_to_finalize`，运行时必须优先执行 human loop，不能先把 request 丢弃再继续下一轮；否则会表现成“模型自己跑完了、完全没经过 HITL”。
-- compact middle-round 治理：中间轮不应继续让主 reasoner 同时承担“高质量共推理”和“严格 JSON 输出”两种职责；更稳的形态是 `freeform reasoner -> summarize substep -> patch apply`，其中只有 summarize/finalize 负责结构化输出。
-- compact summarize fallback 治理：即使 summarize 子步骤漏掉 `humanLoopRequest` 或把 `openDecisions` 清空，只要 freeform reasoning 仍明确暴露 unresolved question，运行时就应回填问题并继续 human loop，避免自由文本里已经在问人、但状态机误判成“无需提问”。
-- compact 阶段收口治理：当新的 interactive compact 已在真实 benchmark 上完成迁移验证后，应尽快清理旧 field-based compact 代码，而不是长期保留“archived command + 旧实现”双轨并存；否则团队很容易继续沿旧路径修补，造成架构回摆。
-- compact 会话落盘治理：同一个 `run_id` 多次重跑 `sop-compact` 时，`compact_human_loop.jsonl` 与 `runtime.log` 容易混入多次 session 记录；后续进入 replay/refinement 阶段前，应补 session 级分段或 rerun 清理策略，避免审计证据变脏。
-- compact session artifact 治理：`sop-compact` 重跑同一 `run_id` 时，`compact_session_state / compact_human_loop / compact_capability_output` 应同时写入 `compact_sessions/<sessionId>/...`，顶层文件只保留 latest alias；否则 transcript 很快污染到不可审计。
-- compact 主编排治理：当 `interactive-sop-compact.ts` 同时承担 prompt、state machine、normalizer、finalizer、I/O 时，后续 replay/refinement 很容易继续把职责堆回一个文件；应尽早把 prompt、session reducer、turn normalizer 拆成独立模块，主 service 只保留 orchestration。
-- JSON 提取治理：structured-output 模型即使前半段给出合法对象，也可能在后面继续吐解释文本；JSON 提取应优先截取首个平衡对象，而不是简单使用 `first { + last }`，否则一次尾随文本就会把整轮 compact 打断。
-- replay/refinement 架构治理：在线优化阶段优先采用 sidecar orchestrator（`refine agent` 编排 + browser operator gateway），不要继续把职责堆回 `RunExecutor` 单模块。
-- execution kernel 治理：`Core Brain` 与 `Refine Brain` 可以是两条决策路径，但浏览器执行能力必须共享同一 `Execution Kernel`（`AgentLoop + McpToolBridge + MCP`）；不要复制两套 operator 实现。
-- relevance ownership 治理：任务相关/无关判定应由 `refine agent + HITL` 形成，infra 只做裁剪、去重、限额和 surface gating，不能回退为 heuristic 规则机主导。
-- knowledge promotion 治理：refinement 知识进入消费层前必须具备 provenance（`runId + stepIndex + snapshot hash`）；缺 provenance 的结论一律只保留在原始 episode，不可复用。
-- rollout 范围治理：Replay + Online Refinement 首期必须固定在 pinned run + 单 benchmark，先验证 agent 能力和 token 收敛，再放开检索与跨任务泛化。
-- confidence 治理：promotion `confidence` 由 agent 后验判断输出，并通过 critic 回合挑战；不要引入 if/else 打分规则来决定语义晋升。
-- human override 治理：v0 不做离线重标注台；HITL 只记录当下纠偏指令（`human_intervention_note`），通过后续回合再学习吸收。
-- snapshot hook 治理：refinement 的 before/after snapshot 应通过 tool-call 前后 hook 采集；不要求新增 MCP 工具，优先复用 `browser_snapshot`，不可用时降级 summary。
-- single-step 停止治理：`stopAfterFirstToolExecutionEnd` 会触发 `assistant stopReason=aborted`，运行时必须视为计划内终止而非失败，否则 refinement 单步 operator 会被误判为 hard failure。
-- snapshot 索引唯一性治理：before/after snapshot 若仅按 `stepIndex+phase` 命名，在 retry/HITL 场景会覆盖文件；必须追加 capture sequence，保证 `snapshotId/path` 全局唯一可追溯。
-- HITL 证据治理：HITL 输入不能只留在 `runtime.log`，还需同步回写到 `refinement_steps.jsonl.human_intervention_note[]`，否则离线审计无法按 step 追溯人工纠偏。
-- cross-run 验证治理：若没有 `surfaceKey + taskKey` 的知识索引加载，二轮 token 收敛 AC 不可判定，不得宣称闭环完成。
-- MCP 兼容治理：refinement 改造不得改变 tool return 外层结构；只允许改写 observation text，并保留原始 `details` 供审计与回放。
-- step 度量治理：v0 以 `mutation tool call` 为记录真源，`pageStepId` 仅用于同页连续操作聚合，避免 page-step 与 tool-call 双口径冲突。
-- filter trim 治理：`tokenBudget` 裁剪循环必须有“长度不再下降就退出”的防卡死保护；尤其 `summary` 尾部加省略号时容易出现长度不变死循环。
-- key 归一治理：`surfaceKey/taskKey` 归一失败时不能回退到通用占位 key 并入索引；必须拒绝 promoted index 写入，避免跨 run 知识污染。
-- promotion 顺序治理：`goal_achieved` 判断不能放在 promotion 之前；否则最后一步 completion signal 无法沉淀进知识库。
-
-## Migrated Experience (from PROGRESS)
-- 模型端点治理：OpenAI-compatible `baseUrl` 场景下优先走 endpoint 兼容策略，避免 provider 自动映射误判。
-- 模型诊断治理：运行期必须输出 `configuredModel/configuredBaseUrl` 与最终解析结果；若未进入 MCP，打 `llm_failed_before_mcp` 标记。
-- 角色兼容治理：非 OpenAI 官方 `baseUrl` 强制关闭 `developer role` 以规避 400 参数校验报错。
-- 可观测性治理：`runtime.log` 启动阶段不清空，保证启动日志、模型解析日志和失败路径可回放。
-- 中断恢复治理：收到 `SIGINT/SIGTERM` 先触发 `abort`，再立即落盘 `steps/mcp_calls/assistant_turns/runtime.log`。
-- 工件完整性治理：MCP 工具返回默认不截断，排障证据优先完整保留。
-- 浏览器会话治理：停止时优先 `Browser.close`，会话不可用时回退进程 `SIGTERM`。
-- 噪音控制治理：浏览器选择日志只保留最终选中来源，避免双来源日志误导排障。
-- 模式隔离治理：`observe` 不能强依赖 LLM/MCP 初始化，避免仅示教场景被模型配置缺失阻塞。
-- 示教采集治理：浏览器事件需通过 `addInitScript + 当前页注入` 双路径覆盖，减少导航后监听丢失。
-- 多标签治理：录制层不应把多 tab 视为失败，而应显式记录 `tabId` 让后处理阶段理解跨 tab 行为。
-- 降噪治理：录制保真与消费摘要要解耦，`sop-compact` 作为手动后处理更利于迭代压缩策略。
-- 防漂移治理：进入跨模块改造前先冻结“单一闭环 + AC 阈值 + Gate 评审”，评审通过前不启动实现。
-- 输入融合治理：`type/input` 链路需以“最终有效输入值”为准，`Backspace/Delete/方向键` 等编辑键默认视为噪声，不应单独占据 compact 步骤。
-- hint 去重治理：`webElementHints` 去重键应至少包含 `purpose+selector+textHint+roleHint`，避免 selector 重复导致资产噪声膨胀。
-- 语义增强治理：`sop-compact` 需要显式写出 `semanticMode` 与 `semanticFallback`，并把 fallback 原因写入 `runtime.log` 方便排障。
-- 结构解耦治理：跨链路服务（如 `AgentRuntime`、`sop-compact`）优先收敛为“编排壳”，将规则计算、语义调用、渲染、I/O 拆为可替换组件，降低回归风险并提升测试粒度。
-- 命名归位治理：当模块已承载多能力（agent + observe）时，顶层命名应升级为中性编排名（如 `WorkflowRuntime`），并短期保留旧名兼容导出以平滑迁移。
-- 消费注入治理：run 侧 SOP 资产消费必须 `config-gated`（默认关闭）并保持 no-asset/guide-missing 场景非阻塞回退，避免影响主执行链路稳定性。
-- 消费可观测性治理：每次 run 必须落盘 `sop_consumption.json`，并在日志中包含 `asset_id/guide_source/fallback_used`，否则无法排查“注入是否生效”。
-- 检索匹配治理：当前 `SopAssetStore.search` 的 taskHint 匹配是 `asset.taskHint.includes(query.taskHint)`，当 run 任务语句比资产 taskHint 更长时容易 miss；Phase-3 后续应评估改为双向包含或归一化匹配策略。
-- 验收解耦治理：验证 SOP 消费效果时，优先使用 `--sop-run-id` 走确定性注入，避免“检索 miss + 指令仍成功”造成伪通过。
-- 任务来源治理：pinned 场景允许 task 为空并回退到 `asset.taskHint`，同时在消费证据中记录 `taskSource=request|asset_task_hint` 便于回放判定。
-- guide 优先级治理：run 注入时优先读取 `guide_semantic.md`，其次 `sop_compact.md`，最后 `sop_draft.md`，确保尽量消费 compact 后资产。
-- 阶段拆分治理：当“检索质量”与“消费效果验证”相互干扰时，先走 pinned run_id 的确定性闭环，再把检索优化独立为单模块迭代。
-- 协作操作系统治理：用户级 `AGENTS.md` 需要长期保持“方法论协议”定位（原则、Gate、文件职责、渐进加载）；项目状态与阶段结论只写入 `PROGRESS/MEMORY/NEXT_STEP`，避免职责漂移。
-- 高层日志治理：`run` 侧的 HITL / failure aggregation 必须直接消费结构化 `high_level_logs.json`，不要回退到解析 `runtime.log` 文本；runtime 级事件（如 interrupt/final result）需要与 agent 级事件统一 schema 后再合并排序。
-- 工程根解析治理：runtime 的路径解析只能依赖工程根标记（如 `.git`），不能依赖 `PROGRESS.md` / `AGENTS.md` 之类协作文档是否存在。
-- HITL 兼容治理：`hitl.enabled=false` 时必须保持旧版单次执行行为；自动重试和人工介入不能在默认配置下悄悄生效。
+## Stable Lessons
+- Harness 初始化后，`.harness/bootstrap.toml` 是仓库入口真源；不要再靠猜目录结构来推断项目模式和验证命令。
+- 这个仓库的真实可执行命令在 `apps/agent-runtime/package.json`，不是仓库根目录。
+- 浏览器任务“看起来完成”不等于业务完成；任何完成声明都要有 `artifacts/e2e/<run_id>/` 里的新鲜证据支撑。
+- shared execution kernel 仍是当前代码的核心边界：浏览器动作必须通过 `AgentLoop + McpToolBridge + Playwright MCP` 这条链路完成。
+- `WorkflowRuntime` 的当前事实是 mode-gated split：legacy `RunExecutor` 和 `OnlineRefinementRunExecutor` 并存。
+- `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
+- 历史 `.plan/*` 文档现在只作为背景，不再自动代表 active direction；新的方向必须重新写 spec。
+- `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。
+- 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
+- refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
+- 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
+- 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
+- `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
+- `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
+- `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
+- `AttentionKnowledge` 的成功标准不是“记录了内容”，而是“至少有一条可跨 run 被后续 refine run 加载和消费的 promoted knowledge”。
+- `HITL` 在 refinement 里是“暂停并等待人类回复”，不是切到另一套控制流；人类回复后应恢复同一条 ReAct loop 继续执行。
 
 ## Environment Requirements
 - Node `>=20`
 - 可用 CDP endpoint（默认 `http://localhost:9222`）
-- 可用登录 cookie（`~/.sasiki/cookies/*.json`）
+- 可用登录 cookie（默认 `~/.sasiki/cookies/*.json`）
 - Playwright MCP 可启动（默认 `@playwright/mcp@latest`）
 
 ## Working Conventions
-- 需求加载顺序：`PROGRESS.md` -> `MEMORY.md` -> `NEXT_STEP.md` -> `.plan/20260304_watch_once_v0_prd.md` -> `.plan/20260304_watch_once_v0_engineering_handoff.md`
-- 每次迭代先确认目标工件，再实施：
-  - E2E：`steps.json` / `mcp_calls.jsonl` / `assistant_turns.json` / `high_level_logs.json` / `runtime.log` / `final.png`
-  - 示教：`demonstration_raw.jsonl` / `demonstration_trace.json` / `sop_draft.md`
+- 默认加载顺序：
+  - `PROGRESS.md`
+  - `NEXT_STEP.md`
+  - `MEMORY.md`
+  - `AGENT_INDEX.md`
+  - `.harness/bootstrap.toml`
+  - `docs/project/current-state.md`
+- 如果需要历史背景，再按需读取 `.plan/20260310_*`、`.plan/20260312_*`、`.plan/20260313_*`。
+- 新的 active spec / plan / evidence 默认写到 Harness 目录结构下，不再继续把 `.plan/` 当成唯一前台入口。

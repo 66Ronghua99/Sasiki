@@ -9,10 +9,12 @@
 ## Current Entry Commands
 - `npm --prefix apps/agent-runtime run lint:docs`
 - `npm --prefix apps/agent-runtime run lint:arch`
+- `npm --prefix apps/agent-runtime run lint`
 - `npm --prefix apps/agent-runtime run typecheck`
 - `npm --prefix apps/agent-runtime run build`
 - `npm --prefix apps/agent-runtime run hardgate`
 - `node apps/agent-runtime/dist/index.js "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"`
+- Standalone `npm --prefix apps/agent-runtime run test` is not part of the current repo baseline yet; the active refine-react implementation plan introduces it in Task 2.
 
 ## Code-Backed Baseline
 - CLI entrypoints live in `apps/agent-runtime/src/index.ts`:

@@ -1,407 +1,95 @@
 # PROGRESS
 
 ## Doc Ownership
-- `PROGRESS.md` 只记录：里程碑、DONE/TODO 状态、执行参考链接。
-- `MEMORY.md` 记录：经验总结、踩坑根因、排障与约定。
+- `PROGRESS.md` 只记录当前代码基线、活跃指针、DONE/TODO。
+- `MEMORY.md` 只保留跨阶段仍然成立的经验和环境要求。
 
-## Current Milestone
-- `M1 (Done)`: 已完成 `Node + pi-agent-core + Playwright MCP` 主链路切换。
-- `M2 (Done)`: 达成完整业务闭环：启动 CDP Chromium、注入 Cookie、打开小红书、搜索、打开帖子、点赞、截图。
+## Restart Baseline
+- 仓库已回滚到 `3c973462158c2cdb22c4cd7fb803db88af8bcbb7`，作为这次重启同步的代码基线。
+- 仓库已完成 Harness migration bootstrap，`.harness/bootstrap.toml` 是当前机器可读入口真源。
+- 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
-## Ultimate Goal
-- 解决用户在浏览器上的长程 SOP 复刻问题：面对千差万别的需求，优先通过“看用户做一次（Watch Once）→ 学习关键动作序列 → 在后续任务中自动复现并持续优化”来达成稳定执行。
+## Current Code Status
+- CLI 当前有两类入口：
+  - `runtime`：支持 `run` / `observe`
+  - `sop-compact`：支持多轮 interactive compact session
+- 浏览器执行主链仍是单一 shared execution kernel：
+  - `AgentLoop -> McpToolBridge -> Playwright MCP`
+- `WorkflowRuntime` 仍按 `refinement.enabled` 分流：
+  - `false -> RunExecutor`
+  - `true -> OnlineRefinementRunExecutor`
+- `observe`、`interactive-sop-compact`、`replay-refinement` 代码都仍然存在于当前仓库。
+- `replay-refinement` 的代码基线仍在，但这条架构线在本次重启后尚未重新冻结为新的 active spec。
+- 当前仓库已接入的验证命令是：
+  - `npm --prefix apps/agent-runtime run lint:docs`
+  - `npm --prefix apps/agent-runtime run lint:arch`
+  - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run hardgate`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
+- 当前基线还没有独立 `npm --prefix apps/agent-runtime run test`；该命令会在 active implementation plan 的 Task 2 引入。
 
-## Reference List (Progressive Loading)
-- 默认只加载（L0）：`PROGRESS.md` -> `NEXT_STEP.md` -> `MEMORY.md`
-- 进入当前阶段再加载（L1）：
-  - Replay + Online Refinement Requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`
-  - Replay + Online Refinement Architecture：`.plan/20260312_replay_refinement_online_design.md`
-  - Replay + Online Refinement 清单：`.plan/checklist_replay_refinement_online.md`
-  - Execution Kernel + Refine/Core Rollout：`.plan/20260313_execution_kernel_refine_core_rollout.md`
-  - Execution Kernel + Refine/Core Rollout 清单：`.plan/checklist_execution_kernel_refine_core_rollout.md`
-  - Interactive Reasoning SOP Compact：`.plan/20260310_interactive_reasoning_sop_compact.md`
-  - Interactive Reasoning SOP Compact 清单：`.plan/checklist_interactive_reasoning_sop_compact.md`
-  - 长程任务 SOP HITL 需求 v0：`.plan/20260306_long_task_sop_hitl_requirement_v0.md`
-  - 长程任务 SOP HITL 清单：`.plan/checklist_long_task_sop_hitl_requirement_v0.md`
-  - 长程任务 SOP 高层日志基础方案：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
-  - 长程任务 SOP 高层日志基础清单：`.plan/checklist_long_task_sop_high_level_logging_foundation.md`
-  - 长程任务 SOP HITL runtime loop：`.plan/20260306_long_task_sop_hitl_runtime_loop.md`
-  - 长程任务 SOP HITL runtime loop 清单：`.plan/checklist_long_task_sop_hitl_runtime_loop.md`
-  - PR-3 Phase-3A 方案：`.plan/20260306_watch_once_pr3_phase3a_pinned_runid.md`
-  - PR-3 Phase-3A 清单：`.plan/checklist_watch_once_pr3_phase3a_pinned_runid.md`
-  - 协作方法论治理方案：`.plan/20260306_collaboration_methodology_agents_governance.md`
-  - 协作方法论治理清单：`.plan/checklist_collaboration_methodology_agents_governance.md`
-- 历史与归档按需加载（L2）：
-  - v0 设计评审：`.plan/20260304_watch_once_v0_design.md`
-  - v0 PRD：`.plan/20260304_watch_once_v0_prd.md`
-  - v0 工程交接：`.plan/20260304_watch_once_v0_engineering_handoff.md`
-  - PR-1 实施记录：`.plan/20260304_watch_once_pr1_contract_foundation.md`
-  - PR-2 实施记录：`.plan/20260304_watch_once_pr2_observe_baseline.md`
-  - PR-2.1 实施记录：`.plan/20260305_watch_once_pr2_1_compact_multitab.md`
-  - PR-3 总方案：`.plan/20260305_watch_once_pr3_semantic_compaction_consumption.md`
-  - PR-3 评审稿：`.plan/20260305_watch_once_pr3_closed_loop_review.md`
-  - PR-3 Phase-2 方案：`.plan/20260305_watch_once_pr3_phase2_semantic_layer.md`
-  - PR-3 Phase-2 实施：`.plan/20260305_watch_once_pr3_phase2_semantic_layer_implementation.md`
-  - PR-3 Phase-3 计划：`.plan/20260305_watch_once_pr3_phase3_consumption_wiring_plan.md`
-  - PR-3 Phase-3 清单：`.plan/checklist_watch_once_pr3_phase3_consumption_wiring.md`
-  - PR-3 总清单：`.plan/checklist_watch_once_pr3_semantic_compaction_consumption.md`
-  - 已归档 SOP Compact Question-First Clarify：`.plan/20260310_sop_compact_question_first_clarify.md`
-  - 已归档 SOP Compact Question-First Clarify 清单：`.plan/checklist_sop_compact_question_first_clarify.md`
-  - 已归档 Compact-stage HITL Inline Loop：`.plan/20260309_compact_stage_hitl_inline_loop.md`
-  - 已归档 Compact-stage HITL Inline Loop 清单：`.plan/checklist_compact_stage_hitl_inline_loop.md`
-  - 已归档 SOP Compact V1 Full-Chain Shift：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
-  - 已归档 SOP Compact V1 Full-Chain Shift 清单：`.plan/checklist_sop_compact_v1_full_chain_shift.md`
-  - 已归档 SOP Compact Behavior/Semantics Split v1：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
-  - 已归档 SOP Compact Behavior/Semantics Split v1 清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
-  - 已归档 SOP Compact V0 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
-  - 已归档 SOP Compact V0 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
-  - 其他历史文档：`.plan/*.md`
+## Active References (L0)
+- `PROGRESS.md`
+- `NEXT_STEP.md`
+- `MEMORY.md`
+- `AGENT_INDEX.md`
+- `.harness/bootstrap.toml`
+- `docs/project/current-state.md`
+- `docs/architecture/overview.md`
+- `docs/architecture/layers.md`
+- `docs/testing/strategy.md`
+
+## Historical Background (Load On Demand)
+- `.plan/20260310_interactive_reasoning_sop_compact.md`
+- `.plan/20260312_replay_refinement_requirement_v0.md`
+- `.plan/20260312_replay_refinement_online_design.md`
+- `.plan/20260313_execution_kernel_refine_core_rollout.md`
+- `.plan/checklist_interactive_reasoning_sop_compact.md`
+- `.plan/checklist_replay_refinement_online.md`
+- `.plan/checklist_execution_kernel_refine_core_rollout.md`
+
+说明：
+- 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
+- 新的 active spec / plan 将在 `docs/superpowers/specs/` 下重建。
 
 ## TODO
-- `P0-NEXT` Replay + Online Refinement Slice-2 验证：
-  - 目标：从“能跑通”推进到“可量化收益”（二轮 knowledge 加载与 token 收敛）
-  - 范围：继续 pinned `--sop-run-id` 单 benchmark，不扩展检索泛化
-  - 当前状态：Slice-1 已接线到 runtime 并完成 HITL 实测，artifact 契约齐全；但 `promoteDecision` 仍以 `hold` 为主，二轮 `knowledge_loaded_count` 尚未大于 0
-  - 下一步产物：
-    - 触发至少 1 条 `promoteDecision=promote`，验证 `refinement_knowledge.jsonl` 非空且字段完整
-    - 运行两轮同任务样本，验证第二轮 `knowledge_loaded_count>0`
-    - 验证第二轮 `consumption_bundle.tokenEstimate <= 第一轮 * 0.8`
-  - 证据入口：`.plan/20260312_replay_refinement_online_design.md`、`.plan/checklist_replay_refinement_online.md`、`artifacts/e2e/20260313_011336_096`、`artifacts/e2e/20260313_011652_024`
-- `P1` 检索能力模块化（后移，等待新的 compact capability output 稳定）：
-  - 将 SOP 检索从当前消费注入流程中解耦为独立模块
-  - 前提：新的 compact 主路径已稳定产出可信的 `compact_capability_output`
-  - 后续单独优化召回/排序/归一化匹配策略
-- `P1` 长程任务 SOP HITL runtime loop 实测验收：
-  - 在真实失败样例上验证 `2 次重试 -> HITL -> 恢复执行`
-  - 检查 `intervention_learning.jsonl` 与后续 `failure_topn.json`
-- `P1` 补齐 `final.png` 截图成功率与参数兼容（不同 Playwright MCP 版本参数差异）。
-- `P1` 替换默认运行入口到 Node runtime。
-- `P2` 增加最小可回归的 Node 侧自动化测试（配置加载、模型解析、MCP 调用记录）。
+- `P0-NEXT` review 当前 implementation plan：
+  - 当前计划：`docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
+  - 需要确认：contract freeze 顺序、HITL resume surface、`AttentionKnowledge` load handshake、runtime cutover 验证门槛
+- `P1` plan review 通过后，进入执行阶段，并替换旧 `.plan/20260312_*` / `.plan/20260313_*` 的 active 指针。
+- `P1` 在新架构冻结后，重新运行当前需要保留的验证：
+  - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run hardgate`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
+  - 必要时重跑 runtime / refinement benchmark，而不是继续沿用旧轮次 artifact 直接宣称完成
 
 ## DONE
-- 已完成“Execution Kernel + Two Brains”架构澄清与任务化分解：
-  - 已在 architecture 文档冻结 `Shared Execution Kernel`、`Refine Brain`、`Core Brain` 的边界与模式矩阵（`refinement.enabled=true|false`）
-  - 已补 `Decision Audit` 契约与 snapshot 写入归属，消除 mode/gateway/snapshot 三处口径冲突
-  - 已新增 rollout 文档与 checklist，支持 architecture -> worker 并行执行：
-    - `.plan/20260313_execution_kernel_refine_core_rollout.md`
-    - `.plan/checklist_execution_kernel_refine_core_rollout.md`
-- 已完成 Replay + Online Refinement Slice-1 runtime 接线与实测闭环：
-  - `WorkflowRuntime` 已按 `refinement.enabled` 分流：`false -> RunExecutor`，`true -> OnlineRefinementRunExecutor`
-  - `OnlineRefinementRunExecutor` 已接线：
-    - 单步 operator 执行（`AgentLoop.stopAfterFirstToolExecutionEnd`）
-    - pre/post snapshot 采集与 `snapshot_index.jsonl`
-    - bundle 编译与 `consumption_bundle.json`
-    - refine decision 三段式（evaluate -> critic -> finalize）
-    - promotion/upsert 到 `RefinementMemoryStore`（promote 时生效）
-    - artifacts 落盘：`refinement_steps.jsonl` / `refinement_knowledge.jsonl` / `steps.json` / `mcp_calls.jsonl` / `assistant_turns.json`
-  - 已完成真实 benchmark run：
-    - `20260313_011336_096`：长文草稿路径可推进至“写长文”页面，状态 `max_steps`
-    - `20260313_011652_024`：触发两次 HITL（含 `no_progress -> HITL`），人工输入后以 `abort run` 收尾，状态 `online_refinement:user_stopped`
-  - 已验证契约完整性：
-    - 两个 run 均产出 `consumption_bundle.json`、`refinement_steps.jsonl`、`snapshot_index.jsonl`、`refinement_knowledge.jsonl`
-    - `snapshot_index.jsonl` 已验证 snapshotId 不重复（capture seq 生效）
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Replay + Online Refinement 阶段需求冻结与架构冻结：
-  - 已把项目级 `AGENTS.md` 从 user-level 重复内容切换为 project-level 约束，并固化三条核心原则（多轮 agent 闭环、agent-first MVP、三类 agent 命名）
-  - 已完成 requirement v0：`.plan/20260312_replay_refinement_requirement_v0.md`
-  - 已完成 architecture design：`.plan/20260312_replay_refinement_online_design.md`
-  - 已完成阶段 checklist：`.plan/checklist_replay_refinement_online.md`
-  - 已补字段字典与写入语义：`page-scoped step`、snapshot 离线索引、`no_progress -> HITL`、`tokenBudget=1000`
-  - 已冻结 knowledge promotion：`confidence` 由 agent 后验判断（含 critic challenge），不采用 rule-based 评分
-  - 已补 review 友好化：`Critical Questions` 改为 `Decision Log`、3 个 contract 最小 JSON 示例、loop 状态机终止条件、量化验收阈值（`tokenEstimate <= round1 * 0.8`）
-  - 已补 Slice-1 阻塞项设计闭环：B1 快照 hook 机制、B2 refine LLM I/O schema、B3 跨 run knowledge 索引结构
-  - 已补 G1/G2/G3：首轮 bundle 编译路径、HITL pause/resume 共存策略、Phase1/2/3 分层执行顺序
-  - 已冻结消费与桥接契约：`filtered-view` 主路径、`full_snapshot_debug` 仅调试、MCP 返回兼容边界、mutation hook 白名单、`snapshot_index.jsonl`、`surfaceKey/taskKey` 归一、`tokenEstimate` 口径、`tool_call` 计量单位与 `pageStepId` 聚合规则
-  - 已完成文档回滚存档：`.plan/archive/20260312_replay_refinement_contract_freeze_v1/`（包含 requirement/design/checklist + README 索引）
-  - 下一阶段主指针已切换为 Slice-1 implementation（sidecar orchestrator）
-- 已完成 Replay + Online Refinement Slice-1 并行开发第一轮实现（worker + reviewer 流程）：
-  - 并行分工基线：`.plan/20260312_replay_refinement_parallel_tracks.md`
-  - 已落地 contracts/domain：
-    - `apps/agent-runtime/src/domain/refinement-session.ts`
-    - `apps/agent-runtime/src/domain/refinement-knowledge.ts`
-  - 已落地 runtime/replay-refinement 初版模块：
-    - `apps/agent-runtime/src/runtime/replay-refinement/browser-operator-gateway.ts`
-    - `apps/agent-runtime/src/runtime/replay-refinement/refinement-hitl-loop.ts`
-    - `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-orchestrator.ts`
-    - `apps/agent-runtime/src/runtime/replay-refinement/refinement-memory-store.ts`
-    - `apps/agent-runtime/src/runtime/replay-refinement/core-consumption-filter.ts`
-  - 已改造 bridge/writer/config：
-    - `apps/agent-runtime/src/core/mcp-tool-bridge.ts`
-    - `apps/agent-runtime/src/runtime/artifacts-writer.ts`
-    - `apps/agent-runtime/src/runtime/runtime-config.ts`
-    - `apps/agent-runtime/src/runtime/workflow-runtime.ts`
-  - reviewer 高优问题已修复：
-    - 解决 `core-consumption-filter` trim 死循环风险
-    - 解决 empty key 进入 cross-run index 的污染风险
-    - 解决 `goal_achieved` 在 promotion 前提前退出的问题
-    - 解决 bridge `hookOrigin` 内部字段泄漏到 MCP tool args 的问题
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Interactive Reasoning SOP Compact 轻量架构整理：
-  - 将 `interactive-sop-compact.ts` 中的 prompt、session reducer、turn normalizer 拆分为独立模块，降低单文件编排复杂度
-  - 新增共享 `LlmThinkingLevel` 类型，去掉 compact/runtime 配置里的重复定义
-  - compact 工件已改为 session 级落盘：同一 `runId` 重跑时会生成 `compact_sessions/<sessionId>/...`，同时保留顶层 latest alias，减少 transcript 污染
-  - `sop-rule-compact-builder` 与 `artifacts-writer` 的模块元信息已回收至当前主路径
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Interactive Reasoning SOP Compact 阶段冻结与旧路径清理：
-  - live benchmark `artifacts/e2e/20260310_153315_481` 已验证新的 `freeform reasoner -> summarize substep -> human loop -> compact_capability_output` 主链
-  - `sop-compact` 已完成从旧 field/schema compiler 到多轮 agent loop 的迁移，当前产物已能复述流程骨架并通过少量 HITL 收敛任务理解
-  - 旧 field-based compact 代码已清理：移除 `semantic_compactor`、`sop-compact-hitl`、`sop-compact-clarify`、`sop-intent-abstraction-builder` 等 legacy 主路径实现，避免团队后续继续沿错误方向增量修补
-  - 当前阶段结论：SOP Compact 主迁移已完成，后续只做小修小补；下一阶段主目标切到 `replay + refinement`
-- 已完成 Interactive Reasoning SOP Compact `Slice 1` 最小代码闭环：
-  - 新 contract：`apps/agent-runtime/src/domain/compact-reasoning.ts`
-  - 新 human loop tool：`apps/agent-runtime/src/contracts/compact-human-loop-tool.ts`、`apps/agent-runtime/src/infrastructure/hitl/terminal-compact-human-loop-tool.ts`
-  - 新模型 JSON 客户端：`apps/agent-runtime/src/core/json-model-client.ts`
-  - 新主服务：`apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
-  - `sop-compact` CLI 已切到新的多轮 agent loop，落盘 `compact_session_state.json / compact_human_loop.jsonl / compact_capability_output.json`
-  - `sop-compact-hitl` 与 `sop-compact-clarify` 已降为 archived command，不再代表主路径
-  - 中间轮已从“单步 strict JSON”切到 `freeform reasoner + summarize substep`；主 reasoner 不再直接承担 JSON 约束，summarize 层单独负责 `compact_session_patch`
-  - 已补 compact agent JSON 解析容错：当模型在 JSON 字符串内部返回未转义控制字符时，parser 会先做字符串内控制字符转义，再重试解析
-  - 已修复 compact agent human loop 控制流：若模型同时返回 `humanLoopRequest` 与 `ready_to_finalize`，系统现在优先进入 human loop；同时禁止“在仍有关键 open decisions 且从未获得 human feedback 时直接 finalize”
-  - 已补 compact middle-round fallback：若 summarize 未显式给出 `humanLoopRequest/openDecisions`，运行时会从 freeform reasoning 的 unresolved question 中回填，避免“模型明明在问人但 human loop 没接上”
-  - live 样本 `artifacts/e2e/20260310_110821_112/compact_human_loop.jsonl` 已出现新的 `assistant_response -> clarification_request -> human_reply` 链路
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已冻结新的 `interactive_reasoning_sop_compact` 主架构并切换文档指针：
-  - 新方向：`sop-compact` 改为多轮 agent workflow，`human loop` 改为推理 tool，最终只产出 `compact_capability_output`
-  - 新 active design：`.plan/20260310_interactive_reasoning_sop_compact.md`
-  - 新 active checklist：`.plan/checklist_interactive_reasoning_sop_compact.md`
-  - 旧 `question_first_semantic_freeze / compact-stage inline HITL / v1 full-chain shift` 文档已转入归档路径，不再作为后续实现依据
-- 已完成 Question-First Semantic Freeze Phase C + Phase D 主样本闭环：
-  - Phase C：`SopCompactClarificationService` 已接入 deterministic placeholder answer gate；占位回答不会再冻结 core field，并会结构化落盘 `intent_resolution.rejectedAnswers[]`
-  - Phase C 样本：`artifacts/e2e/20260310_110821_112` 在占位 `task_intent/scope/completion` 下继续保持 `needs_clarification`，即使只补 `final_action` 也不会进入 `ready_for_replay`
-  - Phase D：guide compiler 已切到 strict frozen compile，`execution_guide.goal/scope/doneCriteria` 直接继承 `frozen_semantic_intent.json`
-  - Phase D 正向样本：`artifacts/e2e/20260310_110821_112_phase_d_explicit` 已生成 `ready_for_replay` guide，且 `behavior_step_5` 被重写为最终点赞动作槽位，`resolutionNotes[]` 明确记录旧 purpose -> 新 purpose 的覆盖链路
-  - Phase D browse-only 样本：`artifacts/e2e/20260310_110821_112_phase_d_browse_only` 已将 `behavior_step_5.stepRole` 降级为 `optional_observed_action`，并在 `branchHints[]` 标注 observed-only
-  - Phase D 负向 gate：通过 `tsx` synthetic regression 证明，一旦移除兼容动作骨架，`buildFrozenSemanticIntent(...).compileEligibility.reason=missing_behavior_support_for_frozen_action`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Question-First Semantic Freeze Phase A + Phase B：
-  - Phase A：observe 会在已 ready 的本地 CDP 会话上主动收敛到单空白 tab，并在结束后关闭浏览器
-  - Phase B：compact 首轮已切到 `semantic_intent_draft.v2 / clarification_questions.v2 / frozen_semantic_intent.v1`，并在核心字段未冻结时只生成 placeholder `execution_guide.v1`
-  - noisy sample `artifacts/e2e/20260310_110821_112`：`surface` 已从 TikTok 噪音修正为 `path:explore`，`compact_manifest.status=needs_clarification`，`execution_guide.goal/scope` 不再直接给出“关注博主/汇总内容”强结论
-  - Phase A sample `artifacts/e2e/20260310_115847_198`：`surface=path:explore`，`about:blank` 只进入 `noiseObservations`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已修正 observe 录制器的页面关闭竞态：
-  - 根因：CDP attach 后若新页面在 `page.addInitScript()` / `page.evaluate()` 前瞬时关闭，后台 `registerPage()` 会抛出未捕获异常，导致 observe 进程提前终止并留下空的 `demonstration_raw.jsonl`
-  - 修复：将 page/context/browser closed 视为可忽略生命周期竞态，跳过已关闭 tab，并在 page close 时清理 tab 映射
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Compact-stage HITL inline loop 的 live ready-path 验收：
-  - 样本：`artifacts/e2e/20260308_110124_276_inline_try1`
-  - 结果：`compact_manifest.status=ready_for_replay`，`execution_guide.replayReady=true`
-  - 这证明主路径已实现：`任务识别 -> 提问 -> 用户回答 -> 自动 recompile -> execution_guide.v1`
-  - 说明：当前样本中的 `scopeHypothesis` 回答语义仍可继续优化，但不影响本阶段闭环完成
-  - 证据：`.plan/20260309_compact_stage_hitl_inline_loop.md` / `.plan/checklist_compact_stage_hitl_inline_loop.md`
-- 已完成 Compact-stage HITL inline loop 的 contract-first 实现：
-  - 新增独立于 CLI 的 `SopCompactClarificationService`，负责 `clarificationRequest -> questionId/answer -> clarificationResult`
-  - 新增单命令入口 `sop-compact-clarify`，在同一条 workflow 内完成首轮 compact、提问、回写 `intent_resolution.json` 与自动 recompile
-  - 已固定问题合并规则：`unresolvedQuestions` 决定 inclusion/order，`clarification_questions` 只补 phrasing
-  - 已固定 loop 控制：`maxRounds=2`、`user_deferred`、`no_progress`、`recompile_failed`
-  - deterministic contract 验证已完成：`artifacts/e2e/20260308_110124_276_inline_deterministic`
-  - live failure-path 验证已完成：`artifacts/e2e/20260308_110124_276_inline_clean` / `artifacts/e2e/20260308_110124_276_inline_qwen`
-  - live ready-path 验证已完成：`artifacts/e2e/20260308_110124_276_inline_try1`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已冻结 Compact-stage HITL Inline Loop 需求与迁移边界：
-  - 明确当前离线 `sop-compact-hitl` 证明的是能力闭环，不是目标交互形态
-  - 下一阶段主目标改为：`任务识别 -> 不确定项提问 -> 用户回答 -> 自动 recompile -> execution_guide.v1`
-  - 已冻结最小架构：不引入第二个 refinement agent；继续复用 `intent_resolution` 与 V1 compile/gate 真源
-  - 证据：`.plan/20260309_compact_stage_hitl_inline_loop.md` / `.plan/checklist_compact_stage_hitl_inline_loop.md`
-- 已完成 Compact-stage HITL 最小 CLI 入口（本地 repo 验证版）：
-  - 新增 `sop-compact-hitl` CLI，可直接 inspect `execution_guide.detailContext.unresolvedQuestions`
-  - CLI 支持通过 `--set field=value` / `--note ...` 写入或合并 `intent_resolution.json`
-  - 已在仓库内复制常用测试样本到 `artifacts/e2e/20260308_110124_276`，后续验证不再依赖 `~/codes/Sasiki-dev` artifact 目录
-  - 本地验证：`sop-compact-hitl --run-id 20260308_110124_276` inspect 成功，`--note` 写入路径成功
-  - ready-path 也已验证：带最小 `intent_resolution.json` 的样本可让 `execution_guide.v1` 进入 `ready_for_replay`
-- 已完成 SOP Compact V1 主链路 legacy cleanup（为 compact-stage HITL 清场）：
-  - `sop-compact` 不再调用 `structured_abstraction` runner，也不再落盘 `structured_abstraction_draft/raw`
-  - `workflow_guide.json`、`workflow_guide.md`、`decision_model.json` 已从主线产物与 manifest 中移除
-  - rerun `sop-compact` 时会自动清理上述 legacy artifacts，避免旧文件继续污染样本目录
-  - `compact_manifest` 已升级为 `v1`，当前只声明 V1 主链路实际使用的 artifacts
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact V1 Full-Chain Shift Phase-2（agent-owned clarification + coverage gate）：
-  - `semantic_intent_draft` prompt 现已要求模型同时返回 `clarificationQuestions`，并归一化落盘为 `clarification_questions.v1`
-  - 已移除 `clarification_questions` 的模板补齐；coverage gate 改为校验 `semantic_intent_draft.blockingUncertainties -> clarification_questions`
-  - 在 `execution_guide.v1` 接管前，legacy `execution_guide.v0` 即使无 blocking 也不会被标记为 `ready_for_replay`
-  - 已完成 prompt hardening：`semantic_intent_draft` 改为 `workflow-first + strict JSON single-line strings + de-noised evidence summary`
-  - 样本复验：`run_id=20260308_110124_276` 在 `MiniMax + high thinking` 下成功生成新的 `semantic_intent_draft.json` / `clarification_questions.json`，`runtime.log` 记录 `semantic_intent_draft_succeeded`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact V1 Full-Chain Shift Phase-3（`execution_guide.v1` 接管 replay 主编译入口）：
-  - `execution_guide.json` 已切为 `execution_guide.v1`，包含 `generalPlan + detailContext`，不再输出 `goalType/targetEntity`
-  - replay status 与 compile gate 已切到 `semantic_intent_draft.blockingUncertainties + clarification_questions + intent_resolution`
-  - 迁移期曾保留 V0 `workflow_guide/decision_model` 作为对照；当前主线已完成清理，不再继续双写
-  - 样本复验：`run_id=20260308_110124_276` 在 `thinkingLevel=off` 下成功生成 `execution_guide.v1`，状态为 `needs_clarification`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact 当前问题归因与 V1 全链路切换设计冻结：
-  - 归因 1：`clarification_questions` 当前仍为模型产出 + 模板补齐的混合物
-  - 归因 2：`structured_abstraction_draft` 的 step kind 仍依赖后处理归一化，说明 schema 约束不够强
-  - 归因 3：`execution_guide` 当前仍由 V0 `workflow_guide + decision_model` 编译，V1 语义草案尚未成为 replay 主真源
-  - 新方向：下一步全链路切到 V1，保留 general workflow，同时保留 detail context 供 run 随时访问历史细节
-  - 证据：`.plan/20260309_sop_compact_v1_full_chain_shift.md`
-- 已完成 SOP Compact V1 增量迁移 Phase-1（语义草案双写，add-first）：
-  - 新增工件：`semantic_intent_draft.json` / `semantic_intent_raw.txt`
-  - 新增链路：`behavior_evidence.json + behavior_workflow.json + observed_examples.json -> semantic_intent_draft.json`
-  - 样本验证：`run_id=20260308_110124_276` 已成功生成 `semantic_intent_draft.json`，`runtime.log` 记录 `semantic_intent_draft_succeeded`
-  - 兼容性：V0 `execution_guide.json` 仍保持 `status=needs_clarification` / `replayReady=false`，未被 V1 旁路影响
-  - 门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact V1 增量迁移 Phase-0（行为层双写，add-first）：
-  - 新增 V1 contracts：`behavior_evidence.v1` / `behavior_workflow.v1` / `semantic_intent_draft.v1`
-  - 新增 V1 工件：`behavior_evidence.json` / `behavior_workflow.json`
-  - 现状：V0 输出链路保持不变，V1 仅新增行为证据与行为工作流，不替换 replay-facing guide
-  - 门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact V1 设计包并切换主指针：
-  - 新设计：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
-  - 新清单：`.plan/checklist_sop_compact_behavior_semantics_split_v1.md`
-  - 结论：V1 明确要求 deterministic 只保留行为抽象，领域语义交给 agent + HITL
-- 已归档 SOP Compact V0 设计与实现方向，准备切换到 V1：
-  - 原因：V0 仍将领域语义（如 `TargetEntity/GoalType`）压进抽象层，导致 deterministic / agent / HITL 边界不清
-  - 现状：V0 的 structured draft、`workflow_guide`、`decision_model`、`execution_guide` 继续保留为历史样本和迁移参考
-  - 替代设计：`.plan/20260308_sop_compact_behavior_semantics_split_v1.md`
-- 已打通 SOP Compact agent 成功路径并收口最终消费工件：
-  - 真实样本 `run_id=20260308_110124_276` 已拿到 `structured_abstraction_succeeded`，`structuredFallback=false`
-  - 最终 replay-facing 工件固定为 `execution_guide.json`，内部工件继续保留 `abstraction_input/workflow_guide/decision_model/observed_examples/clarification_questions/compact_manifest`
-  - deterministic 层已收敛为抽象行为/evidence 提取与 gate 校验，不再用领域字符串匹配直接推断 `targetEntity`
-  - 行为证据可在 agent draft 明显 underfit 时纠偏 `goalType`，例如本样本已从 `single_object_update` 升为 `collection_processing`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 SOP Compact v0 第一版代码接线（evidence-first + execution guide）：
-  - 新工件：`abstraction_input.json`、`workflow_guide.json`、`decision_model.json`、`observed_examples.json`、`clarification_questions.json`、`execution_guide.json`、`compact_manifest.json`
-  - 新约束：核心抽象改为 `agent-driven abstraction, rule-guarded admission`；无 agent draft 时只允许保守输出 `needs_clarification`
-  - 真实样本验证：`run_id=20260308_110124_276` 已生成新工件；当前因模型 `403 free tier exhausted` 走 fallback，但门禁正确阻止 `ready_for_replay`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已冻结 SOP Compact 通用闭环方向（文档讨论完成，待字段级 schema）：
-  - 设计：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
-  - 清单：`.plan/checklist_sop_compact_intent_abstraction_v0.md`
-  - 结论：`sop-compact` 下一阶段优先解决“规则/样例分离 + 不确定项显式化 + compact-stage HITL”，暂不修改录制协议
-- 已输出 SOP Compact 字段级 schema 草案（待 review 冻结）：
-  - 覆盖：`intent_seed/workflow_guide/decision_model/observed_examples/clarification_questions/intent_resolution/compact_manifest`
-  - 门禁：`uncertainFields` 分级、优先级合并规则、`ready_for_replay` Gate v0
-  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
-- 已完成 schema 草案 review 回写（待继续冻结阻塞点）：
-  - 阻塞点：`medium` 放行策略、JSON/MD 主从关系、`observed_examples/clarification_questions/compact_manifest` schema 与状态机
-  - P0 顺序：放行矩阵 -> JSON 单一真源 -> schema + 状态机 + 最小自动校验
-  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` / `.plan/checklist_sop_compact_intent_abstraction_v0.md`
-- 已冻结 `goalType x uncertaintySeverity` 放行矩阵 v0：
-  - 规则：任意 `high unresolved` 一律阻断；`medium` 仅在不影响目标对象/遍历范围/跳过规则/完成条件/提交动作时允许带 warning 放行
-  - 风险分层：`collection_processing/form_submission/multi_step_transaction` 默认更保守
-  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md`
-- 已完成 SOP Compact 实现前设计冻结：
-  - 决议：`workflow_guide.json` 为单一真源，`MD` 仅渲染；`observed_examples/clarification_questions/compact_manifest` schema、状态机和最小自动校验已冻结
-  - 结论：当前已具备进入实现前的最终 review 条件
-  - 证据：`.plan/20260308_sop_compact_intent_abstraction_v0.md` / `.plan/checklist_sop_compact_intent_abstraction_v0.md`
-- 已完成长程任务 SOP HITL runtime loop 代码接线（待失败场景人工验收）：
-  - 设计：`.plan/20260306_long_task_sop_hitl_runtime_loop.md`
-  - 清单：`.plan/checklist_long_task_sop_hitl_runtime_loop.md`
-  - 能力：`hitl.enabled` 配置开关、最多 `2` 次自动重试、终端人工介入、`intervention_learning.jsonl` 落盘、从当前浏览器状态恢复执行
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已修正 Runtime 配置根目录解析与代理自测约定：
-  - 设计：`.plan/20260306_runtime_config_root_resolution.md`
-  - 清单：`.plan/checklist_runtime_config_root_resolution.md`
-  - `runtime.artifactsDir` 相对路径改为基于工程根标记（`.git`）解析，不再依赖协作文档存在性
-  - README / MEMORY 已补充代理环境下本地 CDP 自测的 `NO_PROXY=localhost,127.0.0.1,::1` 约定
-- 已完成长程任务 SOP 高层日志基础层（run/replay only）：
-  - 设计：`.plan/20260306_long_task_sop_high_level_logging_foundation.md`
-  - 清单：`.plan/checklist_long_task_sop_high_level_logging_foundation.md`
-  - 工件：`artifacts/e2e/{run_id}/high_level_logs.json`
-  - 覆盖语义：`read` / `judge` / `action` / `result` / `intervention`
-  - 质量门禁：`npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成长程任务 SOP HITL 需求冻结（Requirement v0 + Checklist）：
-  - `.plan/20260306_long_task_sop_hitl_requirement_v0.md`
-  - `.plan/checklist_long_task_sop_hitl_requirement_v0.md`
-- 明确迁移架构：Node 主进程负责 agent loop，Python 退出主链路。
-- 明确工具策略：直接接入 Playwright MCP，不重复实现工具协议层。
-- 明确迁移验收口径：以“点赞 + 截图闭环”作为迁移成功标准，而非仅“打开帖子”。
-- 已创建 `apps/agent-runtime` 迁移骨架，并完成核心类抽象：
-  - `AgentLoop`
-  - `ModelResolver`
-  - `McpToolBridge`
-  - `McpStdioClient`
-  - `AgentRuntime`
-- 已将 runtime 主链路切换为 `@mariozechner/pi-agent-core`，移除自研 planner loop 依赖。
-- 已接入运行工件闭环基础能力：每次运行生成 `run_id`，并落盘 `steps.json`、`mcp_calls.jsonl`、`runtime.log`，同时尝试输出 `final.png`。
-- 已补齐 Node 侧 CDP 自动启动（默认本地 endpoint），并修复 MCP tool schema 与 `pi-agent-core` 校验兼容问题（移除 `$schema`/`$id`）。
-- 已支持 `runtime.config.json` 配置加载（模型/MCP/CDP/工件目录），并支持 `--config`/`RUNTIME_CONFIG_PATH` 指定配置文件。
-- 已升级 agent system prompt（身份/能力/观察-行动-验证循环）并新增 `llm.thinkingLevel` 配置，支持输出可复盘的 assistant 思考内容。
-- 已接入 Node 侧 cookie 注入：从 `~/.sasiki/cookies/*.json` 读取并在 CDP 上下文注入（默认开启）。
-- 已完成模型与 OpenAI-compatible endpoint 兼容性治理（映射、错配预警、`developer role` 兼容、DashScope 默认模型策略）。
-- 已补齐模型诊断与可观测性（`configured/final model` 解析日志、`llm_failed_before_mcp` 标记）。
-- 已增强运行稳定性（中断快速落盘、`runtime.log` 保留、MCP 结果不截断）。
-- 已新增 `assistant_turns.json` 工件，按回合落盘 assistant 的 `thinking/text/toolCalls/stopReason`，用于后续 SOP 复刻分析。
-- 已完善浏览器生命周期管理（`runtime.stop()` 优先 `Browser.close`，失败时回退本进程 `SIGTERM`）与启动日志降噪。
-- 已完成一次真实链路验证：可打开小红书、跳转、搜索、打开帖子、截图；点赞动作仍不稳定，且存在中间误操作。
-- 已清理 Python 旧实现与依赖清单（`src/`、`tests/`、`pyproject.toml`、`uv.lock`），仓库主线收敛为 Node runtime。
-- 已新增 PM 技能 `skills/drive-pm-closed-loop`：可将需求讨论收敛为“可执行、可验证”的最小闭环，并提供结构化迭代模板。
-- 已新增 PM 技能 `skills/pm-progress-requirement-discovery`：可基于 `PROGRESS/.plan/MEMORY/NEXT_STEP` 提出高价值澄清问题并收敛当前需求。
-- 已新增 Watch-Once v0 工程开发交接文档：`.plan/20260304_watch_once_v0_engineering_handoff.md`（含逐文件接口草案、错误码、开发顺序与验收口径）。
-- 已完成 Watch-Once PR-1 Contract Foundation：
-  - 新增 `apps/agent-runtime/src/domain/sop-trace.ts`（`SopTrace` 契约 + `validateSopTrace` 校验）
-  - 新增 `apps/agent-runtime/src/domain/sop-asset.ts`（`SopAsset`/`SopAssetQuery` 契约）
-  - 新增 `apps/agent-runtime/src/domain/runtime-errors.ts`（统一 runtime 错误码）
-  - 扩展 `apps/agent-runtime/src/runtime/artifacts-writer.ts`，支持示教 4 工件写入与路径接口
-  - 扩展 `apps/agent-runtime/src/runtime/runtime-config.ts`，补齐 `observe.timeoutMs` 与固定 `sopAssetRootDir` 配置基础
-- 已完成 Watch-Once PR-2 Observe Baseline 代码接线：
-  - CLI 支持 `--mode run|observe`（默认 run）
-  - `AgentRuntime` 新增 `observe(taskHint)`，并实现 run/observe 初始化隔离（observe 不强依赖 LLM/MCP 初始化）
-  - 新增 `playwright-demonstration-recorder.ts`（CDP 单标签示教采集 + 多标签告警）
-  - 新增 `sop-demonstration-recorder.ts`（raw -> trace/draft/webElementHints）
-  - 新增 `sop-asset-store.ts`（`~/.sasiki/sop_assets/index.json` upsert/search/getById）
-  - observe 路径可落盘 `demonstration_raw.jsonl` / `demonstration_trace.json` / `sop_draft.md` / `sop_asset.json`
-- 已完成 Watch-Once PR-2.1 录制优化：
-  - 多标签录制由“失败中断”改为“可记录”，每条 raw event 与 trace step 带 `tabId`
-  - 新增手动后处理命令：`sop-compact --run-id <id>`
-  - `sop-compact` 输出单文件 `sop_compact.md`（high-level 自然语言步骤 + 显式切 tab 步骤 + 关键 hints）
-  - 默认 artifacts 目录统一到仓库根 `artifacts/e2e`（避免在不同 cwd 下落到不同路径）
-- 已完成 Watch-Once PR-2.1 实测验收（run_id=`20260305_134516_980`）：
-  - `demonstration_raw.jsonl` / `demonstration_trace.json` 均含多 tab `tabId`（`tab-1`、`tab-2`）
-  - `singleTabOnly=false`，`sop_compact.md` 含显式切 tab 步骤
-  - `sourceSteps=52`，`compactSteps=27`，完成可复盘降噪
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 PR-3 闭环方案评审（Gate-1）并冻结开发边界：
-  - 评审结论：Approved（`2026-03-05`）
-  - Phase-1 范围：仅 rule-based 压缩与 hints 提升，不引入 LLM/run 消费
-  - Gate-2 保持 AC-1~AC-4 全通过后再进入 Phase-2
-- 已完成 PR-3 Phase-1（Rule-based 压缩 + Hint 去重/保真）并通过 Gate-2：
-  - `sop-compact` 支持输入链终态融合：去除中间编辑噪声，仅保留最终有效输入
-  - `sop-compact` 压缩滚动/重复步骤：连续 scroll 聚合摘要、连续同内容步骤去重
-  - `sop-compact` hints 输出升级：支持 `selector/text/role` 组合去重展示
-  - `buildWebElementHints` 去重策略上线：按 `purpose+selector+textHint+roleHint` 去重
-  - 验收样例 `run_id=20260305_134516_980`：`sourceSteps=52`，`compactSteps=19`
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过；`node .../dist/index.js sop-compact --run-id` 可执行
-- 已完成 PR-3 Phase-2 代码接线（Semantic Layer + Fallback）：
-  - 新增 `src/core/semantic-compactor.ts`，基于 `pi-ai completeSimple` 生成语义 guide
-  - `sop-compact` 新增 `semanticMode(off|auto|on)` 与 `semanticFallback` metadata 标记
-  - CLI 支持 `sop-compact --semantic off|auto|on`，配置支持 `semantic.mode/semantic.timeoutMs`
-  - 语义成功时落盘 `guide_semantic.md`；失败回退 rule-based 且不阻塞 `sop_compact.md`
-  - `runtime.log` 追加 `semantic_compaction_succeeded/fallback` 事件用于排障
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-  - AC-2 验收通过（`run_id=20260305_134516_980`）：`semanticMode=auto` 下生成 `guide_semantic.md`，`semanticFallback=false`
-- 已完成 PR-3 Phase-3 代码接线（Consumption Wiring, config-gated）：
-  - 新增 `src/domain/sop-consumption.ts`（run 消费证据契约）
-  - 新增 `src/runtime/sop-consumption-context.ts`（site/taskHint 检索、guide/hints 注入、回退策略）
-  - `RunExecutor` 接入消费上下文：run 前检索资产并注入低优先级 SOP 参考，落盘 `sop_consumption.json`
-  - `runtime.log` 新增消费事件：`sop_consumption_selected|fallback|skipped`，包含 `asset_id/guide_source/fallback_used`
-  - 配置新增 `consumption.enabled/topN/hintsLimit/maxGuideChars`（默认 `enabled=false` 保持兼容）
-  - `runtime.config.example.json` 与 `apps/agent-runtime/README.md` 已同步
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-  - AC-1~AC-5 手动验收通过（本地 harness：`artifacts/e2e/phase3_acceptance_vXHZnd/*`）
-- 已完成 PR-3 Phase-3A 确定性注入接线（Pinned RunID, retrieval-decoupled）：
-  - CLI 新增 `--sop-run-id <run_id>`，支持 run 无 task 文本（由资产 `taskHint` 提供任务基线）
-  - `run` 路径新增 `AgentRunRequest`，可携带 `sopRunId` 直连资产（`assetId=sop_<run_id>`）
-  - `sop_consumption.json` 新增 `selectionMode/taskSource/pinnedRunId` 证据字段
-  - run 日志增加 `pinned_run_id/selection_mode/task_source`，便于区分自动检索与确定性注入
-  - guide 加载优先级升级：`guide_semantic.md` > `sop_compact.md` > `sop_draft.md`
-  - `npm --prefix apps/agent-runtime run typecheck` 通过
-- 已完成 PR-3 Phase-3A V0 闭环人工验收（用户实测通过）：
-  - 用户反馈：`--sop-run-id` 路径可成功执行确定性流程
-  - 结论：V0 “指定 run_id -> 注入 compact 资产 -> 完成任务”闭环已达成
-- 已完成用户级协作方法论治理升级（AGENTS 重构）：
-  - 根 `AGENTS.md` 已升级为“协作操作系统”（原则、分阶段流程、Gate、文件职责、渐进加载、DoD）
-  - `.plan` 新增治理设计文档与 checklist，支持后续流程审计与防漂移
-- 已完成 Runtime/SOP 解耦重构（功能不变）：
-  - `AgentRuntime` 拆分为生命周期壳 + `RunExecutor` + `ObserveExecutor`
-  - `sop-compact` 拆分为 `sop-rule-compact-builder` / `sop-semantic-runner` / `sop-compact-renderer`
-  - `sop-demonstration-recorder` 拆分为 `sop-trace-builder` / `sop-trace-guide-builder` façade
-  - 新增设计产物：`.plan/20260305_runtime_sop_decoupling_refactor.md`
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已完成 Runtime 命名归位（功能不变）：
-  - 新增 `WorkflowRuntime` 作为顶层编排入口（组合 `AgentExecutionRuntime + ObserveRuntime`）
-  - `index.ts` 切换主入口到 `WorkflowRuntime`
-  - `runtime/agent-runtime.ts` 保留兼容导出（`AgentRuntime` 别名映射到 `WorkflowRuntime`）
-  - 新增设计产物：`.plan/20260305_runtime_naming_realignment.md`
-  - `npm --prefix apps/agent-runtime run typecheck` / `build` 通过
-- 已将复用性经验与踩坑规则沉淀到 `MEMORY.md`，后续新增经验统一更新 MEMORY。
+- 已完成代码基线回滚到 `3c97346`。
+- 已完成 Harness migration bootstrap，并补齐仓库级入口文档与模板。
+- 已完成第一轮“重启同步”：
+  - 当前文档入口已改为以 `.harness/bootstrap.toml`、`docs/project/current-state.md` 和当前代码为准
+  - 历史 `.plan/*` 已降级为 background references
+- 已完成新的架构草案：
+  - `docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md`
+  - 当前草案将 refinement 重构为 `refine agent` 主导的 ReAct 体系
+- 已完成 spec pre-plan freeze 收紧：
+  - 明确 `observe.query` 的结构化约束和反语义劫持边界
+  - 明确 `sourceObservationRef` 同源追踪约束
+  - 明确最小跨 run knowledge 复用握手（`N promote -> N+1 load`）
+  - 明确 `Pre-Plan Gate`：先 subagent review，再 owner review，之后才允许进入 `writing-plans`
+- 已完成一次独立 subagent review，结论为可进入 owner review（无 blocking findings）。
+- 已完成 pre-plan rollback snapshot：
+  - `docs/superpowers/specs/archive/2026-03-20-agent-architecture-redesign-pre-plan-baseline.md`
+  - 该快照用于在进入 `writing-plans` 前保留当前 spec 基线，必要时可直接回退
+- 已完成 owner review，并进入 `writing-plans` 阶段。
+- 已生成 implementation plan：
+  - `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
+- 已同步仓库内最新 lint / verification 口径到项目文档：
+  - 当前基线明确包含 `lint:docs`、`lint:arch`、`lint`、`hardgate`、`typecheck`、`build`
+  - 当前基线尚未包含独立 `test` script；该层会由 active implementation plan 在 Task 2 引入
+- 已完成一次新鲜验证：
+  - `npm --prefix apps/agent-runtime run lint`：通过，`lint:arch` 保留 2 个 near-limit warning（`runtime/interactive-sop-compact.ts`、`runtime/replay-refinement/refinement-memory-store.ts`）
+  - `npm --prefix apps/agent-runtime run hardgate`：通过
+  - hardgate report：`artifacts/code-gate/2026-03-20T02-20-34-784Z/report.json`
