@@ -20,6 +20,7 @@ const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-exe
 const LEGACY_ADAPTER_SHIM_FILES = new Set([
   "core/agent-loop.ts",
   "core/mcp-tool-bridge.ts",
+  "core/sop-demonstration-recorder.ts",
   "core/model-resolver.ts",
   "core/json-model-client.ts",
   "runtime/artifacts-writer.ts",
@@ -41,7 +42,7 @@ const ALLOWED_DEPENDENCIES = {
   domain: new Set(["domain", "contracts"]),
   contracts: new Set(["domain", "contracts"]),
   kernel: new Set(["domain", "contracts", "kernel", "infrastructure"]),
-  core: new Set(["domain", "contracts", "core"]),
+  core: new Set(["domain", "contracts", "core", "kernel"]),
   runtime: new Set(["domain", "contracts", "kernel", "core", "runtime", "infrastructure"]),
   infrastructure: new Set(["domain", "contracts", "infrastructure"]),
 };
