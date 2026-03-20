@@ -39,6 +39,8 @@ const SHIM_ONLY_FILES = new Set([
   "runtime/providers/tool-surface-provider.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
+  "runtime/interactive-sop-compact.ts",
+  "runtime/interactive-sop-compact-prompts.ts",
 ]);
 const CLI_ENTRY_FILES = new Set([
   "index.ts",

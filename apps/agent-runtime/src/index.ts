@@ -8,7 +8,7 @@ import process from "node:process";
 import { parseCliArguments } from "./application/shell/command-router.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
-import { InteractiveSopCompactService } from "./runtime/interactive-sop-compact.js";
+import { InteractiveSopCompactService } from "./application/compact/interactive-sop-compact.js";
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
