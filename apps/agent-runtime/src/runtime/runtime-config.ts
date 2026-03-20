@@ -1,10 +1,10 @@
 /**
- * Deps: runtime/providers/runtime-bootstrap-provider.ts
+ * Deps: infrastructure/config/runtime-bootstrap-provider.ts
  * Used By: index.ts, runtime/workflow-runtime.ts
  * Last Updated: 2026-03-20
  */
 import type { LlmThinkingLevel } from "../domain/llm-thinking.js";
-import { RuntimeBootstrapProvider } from "./providers/runtime-bootstrap-provider.js";
+import { RuntimeBootstrapProvider } from "../infrastructure/config/runtime-bootstrap-provider.js";
 
 export type RuntimeThinkingLevel = LlmThinkingLevel;
 export type RuntimeSemanticMode = "off" | "auto" | "on";

@@ -12,12 +12,19 @@ const srcRoot = path.join(projectRoot, "src");
 const DEFAULT_MAX_LINES = 500;
 const LEGACY_MAX_LINES = new Map([
   ["core/agent-loop.ts", 760],
-  ["runtime/run-executor.ts", 780],
 ]);
 const COMPOSITION_ROOT_FILE = "runtime/runtime-composition-root.ts";
 const PROMPT_PROVIDER_FILE = "runtime/providers/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
+const LEGACY_ADAPTER_SHIM_FILES = new Set([
+  "core/model-resolver.ts",
+  "core/json-model-client.ts",
+  "runtime/artifacts-writer.ts",
+  "runtime/sop-asset-store.ts",
+  "runtime/replay-refinement/attention-knowledge-store.ts",
+  "runtime/replay-refinement/refine-hitl-resume-store.ts",
+]);
 const CLI_ENTRY_FILES = new Set([
   "index.ts",
   "runtime/command-router.ts",
@@ -97,6 +104,11 @@ function addError(ruleId, fileRel, message) {
 
 function addWarning(ruleId, fileRel, message) {
   return { ruleId, fileRel, message };
+}
+
+function isBareReexportShim(sourceText) {
+  const trimmed = sourceText.trim();
+  return /^export\s+\*\s+from\s+["'][^"']+["'];?$/u.test(trimmed);
 }
 
 function checkFileSize(absPath, sourceText, errors, warnings, srcRoot) {
@@ -224,6 +236,20 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
   return localDependencies;
 }
 
+function checkLegacyAdapterShims(absPath, sourceText, errors, srcRoot) {
+  const rel = relFromSrc(absPath, srcRoot);
+  if (!LEGACY_ADAPTER_SHIM_FILES.has(rel)) {
+    return;
+  }
+  if (!isBareReexportShim(sourceText)) {
+    errors.push(addError(
+      "dep.legacy-adapter.shim-only",
+      rel,
+      "Legacy adapter path may remain only as a temporary re-export shim after Task 3 migration."
+    ));
+  }
+}
+
 function canonicalizeCycle(cyclePath) {
   const nodes = cyclePath.slice(0, -1);
   if (nodes.length === 0) {
@@ -314,6 +340,7 @@ export function analyzeArchitecture({ srcRoot }) {
   for (const absPath of files) {
     const sourceText = fs.readFileSync(absPath, "utf8");
     checkFileSize(absPath, sourceText, errors, warnings, srcRoot);
+    checkLegacyAdapterShims(absPath, sourceText, errors, srcRoot);
     const localDeps = checkImports(absPath, sourceText, errors, srcRoot);
     graph.set(relFromSrc(absPath, srcRoot), localDeps);
   }

@@ -161,7 +161,7 @@ Planned target areas introduced during the migration:
 - [x] Implement the minimal code changes that remove legacy direct run as an active runtime surface.
 - [x] Keep `observe`, `sop-compact`, and `refine` working while pruning the old branch.
 - [x] Run focused runtime tests, then repo-wide `test`, `typecheck`, and `build`.
-- [ ] Commit the legacy-surface removal slice in a green state.
+- [x] Commit the legacy-surface removal slice in a green state.
 
 ### Task 3: Extract LLM / Config / Persistence Adapters Into Infrastructure
 
@@ -176,11 +176,11 @@ Planned target areas introduced during the migration:
 - Modify: import sites and corresponding tests
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Move LLM helpers to `infrastructure/llm/`.
-- [ ] Move config source loading to `infrastructure/config/`, while keeping application-facing config contracts separate.
-- [ ] Move stores and artifact adapters to `infrastructure/persistence/`.
+- [x] Move LLM helpers to `infrastructure/llm/`.
+- [x] Move config source loading to `infrastructure/config/`, while keeping application-facing config contracts separate.
+- [x] Move stores and artifact adapters to `infrastructure/persistence/`.
 - [ ] Use temporary re-export shims only where they reduce migration risk; do not leave permanent duplicates.
-- [ ] Run focused tests for model/config/persistence boundaries, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Run focused tests for model/config/persistence boundaries, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
 - [ ] Commit the infrastructure-extraction slice.
 
 ### Task 4: Narrow Core Into Kernel

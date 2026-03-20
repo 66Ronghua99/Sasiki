@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { RuntimeBootstrapProvider } from "../../src/runtime/providers/runtime-bootstrap-provider.js";
+import { RuntimeBootstrapProvider } from "../../src/infrastructure/config/runtime-bootstrap-provider.js";
 
 test("runtime bootstrap provider prefers file config over env and resolves relative artifacts under project root", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "sasiki-bootstrap-"));

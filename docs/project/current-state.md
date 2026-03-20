@@ -51,9 +51,12 @@
   - tool-surface selection is now always `refine-react`
   - prompt selection goes through `apps/agent-runtime/src/runtime/providers/prompt-provider.ts`
   - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
-  - bootstrap/config normalization goes through `apps/agent-runtime/src/runtime/providers/runtime-bootstrap-provider.ts`
+  - bootstrap/config normalization goes through `apps/agent-runtime/src/infrastructure/config/runtime-bootstrap-provider.ts`
   - refine run bootstrap goes through `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
 - The current shared browser execution kernel remains `AgentLoop -> RefineReactToolClient -> Playwright MCP` for the active runtime path.
+- LLM adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/llm/`:
+  - `ModelResolver`
+  - `JsonModelClient`
 - Persistence adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/persistence/`:
   - `ArtifactsWriter`
   - `SopAssetStore`
@@ -69,7 +72,7 @@
   - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
   - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
   - `refine tool surface`: `apps/agent-runtime/src/runtime/replay-refinement/refine-react-tool-client.ts`
-  - `attention knowledge persistence`: `apps/agent-runtime/src/runtime/replay-refinement/attention-knowledge-store.ts`
+  - `attention knowledge persistence`: `apps/agent-runtime/src/infrastructure/persistence/attention-knowledge-store.ts`
 
 ## Current Documentation Truth
 - Active entry docs:
@@ -91,12 +94,7 @@
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- The next repository-level task is Task 3 of the active taxonomy plan.
-- The next task is to move:
-  - `model-resolver`
-  - `json-model-client`
-  - config loading
-  - artifact / SOP / refinement persistence stores
-  into explicit `infrastructure/*` ownership.
-- The key architectural question is no longer “should direct run survive,” but “which current adapters still leak infrastructure concerns through `core/` and `runtime/`.”
+- The next repository-level task is Task 4 of the active taxonomy plan.
+- The next task is to narrow `core/` to true kernel ownership and move non-kernel SOP recorder / trace helpers out.
+- The key architectural question is no longer “which adapters still belong in infrastructure,” but “which current `core/*` files are actually kernel, and which are just waiting to move.”
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

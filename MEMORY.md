@@ -28,6 +28,7 @@
 - 大范围重构不要在单个 worktree 中长时间累积；更稳的节奏是每个可独立验证的小步骤完成后立刻回基线分支合并。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
 - Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
+- Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim，不应继续承载实现。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。

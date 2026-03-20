@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 执行 `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md` 的 Task 3 剩余部分：把 `model-resolver` / `json-model-client` / config loader 迁到 `infrastructure/*`，补齐对应 lint 边界，并在绿色门禁下提交。
+- `P0` 执行 `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md` 的 Task 4：把 `core/` 收窄成真正的 `kernel` 语义，迁出 SOP recorder / trace builder 类代码，并在绿色门禁下提交。

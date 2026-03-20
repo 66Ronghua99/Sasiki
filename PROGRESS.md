@@ -69,7 +69,7 @@
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 继续 active taxonomy plan 的 Task 3 剩余部分：把 LLM / config adapters 从当前 `core/` 与泛化 `runtime/` 中抽到 `infrastructure/*`，并补齐对应的 lint ownership。
+- `P0` 进入 active taxonomy plan 的 Task 4：收窄 `core/` 到真正的 `kernel/`，把 `agent-loop` / `mcp-tool-bridge` 之外的 SOP recorder / trace builder 类代码迁出，并补齐对应 lint ownership。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE
@@ -128,6 +128,24 @@
     - `npm --prefix apps/agent-runtime run typecheck`：通过
     - `npm --prefix apps/agent-runtime run build`：通过
     - `git diff --check`：通过
+- 已完成 Task 3 llm + config slices：
+  - `ModelResolver`、`JsonModelClient` 已迁到 `src/infrastructure/llm/`
+  - `RuntimeBootstrapProvider` 活跃实现已迁到 `src/infrastructure/config/runtime-bootstrap-provider.ts`
+  - `core/*` 与 `runtime/*` 对应旧路径当前仅保留迁移期 shim 或已删除，不再承载真实实现
+  - `lint:arch` 已新增 shim-only 约束，防止这些 legacy adapter 路径重新长回复杂实现
+  - fresh verification:
+    - `npm --prefix apps/agent-runtime run test -- test/core/model-resolver.test.ts test/runtime/runtime-bootstrap-provider.test.ts test/replay-refinement/refine-react-run-executor.test.ts`：通过（53/53）
+    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
+    - `npm --prefix apps/agent-runtime run lint:arch`：通过（0 errors，2 near-limit warnings）
+    - `npm --prefix apps/agent-runtime run lint`：通过
+    - `npm --prefix apps/agent-runtime run typecheck`：通过
+    - `npm --prefix apps/agent-runtime run build`：通过
+    - `npm --prefix apps/agent-runtime run hardgate`：通过
+    - hardgate report：`artifacts/code-gate/2026-03-20T17-37-49-506Z/report.json`
+  - Task 3 commits:
+    - `815242e` `refactor: move llm adapters under infrastructure`
+    - `e494b40` `refactor: move persistence adapters to infrastructure`
+    - pending current config/lint/docs commit for final Task 3 closeout
 - 已完成 spec pre-plan freeze 收紧：
   - 明确 `observe.query` 的结构化约束和反语义劫持边界
   - 明确 `sourceObservationRef` 同源追踪约束

@@ -1,7 +1,7 @@
 /**
  * Deps: node:fs, node:path
  * Used By: runtime/runtime-config.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
