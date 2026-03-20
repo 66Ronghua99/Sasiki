@@ -17,6 +17,7 @@
 - 历史 `.plan/*` 文档现在只作为背景，不再自动代表 active direction；新的方向必须重新写 spec。
 - `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。
 - 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
+- 为避免大小写环境变量差异，运行 refine e2e 时优先同时设置 `NO_PROXY` 与 `no_proxy`，并在同一命令里 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY`。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
@@ -34,6 +35,12 @@
 - 若 run 卡在首轮前（无工具调用），对应 run 目录里的 `refine_turn_logs.jsonl` / `refine_browser_observations.jsonl` / `refine_action_executions.jsonl` / `refine_knowledge_events.jsonl` 会保持空文件，且 run summary 文件仅为 `{}`，可据此快速识别“初始化后未进入有效执行”。
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
 - old stitched refinement 文件在 smoke gate 前可以先断链保留，不要在缺少真实环境证据时直接物理删除。
+- refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。
+- `observe.page` 的页面识别必须按 Playwright markdown 事实解析（`Page URL` / `Page Title` + `Open tabs`）；不能再假设旧 `URL:` / `TITLE:` 行格式。
+- `observe.query` 元素提取必须兼容 YAML `- role [ref=...]` 行；否则会出现“页面有元素但 query 常年空结果”的假阴性。
+- `sourceObservationRef` 现在不仅要“存在”，还要与 live active tab 一致；不一致时应显式失败并要求先 `act.select_tab` / `observe.page` 重新对齐上下文。
+- refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
+- 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 
 ## Environment Requirements
 - Node `>=20`

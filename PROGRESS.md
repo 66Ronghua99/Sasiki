@@ -41,6 +41,9 @@
 - `docs/architecture/overview.md`
 - `docs/architecture/layers.md`
 - `docs/testing/strategy.md`
+- `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+- `docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
+- `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -56,7 +59,7 @@
 - 新的 active spec / plan 将在 `docs/superpowers/specs/` 下重建。
 
 ## TODO
-- `P0` 等待下一轮优化任务输入，并基于新目标冻结下一份 spec/plan。
+- `P0` 按 `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md` 再跑一条真实 refinement e2e，并把 `run_id + proxy 情况 + tab/context 检查结论` 回写 `PROGRESS.md`。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -141,3 +144,25 @@
 - 已完成当前闭环验收收尾：
   - 用户确认已跑通一条结果并通过 HITL 验收
   - 当前任务转为已完成，后续进入新的优化任务阶段
+- 已完成 tab/context consistency 闭环（spec + plan + code）：
+  - 新增 spec：`docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
+  - 新增并完成 plan：`docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
+  - refine tool surface 新增 `act.select_tab`
+  - `observe.page` 解析对齐当前 Playwright markdown（`Page URL` / `Page Title`）并输出 tab 元信息（`tabs` / `activeTabIndex` / `activeTabMatchesPage`）
+  - `observe.query` 解析兼容 YAML `- role [ref=...]` 行格式
+  - `action` 成功语义修复：显式错误输出不再被标记为 `success=true`
+  - `sourceObservationRef` 增加 live active-tab 一致性校验，tab 漂移时显式失败并要求先 `act.select_tab`/`observe.page`
+  - 为满足架构行数门禁，将 snapshot 解析拆分为 `runtime/replay-refinement/refine-browser-snapshot-parser.ts`
+- 已完成新鲜验证（tab/context consistency）：
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/replay-refinement/refine-react-contracts.test.ts`：通过（22 tests）
+  - `npm --prefix apps/agent-runtime run lint`：通过（保留 2 个 near-limit warning + `NEXT_STEP.md` 1 个 warning）
+  - `npm --prefix apps/agent-runtime run hardgate`：通过
+  - `npm --prefix apps/agent-runtime run typecheck`：通过
+  - `npm --prefix apps/agent-runtime run build`：通过
+  - hardgate report：`artifacts/code-gate/2026-03-20T07-14-52-303Z/report.json`
+- 已完成一条真实小红书长文草稿 e2e：
+  - `run_id`: `20260320_152942_514`
+  - 结果：`completed`，确认“输入标题 -> 暂存离开 -> 保存成功 -> 草稿箱可见”闭环成立
+  - 证据目录：`artifacts/e2e/20260320_152942_514/`
+- 已新增可复用 e2e 操作手册（含 proxy 避坑与验收步骤）：
+  - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
