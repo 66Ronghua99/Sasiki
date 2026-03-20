@@ -27,6 +27,7 @@ export interface AgentLoopConfig {
   apiKey: string;
   baseUrl?: string;
   thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  systemPrompt?: string;
 }
 
 export interface AgentLoopProgressSnapshot {
@@ -91,7 +92,7 @@ export class AgentLoop {
       },
       getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
     });
-    agent.setSystemPrompt(SYSTEM_PROMPT);
+    agent.setSystemPrompt(this.config.systemPrompt ?? SYSTEM_PROMPT);
     agent.setThinkingLevel(this.config.thinkingLevel);
     agent.setTools(agentTools);
 

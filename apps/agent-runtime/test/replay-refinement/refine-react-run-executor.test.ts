@@ -1,0 +1,368 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contracts/tool-client.js";
+import type { HitlController } from "../../src/contracts/hitl-controller.js";
+import type { Logger } from "../../src/contracts/logger.js";
+import type { AgentRunResult } from "../../src/domain/agent-types.js";
+import { createRefineReactSession } from "../../src/runtime/replay-refinement/refine-react-session.js";
+import { ReactRefinementRunExecutor } from "../../src/runtime/replay-refinement/react-refinement-run-executor.js";
+import { RefineReactToolClient } from "../../src/runtime/replay-refinement/refine-react-tool-client.js";
+
+class StubLogger implements Logger {
+  info(): void {}
+  warn(): void {}
+  error(): void {}
+}
+
+class StubRawToolClient implements ToolClient {
+  readonly calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+
+  async connect(): Promise<void> {}
+  async disconnect(): Promise<void> {}
+
+  async listTools(): Promise<ToolDefinition[]> {
+    return [
+      { name: "browser_snapshot" },
+      { name: "browser_click" },
+      { name: "browser_type" },
+      { name: "browser_press_key" },
+      { name: "browser_navigate" },
+      { name: "browser_take_screenshot" },
+      { name: "browser_screenshot" },
+    ];
+  }
+
+  async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
+    this.calls.push({ name, args });
+    if (name === "browser_snapshot") {
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              "URL: https://www.xiaohongshu.com/explore",
+              "TITLE: Explore",
+              "[button|el-buy] Buy now",
+              "[button|el-like] 点赞",
+            ].join("\n"),
+          },
+        ],
+      };
+    }
+    if (name === "browser_click") {
+      return { content: [{ type: "text", text: "clicked" }] };
+    }
+    if (name === "browser_type") {
+      return { content: [{ type: "text", text: "typed" }] };
+    }
+    if (name === "browser_press_key") {
+      return { content: [{ type: "text", text: "pressed" }] };
+    }
+    if (name === "browser_navigate") {
+      return { content: [{ type: "text", text: "navigated" }] };
+    }
+    if (name === "browser_take_screenshot" || name === "browser_screenshot") {
+      const outputPath =
+        typeof args.filename === "string"
+          ? args.filename
+          : typeof args.path === "string"
+            ? args.path
+            : typeof args.filePath === "string"
+              ? args.filePath
+              : "unknown";
+      return { content: [{ type: "text", text: `screenshot:${outputPath}` }] };
+    }
+    throw new Error(`unexpected tool: ${name}`);
+  }
+}
+
+class StubHitlController implements HitlController {
+  async requestIntervention(): Promise<{ humanAction: string; resumeInstruction: string; nextTimeRule: string }> {
+    return {
+      humanAction: "human fixed it",
+      resumeInstruction: "continue with confirmed button",
+      nextTimeRule: "ask less often",
+    };
+  }
+}
+
+class FakeLoop {
+  private readonly script: (task: string) => Promise<AgentRunResult>;
+
+  constructor(script: (task: string) => Promise<AgentRunResult>) {
+    this.script = script;
+  }
+
+  async initialize(): Promise<void> {}
+  async shutdown(): Promise<void> {}
+  abort(): void {}
+
+  async run(task: string): Promise<AgentRunResult> {
+    return this.script(task);
+  }
+
+  async captureFinalScreenshot(): Promise<string | undefined> {
+    return undefined;
+  }
+
+  snapshotProgress(): { steps: []; mcpCalls: []; assistantTurns: []; highLevelLogs: [] } {
+    return { steps: [], mcpCalls: [], assistantTurns: [], highLevelLogs: [] };
+  }
+}
+
+function buildBaseLoopResult(task: string, status: AgentRunResult["status"] = "completed"): AgentRunResult {
+  return {
+    task,
+    status,
+    finishReason: "ok",
+    steps: [],
+    mcpCalls: [],
+    assistantTurns: [
+      {
+        index: 1,
+        timestamp: new Date().toISOString(),
+        text: "turn",
+        thinking: "",
+        toolCalls: [],
+      },
+    ],
+  };
+}
+
+test("executor runs browser observe/action through composite tools and persists promoted knowledge for next run", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-run-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "buy-task" }),
+  });
+
+  let runIdSeq = 0;
+  const createRunId = (): string => {
+    runIdSeq += 1;
+    return `run_${runIdSeq}`;
+  };
+
+  const loop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    const query = (await toolClient.callTool("observe.query", {
+      mode: "search",
+      text: "buy",
+      role: "button",
+      limit: 3,
+      intent: "semantic ranking should be ignored",
+    })) as Record<string, unknown>;
+    const first = (query.matches as Array<Record<string, unknown>>)[0];
+    await toolClient.callTool("act.click", {
+      elementRef: first.elementRef,
+      sourceObservationRef: first.sourceObservationRef,
+    });
+    await toolClient.callTool("act.screenshot", {
+      sourceObservationRef: first.sourceObservationRef,
+      filename: "artifacts/proof.png",
+      fullPage: true,
+    });
+    await toolClient.callTool("knowledge.record_candidate", {
+      taskScope: "buy coffee beans",
+      page: query.page,
+      category: "action-target",
+      cue: "buy button",
+      sourceObservationRef: first.sourceObservationRef,
+    });
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "clicked buy",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId,
+    maxTurns: 8,
+    toolClient,
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const firstRun = await executor.execute({
+    task: "buy coffee beans",
+  });
+  assert.equal(firstRun.status, "completed");
+  assert.ok(raw.calls.some((call) => call.name === "browser_snapshot"));
+  assert.ok(raw.calls.some((call) => call.name === "browser_click"));
+  assert.ok(raw.calls.some((call) => call.name === "browser_take_screenshot" || call.name === "browser_screenshot"));
+
+  const secondLoop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "done",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const secondExecutor = new ReactRefinementRunExecutor({
+    loop: secondLoop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId,
+    maxTurns: 8,
+    toolClient,
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const secondRun = await secondExecutor.execute({
+    task: "buy coffee beans",
+  });
+  assert.equal(secondRun.status, "completed");
+
+  const knowledgeEventsPath = path.join(secondRun.artifactsDir ?? "", "refine_knowledge_events.jsonl");
+  const eventsRaw = await readFile(knowledgeEventsPath, "utf-8");
+  assert.match(eventsRaw, /guidance_loaded/);
+  assert.match(eventsRaw, /"count":1/);
+});
+
+test("executor returns paused_hitl and persists resume payload when HITL cannot be answered inline", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-pause-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "pause-task" }),
+  });
+
+  const loop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    await toolClient.callTool("hitl.request", {
+      prompt: "need human confirmation",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId: () => "paused_run",
+    maxTurns: 8,
+    toolClient,
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const result = await executor.execute({
+    task: "confirm target",
+  });
+  assert.equal(result.status, "paused_hitl");
+  assert.equal(result.runId, "paused_run");
+  assert.ok(result.resumeRunId);
+  assert.ok(result.resumeToken);
+
+  const resumePath = path.join(tmpRoot, "paused_run", "hitl_resume.json");
+  const resumeRaw = await readFile(resumePath, "utf-8");
+  assert.match(resumeRaw, /need human confirmation/);
+});
+
+test("executor resumes the same run id after human input and requires run.finish", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-resume-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "resume-task" }),
+  });
+
+  const pausedLoop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    await toolClient.callTool("hitl.request", {
+      prompt: "need human confirmation",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const pausedExecutor = new ReactRefinementRunExecutor({
+    loop: pausedLoop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId: () => "run_resume_target",
+    maxTurns: 8,
+    toolClient,
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const paused = await pausedExecutor.execute({ task: "resume me" });
+  assert.equal(paused.status, "paused_hitl");
+
+  const resumedLoop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    await toolClient.callTool("hitl.request", {
+      prompt: "need human confirmation",
+    });
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "resumed and finished",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const resumedExecutor = new ReactRefinementRunExecutor({
+    loop: resumedLoop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId: () => "should_not_be_used",
+    maxTurns: 8,
+    toolClient,
+    hitlController: new StubHitlController(),
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const resumed = await resumedExecutor.execute({
+    task: "resume me",
+    resumeRunId: paused.runId,
+  });
+  assert.equal(resumed.status, "completed");
+  assert.equal(resumed.runId, paused.runId);
+});
+
+test("executor returns budget_exhausted when turn budget safety fuse is reached", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-budget-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "budget-task" }),
+  });
+
+  const loop = new FakeLoop(async (task) => {
+    await toolClient.callTool("observe.page", {});
+    const result = buildBaseLoopResult(task, "max_steps");
+    result.assistantTurns = [
+      ...result.assistantTurns,
+      {
+        index: 2,
+        timestamp: new Date().toISOString(),
+        text: "turn2",
+        thinking: "",
+        toolCalls: [],
+      },
+    ];
+    return result;
+  });
+
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    createRunId: () => "budget_run",
+    maxTurns: 2,
+    toolClient,
+    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  const result = await executor.execute({
+    task: "run until budget",
+  });
+  assert.equal(result.status, "budget_exhausted");
+});

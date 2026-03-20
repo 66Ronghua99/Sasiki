@@ -16,6 +16,7 @@ interface RuntimeCliArguments {
   mode: RuntimeMode;
   task: string;
   sopRunId?: string;
+  resumeRunId?: string;
 }
 
 interface SopCompactCliArguments {
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
     printUsageAndExit();
     return;
   }
-  if (args.mode === "run" && !args.task && !args.sopRunId) {
+  if (args.mode === "run" && !args.task && !args.sopRunId && !args.resumeRunId) {
     printUsageAndExit();
     return;
   }
@@ -82,6 +83,7 @@ async function main(): Promise<void> {
         : await runtime.run({
             task: args.task,
             sopRunId: args.sopRunId,
+            resumeRunId: args.resumeRunId,
           });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
@@ -108,6 +110,7 @@ function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
   let configPath: string | undefined;
   let mode: RuntimeMode = "run";
   let sopRunId: string | undefined;
+  let resumeRunId: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--config" || arg === "-c") {
@@ -137,9 +140,18 @@ function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
       sopRunId = arg.slice("--sop-run-id=".length).trim();
       continue;
     }
+    if (arg === "--resume-run-id") {
+      resumeRunId = argv[i + 1]?.trim();
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--resume-run-id=")) {
+      resumeRunId = arg.slice("--resume-run-id=".length).trim();
+      continue;
+    }
     taskParts.push(arg);
   }
-  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim(), sopRunId };
+  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim(), sopRunId, resumeRunId };
 }
 
 function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
@@ -201,7 +213,7 @@ function parseSemanticMode(value: string | undefined): RuntimeSemanticMode {
 
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
+    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] [--resume-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- --mode run --resume-run-id <run_id> [\"optional task\"]\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
   );
   process.exit(1);
 }

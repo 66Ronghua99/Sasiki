@@ -7,6 +7,7 @@ import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../domain/agent-types.js";
+import type { ActionExecutionResult, PageObservation } from "../domain/refine-react.js";
 import type {
   CompactCapabilityOutput,
   CompactHumanLoopEvent,
@@ -93,11 +94,41 @@ export class ArtifactsWriter {
     await this.writeJson("consumption_bundle.json", bundle);
   }
 
+  async writeRefineTurnLogs(records: AssistantTurnRecord[]): Promise<void> {
+    await this.writeJsonLines("refine_turn_logs.jsonl", records);
+  }
+
+  async writeRefineBrowserObservations(records: PageObservation[]): Promise<void> {
+    await this.writeJsonLines("refine_browser_observations.jsonl", records);
+  }
+
+  async writeRefineActionExecutions(records: ActionExecutionResult[]): Promise<void> {
+    await this.writeJsonLines("refine_action_executions.jsonl", records);
+  }
+
+  async writeRefineKnowledgeEvents(records: unknown[]): Promise<void> {
+    await this.writeJsonLines("refine_knowledge_events.jsonl", records);
+  }
+
+  async writeRefineRunSummary(summary: unknown): Promise<void> {
+    await this.writeJson("refine_run_summary.json", summary);
+  }
+
   async initializeRefinementArtifacts(): Promise<void> {
     await Promise.all([
       this.writeRefinementSteps([]),
       this.writeSnapshotIndex([]),
       this.writeRefinementKnowledge([]),
+    ]);
+  }
+
+  async initializeReactRefinementArtifacts(): Promise<void> {
+    await Promise.all([
+      this.writeRefineTurnLogs([]),
+      this.writeRefineBrowserObservations([]),
+      this.writeRefineActionExecutions([]),
+      this.writeRefineKnowledgeEvents([]),
+      this.writeRefineRunSummary({}),
     ]);
   }
 

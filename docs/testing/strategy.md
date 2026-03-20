@@ -9,14 +9,16 @@ Protect both runtime behavior and architecture boundaries, with evidence that th
 1. Bootstrap/docs checks: `npm --prefix apps/agent-runtime run lint:docs` to keep Harness entry docs and code pointers aligned.
 2. Structural checks: `npm --prefix apps/agent-runtime run lint:arch` to enforce layer boundaries and abstraction budgets.
 3. Aggregated lint gate: `npm --prefix apps/agent-runtime run lint` to run docs lint, architecture lint, and current typecheck together.
-4. Static verification: `npm --prefix apps/agent-runtime run typecheck`.
-5. Build verification: `npm --prefix apps/agent-runtime run build`.
-6. Hardgate aggregation: `npm --prefix apps/agent-runtime run hardgate` for blocking lint/build contract with artifacts.
-7. End-to-end browser verification: run the fixed Xiaohongshu closed loop command from `.harness/bootstrap.toml` (`e2e_command`) and inspect artifacts under `artifacts/e2e/<run_id>/`.
+4. Contract + runtime unit tests: `npm --prefix apps/agent-runtime run test`.
+5. Static verification: `npm --prefix apps/agent-runtime run typecheck`.
+6. Build verification: `npm --prefix apps/agent-runtime run build`.
+7. Hardgate aggregation: `npm --prefix apps/agent-runtime run hardgate` for blocking lint/build contract with artifacts.
+8. End-to-end browser verification: run refinement path smoke with `REFINEMENT_ENABLED=true` and inspect artifacts under `artifacts/e2e/<run_id>/`.
 
-## Current Baseline Note
+## Current Smoke Blocker
 
-The current repository baseline does not yet include a standalone `npm --prefix apps/agent-runtime run test` command. The active refine-react implementation plan introduces that test layer; until then, `lint`, `hardgate`, `typecheck`, and `build` are the strongest local verification gates.
+- 2026-03-20 local smoke attempted with `REFINEMENT_ENABLED=true node apps/agent-runtime/dist/index.js --mode run --resume-run-id smoke_check`.
+- Current machine returned `Unexpected status 400` when connecting CDP endpoint `http://127.0.0.1:9222/json/version/`, so no fresh refinement E2E artifact was produced in this round.
 
 ## Evidence Rule
 

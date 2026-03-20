@@ -4,11 +4,12 @@
  * Last Updated: 2026-03-06
  */
 export type RuntimeMode = "run" | "observe";
-export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps";
+export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps" | "paused_hitl" | "budget_exhausted";
 
 export interface AgentRunRequest {
   task: string;
   sopRunId?: string;
+  resumeRunId?: string;
 }
 
 export interface AgentStepRecord {
@@ -59,6 +60,12 @@ export interface AgentRunResult {
   mcpCalls: McpCallRecord[];
   assistantTurns: AssistantTurnRecord[];
   finalScreenshotPath?: string;
+  resumeRunId?: string;
+  resumeToken?: string;
+}
+
+export function isPausedHitlStatus(status: AgentRunStatus): status is "paused_hitl" {
+  return status === "paused_hitl";
 }
 
 export interface ObserveRunResult {

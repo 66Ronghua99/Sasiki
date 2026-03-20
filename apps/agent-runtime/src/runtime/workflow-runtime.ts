@@ -14,11 +14,14 @@ import { McpStdioClient } from "../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "./agent-execution-runtime.js";
 import { ObserveExecutor } from "./observe-executor.js";
 import { ObserveRuntime } from "./observe-runtime.js";
-import { OnlineRefinementRunExecutor } from "./replay-refinement/online-refinement-run-executor.js";
+import { createRefineReactSession } from "./replay-refinement/refine-react-session.js";
+import { RefineReactToolClient } from "./replay-refinement/refine-react-tool-client.js";
+import { ReactRefinementRunExecutor } from "./replay-refinement/react-refinement-run-executor.js";
 import { RunExecutor } from "./run-executor.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 import { SopAssetStore } from "./sop-asset-store.js";
 import { SopConsumptionContextBuilder } from "./sop-consumption-context.js";
+import { REFINE_REACT_SYSTEM_PROMPT, RUN_OPERATOR_SYSTEM_PROMPT } from "./system-prompts.js";
 
 export class WorkflowRuntime {
   private readonly cdpLauncher: CdpBrowserLauncher;
@@ -56,17 +59,6 @@ export class WorkflowRuntime {
       },
     });
 
-    const loop = new AgentLoop(
-      {
-        model: config.model,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        thinkingLevel: config.thinkingLevel,
-      },
-      toolClient,
-      logger
-    );
-
     const sopAssetStore = new SopAssetStore(config.sopAssetRootDir);
     const sopConsumptionContext = new SopConsumptionContextBuilder({
       enabled: config.sopConsumptionEnabled,
@@ -77,23 +69,51 @@ export class WorkflowRuntime {
     });
 
     const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
+    const runSystemPrompt = config.runSystemPrompt ?? RUN_OPERATOR_SYSTEM_PROMPT;
+    const refineSystemPrompt = config.refineSystemPrompt ?? REFINE_REACT_SYSTEM_PROMPT;
+    const refineToolClient = config.refinementEnabled
+      ? new RefineReactToolClient({
+          rawClient: toolClient,
+          session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+        })
+      : undefined;
+
+    const runLoop = config.refinementEnabled
+      ? new AgentLoop(
+          {
+            model: config.model,
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            thinkingLevel: config.thinkingLevel,
+            systemPrompt: refineSystemPrompt,
+          },
+          refineToolClient as RefineReactToolClient,
+          logger
+        )
+      : new AgentLoop(
+          {
+            model: config.model,
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            thinkingLevel: config.thinkingLevel,
+            systemPrompt: runSystemPrompt,
+          },
+          toolClient,
+          logger
+        );
+
     const runExecutor = config.refinementEnabled
-      ? new OnlineRefinementRunExecutor({
-          loop,
+      ? new ReactRefinementRunExecutor({
+          loop: runLoop,
           logger,
           artifactsDir: config.artifactsDir,
           createRunId: () => this.createRunId(),
-          model: config.model,
-          apiKey: config.apiKey,
-          baseUrl: config.baseUrl,
-          thinkingLevel: config.thinkingLevel,
-          maxRounds: config.refinementMaxRounds,
-          tokenBudget: config.refinementTokenBudget,
-          knowledgeTopN: config.refinementKnowledgeTopN,
+          maxTurns: config.refinementMaxRounds,
+          toolClient: refineToolClient as RefineReactToolClient,
           hitlController,
         })
       : new RunExecutor({
-          loop,
+          loop: runLoop,
           logger,
           artifactsDir: config.artifactsDir,
           createRunId: () => this.createRunId(),
@@ -110,6 +130,10 @@ export class WorkflowRuntime {
         refinementTokenBudget: config.refinementTokenBudget,
         refinementKnowledgeTopN: config.refinementKnowledgeTopN,
       });
+      logger.info("refinement_mode_ignored", {
+        refinementMode: config.refinementMode,
+        note: "refinementMode is retained only for config compatibility and is ignored in react refinement path",
+      });
     }
 
     const sopRecorder = new SopDemonstrationRecorder();
@@ -124,7 +148,7 @@ export class WorkflowRuntime {
       createRecorder: () => new PlaywrightDemonstrationRecorder(),
     });
 
-    this.agentRuntime = new AgentExecutionRuntime({ loop, runExecutor });
+    this.agentRuntime = new AgentExecutionRuntime({ loop: runLoop, runExecutor });
     this.observeRuntime = new ObserveRuntime({ observeExecutor });
   }
 

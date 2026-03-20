@@ -39,6 +39,8 @@ export interface RuntimeConfigFile {
   };
   runtime?: {
     artifactsDir?: string;
+    runSystemPrompt?: string;
+    refineSystemPrompt?: string;
   };
   observe?: {
     timeoutMs?: number;
@@ -60,6 +62,7 @@ export interface RuntimeConfigFile {
   };
   refinement?: {
     enabled?: boolean;
+    // compatibility-only switch: new react refinement path ignores mode semantics
     mode?: "filtered_view" | "full_snapshot_debug";
     maxRounds?: number;
     tokenBudget?: number;
@@ -87,6 +90,8 @@ export interface RuntimeConfig {
   baseUrl?: string;
   thinkingLevel: RuntimeThinkingLevel;
   artifactsDir: string;
+  runSystemPrompt?: string;
+  refineSystemPrompt?: string;
   observeTimeoutMs: number;
   sopAssetRootDir: string;
   semanticMode: RuntimeSemanticMode;
@@ -151,6 +156,11 @@ export class RuntimeConfigLoader {
       baseUrl,
       thinkingLevel: this.readThinkingLevel(file?.llm?.thinkingLevel, process.env.LLM_THINKING_LEVEL, "minimal"),
       artifactsDir: this.resolveArtifactsDir(projectRoot, file?.runtime?.artifactsDir, process.env.RUNTIME_ARTIFACTS_DIR),
+      runSystemPrompt: this.readOptionalString(file?.runtime?.runSystemPrompt, process.env.RUNTIME_RUN_SYSTEM_PROMPT),
+      refineSystemPrompt: this.readOptionalString(
+        file?.runtime?.refineSystemPrompt,
+        process.env.RUNTIME_REFINE_SYSTEM_PROMPT
+      ),
       observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, process.env.OBSERVE_TIMEOUT_MS, 120000),
       sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
       semanticMode: this.readSemanticMode(file?.semantic?.mode, process.env.SOP_COMPACT_SEMANTIC_MODE, "auto"),
@@ -253,6 +263,14 @@ export class RuntimeConfigLoader {
       return value.split(" ").filter(Boolean);
     }
     return fallback.split(" ").filter(Boolean);
+  }
+
+  private static readOptionalString(configValue: string | undefined, envValue: string | undefined): string | undefined {
+    const value = typeof configValue === "string" && configValue.trim() ? configValue : envValue;
+    if (!value || !value.trim()) {
+      return undefined;
+    }
+    return value.trim();
   }
 
   private static readBoolean(configValue: boolean | undefined, envValue: string | undefined, fallback: boolean): boolean {

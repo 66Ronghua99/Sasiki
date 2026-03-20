@@ -12,22 +12,24 @@
 ## Current Code Status
 - CLI 当前有两类入口：
   - `runtime`：支持 `run` / `observe`
+  - `runtime --resume-run-id <run_id>`：用于 paused refinement run 的同 run 恢复
   - `sop-compact`：支持多轮 interactive compact session
-- 浏览器执行主链仍是单一 shared execution kernel：
-  - `AgentLoop -> McpToolBridge -> Playwright MCP`
+- 浏览器执行主链当前分为两条：
+  - legacy run：`AgentLoop -> McpToolBridge -> Playwright MCP`
+  - refine runtime：`AgentLoop -> RefineReactToolClient -> Playwright MCP`
 - `WorkflowRuntime` 仍按 `refinement.enabled` 分流：
   - `false -> RunExecutor`
-  - `true -> OnlineRefinementRunExecutor`
-- `observe`、`interactive-sop-compact`、`replay-refinement` 代码都仍然存在于当前仓库。
-- `replay-refinement` 的代码基线仍在，但这条架构线在本次重启后尚未重新冻结为新的 active spec。
+  - `true -> ReactRefinementRunExecutor`
+- `refinementMode` 配置字段保留兼容，但在新 refinement 路径中显式 no-op（仅日志告知 ignored）。
+- old stitched refinement 文件仍在仓库（未删除），但已从 `refinement.enabled` 主路径断开。
 - 当前仓库已接入的验证命令是：
   - `npm --prefix apps/agent-runtime run lint:docs`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run test`
   - `npm --prefix apps/agent-runtime run hardgate`
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
-- 当前基线还没有独立 `npm --prefix apps/agent-runtime run test`；该命令会在 active implementation plan 的 Task 2 引入。
 
 ## Active References (L0)
 - `PROGRESS.md`
@@ -54,16 +56,7 @@
 - 新的 active spec / plan 将在 `docs/superpowers/specs/` 下重建。
 
 ## TODO
-- `P0-NEXT` review 当前 implementation plan：
-  - 当前计划：`docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
-  - 需要确认：contract freeze 顺序、HITL resume surface、`AttentionKnowledge` load handshake、runtime cutover 验证门槛
-- `P1` plan review 通过后，进入执行阶段，并替换旧 `.plan/20260312_*` / `.plan/20260313_*` 的 active 指针。
-- `P1` 在新架构冻结后，重新运行当前需要保留的验证：
-  - `npm --prefix apps/agent-runtime run lint`
-  - `npm --prefix apps/agent-runtime run hardgate`
-  - `npm --prefix apps/agent-runtime run typecheck`
-  - `npm --prefix apps/agent-runtime run build`
-  - 必要时重跑 runtime / refinement benchmark，而不是继续沿用旧轮次 artifact 直接宣称完成
+- `P0` 等待下一轮优化任务输入，并基于新目标冻结下一份 spec/plan。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -86,10 +79,65 @@
 - 已完成 owner review，并进入 `writing-plans` 阶段。
 - 已生成 implementation plan：
   - `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
+- 已完成 contract freeze addendum：
+  - `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
+- 已完成 Task 2/3/4 代码落地：
+  - 新增 refine-react domain contracts 与 `attention-knowledge` domain
+  - 新增 `refine-react-tool-client` + browser/runtime tool adapters
+  - 新增 `react-refinement-run-executor`、`refine-hitl-resume-store`、`attention-knowledge-store`、`attention-guidance-loader`
+  - 新增 focused tests：`refine-react-contracts` / `refine-react-tool-client` / `refine-react-run-executor`
+- 已完成 Task 5 cutover（保守模式）：
+  - `refinement.enabled=true` 已切到 `ReactRefinementRunExecutor`
+  - CLI 增加 `--resume-run-id <run_id>`
+  - `refinementMode` 在新路径中显式记录为 ignored/no-op
+  - old stitched refinement 文件暂未删除（待真实 smoke gate）
 - 已同步仓库内最新 lint / verification 口径到项目文档：
-  - 当前基线明确包含 `lint:docs`、`lint:arch`、`lint`、`hardgate`、`typecheck`、`build`
-  - 当前基线尚未包含独立 `test` script；该层会由 active implementation plan 在 Task 2 引入
+  - 当前基线明确包含 `lint:docs`、`lint:arch`、`lint`、`test`、`hardgate`、`typecheck`、`build`
 - 已完成一次新鲜验证：
+  - `npm --prefix apps/agent-runtime run test`：通过（10 tests）
   - `npm --prefix apps/agent-runtime run lint`：通过，`lint:arch` 保留 2 个 near-limit warning（`runtime/interactive-sop-compact.ts`、`runtime/replay-refinement/refinement-memory-store.ts`）
   - `npm --prefix apps/agent-runtime run hardgate`：通过
-  - hardgate report：`artifacts/code-gate/2026-03-20T02-20-34-784Z/report.json`
+  - `npm --prefix apps/agent-runtime run typecheck`：通过
+  - `npm --prefix apps/agent-runtime run build`：通过
+  - hardgate report：`artifacts/code-gate/2026-03-20T03-03-11-821Z/report.json`
+- 已尝试 refinement smoke（阻塞记录）：
+  - 命令：`REFINEMENT_ENABLED=true node apps/agent-runtime/dist/index.js --mode run --resume-run-id smoke_check`
+  - 结果：CDP endpoint `http://127.0.0.1:9222/json/version/` 返回 400，当前机位未产出新的 refinement e2e artifact
+- 已完成多轮真实 refinement smoke（有证据）：
+  - `artifacts/e2e/20260320_121046_992`
+  - `artifacts/e2e/20260320_121354_264`
+  - `artifacts/e2e/20260320_121958_799`
+- 已确认当前 refine-runtime 的工具注入事实：
+  - raw MCP 可用工具包含 `browser_take_screenshot`
+  - refine agent 实际可见工具不含 screenshot
+  - refine `listTools()` 注入 schema 当前为弱 schema（`type: object`）
+  - 工具注入快照：`artifacts/debug/tool-schema-snapshot-20260320.json`
+- 已定义下一轮 active spec / plan：
+  - `docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md`
+  - `docs/superpowers/plans/2026-03-20-refine-react-tool-surface-hardening-implementation.md`
+- 已完成 refine-react 工具面加固 Task 1/2（subagent 执行并集成验证）：
+  - 暴露 `act.screenshot`，支持 `browser_take_screenshot` 优先、`browser_screenshot` fallback
+  - `listTools()` 升级为强 schema（`required` / `enum` / `additionalProperties: false`）
+  - `run.finish.reason` 运行时枚举校验与 schema 对齐
+- 已完成验证门禁（fresh）：
+  - `npm --prefix apps/agent-runtime run lint:docs`：通过
+  - `npm --prefix apps/agent-runtime run lint:arch`：通过（2 个 near-limit warning）
+  - `npm --prefix apps/agent-runtime run lint`：通过
+  - `npm --prefix apps/agent-runtime run hardgate`：通过
+  - `npm --prefix apps/agent-runtime run typecheck`：通过
+  - `npm --prefix apps/agent-runtime run build`：通过
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts`：通过
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts`：通过
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-run-executor.test.ts`：通过
+  - hardgate report：`artifacts/code-gate/2026-03-20T06-00-51-280Z/report.json`
+- 已更新当前模型可见工具 schema 快照（加固后）：
+  - `artifacts/debug/tool-schema-snapshot-20260320-post-hardening.json`
+- 已完成 HITL 终端交互自然语言化改造（spec/plan + code）：
+  - active spec 增加明确 acceptance：终端 HITL 不再输出 schema 样式字段标签
+  - active plan 增加任务：terminal HITL narrative 与单一可选自然语言恢复输入
+  - 代码改动：`apps/agent-runtime/src/infrastructure/hitl/terminal-hitl-controller.ts`
+  - 新增测试：`apps/agent-runtime/test/hitl/terminal-hitl-controller.test.ts`
+  - 验证通过：`lint:docs`、`test -- test/hitl/terminal-hitl-controller.test.ts`、`typecheck`、`build`、`lint`
+- 已完成当前闭环验收收尾：
+  - 用户确认已跑通一条结果并通过 HITL 验收
+  - 当前任务转为已完成，后续进入新的优化任务阶段

@@ -7,6 +7,7 @@ related:
   - .plan/20260312_replay_refinement_requirement_v0.md
   - .plan/20260312_replay_refinement_online_design.md
   - .plan/20260313_execution_kernel_refine_core_rollout.md
+  - docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md
 ---
 
 # Refine Agent ReAct Architecture Spec
@@ -132,6 +133,9 @@ If blocker findings appear, update this spec first and re-run the same gate. Do 
 ## Contract Scope
 
 This spec freezes the architecture direction first, but v1 implementation still requires an explicit contract-freeze pass before code changes begin.
+
+Contract freeze addendum (active pointer):
+- `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
 
 The contract surface is split into four groups:
 

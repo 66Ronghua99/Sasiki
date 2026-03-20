@@ -16,15 +16,19 @@ Provide a browser-agent runtime that can learn from observed demonstrations, exe
 - Run pipeline:
   - legacy direct execution path through `RunExecutor`
 - Refinement pipeline:
-  - optional replay/refinement path through `OnlineRefinementRunExecutor`
+  - ReAct refinement path through `ReactRefinementRunExecutor`
+  - composite agent-facing tool surface through `RefineReactToolClient`
 - Shared execution kernel:
-  - `AgentLoop + McpToolBridge + Playwright MCP`
+  - legacy run: `AgentLoop + McpToolBridge + Playwright MCP`
+  - refinement: `AgentLoop + RefineReactToolClient + Playwright MCP`
 
 ## Invariants
 
 - The shared execution kernel is the only browser execution path; higher-level brains and orchestrators must not bypass it.
 - Runtime claims require fresh evidence in `artifacts/e2e/<run_id>/`.
 - Refinement knowledge must include provenance (`runId`, step identity, snapshot evidence) before it can be reused.
+- Refinement completion requires explicit `run.finish`; if missing, run is not treated as success.
+- HITL pause is explicit (`paused_hitl`) and resumable via the same run id.
 - Historical `.plan/*` files are background references until a new active architecture spec explicitly supersedes them.
 - Documentation and active plans must stay aligned with the implementation baseline; when architecture changes, docs update first.
 

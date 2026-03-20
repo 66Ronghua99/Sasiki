@@ -1,2 +1,1 @@
-Review 文件：`docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
-确认 implementation plan 的任务顺序、resume 语义、knowledge load handshake 和 cutover 安全门槛，然后再进入执行阶段。
+收到下一轮优化任务后，第一步基于 `docs/superpowers/templates/SPEC_TEMPLATE.md` 在 `docs/superpowers/specs/` 创建新 spec，并基于 `docs/superpowers/templates/PLAN_TEMPLATE.md` 在 `docs/superpowers/plans/` 创建对应 plan，再进入执行。
