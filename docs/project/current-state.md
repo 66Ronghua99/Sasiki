@@ -8,6 +8,7 @@
 - The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
 - Task 6 is complete: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
 - Task 5 is complete: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
+- Task 7 is complete: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths where applicable.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
@@ -51,10 +52,11 @@
   - active agent runtime surface is now always `ReactRefinementRunExecutor`
   - tool-surface selection is now always `refine-react`
   - application shell ownership for command routing, composition, and config selection is now canonical under `apps/agent-runtime/src/application/`
-  - prompt selection goes through `apps/agent-runtime/src/runtime/providers/prompt-provider.ts`
+  - prompt selection goes through `apps/agent-runtime/src/application/refine/prompt-provider.ts`
   - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
   - bootstrap/config normalization goes through `apps/agent-runtime/src/infrastructure/config/runtime-bootstrap-provider.ts`
-  - refine run bootstrap goes through `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
+  - refine run bootstrap goes through `apps/agent-runtime/src/application/refine/refine-run-bootstrap-provider.ts`
+  - `apps/agent-runtime/src/runtime/replay-refinement/*` and the old runtime provider paths are shim-only compatibility layers where applicable
 - The current shared browser execution kernel now has canonical ownership under `apps/agent-runtime/src/kernel/`:
   - `AgentLoop`
   - `McpToolBridge`
@@ -79,10 +81,12 @@
   - `kernel`: `apps/agent-runtime/src/kernel/agent-loop.ts`
   - `observe`: `apps/agent-runtime/src/application/observe/`
   - `compact`: `apps/agent-runtime/src/application/compact/`
-  - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
-  - `refine tool surface`: `apps/agent-runtime/src/runtime/replay-refinement/refine-react-tool-client.ts`
+  - `refine`: `apps/agent-runtime/src/application/refine/react-refinement-run-executor.ts`
+  - `refine tool surface`: `apps/agent-runtime/src/application/refine/refine-react-tool-client.ts`
   - `attention knowledge persistence`: `apps/agent-runtime/src/infrastructure/persistence/attention-knowledge-store.ts`
   - `observe support`: `apps/agent-runtime/src/runtime/observe-support/sop-demonstration-recorder.ts`
+  - `refine compatibility shims`: `apps/agent-runtime/src/runtime/replay-refinement/`
+  - `refine provider shims`: `apps/agent-runtime/src/runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts`
 
 ## Current Documentation Truth
 - Active entry docs:
@@ -104,7 +108,7 @@
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- The next repository-level task is Task 6 of the active taxonomy plan.
-- The next task is to rehome observe and compact by ownership while keeping compact active.
-- The key architectural question is now “which observe/compact runtime-root files should move into application-owned flow areas, and which should remain runtime state/execution.”
+- The next repository-level task is Task 8 of the active taxonomy plan.
+- The next task is to narrow runtime to session, state, and execution semantics while keeping the application-owned refine subtree isolated.
+- The key architectural question is now “which remaining runtime files are true live state/execution concerns, and which are still application-shell wrappers or compatibility shims.”
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

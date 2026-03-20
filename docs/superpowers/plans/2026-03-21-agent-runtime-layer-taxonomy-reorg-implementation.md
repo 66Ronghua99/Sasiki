@@ -68,6 +68,7 @@ Likely high-churn areas across this plan:
 - `apps/agent-runtime/src/contracts/**`
 - `apps/agent-runtime/src/core/**`
 - `apps/agent-runtime/src/runtime/**`
+- `apps/agent-runtime/src/application/**`
 - `apps/agent-runtime/src/infrastructure/**`
 - `apps/agent-runtime/test/**`
 - `apps/agent-runtime/scripts/lint-architecture.mjs`
@@ -247,22 +248,24 @@ Task 6 completed in commits `541c653`, `bc22787`, `3b0614b`, and `84595d1`.
 ### Task 7: Rehome Refine Into One Application Subtree
 
 **Files:**
-- Move/rename: `apps/agent-runtime/src/runtime/replay-refinement/**`
+- Move/rename: `apps/agent-runtime/src/runtime/replay-refinement/**` -> canonical home under `apps/agent-runtime/src/application/refine/**`
 - Move/rename: `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
 - Move/rename or split: `apps/agent-runtime/src/runtime/providers/prompt-provider.ts`
 - Modify: refine imports and refine tests
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Replace `replay-refinement` with a refine-owned application subtree.
-- [ ] Move refine bootstrap, prompts, tooling, orchestration, and persistence-facing callers under one refine application area.
-- [ ] Keep refine runtime state separate from refine application orchestration where needed.
-- [ ] Run focused refine tests:
+- [x] Replace `replay-refinement` with a refine-owned application subtree.
+- [x] Move refine bootstrap, prompts, tooling, orchestration, and persistence-facing callers under one refine application area.
+- [x] Keep refine runtime state separate from refine application orchestration where needed.
+- [x] Run focused refine tests:
   - `test/replay-refinement/refine-react-contracts.test.ts`
   - `test/replay-refinement/refine-react-tool-client.test.ts`
   - `test/replay-refinement/refine-react-run-executor.test.ts`
   - `test/runtime/refine-run-bootstrap-provider.test.ts`
-- [ ] Then run repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the refine-ownership slice.
+- [x] Then run repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Commit the refine-ownership slice.
+
+Task 7 completed in commits `d175463`, `f3711fa`, `7721a29`, and `4a4778a`.
 
 ### Task 8: Narrow Runtime To Session / State / Execution Semantics
 

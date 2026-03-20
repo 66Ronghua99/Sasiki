@@ -13,6 +13,7 @@
 - 当前活跃闭环已经切换为 `agent runtime global layer taxonomy`，之前的 `executor/bootstrap boundary refactor` 与 `runtime surface pruning` 只保留为已完成或已被更大方向覆盖的历史背景。
 - Task 6 已完成：`application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
 - Task 5 已完成：`application/shell/`、`application/config/` 与 `application/providers/` 现在是 shell/composition、runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim where applicable。
+- Task 7 已完成：`application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
 - CLI 当前有两类入口：
   - `runtime`：支持 `run` / `observe`
   - `runtime --resume-run-id <run_id>`：用于 paused refinement run 的同 run 恢复
@@ -72,7 +73,7 @@
 
 ## TODO
 - `P0` 继续 active taxonomy plan 的 Task 6 子切片，把 observe / compact 按 ownership 重新归位。
-- `P0` 继续 active taxonomy plan 的 Task 7，把 refine 重新收口到单一 application subtree。
+- `P0` 继续 active taxonomy plan 的 Task 8，把 runtime 收窄到 session / state / execution semantics。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE
@@ -181,6 +182,14 @@
   - Task 5 commits:
     - `e57d644`
     - `2ca3d8d`
+- 已完成 Task 7 refine ownership slice：
+  - `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home
+  - `runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths
+  - Task 7 commits：
+    - `d175463`
+    - `f3711fa`
+    - `7721a29`
+    - `4a4778a`
 - 已完成 spec pre-plan freeze 收紧：
   - 明确 `observe.query` 的结构化约束和反语义劫持边界
   - 明确 `sourceObservationRef` 同源追踪约束

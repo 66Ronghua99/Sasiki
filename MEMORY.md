@@ -34,6 +34,7 @@
 - Task 5 slice B 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
 - Task 5 完成后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim，真正的 app wiring 不应再散落在 generic runtime root。
 - Task 6 完成后，observe orchestration / recording support 的 canonical home 是 `application/observe/*`，SOP compact 的 canonical home 是 `application/compact/*`；旧 `runtime/*` 中对应路径只应保留薄 shim where applicable。
+- Task 7 完成后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`；`runtime/replay-refinement/*` 与已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 只应作为 shim-only compatibility paths 存在。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
