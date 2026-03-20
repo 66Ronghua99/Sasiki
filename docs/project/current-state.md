@@ -53,7 +53,9 @@
   - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
   - bootstrap/config normalization goes through `apps/agent-runtime/src/infrastructure/config/runtime-bootstrap-provider.ts`
   - refine run bootstrap goes through `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
-- The current shared browser execution kernel remains `AgentLoop -> RefineReactToolClient -> Playwright MCP` for the active runtime path.
+- The current shared browser execution kernel now has canonical ownership under `apps/agent-runtime/src/kernel/`:
+  - `AgentLoop`
+  - `McpToolBridge`
 - LLM adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/llm/`:
   - `ModelResolver`
   - `JsonModelClient`
@@ -72,6 +74,7 @@
   - deleted `apps/agent-runtime/src/runtime/sop-consumption-context.ts`
 - The refine-react tool surface now includes `act.file_upload` with strict `paths` handling and focused tests.
 - Current major code areas:
+  - `kernel`: `apps/agent-runtime/src/kernel/agent-loop.ts`
   - `observe`: `apps/agent-runtime/src/runtime/observe-runtime.ts`
   - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
   - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
@@ -99,7 +102,7 @@
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- The next repository-level task is Task 4 of the active taxonomy plan.
-- The next task is to narrow `core/` to true kernel ownership and move non-kernel SOP recorder / trace helpers out.
-- The key architectural question is no longer “which adapters still belong in infrastructure,” but “which current `core/*` files are actually kernel, and which are just waiting to move.”
+- The next repository-level task is Task 5 of the active taxonomy plan.
+- The next task is to introduce `application/` ownership and move shell / composition / provider-or-service code out of generic `runtime/`.
+- The key architectural question is no longer “what belongs in core vs kernel,” but “which current runtime-root files are really application shell/config/services, and which should remain runtime state/execution.”
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

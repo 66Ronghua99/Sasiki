@@ -179,9 +179,9 @@ Planned target areas introduced during the migration:
 - [x] Move LLM helpers to `infrastructure/llm/`.
 - [x] Move config source loading to `infrastructure/config/`, while keeping application-facing config contracts separate.
 - [x] Move stores and artifact adapters to `infrastructure/persistence/`.
-- [ ] Use temporary re-export shims only where they reduce migration risk; do not leave permanent duplicates.
+- [x] Use temporary re-export shims only where they reduce migration risk; do not leave permanent duplicates.
 - [x] Run focused tests for model/config/persistence boundaries, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the infrastructure-extraction slice.
+- [x] Commit the infrastructure-extraction slice.
 
 ### Task 4: Narrow Core Into Kernel
 
@@ -194,11 +194,11 @@ Planned target areas introduced during the migration:
 - Modify: imports across runtime/application code and tests
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Create the narrowed `kernel/` area and migrate only true execution-kernel code into it.
-- [ ] Move SOP recorder/trace builders out of current `core/`; do not keep non-kernel code in the renamed layer.
-- [ ] Update lint so `core/` is no longer treated as the long-term architectural root.
-- [ ] Run focused tests for `agent-loop` consumers plus repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the kernel-narrowing slice.
+- [x] Create the narrowed `kernel/` area and migrate only true execution-kernel code into it.
+- [x] Move SOP recorder/trace builders out of current `core/`; do not keep non-kernel code in the renamed layer.
+- [x] Update lint so `core/` is no longer treated as the long-term architectural root.
+- [x] Run focused tests for `agent-loop` consumers plus repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Commit the kernel-narrowing slice.
 
 ### Task 5: Build The Application Layer Skeleton
 

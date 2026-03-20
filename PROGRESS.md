@@ -69,7 +69,7 @@
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 继续 active taxonomy plan 的 Task 4 后半段：把 `agent-loop` / `mcp-tool-bridge` 收进真正的 `kernel/` 语义，并让 `core/` 仅保留迁移期 shim。
+- `P0` 进入 active taxonomy plan 的 Task 5：引入 `application/` 骨架，把 shell / composition / provider-or-service 代码从泛化 `runtime/` 根目录迁出，并补齐对应 lint ownership。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE
@@ -155,6 +155,23 @@
     - `npm --prefix apps/agent-runtime run typecheck`：通过
     - `npm --prefix apps/agent-runtime run build`：通过
     - `git diff --check`：通过
+- 已完成 Task 4 slice B kernel narrowing：
+  - `AgentLoop` 与 `McpToolBridge` 的真源已迁到 `apps/agent-runtime/src/kernel/`
+  - `apps/agent-runtime/src/core/agent-loop.ts` 与 `apps/agent-runtime/src/core/mcp-tool-bridge.ts` 当前仅保留 bare re-export shim
+  - `lint:arch` 已收紧为：
+    - `core/*` shim-only
+    - `core -> kernel` 仅作迁移期兼容
+    - `kernel/*` 作为长期执行内核实现层
+  - fresh verification:
+    - `npm --prefix apps/agent-runtime run test`：通过（53/53）
+    - `npm --prefix apps/agent-runtime run lint:arch`：通过（0 errors，2 near-limit warnings）
+    - `npm --prefix apps/agent-runtime run typecheck`：通过
+    - `npm --prefix apps/agent-runtime run build`：通过
+    - `npm --prefix apps/agent-runtime run hardgate`：通过
+  - Task 4 commits:
+    - `4068233` `refactor: move sop observe helpers out of core`
+    - `6947bbd` `refactor: move agent kernel into kernel layer`
+    - `faa763f` `refactor: canonize kernel agent loop`
 - 已完成 spec pre-plan freeze 收紧：
   - 明确 `observe.query` 的结构化约束和反语义劫持边界
   - 明确 `sourceObservationRef` 同源追踪约束
