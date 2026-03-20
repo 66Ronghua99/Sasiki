@@ -1,1 +1,1 @@
-export * from "../runtime/observe-support/sop-demonstration-recorder.js";
+export * from "../application/observe/support/sop-demonstration-recorder.js";

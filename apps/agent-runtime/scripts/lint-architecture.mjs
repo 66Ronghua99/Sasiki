@@ -22,6 +22,9 @@ const APPLICATION_RUNTIME_SHIMS = new Set([
   "runtime/runtime-config.ts",
   "runtime/system-prompts.ts",
   "runtime/replay-refinement/attention-guidance-loader.ts",
+  "runtime/observe-support/sop-demonstration-recorder.ts",
+  "runtime/observe-support/sop-trace-builder.ts",
+  "runtime/observe-support/sop-trace-guide-builder.ts",
 ]);
 const REFINE_TOOLING_SHIM_FILES = [
   "runtime/replay-refinement/attention-guidance-loader.ts",
@@ -58,6 +61,9 @@ const SHIM_ONLY_FILES = new Set([
   ...REFINE_TOOLING_SHIM_FILES,
   "runtime/interactive-sop-compact.ts",
   "runtime/interactive-sop-compact-prompts.ts",
+  "runtime/observe-support/sop-demonstration-recorder.ts",
+  "runtime/observe-support/sop-trace-builder.ts",
+  "runtime/observe-support/sop-trace-guide-builder.ts",
 ]);
 const CLI_ENTRY_FILES = new Set([
   "index.ts",

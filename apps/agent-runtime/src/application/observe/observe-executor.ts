@@ -1,9 +1,9 @@
 /**
- * Deps: runtime/observe-support/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts, infrastructure/browser/playwright-demonstration-recorder.ts, infrastructure/persistence/*
+ * Deps: application/observe/support/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts, infrastructure/browser/playwright-demonstration-recorder.ts, infrastructure/persistence/*
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
-import type { SopDemonstrationRecorder } from "../../runtime/observe-support/sop-demonstration-recorder.js";
+import type { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
 import type { Logger } from "../../contracts/logger.js";
 import type { ObserveRunResult } from "../../domain/agent-types.js";
 import { RuntimeError } from "../../domain/runtime-errors.js";

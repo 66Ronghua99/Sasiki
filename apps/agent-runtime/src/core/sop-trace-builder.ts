@@ -1,1 +1,1 @@
-export * from "../runtime/observe-support/sop-trace-builder.js";
+export * from "../application/observe/support/sop-trace-builder.js";
