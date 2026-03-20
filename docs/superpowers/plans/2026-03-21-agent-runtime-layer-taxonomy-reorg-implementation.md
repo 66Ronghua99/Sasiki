@@ -215,11 +215,13 @@ Planned target areas introduced during the migration:
 - Modify: `apps/agent-runtime/test/runtime/runtime-bootstrap-provider.test.ts`
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Introduce `application/` with `shell/`, `providers-or-services/`, and config-facing ownership.
-- [ ] Move shell and composition code out of the generic `runtime/` root.
-- [ ] Keep provider abstractions only as internal application organization, not as a long-term top-level taxonomy claim.
-- [ ] Run focused shell/config/composition tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the application-skeleton slice.
+- [x] Introduce `application/` with `shell/`, `providers-or-services/`, and config-facing ownership.
+- [x] Move shell and composition code out of the generic `runtime/` root.
+- [x] Keep provider abstractions only as internal application organization, not as a long-term top-level taxonomy claim.
+- [x] Run focused shell/config/composition tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Commit the application-skeleton slice.
+
+Task 5 completed in commits `e57d644` and `2ca3d8d`.
 
 ### Task 6: Rehome Observe And Compact By Ownership
 

@@ -6,7 +6,7 @@
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
-- Task 3 has an in-progress persistence extraction slice: the persistence adapters now have a canonical home under `apps/agent-runtime/src/infrastructure/persistence/`, while the old runtime import paths remain thin shims.
+- Task 5 is complete: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
@@ -49,6 +49,7 @@
 - Runtime assembly lives in `apps/agent-runtime/src/runtime/runtime-composition-root.ts`:
   - active agent runtime surface is now always `ReactRefinementRunExecutor`
   - tool-surface selection is now always `refine-react`
+  - application shell ownership for command routing, composition, and config selection is now canonical under `apps/agent-runtime/src/application/`
   - prompt selection goes through `apps/agent-runtime/src/runtime/providers/prompt-provider.ts`
   - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
   - bootstrap/config normalization goes through `apps/agent-runtime/src/infrastructure/config/runtime-bootstrap-provider.ts`
@@ -102,7 +103,7 @@
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- The next repository-level task is Task 5 of the active taxonomy plan.
-- The next task is to introduce `application/` ownership and move shell / composition / provider-or-service code out of generic `runtime/`.
-- The key architectural question is no longer “what belongs in core vs kernel,” but “which current runtime-root files are really application shell/config/services, and which should remain runtime state/execution.”
+- The next repository-level task is Task 6 of the active taxonomy plan.
+- The next task is to rehome observe and compact by ownership while keeping compact active.
+- The key architectural question is now “which observe/compact runtime-root files should move into application-owned flow areas, and which should remain runtime state/execution.”
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

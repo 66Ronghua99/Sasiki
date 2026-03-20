@@ -32,6 +32,7 @@
 - Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim，不应继续承载实现。
 - Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`，observe 录制/trace helper 已迁到 `runtime/observe-support/*`。
 - Task 5 slice B 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
+- Task 5 完成后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim，真正的 app wiring 不应再散落在 generic runtime root。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
