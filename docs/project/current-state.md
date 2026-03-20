@@ -5,6 +5,7 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
+- The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
@@ -28,30 +29,38 @@
   - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
+- Fresh refinement flow validation also exists for the current refactor baseline:
+  - run id `20260320_231626_543`
+  - system Chrome startup, cookie injection, CDP ready, model resolution, and `agent_loop_initialized` were all observed
+  - this is the current process-level acceptance signal for the refactor; business-level task completion remains a later stabilization concern
+- Fresh provenance-stability validation also exists for the current local route:
+  - repo gates passed again with report `artifacts/code-gate/2026-03-20T15-43-32-639Z/report.json`
+  - run id `20260320_234009_829` confirmed first-turn bootstrap no longer starts with synthetic symbolic refs, but still exposed one later invented observation ref after navigation
+  - run id `20260320_234350_187` no longer shows `unknown sourceObservationRef` or `tab mismatch`; current failure is a real page interaction timeout on `写长文`
 
 ## Code-Backed Baseline
 - CLI entrypoints live in `apps/agent-runtime/src/index.ts`:
-  - `runtime` command with `run` / `observe`
-  - `runtime --resume-run-id <run_id>` for paused refinement resume
-  - `sop-compact` command
-- CLI parsing now lives in `apps/agent-runtime/src/runtime/command-router.ts`, so `index.ts` is limited to config loading, lifecycle wiring, and top-level dispatch.
-- Runtime assembly now lives in `apps/agent-runtime/src/runtime/runtime-composition-root.ts`:
-  - `refinement.enabled=false -> RunExecutor`
-  - `refinement.enabled=true -> ReactRefinementRunExecutor`
+  - `observe`
+  - `refine`
+  - `sop-compact`
+  - legacy `runtime` / `--mode run|observe` only survives as a compatibility error with upgrade guidance
+- CLI parsing lives in `apps/agent-runtime/src/runtime/command-router.ts`, so `index.ts` is limited to config loading, lifecycle wiring, and top-level dispatch.
+- Runtime assembly lives in `apps/agent-runtime/src/runtime/runtime-composition-root.ts`:
+  - active agent runtime surface is now always `ReactRefinementRunExecutor`
+  - tool-surface selection is now always `refine-react`
   - prompt selection goes through `apps/agent-runtime/src/runtime/providers/prompt-provider.ts`
   - tool-surface selection goes through `apps/agent-runtime/src/runtime/providers/tool-surface-provider.ts`
   - bootstrap/config normalization goes through `apps/agent-runtime/src/runtime/providers/runtime-bootstrap-provider.ts`
-  - legacy run bootstrap goes through `apps/agent-runtime/src/runtime/providers/legacy-run-bootstrap-provider.ts`
   - refine run bootstrap goes through `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
-- The current shared browser execution kernel remains:
-  - legacy run path: `AgentLoop -> McpToolBridge -> Playwright MCP`
-  - refinement path: `AgentLoop -> RefineReactToolClient -> Playwright MCP`
-- The disconnected stitched refinement subtree has been removed after zero-reference verification; the active refinement runtime is now the React refinement path only.
+- The current shared browser execution kernel remains `AgentLoop -> RefineReactToolClient -> Playwright MCP` for the active runtime path.
+- The disconnected stitched refinement subtree has been removed after zero-reference verification, and Task 2 also removed the old direct-run path:
+  - deleted `apps/agent-runtime/src/runtime/run-executor.ts`
+  - deleted `apps/agent-runtime/src/runtime/providers/legacy-run-bootstrap-provider.ts`
+  - deleted `apps/agent-runtime/src/runtime/sop-consumption-context.ts`
 - The refine-react tool surface now includes `act.file_upload` with strict `paths` handling and focused tests.
 - Current major code areas:
   - `observe`: `apps/agent-runtime/src/runtime/observe-runtime.ts`
   - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
-  - `legacy run`: `apps/agent-runtime/src/runtime/run-executor.ts`
   - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
   - `refine tool surface`: `apps/agent-runtime/src/runtime/replay-refinement/refine-react-tool-client.ts`
   - `attention knowledge persistence`: `apps/agent-runtime/src/runtime/replay-refinement/attention-knowledge-store.ts`
@@ -64,15 +73,24 @@
   - `AGENT_INDEX.md`
   - `.harness/bootstrap.toml`
   - `docs/architecture/overview.md`
+- Active spec / plan:
+  - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
+  - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
   - `.plan/20260312_replay_refinement_online_design.md`
   - `.plan/20260313_execution_kernel_refine_core_rollout.md`
+  - `docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md`
+  - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Follow-Up
-- Current code baseline now has the new file-upload slice plus green focused tests and core repo gates, but the latest fresh refinement e2e still failed before useful execution.
-- The latest e2e used system Chrome with `.sasiki/chrome_profile` and cookies, and the first turn attempted `act.navigate` with invented `sourceObservationRef` values before any valid observation existed.
-- System Chrome observation can begin on `about:blank` or extra blank / omnibox tabs, so first-turn bootstrap must explicitly handle that state.
-- The next change must be a smaller focused slice around first-turn navigation bootstrap and invalid synthetic `sourceObservationRef` behavior before broader e2e stabilization continues.
+- The next repository-level task is Task 3 of the active taxonomy plan.
+- The next task is to move:
+  - `model-resolver`
+  - `json-model-client`
+  - config loading
+  - artifact / SOP / refinement persistence stores
+  into explicit `infrastructure/*` ownership.
+- The key architectural question is no longer “should direct run survive,” but “which current adapters still leak infrastructure concerns through `core/` and `runtime/`.”
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

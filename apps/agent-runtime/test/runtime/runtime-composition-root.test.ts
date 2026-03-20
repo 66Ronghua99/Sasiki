@@ -34,10 +34,6 @@ function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConf
     sopAssetRootDir: "~/.sasiki/sop_assets",
     semanticMode: "auto",
     semanticTimeoutMs: 12000,
-    sopConsumptionEnabled: false,
-    sopConsumptionTopN: 3,
-    sopConsumptionHintsLimit: 8,
-    sopConsumptionMaxGuideChars: 4000,
     hitlEnabled: false,
     hitlRetryLimit: 2,
     hitlMaxInterventions: 1,
@@ -50,11 +46,11 @@ function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConf
   };
 }
 
-test("planRuntimeComposition selects legacy raw surface when refinement is disabled", () => {
+test("planRuntimeComposition keeps refine-react as the only active agent runtime surface", () => {
   const plan = planRuntimeComposition(buildRuntimeConfig({ refinementEnabled: false }));
 
-  assert.equal(plan.runExecutorKind, "legacy");
-  assert.equal(plan.toolSurfaceKind, "raw");
+  assert.equal(plan.runExecutorKind, "refine");
+  assert.equal(plan.toolSurfaceKind, "refine-react");
   assert.match(plan.prompts.runSystemPrompt, /Sasiki Browser Operator/);
   assert.match(plan.prompts.refineSystemPrompt, /Sasiki Refine Agent/);
 });
@@ -77,9 +73,9 @@ test("planRuntimeComposition selects refine-react surface and respects prompt ov
 test("createRuntimeComposition builds runtime services for both legacy and refine modes", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-runtime-composition-"));
 
-  const legacy = createRuntimeComposition(
+  const compatConfig = createRuntimeComposition(
     buildRuntimeConfig({
-      artifactsDir: path.join(tmpRoot, "legacy"),
+      artifactsDir: path.join(tmpRoot, "compat"),
       refinementEnabled: false,
     })
   );
@@ -90,14 +86,14 @@ test("createRuntimeComposition builds runtime services for both legacy and refin
     })
   );
 
-  assert.equal(typeof legacy.browserLifecycle.start, "function");
-  assert.equal(typeof legacy.agentRuntime.run, "function");
-  assert.equal(typeof legacy.observeRuntime.observe, "function");
+  assert.equal(typeof compatConfig.browserLifecycle.start, "function");
+  assert.equal(typeof compatConfig.agentRuntime.run, "function");
+  assert.equal(typeof compatConfig.observeRuntime.observe, "function");
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
   assert.equal(typeof refine.agentRuntime.run, "function");
   assert.equal(typeof refine.observeRuntime.observe, "function");
 
-  await legacy.agentRuntime.stop();
+  await compatConfig.agentRuntime.stop();
   await refine.agentRuntime.stop();
 });

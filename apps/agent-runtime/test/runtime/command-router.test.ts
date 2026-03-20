@@ -3,28 +3,39 @@ import test from "node:test";
 
 import {
   parseCliArguments,
-  parseRuntimeArguments,
+  parseObserveArguments,
+  parseRefineArguments,
   parseSopCompactArguments,
 } from "../../src/runtime/command-router.js";
 
-test("parseRuntimeArguments preserves current runtime grammar", () => {
+test("parseObserveArguments preserves explicit observe grammar", () => {
   assert.deepEqual(
-    parseRuntimeArguments([
+    parseObserveArguments([
       "--config",
       "agent.config.json",
-      "--mode=observe",
-      "--sop-run-id",
-      "sop-123",
+      "hello",
+      "world",
+    ]),
+    {
+      command: "observe",
+      configPath: "agent.config.json",
+      task: "hello world",
+    }
+  );
+});
+
+test("parseRefineArguments preserves explicit refine grammar including resume", () => {
+  assert.deepEqual(
+    parseRefineArguments([
+      "--config=agent.config.json",
       "--resume-run-id=resume-456",
       "hello",
       "world",
     ]),
     {
-      command: "runtime",
+      command: "refine",
       configPath: "agent.config.json",
-      mode: "observe",
       task: "hello world",
-      sopRunId: "sop-123",
       resumeRunId: "resume-456",
     }
   );
@@ -58,10 +69,44 @@ test("parseCliArguments delegates sop compact parsing", () => {
   });
 });
 
-test("parseRuntimeArguments rejects invalid mode values", () => {
+test("parseCliArguments delegates explicit observe parsing", () => {
+  assert.deepEqual(parseCliArguments(["observe", "--config", "agent.config.json", "hello", "world"]), {
+    command: "observe",
+    configPath: "agent.config.json",
+    task: "hello world",
+  });
+});
+
+test("parseCliArguments delegates explicit refine parsing", () => {
+  assert.deepEqual(
+    parseCliArguments(["refine", "--config=agent.config.json", "--resume-run-id=resume-456", "hello", "world"]),
+    {
+      command: "refine",
+      configPath: "agent.config.json",
+      task: "hello world",
+      resumeRunId: "resume-456",
+    }
+  );
+});
+
+test("parseCliArguments rejects legacy runtime command with upgrade guidance", () => {
   assert.throws(
-    () => parseRuntimeArguments(["--mode", "invalid"]),
-    /invalid --mode value: invalid\. expected run\|observe/
+    () => parseCliArguments(["runtime", "--mode", "observe", "hello"]),
+    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
+  );
+});
+
+test("parseCliArguments rejects legacy mode flags with upgrade guidance", () => {
+  assert.throws(
+    () => parseCliArguments(["--mode", "run", "hello"]),
+    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
+  );
+});
+
+test("parseCliArguments rejects implicit legacy runtime grammar with upgrade guidance", () => {
+  assert.throws(
+    () => parseCliArguments(["hello", "world"]),
+    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
   );
 });
 
@@ -77,4 +122,13 @@ test("parseSopCompactArguments requires a run id", () => {
     () => parseSopCompactArguments([]),
     /missing run id\. usage: sop-compact --run-id <run_id>/
   );
+});
+
+test("parseRefineArguments preserves empty task when resume id is provided", () => {
+  assert.deepEqual(parseRefineArguments(["--resume-run-id", "run-1"]), {
+    command: "refine",
+    configPath: undefined,
+    task: "",
+    resumeRunId: "run-1",
+  });
 });

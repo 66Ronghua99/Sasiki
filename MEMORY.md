@@ -26,6 +26,7 @@
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
 - 大范围重构不要在单个 worktree 中长时间累积；更稳的节奏是每个可独立验证的小步骤完成后立刻回基线分支合并。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
+- Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
@@ -42,6 +43,8 @@
   - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
   - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航
 - 系统 Chrome 的首轮 observation 可能从 `about:blank`、空白 tab 或 omnibox tab 开始；first-turn bootstrap 不能假设一开始就有稳定的业务页 observation，也不能在无有效 observation 时伪造 `sourceObservationRef`。
+- 当 refine bootstrap 已经预先做过 `observe.page` 时，prompt 必须把初始 `observationRef` 明确暴露给模型；否则模型很容易在首轮或下一轮 page-changing action 后编造新的 `sourceObservationRef`。
+- 需要反复强调给模型：只有 `observe.page` / `observe.query` 会产出新的 observation ref；`act.navigate` / `act.select_tab` / 其他 page-changing action 不会自动 mint 新 ref，后续动作前要重新 `observe.page`。
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
 - old stitched refinement 子树已在确认零活跃入口引用后移除；后续若再做 legacy cleanup，先验证 runtime 主路径和测试引用图，再删文件。
 - refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。

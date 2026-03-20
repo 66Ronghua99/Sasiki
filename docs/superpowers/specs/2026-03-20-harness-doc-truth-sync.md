@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: active
+status: archived
 supersedes: []
 related:
   - docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md

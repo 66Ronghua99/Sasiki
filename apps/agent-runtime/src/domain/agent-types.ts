@@ -3,7 +3,8 @@
  * Used By: core/agent-loop.ts, runtime/agent-runtime.ts, runtime/artifacts-writer.ts
  * Last Updated: 2026-03-06
  */
-export type RuntimeMode = "run" | "observe";
+export type RuntimeCliCommand = "observe" | "refine" | "sop-compact";
+export type RuntimeMode = "observe" | "refine";
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps" | "paused_hitl" | "budget_exhausted";
 
 export interface AgentRunRequest {

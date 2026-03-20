@@ -46,12 +46,6 @@ export interface RuntimeConfigFile {
     mode?: RuntimeSemanticMode;
     timeoutMs?: number;
   };
-  consumption?: {
-    enabled?: boolean;
-    topN?: number;
-    hintsLimit?: number;
-    maxGuideChars?: number;
-  };
   hitl?: {
     enabled?: boolean;
     retryLimit?: number;
@@ -93,10 +87,6 @@ export interface RuntimeConfig {
   sopAssetRootDir: string;
   semanticMode: RuntimeSemanticMode;
   semanticTimeoutMs: number;
-  sopConsumptionEnabled: boolean;
-  sopConsumptionTopN: number;
-  sopConsumptionHintsLimit: number;
-  sopConsumptionMaxGuideChars: number;
   hitlEnabled: boolean;
   hitlRetryLimit: number;
   hitlMaxInterventions: number;

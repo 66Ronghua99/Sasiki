@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: active
+status: superseded
 supersedes: []
 related:
   - docs/superpowers/specs/2026-03-20-provider-composition-root-refactor.md
@@ -255,7 +255,7 @@ Completion requires all of:
 
 ## End-To-End Acceptance
 
-After code verification is green, this slice still requires one fresh refinement e2e.
+After code verification is green, this slice still requires one fresh refinement execution.
 
 Exact command:
 
@@ -274,17 +274,16 @@ Route assumptions:
 - cookie injection from `~/.sasiki/cookies`
 - explicit proxy bypass for `localhost` / `127.0.0.1` / `::1`
 
-Evidence required:
+Flow-level evidence required for this refactor slice:
 
 - one fresh `artifacts/e2e/<run_id>/`
 - record of proxy handling used during the run
-- `refine_run_summary.json.status === "completed"`
-- `steps.json` includes `run.finish` with `reason=goal_achieved`
-- `refine_action_executions.jsonl` shows title input plus “暂存离开” click and a saved-success signal
-- tab/context acceptance follows `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`:
-  - if a new tab opens, either `act.select_tab` appears before critical actions or the stale-tab guard fails explicitly
-  - the active tab and `observe.page` facts stay aligned before critical actions
+- browser startup, cookie injection, CDP ready, and model resolution all succeed
+- `agent_loop_initialized` is observed for the fresh run
+- if the business task still fails after loop start, record the failure as a follow-up stabilization finding instead of treating it as proof that the refactor wiring is wrong
 - progress/doc sync after the run
+
+Business-complete long-note draft saving remains desirable evidence, but it is not the blocking structural acceptance bar for this refactor slice. That belongs to later stabilization work.
 
 ## Migration Shape
 

@@ -1,6 +1,6 @@
 /**
  * Deps: domain/sop-asset.ts
- * Used By: runtime/sop-consumption-context.ts, runtime/run-executor.ts, runtime/artifacts-writer.ts
+ * Used By: runtime/artifacts-writer.ts
  * Last Updated: 2026-03-06
  */
 import type { WebElementHint } from "./sop-asset.js";

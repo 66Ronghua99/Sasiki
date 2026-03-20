@@ -30,11 +30,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (args.mode === "observe" && !args.task) {
+  if (args.command === "observe" && !args.task) {
     printUsageAndExit();
     return;
   }
-  if (args.mode === "run" && !args.task && !args.sopRunId && !args.resumeRunId) {
+  if (args.command === "refine" && !args.task && !args.resumeRunId) {
     printUsageAndExit();
     return;
   }
@@ -58,13 +58,13 @@ async function main(): Promise<void> {
   process.on("SIGTERM", onSigterm);
 
   try {
-    await runtime.start(args.mode);
+    const startMode = args.command === "observe" ? "observe" : "refine";
+    await runtime.start(startMode);
     const result =
-      args.mode === "observe"
+      args.command === "observe"
         ? await runtime.observe(args.task)
         : await runtime.run({
             task: args.task,
-            sopRunId: args.sopRunId,
             resumeRunId: args.resumeRunId,
           });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
 
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- [--config path] [--mode run|observe] [--sop-run-id <run_id>] [--resume-run-id <run_id>] \"your task\"\n  npm run dev -- --mode run --sop-run-id <run_id>\n  npm run dev -- --mode run --resume-run-id <run_id> [\"optional task\"]\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
+    "Usage:\n  npm run dev -- observe [--config path] \"your task\"\n  npm run dev -- refine [--config path] [--resume-run-id <run_id>] \"your task\"\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
   );
   process.exit(1);
 }

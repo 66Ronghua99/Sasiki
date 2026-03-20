@@ -47,12 +47,6 @@ test("runtime bootstrap provider prefers file config over env and resolves relat
           mode: "on",
           timeoutMs: 2345,
         },
-        consumption: {
-          enabled: true,
-          topN: 7,
-          hintsLimit: 11,
-          maxGuideChars: 2222,
-        },
         hitl: {
           enabled: true,
           retryLimit: 5,
@@ -96,10 +90,6 @@ test("runtime bootstrap provider prefers file config over env and resolves relat
       OBSERVE_TIMEOUT_MS: "9999",
       SOP_COMPACT_SEMANTIC_MODE: "off",
       SOP_COMPACT_SEMANTIC_TIMEOUT_MS: "8888",
-      SOP_CONSUMPTION_ENABLED: "false",
-      SOP_CONSUMPTION_TOP_N: "1",
-      SOP_CONSUMPTION_HINTS_LIMIT: "2",
-      SOP_CONSUMPTION_MAX_GUIDE_CHARS: "3",
       HITL_ENABLED: "false",
       HITL_RETRY_LIMIT: "1",
       HITL_MAX_INTERVENTIONS: "0",
@@ -134,10 +124,10 @@ test("runtime bootstrap provider prefers file config over env and resolves relat
   assert.equal(config.sopAssetRootDir, "~/.sasiki/sop_assets");
   assert.equal(config.semanticMode, "on");
   assert.equal(config.semanticTimeoutMs, 2345);
-  assert.equal(config.sopConsumptionEnabled, true);
-  assert.equal(config.sopConsumptionTopN, 7);
-  assert.equal(config.sopConsumptionHintsLimit, 11);
-  assert.equal(config.sopConsumptionMaxGuideChars, 2222);
+  assert.equal("sopConsumptionEnabled" in config, false);
+  assert.equal("sopConsumptionTopN" in config, false);
+  assert.equal("sopConsumptionHintsLimit" in config, false);
+  assert.equal("sopConsumptionMaxGuideChars" in config, false);
   assert.equal(config.hitlEnabled, true);
   assert.equal(config.hitlRetryLimit, 5);
   assert.equal(config.hitlMaxInterventions, 3);
@@ -174,7 +164,7 @@ test("runtime bootstrap provider falls back to env-driven defaults when file omi
   assert.equal(config.cdpEndpoint, "http://localhost:9222");
   assert.equal(config.launchCdp, true);
   assert.equal(config.artifactsDir, path.join(root, "relative-artifacts"));
-  assert.equal(config.sopConsumptionEnabled, true);
+  assert.equal("sopConsumptionEnabled" in config, false);
   assert.equal(config.refinementEnabled, false);
 });
 

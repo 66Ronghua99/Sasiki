@@ -45,12 +45,6 @@ export interface RuntimeConfigFile {
     mode?: RuntimeSemanticMode;
     timeoutMs?: number;
   };
-  consumption?: {
-    enabled?: boolean;
-    topN?: number;
-    hintsLimit?: number;
-    maxGuideChars?: number;
-  };
   hitl?: {
     enabled?: boolean;
     retryLimit?: number;
@@ -91,10 +85,6 @@ export interface RuntimeConfig {
   sopAssetRootDir: string;
   semanticMode: RuntimeSemanticMode;
   semanticTimeoutMs: number;
-  sopConsumptionEnabled: boolean;
-  sopConsumptionTopN: number;
-  sopConsumptionHintsLimit: number;
-  sopConsumptionMaxGuideChars: number;
   hitlEnabled: boolean;
   hitlRetryLimit: number;
   hitlMaxInterventions: number;
@@ -181,18 +171,6 @@ export class RuntimeBootstrapProvider {
         file?.semantic?.timeoutMs,
         this.env.SOP_COMPACT_SEMANTIC_TIMEOUT_MS,
         12000
-      ),
-      sopConsumptionEnabled: this.readBoolean(file?.consumption?.enabled, this.env.SOP_CONSUMPTION_ENABLED, false),
-      sopConsumptionTopN: this.readPositiveInt(file?.consumption?.topN, this.env.SOP_CONSUMPTION_TOP_N, 3),
-      sopConsumptionHintsLimit: this.readPositiveInt(
-        file?.consumption?.hintsLimit,
-        this.env.SOP_CONSUMPTION_HINTS_LIMIT,
-        8
-      ),
-      sopConsumptionMaxGuideChars: this.readPositiveInt(
-        file?.consumption?.maxGuideChars,
-        this.env.SOP_CONSUMPTION_MAX_GUIDE_CHARS,
-        4000
       ),
       hitlEnabled: this.readBoolean(file?.hitl?.enabled, this.env.HITL_ENABLED, false),
       hitlRetryLimit: this.readNonNegativeInt(file?.hitl?.retryLimit, this.env.HITL_RETRY_LIMIT, 2),

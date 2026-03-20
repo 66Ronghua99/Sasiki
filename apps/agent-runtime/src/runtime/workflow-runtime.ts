@@ -1,7 +1,7 @@
 /**
  * Deps: domain/agent-types.ts, runtime/runtime-composition-root.ts
  * Used By: index.ts, runtime/agent-runtime.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
 import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../domain/agent-types.js";
 import type { RuntimeConfig } from "./runtime-config.js";
@@ -24,7 +24,7 @@ export class WorkflowRuntime {
     this.observeRuntime = composition.observeRuntime;
   }
 
-  async start(mode: RuntimeMode = "run"): Promise<void> {
+  async start(mode: RuntimeMode = "refine"): Promise<void> {
     if (!this.started) {
       await this.browserLifecycle.start();
       this.started = true;
@@ -32,7 +32,7 @@ export class WorkflowRuntime {
     if (mode === "observe") {
       await this.browserLifecycle.prepareObserveSession();
     }
-    if (mode === "run") {
+    if (mode === "refine") {
       await this.agentRuntime.start();
     }
   }

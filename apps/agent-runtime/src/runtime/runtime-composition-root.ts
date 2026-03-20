@@ -1,7 +1,7 @@
 /**
  * Deps: core/*, infrastructure/*, runtime/*
  * Used By: runtime/workflow-runtime.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
 import { AgentLoop } from "../core/agent-loop.js";
 import { SopDemonstrationRecorder } from "../core/sop-demonstration-recorder.js";
@@ -14,12 +14,10 @@ import { AgentExecutionRuntime } from "./agent-execution-runtime.js";
 import { ObserveExecutor } from "./observe-executor.js";
 import { ObserveRuntime } from "./observe-runtime.js";
 import { ExecutionContextProvider } from "./providers/execution-context-provider.js";
-import { LegacyRunBootstrapProvider } from "./providers/legacy-run-bootstrap-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "./providers/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "./providers/refine-run-bootstrap-provider.js";
 import { ToolSurfaceProvider } from "./providers/tool-surface-provider.js";
 import { ReactRefinementRunExecutor } from "./replay-refinement/react-refinement-run-executor.js";
-import { RunExecutor } from "./run-executor.js";
 import type { RuntimeConfig } from "./runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
@@ -29,8 +27,8 @@ export interface RuntimeCompositionPlanInput {
 }
 
 export interface RuntimeCompositionPlan {
-  runExecutorKind: "legacy" | "refine";
-  toolSurfaceKind: "raw" | "refine-react";
+  runExecutorKind: "refine";
+  toolSurfaceKind: "refine-react";
   prompts: RuntimePromptBundle;
 }
 
@@ -49,8 +47,8 @@ export interface RuntimeComposition {
 export function planRuntimeComposition(input: RuntimeCompositionPlanInput): RuntimeCompositionPlan {
   const prompts = new PromptProvider().resolve(input);
   return {
-    runExecutorKind: input.refinementEnabled ? "refine" : "legacy",
-    toolSurfaceKind: input.refinementEnabled ? "refine-react" : "raw",
+    runExecutorKind: "refine",
+    toolSurfaceKind: "refine-react",
     prompts,
   };
 }
@@ -87,14 +85,11 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     },
   });
 
-  const toolSurface = new ToolSurfaceProvider().select({
-    rawClient: rawToolClient,
-    refinementEnabled: config.refinementEnabled,
-  });
+  const toolSurface = new ToolSurfaceProvider().select({ rawClient: rawToolClient });
 
   const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
   const executionContextProvider = new ExecutionContextProvider();
-  const runContext = executionContextProvider.createLegacyRunContext(config);
+  const observeContext = executionContextProvider.createObserveContext(config);
   const refinementContext = executionContextProvider.createRefinementContext(config);
 
   const runLoop = new AgentLoop(
@@ -103,57 +98,29 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
       apiKey: config.apiKey,
       baseUrl: config.baseUrl,
       thinkingLevel: config.thinkingLevel,
-      systemPrompt:
-        plan.runExecutorKind === "refine" ? plan.prompts.refineSystemPrompt : plan.prompts.runSystemPrompt,
+      systemPrompt: plan.prompts.refineSystemPrompt,
     },
     toolSurface.runToolClient,
     logger
   );
 
   const createRunId = createRunIdFactory();
-  const runExecutor =
-    plan.runExecutorKind === "refine"
-      ? new ReactRefinementRunExecutor({
-          loop: runLoop,
-          logger,
-          artifactsDir: config.artifactsDir,
-          maxTurns: config.refinementMaxRounds,
-          toolClient: toolSurface.refineToolClient!,
-          hitlController,
-          knowledgeStore: refinementContext.knowledgeStore,
-          bootstrapProvider: new RefineRunBootstrapProvider({
-            createRunId,
-            guidanceLoader: refinementContext.guidanceLoader,
-            hitlResumeStore: refinementContext.hitlResumeStore,
-            promptProvider,
-            knowledgeTopN: config.refinementKnowledgeTopN,
-          }),
-        })
-      : new RunExecutor({
-          loop: runLoop,
-          logger,
-          artifactsDir: config.artifactsDir,
-          createRunId,
-          bootstrapProvider: new LegacyRunBootstrapProvider({
-            consumptionContext: runContext.sopConsumptionContext,
-          }),
-          hitlController,
-          hitlRetryLimit: config.hitlRetryLimit,
-          hitlMaxInterventions: config.hitlMaxInterventions,
-        });
-
-  if (config.refinementEnabled) {
-    logger.info("refinement_runtime_enabled", {
-      refinementMode: config.refinementMode,
-      refinementMaxRounds: config.refinementMaxRounds,
-      refinementTokenBudget: config.refinementTokenBudget,
-      refinementKnowledgeTopN: config.refinementKnowledgeTopN,
-    });
-    logger.info("refinement_mode_ignored", {
-      refinementMode: config.refinementMode,
-      note: "refinementMode is retained only for config compatibility and is ignored in react refinement path",
-    });
-  }
+  const runExecutor = new ReactRefinementRunExecutor({
+    loop: runLoop,
+    logger,
+    artifactsDir: config.artifactsDir,
+    maxTurns: config.refinementMaxRounds,
+    toolClient: toolSurface.refineToolClient,
+    hitlController,
+    knowledgeStore: refinementContext.knowledgeStore,
+    bootstrapProvider: new RefineRunBootstrapProvider({
+      createRunId,
+      guidanceLoader: refinementContext.guidanceLoader,
+      hitlResumeStore: refinementContext.hitlResumeStore,
+      promptProvider,
+      knowledgeTopN: config.refinementKnowledgeTopN,
+    }),
+  });
 
   const observeExecutor = new ObserveExecutor({
     logger,
@@ -162,7 +129,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     artifactsDir: config.artifactsDir,
     createRunId,
     sopRecorder: new SopDemonstrationRecorder(),
-    sopAssetStore: runContext.sopAssetStore,
+    sopAssetStore: observeContext.sopAssetStore,
     createRecorder: () => new PlaywrightDemonstrationRecorder(),
   });
 

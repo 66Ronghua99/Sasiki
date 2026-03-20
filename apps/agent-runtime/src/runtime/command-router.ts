@@ -1,18 +1,22 @@
 /**
  * Deps: domain/agent-types.ts
  * Used By: index.ts
- * Last Updated: 2026-03-20
+ * Last Updated: 2026-03-21
  */
-import type { RuntimeMode } from "../domain/agent-types.js";
+import type { RuntimeCliCommand } from "../domain/agent-types.js";
 
 export type RuntimeSemanticMode = "off" | "auto" | "on";
 
-export interface RuntimeCliArguments {
-  command: "runtime";
+export interface ObserveCliArguments {
+  command: "observe";
   configPath?: string;
-  mode: RuntimeMode;
   task: string;
-  sopRunId?: string;
+}
+
+export interface RefineCliArguments {
+  command: "refine";
+  configPath?: string;
+  task: string;
   resumeRunId?: string;
 }
 
@@ -23,67 +27,53 @@ export interface SopCompactCliArguments {
   semanticMode?: RuntimeSemanticMode;
 }
 
-export type CliArguments = RuntimeCliArguments | SopCompactCliArguments;
+export type CliArguments = ObserveCliArguments | RefineCliArguments | SopCompactCliArguments;
+
+const LEGACY_RUNTIME_UPGRADE_MESSAGE =
+  "legacy runtime CLI has been retired. use `observe \"task\"`, `refine \"task\"`, or `sop-compact --run-id <run_id>` instead.";
 
 export function parseCliArguments(argv: string[]): CliArguments {
-  if (argv[0] === "sop-compact") {
+  if (hasLegacyRuntimeGrammar(argv)) {
+    throw new Error(LEGACY_RUNTIME_UPGRADE_MESSAGE);
+  }
+  const command = argv[0] as RuntimeCliCommand | undefined;
+  if (command === "observe") {
+    return parseObserveArguments(argv.slice(1));
+  }
+  if (command === "refine") {
+    return parseRefineArguments(argv.slice(1));
+  }
+  if (command === "sop-compact") {
     return parseSopCompactArguments(argv.slice(1));
   }
-  if (argv[0] === "sop-compact-hitl" || argv[0] === "sop-compact-clarify") {
+  if (command === "sop-compact-hitl" || command === "sop-compact-clarify") {
     throw new Error(
-      `${argv[0]} is archived. use \`sop-compact --run-id <run_id>\` on the interactive reasoning path instead.`
+      `${command} is archived. use \`sop-compact --run-id <run_id>\` on the interactive reasoning path instead.`
     );
   }
-  return parseRuntimeArguments(argv);
+  throw new Error(LEGACY_RUNTIME_UPGRADE_MESSAGE);
 }
 
-export function parseRuntimeArguments(argv: string[]): RuntimeCliArguments {
-  const taskParts: string[] = [];
-  let configPath: string | undefined;
-  let mode: RuntimeMode = "run";
-  let sopRunId: string | undefined;
-  let resumeRunId: string | undefined;
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === "--config" || arg === "-c") {
-      configPath = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--config=")) {
-      configPath = arg.slice("--config=".length);
-      continue;
-    }
-    if (arg === "--mode" || arg === "-m") {
-      mode = parseMode(argv[i + 1]);
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--mode=")) {
-      mode = parseMode(arg.slice("--mode=".length));
-      continue;
-    }
-    if (arg === "--sop-run-id") {
-      sopRunId = argv[i + 1]?.trim();
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--sop-run-id=")) {
-      sopRunId = arg.slice("--sop-run-id=".length).trim();
-      continue;
-    }
-    if (arg === "--resume-run-id") {
-      resumeRunId = argv[i + 1]?.trim();
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith("--resume-run-id=")) {
-      resumeRunId = arg.slice("--resume-run-id=".length).trim();
-      continue;
-    }
-    taskParts.push(arg);
+export function parseObserveArguments(argv: string[]): ObserveCliArguments {
+  const { configPath, task } = parseTaskArguments(argv);
+  return {
+    command: "observe",
+    configPath,
+    task,
+  };
+}
+
+export function parseRefineArguments(argv: string[]): RefineCliArguments {
+  const { configPath, task, resumeRunId } = parseTaskArguments(argv);
+  const result: RefineCliArguments = {
+    command: "refine",
+    configPath,
+    task,
+  };
+  if (resumeRunId !== undefined) {
+    result.resumeRunId = resumeRunId;
   }
-  return { command: "runtime", configPath, mode, task: taskParts.join(" ").trim(), sopRunId, resumeRunId };
+  return result;
 }
 
 export function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
@@ -129,11 +119,40 @@ export function parseSopCompactArguments(argv: string[]): SopCompactCliArguments
   return { command: "sop-compact", configPath, runId: runId.trim(), semanticMode };
 }
 
-function parseMode(value: string | undefined): RuntimeMode {
-  if (value === "run" || value === "observe") {
-    return value;
+function parseTaskArguments(argv: string[]): { configPath?: string; task: string; resumeRunId?: string } {
+  const taskParts: string[] = [];
+  let configPath: string | undefined;
+  let resumeRunId: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--config" || arg === "-c") {
+      configPath = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--config=")) {
+      configPath = arg.slice("--config=".length);
+      continue;
+    }
+    if (arg === "--resume-run-id") {
+      resumeRunId = argv[i + 1]?.trim();
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--resume-run-id=")) {
+      resumeRunId = arg.slice("--resume-run-id=".length).trim();
+      continue;
+    }
+    taskParts.push(arg);
   }
-  throw new Error(`invalid --mode value: ${value ?? "(missing)"}. expected run|observe`);
+  return { configPath, task: taskParts.join(" ").trim(), resumeRunId };
+}
+
+function hasLegacyRuntimeGrammar(argv: string[]): boolean {
+  if (argv[0] === "runtime") {
+    return true;
+  }
+  return argv.some((arg) => arg === "--mode" || arg === "-m" || arg.startsWith("--mode="));
 }
 
 function parseSemanticMode(value: string | undefined): RuntimeSemanticMode {

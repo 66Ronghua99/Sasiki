@@ -8,20 +8,13 @@ import { createRefineReactSession } from "../replay-refinement/refine-react-sess
 import { RefineReactToolClient } from "../replay-refinement/refine-react-tool-client.js";
 
 export interface ToolSurfaceSelection {
-  toolSurfaceKind: "raw" | "refine-react";
+  toolSurfaceKind: "refine-react";
   runToolClient: ToolClient;
-  refineToolClient?: RefineReactToolClient;
+  refineToolClient: RefineReactToolClient;
 }
 
 export class ToolSurfaceProvider {
-  select(options: { rawClient: ToolClient; refinementEnabled: boolean }): ToolSurfaceSelection {
-    if (!options.refinementEnabled) {
-      return {
-        toolSurfaceKind: "raw",
-        runToolClient: options.rawClient,
-      };
-    }
-
+  select(options: { rawClient: ToolClient }): ToolSurfaceSelection {
     const refineToolClient = new RefineReactToolClient({
       rawClient: options.rawClient,
       session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
