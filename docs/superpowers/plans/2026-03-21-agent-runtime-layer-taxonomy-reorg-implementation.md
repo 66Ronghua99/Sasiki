@@ -1,10 +1,10 @@
 ---
 doc_type: plan
-status: active
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md
 verified_by:
-  - artifacts/code-gate/2026-03-20T19-29-06-330Z/report.json
+  - artifacts/code-gate/2026-03-20T19-31-13-753Z/report.json
 supersedes:
   - docs/superpowers/plans/2026-03-21-runtime-surface-pruning-refactor-implementation.md
   - docs/superpowers/plans/2026-03-20-executor-bootstrap-boundary-refactor-implementation.md
@@ -94,22 +94,22 @@ Planned target areas introduced during the migration:
 
 ### Architecture Lint Acceptance
 
-- [ ] Encode the new top-level taxonomy in `lint:arch` with explicit allowed roots and import directions.
-- [ ] Prevent new long-term additions under `src/runtime/providers/`.
-- [ ] Prevent LLM/config/persistence adapters from remaining under `src/core/` after their migration slices land.
-- [ ] Prevent observe-owned SOP recorder/trace code from remaining under `src/core/` after the observe slice lands.
-- [ ] Prevent refine-owned application code from remaining split between root `runtime/`, `runtime/providers/`, and `runtime/replay-refinement/` after the refine slice lands.
-- [ ] Keep new files under default size budgets; do not add new legacy-size exceptions for migrated modules.
+- [x] Encode the new top-level taxonomy in `lint:arch` with explicit allowed roots and import directions.
+- [x] Prevent new long-term additions under `src/runtime/providers/`.
+- [x] Prevent LLM/config/persistence adapters from remaining under `src/core/` after their migration slices land.
+- [x] Prevent observe-owned SOP recorder/trace code from remaining under `src/core/` after the observe slice lands.
+- [x] Prevent refine-owned application code from remaining split between root `runtime/`, `runtime/providers/`, and `runtime/replay-refinement/` after the refine slice lands.
+- [x] Keep new files under default size budgets; do not add new legacy-size exceptions for migrated modules.
 
 ### Test Acceptance
 
-- [ ] Add or update focused tests at each slice boundary before moving files.
-- [ ] Keep CLI parsing tests green while grammar and directory ownership evolve.
-- [ ] Keep composition-root and config-loading tests green during shell/config moves.
-- [ ] Keep refine tool-client / bootstrap / executor tests green during refine subtree moves.
-- [ ] Keep compact and observe behavior checks green during their ownership moves.
-- [ ] Keep full repo `npm --prefix apps/agent-runtime run test` green throughout.
-- [ ] No fresh e2e run is required for completion of this plan.
+- [x] Add or update focused tests at each slice boundary before moving files.
+- [x] Keep CLI parsing tests green while grammar and directory ownership evolve.
+- [x] Keep composition-root and config-loading tests green during shell/config moves.
+- [x] Keep refine tool-client / bootstrap / executor tests green during refine subtree moves.
+- [x] Keep compact and observe behavior checks green during their ownership moves.
+- [x] Keep full repo `npm --prefix apps/agent-runtime run test` green throughout.
+- [x] No fresh e2e run is required for completion of this plan.
 
 ## Tasks
 
@@ -134,7 +134,7 @@ Planned target areas introduced during the migration:
 - [x] Rewrite `docs/architecture/layers.md` to reflect `domain / contracts / kernel / application / runtime / infrastructure / utils`.
 - [x] Update `docs/testing/strategy.md` with new taxonomy-oriented lint/test expectations.
 - [x] Run `npm --prefix apps/agent-runtime run lint:docs` and `git diff --check`.
-- [ ] Commit the green docs-and-acceptance freeze.
+- [x] Commit the green docs-and-acceptance freeze.
 
 ### Task 2: Prune The Legacy Product Surface Before Directory Reorganization
 

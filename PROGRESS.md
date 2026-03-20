@@ -78,8 +78,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- 当前 taxonomy reorganization plan 已全部完成。
-- 后续工作将转入 stability / e2e / tooling optimization 轨道（与 taxonomy 重组是独立工作流）。
+- `P0` 为独立的 stability / e2e / tooling optimization 轨道写新的 spec，优先收 first-turn bootstrap、navigation robustness 和工具面稳定性。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -100,3 +99,4 @@ apps/agent-runtime/src/
   - 更新了所有活跃文档，移除旧目录语义引用
   - 确认了最终 taxonomy 状态
   - 通过了全部 repo gates
+  - fresh hardgate report：`artifacts/code-gate/2026-03-20T19-31-13-753Z/report.json`
