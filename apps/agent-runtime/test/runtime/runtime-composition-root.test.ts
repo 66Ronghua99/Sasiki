@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createRuntimeComposition, planRuntimeComposition } from "../../src/application/shell/runtime-composition-root.js";
+import { ObserveRuntime } from "../../src/application/observe/observe-runtime.js";
 import type { RuntimeConfig } from "../../src/application/config/runtime-config.js";
 
 function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
@@ -89,10 +90,12 @@ test("createRuntimeComposition builds runtime services for both legacy and refin
   assert.equal(typeof compatConfig.browserLifecycle.start, "function");
   assert.equal(typeof compatConfig.agentRuntime.run, "function");
   assert.equal(typeof compatConfig.observeRuntime.observe, "function");
+  assert.equal(compatConfig.observeRuntime instanceof ObserveRuntime, true);
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
   assert.equal(typeof refine.agentRuntime.run, "function");
   assert.equal(typeof refine.observeRuntime.observe, "function");
+  assert.equal(refine.observeRuntime instanceof ObserveRuntime, true);
 
   await compatConfig.agentRuntime.stop();
   await refine.agentRuntime.stop();
