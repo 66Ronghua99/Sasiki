@@ -69,7 +69,7 @@
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
 
 ## TODO
-- `P0` 进入 active taxonomy plan 的 Task 3：把 LLM / config / persistence adapters 从当前 `core/` 与泛化 `runtime/` 中抽到 `infrastructure/*`，并补齐对应的 lint ownership。
+- `P0` 继续 active taxonomy plan 的 Task 3 剩余部分：把 LLM / config adapters 从当前 `core/` 与泛化 `runtime/` 中抽到 `infrastructure/*`，并补齐对应的 lint ownership。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE
@@ -119,6 +119,15 @@
     - `npm --prefix apps/agent-runtime run build`：通过
     - `npm --prefix apps/agent-runtime run hardgate`：通过
     - hardgate report：`artifacts/code-gate/2026-03-20T17-29-02-446Z/report.json`
+- 已完成 Task 3 persistence slice：
+  - `ArtifactsWriter`、`SopAssetStore`、`AttentionKnowledgeStore`、`RefineHitlResumeStore` 已在 `src/infrastructure/persistence/` 下落地真源
+  - 旧 `runtime/*` 和 `runtime/replay-refinement/*` 路径保留薄 shim，避免未迁移调用方中断
+  - `observe-executor`、`react-refinement-run-executor`、`execution-context-provider`、`attention-guidance-loader`、`refine-run-bootstrap-provider` 与对应测试已切到新 persistence 路径
+  - fresh verification:
+    - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-run-executor.test.ts`：通过（53/53）
+    - `npm --prefix apps/agent-runtime run typecheck`：通过
+    - `npm --prefix apps/agent-runtime run build`：通过
+    - `git diff --check`：通过
 - 已完成 spec pre-plan freeze 收紧：
   - 明确 `observe.query` 的结构化约束和反语义劫持边界
   - 明确 `sourceObservationRef` 同源追踪约束

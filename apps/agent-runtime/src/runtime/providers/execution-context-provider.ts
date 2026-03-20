@@ -1,15 +1,15 @@
 /**
- * Deps: node:path, runtime/replay-refinement/*, runtime/runtime-config.ts, runtime/sop-asset-store.ts
+ * Deps: node:path, infrastructure/persistence/*, runtime/replay-refinement/*, runtime/runtime-config.ts
  * Used By: runtime/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import path from "node:path";
 
 import type { RuntimeConfig } from "../runtime-config.js";
-import { SopAssetStore } from "../sop-asset-store.js";
+import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
 import { AttentionGuidanceLoader } from "../replay-refinement/attention-guidance-loader.js";
-import { AttentionKnowledgeStore } from "../replay-refinement/attention-knowledge-store.js";
-import { RefineHitlResumeStore } from "../replay-refinement/refine-hitl-resume-store.js";
+import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
+import { RefineHitlResumeStore } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
 
 export interface ObserveExecutionContext {
   sopAssetStore: SopAssetStore;

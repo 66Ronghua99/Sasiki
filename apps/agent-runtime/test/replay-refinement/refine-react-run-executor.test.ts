@@ -11,9 +11,9 @@ import type { AgentRunResult } from "../../src/domain/agent-types.js";
 import { PromptProvider } from "../../src/runtime/providers/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../../src/runtime/providers/refine-run-bootstrap-provider.js";
 import { AttentionGuidanceLoader } from "../../src/runtime/replay-refinement/attention-guidance-loader.js";
-import { AttentionKnowledgeStore } from "../../src/runtime/replay-refinement/attention-knowledge-store.js";
+import { AttentionKnowledgeStore } from "../../src/infrastructure/persistence/attention-knowledge-store.js";
 import { createRefineReactSession } from "../../src/runtime/replay-refinement/refine-react-session.js";
-import { RefineHitlResumeStore } from "../../src/runtime/replay-refinement/refine-hitl-resume-store.js";
+import { RefineHitlResumeStore } from "../../src/infrastructure/persistence/refine-hitl-resume-store.js";
 import { ReactRefinementRunExecutor } from "../../src/runtime/replay-refinement/react-refinement-run-executor.js";
 import { RefineReactToolClient } from "../../src/runtime/replay-refinement/refine-react-tool-client.js";
 

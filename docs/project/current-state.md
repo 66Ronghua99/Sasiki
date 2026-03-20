@@ -6,6 +6,7 @@
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
+- Task 3 has an in-progress persistence extraction slice: the persistence adapters now have a canonical home under `apps/agent-runtime/src/infrastructure/persistence/`, while the old runtime import paths remain thin shims.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
@@ -53,6 +54,11 @@
   - bootstrap/config normalization goes through `apps/agent-runtime/src/runtime/providers/runtime-bootstrap-provider.ts`
   - refine run bootstrap goes through `apps/agent-runtime/src/runtime/providers/refine-run-bootstrap-provider.ts`
 - The current shared browser execution kernel remains `AgentLoop -> RefineReactToolClient -> Playwright MCP` for the active runtime path.
+- Persistence adapters now have canonical ownership under `apps/agent-runtime/src/infrastructure/persistence/`:
+  - `ArtifactsWriter`
+  - `SopAssetStore`
+  - `AttentionKnowledgeStore`
+  - `RefineHitlResumeStore`
 - The disconnected stitched refinement subtree has been removed after zero-reference verification, and Task 2 also removed the old direct-run path:
   - deleted `apps/agent-runtime/src/runtime/run-executor.ts`
   - deleted `apps/agent-runtime/src/runtime/providers/legacy-run-bootstrap-provider.ts`

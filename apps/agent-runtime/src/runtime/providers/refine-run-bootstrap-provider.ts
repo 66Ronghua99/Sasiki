@@ -1,5 +1,5 @@
 /**
- * Deps: runtime/providers/prompt-provider.ts, runtime/replay-refinement/*
+ * Deps: runtime/providers/prompt-provider.ts, infrastructure/persistence/*, runtime/replay-refinement/*
  * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
  * Last Updated: 2026-03-20
  */
@@ -8,7 +8,7 @@ import type { HitlAnswerProvider } from "../replay-refinement/refine-runtime-too
 import { createRefineReactSession } from "../replay-refinement/refine-react-session.js";
 import type { RefineReactToolClient } from "../replay-refinement/refine-react-tool-client.js";
 import type { AttentionGuidanceLoader } from "../replay-refinement/attention-guidance-loader.js";
-import type { RefineHitlResumeStore, RefineHitlResumeRecord } from "../replay-refinement/refine-hitl-resume-store.js";
+import type { RefineHitlResumeStore, RefineHitlResumeRecord } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
 import type { PromptProvider } from "./prompt-provider.js";
 
 export interface RefineRunBootstrapProviderOptions {

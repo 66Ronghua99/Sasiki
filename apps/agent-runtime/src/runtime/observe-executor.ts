@@ -1,5 +1,5 @@
 /**
- * Deps: core/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts, infrastructure/browser/playwright-demonstration-recorder.ts, runtime/artifacts-writer.ts, runtime/sop-asset-store.ts
+ * Deps: core/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts, infrastructure/browser/playwright-demonstration-recorder.ts, infrastructure/persistence/*
  * Used By: runtime/agent-runtime.ts
  * Last Updated: 2026-03-05
  */
@@ -11,8 +11,8 @@ import type { SopAsset, WebElementHint } from "../domain/sop-asset.js";
 import { SOP_ASSET_VERSION } from "../domain/sop-asset.js";
 import type { DemonstrationRawEvent, SopTrace } from "../domain/sop-trace.js";
 import type { ObserveCaptureOptions, PlaywrightDemonstrationRecorder } from "../infrastructure/browser/playwright-demonstration-recorder.js";
-import { ArtifactsWriter } from "./artifacts-writer.js";
-import type { SopAssetStore } from "./sop-asset-store.js";
+import { ArtifactsWriter } from "../infrastructure/persistence/artifacts-writer.js";
+import type { SopAssetStore } from "../infrastructure/persistence/sop-asset-store.js";
 
 interface RuntimeLogBuffer extends Logger {
   toText(): string;

@@ -1,10 +1,10 @@
 /**
- * Deps: domain/attention-knowledge.ts, runtime/replay-refinement/attention-knowledge-store.ts
+ * Deps: domain/attention-knowledge.ts, infrastructure/persistence/attention-knowledge-store.ts
  * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
  * Last Updated: 2026-03-20
  */
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
-import { AttentionKnowledgeStore, type AttentionKnowledgeQuery } from "./attention-knowledge-store.js";
+import { AttentionKnowledgeStore, type AttentionKnowledgeQuery } from "../../infrastructure/persistence/attention-knowledge-store.js";
 
 export interface LoadedAttentionGuidance {
   records: AttentionKnowledge[];
