@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ModelResolver } from "../../src/core/model-resolver.js";
+import { ModelResolver } from "../../src/infrastructure/llm/model-resolver.js";
 
 test("ModelResolver uses native openrouter provider when baseUrl points to OpenRouter", () => {
   const model = ModelResolver.resolve({

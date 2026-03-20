@@ -2,7 +2,7 @@ import { readFile, appendFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { JsonModelClient } from "../core/json-model-client.js";
+import { JsonModelClient } from "../infrastructure/llm/json-model-client.js";
 import type { CompactHumanLoopTool } from "../contracts/compact-human-loop-tool.js";
 import type {
   CompactCapabilityOutput,
