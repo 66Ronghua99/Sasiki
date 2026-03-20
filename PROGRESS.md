@@ -11,6 +11,7 @@
 
 ## Current Code Status
 - 当前活跃闭环已经切换为 `agent runtime global layer taxonomy`，之前的 `executor/bootstrap boundary refactor` 与 `runtime surface pruning` 只保留为已完成或已被更大方向覆盖的历史背景。
+- Task 6 已完成：`application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
 - Task 5 已完成：`application/shell/`、`application/config/` 与 `application/providers/` 现在是 shell/composition、runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim where applicable。
 - CLI 当前有两类入口：
   - `runtime`：支持 `run` / `observe`
@@ -71,6 +72,7 @@
 
 ## TODO
 - `P0` 继续 active taxonomy plan 的 Task 6 子切片，把 observe / compact 按 ownership 重新归位。
+- `P0` 继续 active taxonomy plan 的 Task 7，把 refine 重新收口到单一 application subtree。
 - 后续执行方式保持“小步重构 -> focused tests -> repo gates -> commit -> merge”，不再在单个长闭环里累积大范围未合并改动。
 
 ## DONE

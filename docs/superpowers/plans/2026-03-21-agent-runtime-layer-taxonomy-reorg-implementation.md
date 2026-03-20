@@ -236,11 +236,13 @@ Task 5 completed in commits `e57d644` and `2ca3d8d`.
 - Modify: corresponding tests and imports
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Create explicit `application/observe/` ownership for observe orchestration and recording support.
-- [ ] Create explicit `application/compact/` ownership for SOP compact.
-- [ ] Keep compact retained as an active workflow; do not mix this task with compact removal.
-- [ ] Run focused observe/compact tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
-- [ ] Commit the observe-and-compact ownership slice.
+- [x] Create explicit `application/observe/` ownership for observe orchestration and recording support.
+- [x] Create explicit `application/compact/` ownership for SOP compact.
+- [x] Keep compact retained as an active workflow; do not mix this task with compact removal.
+- [x] Run focused observe/compact tests, then repo-wide `lint:arch`, `test`, `typecheck`, and `build`.
+- [x] Commit the observe-and-compact ownership slice.
+
+Task 6 completed in commits `541c653`, `bc22787`, `3b0614b`, and `84595d1`.
 
 ### Task 7: Rehome Refine Into One Application Subtree
 

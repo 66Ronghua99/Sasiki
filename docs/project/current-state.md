@@ -6,6 +6,7 @@
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The current active engineering loop is the global layer-taxonomy redesign for `apps/agent-runtime/src`; earlier executor/bootstrap and runtime-surface refactors are now background context.
+- Task 6 is complete: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
 - Task 5 is complete: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
@@ -76,8 +77,8 @@
 - The refine-react tool surface now includes `act.file_upload` with strict `paths` handling and focused tests.
 - Current major code areas:
   - `kernel`: `apps/agent-runtime/src/kernel/agent-loop.ts`
-  - `observe`: `apps/agent-runtime/src/runtime/observe-runtime.ts`
-  - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
+  - `observe`: `apps/agent-runtime/src/application/observe/`
+  - `compact`: `apps/agent-runtime/src/application/compact/`
   - `react refinement`: `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`
   - `refine tool surface`: `apps/agent-runtime/src/runtime/replay-refinement/refine-react-tool-client.ts`
   - `attention knowledge persistence`: `apps/agent-runtime/src/infrastructure/persistence/attention-knowledge-store.ts`
