@@ -14,6 +14,18 @@ const LEGACY_MAX_LINES = new Map([
   ["core/agent-loop.ts", 760],
   ["runtime/run-executor.ts", 780],
 ]);
+const COMPOSITION_ROOT_FILE = "runtime/runtime-composition-root.ts";
+const PROMPT_PROVIDER_FILE = "runtime/providers/prompt-provider.ts";
+const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
+const REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
+const CLI_ENTRY_FILES = new Set([
+  "index.ts",
+  "runtime/command-router.ts",
+]);
+const EXECUTOR_FILES = new Set([
+  LEGACY_EXECUTOR_FILE,
+  REFINE_EXECUTOR_FILE,
+]);
 
 const LAYER_ORDER = ["domain", "contracts", "core", "runtime", "infrastructure"];
 const ALLOWED_DEPENDENCIES = {
@@ -141,12 +153,60 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
       localDependencies.add(toRel);
     }
 
-    if (toRel.startsWith("infrastructure/mcp/") && fromRel !== "runtime/workflow-runtime.ts" && !fromRel.startsWith("infrastructure/mcp/")) {
+    if (toRel.startsWith("infrastructure/mcp/") && fromRel !== COMPOSITION_ROOT_FILE && !fromRel.startsWith("infrastructure/mcp/")) {
       errors.push(addError(
         "dep.infra.mcp.entrypoint",
         fromRel,
-        `Only runtime/workflow-runtime.ts may import infrastructure/mcp directly, found import to ${toRel}.`
+        `Only ${COMPOSITION_ROOT_FILE} may import infrastructure/mcp directly, found import to ${toRel}.`
       ));
+    }
+
+    if (toRel === "runtime/system-prompts.ts" && fromRel !== PROMPT_PROVIDER_FILE) {
+      errors.push(addError(
+        "dep.prompt.provider.boundary",
+        fromRel,
+        `Only ${PROMPT_PROVIDER_FILE} may import runtime/system-prompts.ts directly, found import to ${toRel}.`
+      ));
+    }
+
+    if (fromRel === LEGACY_EXECUTOR_FILE && toRel === "runtime/sop-consumption-context.ts") {
+      errors.push(addError(
+        "dep.executor.legacy-bootstrap-boundary",
+        fromRel,
+        `Legacy executor must consume prepared bootstrap input instead of importing ${toRel} directly.`
+      ));
+    }
+
+    if (
+      fromRel === REFINE_EXECUTOR_FILE &&
+      [
+        "runtime/replay-refinement/attention-guidance-loader.ts",
+        "runtime/replay-refinement/attention-knowledge-store.ts",
+        "runtime/replay-refinement/refine-hitl-resume-store.ts",
+      ].includes(toRel)
+    ) {
+      errors.push(addError(
+        "dep.executor.refine-bootstrap-boundary",
+        fromRel,
+        `Refine executor must consume prepared bootstrap/collaborator input instead of importing ${toRel} directly.`
+      ));
+    }
+
+    if (CLI_ENTRY_FILES.has(fromRel)) {
+      if (toRel.startsWith("infrastructure/")) {
+        errors.push(addError(
+          "dep.cli.no-infra-assembly",
+          fromRel,
+          `CLI entrypoints must not import infrastructure modules directly (${spec} -> ${toRel}).`
+        ));
+      }
+      if (EXECUTOR_FILES.has(toRel)) {
+        errors.push(addError(
+          "dep.cli.no-executor-import",
+          fromRel,
+          `CLI entrypoints must not import executor implementations directly (${spec} -> ${toRel}).`
+        ));
+      }
     }
 
     if (fromLayer !== "other") {

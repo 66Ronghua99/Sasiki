@@ -26,11 +26,15 @@ The following rules have no waiver path and must be fixed immediately:
 - `dep.import.cycle`
 - `dep.mcp.sdk.boundary`
 - `dep.infra.mcp.entrypoint`
+- `dep.cli.no-infra-assembly`
+- `dep.cli.no-executor-import`
+- `dep.prompt.provider.boundary`
 
 ## Review Cadence
 
 - Review the legacy size allowlist every architecture milestone or before release cut.
 - Target state: remove one legacy entry at a time by refactor and lower budgets.
+- The provider/composition-root refactor must not add `runtime/command-router.ts`, `runtime/runtime-composition-root.ts`, or `runtime/providers/*.ts` to the legacy size allowlist.
 
 ## Expiry Condition
 

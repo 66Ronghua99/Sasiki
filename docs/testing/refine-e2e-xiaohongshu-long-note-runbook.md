@@ -8,7 +8,12 @@
 - 填写任意标题
 - 点击“暂存离开”并确认保存成功
 
-本 runbook 的重点是避免本地代理把 `127.0.0.1:9222` 误走代理，导致反复失败。
+本 runbook 的重点是固定本地默认执行链路：
+- 系统 Chrome 二进制
+- `~/.sasiki/chrome_profile` 持久化 profile
+- `~/.sasiki/cookies/*.json` cookie 注入
+
+同时避免本地代理把 `127.0.0.1:9222` 误走代理，导致反复失败。
 
 ## 已验证基线
 
@@ -18,8 +23,9 @@
 
 ## 前置条件
 
-1. 已启动可用 Chromium CDP（默认 `http://127.0.0.1:9222`）。
+1. 本机存在可用系统 Chrome（默认 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`）。
 2. 本地 cookies 可用（默认 `~/.sasiki/cookies/*.json`）。
+3. 本地持久化 profile 可用（默认 `~/.sasiki/chrome_profile`）。
 3. 已完成构建（或本轮先执行 build）。
 4. Playwright MCP 可正常拉起。
 5. 运行环境必须提供可用模型配置：
@@ -28,6 +34,30 @@
    否则流程可能在首轮前卡住，浏览器已启动但不会产出新的 `run_id` 工件。
 
 ## 标准执行流程
+
+### 0) 本地 runtime config 约定
+
+本仓库后续默认按以下本地配置执行 refine e2e：
+
+```json
+{
+  "cdp": {
+    "endpoint": "http://127.0.0.1:9222",
+    "launch": true,
+    "userDataDir": "~/.sasiki/chrome_profile",
+    "injectCookies": true,
+    "cookiesDir": "~/.sasiki/cookies",
+    "preferSystemBrowser": true,
+    "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "headless": false
+  }
+}
+```
+
+说明：
+1. 默认优先系统 Chrome，不再默认复用 Playwright bundled Chrome。
+2. `.sasiki/chrome_profile` 是 Sasiki 专用持久化 profile，不是系统默认个人浏览器 profile。
+3. Playwright bundled Chrome 如需继续使用，必须配独立 profile；不要再直接复用 `.sasiki/chrome_profile`。
 
 ### 1) 先做 CDP 探活（必须带 NO_PROXY）
 
@@ -49,8 +79,9 @@ npm --prefix apps/agent-runtime run build
 ```bash
 env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
 NO_PROXY=localhost,127.0.0.1,::1 no_proxy=localhost,127.0.0.1,::1 \
-REFINEMENT_ENABLED=true \
-node apps/agent-runtime/dist/index.js "打开小红书创作服务平台，创建一条长文笔记草稿（不要发布），填写任意标题后点击暂存离开；正文可留空。"
+node apps/agent-runtime/dist/index.js \
+  --config apps/agent-runtime/runtime.config.json \
+  "打开小红书创作服务平台，创建一条长文笔记草稿（不要发布），填写任意标题后点击暂存离开；正文可留空。"
 ```
 
 ### 4) 记录本次 run_id
@@ -102,9 +133,21 @@ sed -n '1,220p' "artifacts/e2e/${RUN_ID}/refine_action_executions.jsonl"
 
 处理步骤：
 1. 检查 cookies 是否过期。
-2. 在目标浏览器实例先手工登录一次，再重跑。
+2. 检查本次运行是否真的使用了系统 Chrome + `~/.sasiki/chrome_profile`。
+3. 若仍落到 `/login`，在该 profile 对应的浏览器实例先手工登录一次，再重跑。
 
-### 问题 3：出现重复 HITL，流程不前进
+### 问题 3：Playwright bundled Chrome 在启动后 `socket hang up` / `ECONNRESET`
+
+典型表现：
+- `browserType.connectOverCDP: socket hang up`
+- `browserType.connectOverCDP: read ECONNRESET`
+
+处理步骤：
+1. 优先切回本 runbook 的默认路径：系统 Chrome + `~/.sasiki/chrome_profile`。
+2. 不要让 bundled Chrome 直接复用 `.sasiki/chrome_profile`。
+3. 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
+
+### 问题 4：出现重复 HITL，流程不前进
 
 典型表现：持续 `hitl.request`（`uncertain_state`）但无有效动作。
 

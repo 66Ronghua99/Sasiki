@@ -38,6 +38,20 @@ interface ResolvedExecutable {
   source: "configured" | "system" | "playwright" | "playwright-core";
 }
 
+export function shouldClosePageDuringReset(url: string | undefined, blankPageUrl: string): boolean {
+  const normalized = url?.trim() ?? "";
+  if (!normalized) {
+    return true;
+  }
+  if (normalized === blankPageUrl) {
+    return false;
+  }
+  if (normalized.startsWith("chrome://")) {
+    return false;
+  }
+  return true;
+}
+
 export class CdpBrowserLauncher {
   private readonly config: CdpBrowserLauncherConfig;
   private readonly logger: Logger;
@@ -353,10 +367,12 @@ export class CdpBrowserLauncher {
       const existingContexts = browser.contexts();
       const primaryContext = existingContexts[0] ?? (await browser.newContext());
       const blankPage = await primaryContext.newPage();
+      const blankPageUrl = blankPage.url();
       const pagesToClose = browser
         .contexts()
         .flatMap((context: any) => context.pages())
-        .filter((page: any) => page !== blankPage);
+        .filter((page: any) => page !== blankPage)
+        .filter((page: any) => shouldClosePageDuringReset(page.url?.(), blankPageUrl));
 
       for (const page of pagesToClose) {
         await page.close({ runBeforeUnload: false });

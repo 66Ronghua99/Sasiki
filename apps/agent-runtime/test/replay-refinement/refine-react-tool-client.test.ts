@@ -317,6 +317,41 @@ test("observe.page parses markdown page identity and tab metadata from snapshot"
   assert.equal(tabs[1].isActive, false);
 });
 
+test("observe.page prefers the active tab identity when modal state leaves Page URL stale", async () => {
+  const raw = new StubRawToolClient({
+    snapshotText: [
+      "### Open tabs",
+      "- 0: [Explore](https://www.xiaohongshu.com/explore)",
+      "- 1: [](about:blank)",
+      "- 2: [Omnibox Popup](chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html)",
+      "- 3: [Omnibox Popup](chrome://omnibox-popup.top-chrome/)",
+      "- 4: (current) [](https://creator.xiaohongshu.com/publish/publish?from=homepage&target=image&openFilePicker=true)",
+      "### Page",
+      "- Page URL: https://www.xiaohongshu.com/explore",
+      "- Page Title: 小红书 - 你的生活兴趣社区",
+      "### Modal state",
+      "- [File chooser]: can be handled by browser_file_upload",
+      "### Snapshot",
+      "```yaml",
+      "",
+      "```",
+    ].join("\n"),
+  });
+  const session = createRefineReactSession("run-modal-tab", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  const page = observation.page as Record<string, unknown>;
+  assert.equal(page.url, "https://creator.xiaohongshu.com/publish/publish?from=homepage&target=image&openFilePicker=true");
+  assert.equal(page.origin, "https://creator.xiaohongshu.com");
+  assert.equal(page.normalizedPath, "/publish/publish");
+  assert.equal(observation.activeTabIndex, 4);
+});
+
 test("act.screenshot routes to browser_take_screenshot with mapped parameters", async () => {
   const raw = new StubRawToolClient({ screenshotToolName: "browser_take_screenshot" });
   const session = createRefineReactSession("run-shot-1", "task", { taskScope: "search-product" });

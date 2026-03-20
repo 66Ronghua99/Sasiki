@@ -42,8 +42,8 @@
 - `docs/architecture/overview.md`
 - `docs/architecture/layers.md`
 - `docs/testing/strategy.md`
-- `docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md`
-- `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
+- `docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md`
+- `docs/superpowers/plans/2026-03-20-executor-bootstrap-boundary-refactor-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -54,6 +54,7 @@
 - `.plan/checklist_replay_refinement_online.md`
 - `.plan/checklist_execution_kernel_refine_core_rollout.md`
 - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+- `docs/superpowers/specs/2026-03-20-provider-composition-root-refactor.md`
 - `docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md`
 - `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
 - `docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md`
@@ -61,13 +62,16 @@
 - `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
 - `docs/superpowers/plans/2026-03-20-refine-react-tool-surface-hardening-implementation.md`
 - `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
+- `docs/superpowers/plans/2026-03-20-provider-composition-root-refactor-implementation.md`
 
 说明：
 - 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
 - 旧 refinement / e2e 文档已经降级为历史背景；当前 active spec / plan 是 doc-truth-sync 这一条闭环。
 
 ## TODO
-- `P0` 基于已清理的 refinement runtime 基线，起草 provider / composition-root 重构 spec，并先走你的 review 再进入实现。
+- `P0` 将当前已验证基线合并回主分支后，先跑一条 fresh refinement e2e，确认 executor/bootstrap boundary 重构没有破坏真实长文草稿闭环。
+- 后续执行方式改为“小步实现 -> focused tests -> repo gates -> merge”，不再在单个 worktree 中累积大范围未合并改动。
+- 若 fresh e2e 仍在 file chooser / modal 场景下出现连续 speculative `navigate`，下一刀单独开成“file chooser tool-surface + stale-page guard”小闭环，并按 TDD 执行。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -193,3 +197,51 @@
   - 结果：浏览器可自动拉起、cookies 可注入、CDP 可探活，但 run 在首轮前卡住，未产生新的 `artifacts/e2e/<run_id>/`
   - 已确认当前 worktree 缺少本地 runtime config 文件，且 shell 环境没有 `LLM_*` / `DASHSCOPE_*` / `OPENROUTER_*` 模型配置
   - 结论：本轮无法用真实 e2e 最终确认“无行为影响”，当前能确认的是 cleanup 后代码门禁全部通过，阻塞更像环境未配置齐而非 cleanup 回归
+- 已完成 provider / composition-root 重构点检查，并整理出 draft spec / plan：
+  - `docs/superpowers/specs/2026-03-20-provider-composition-root-refactor.md`
+  - `docs/superpowers/plans/2026-03-20-provider-composition-root-refactor-implementation.md`
+  - 当前建议方案是先抽 `composition root + provider seams`，不直接进入插件化 runtime
+- 已将 provider / composition-root 重构的 lint/test 硬验收写入 draft docs：
+  - spec 已增加 `Architecture Lint And Test Acceptance`
+  - plan 已把 `lint:arch` 和 `test` 设为显式 blocking gate，并要求扩 `lint-architecture.mjs` 对齐新边界
+  - `docs/testing/strategy.md`、`docs/testing/lint-rule-matrix.md`、`docs/testing/lint-exception-policy.md` 已同步这次重构的结构与测试验收期望
+- 已完成 provider / composition-root 第一刀实现：
+  - 新增 `runtime/command-router.ts`，从 `index.ts` 抽离 CLI parsing
+  - 新增 `runtime/runtime-composition-root.ts`，从 `workflow-runtime.ts` 抽离 browser/MCP/prompt/context/executor 装配
+  - 新增 `runtime/providers/prompt-provider.ts`、`tool-surface-provider.ts`、`execution-context-provider.ts`、`runtime-bootstrap-provider.ts`
+  - `RuntimeConfigLoader` 已委托给 `RuntimeBootstrapProvider`
+  - `workflow-runtime.ts` 已降为薄 facade
+  - `lint-architecture.mjs` 已新增 composition-root / CLI / prompt-provider 边界规则
+  - 新增测试：`test/runtime/command-router.test.ts`、`test/runtime/runtime-bootstrap-provider.test.ts`、`test/runtime/runtime-composition-root.test.ts`
+  - 已根据 reviewer finding 修复 `RuntimeBootstrapProvider` 的 injected `cwd` 相对路径解析，并补回归测试覆盖 explicit `configPath` / `RUNTIME_CONFIG_PATH`
+  - 新鲜验证通过：`lint:arch`、`lint`、`test`、`typecheck`、`build`、`hardgate`
+  - 最新 hardgate report：`artifacts/code-gate/2026-03-20T12-31-06-702Z/report.json`
+- 已完成本地 e2e 启动链路复盘并确定后续默认执行路径：
+  - 默认本地 refine e2e 改为系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`
+  - 已确认 worktree 内本地 `apps/agent-runtime/runtime.config.json` 应按上述路径执行，不再默认让 Playwright bundled Chrome 复用 `.sasiki/chrome_profile`
+  - 已确认 bundled Chrome 启动崩溃的根因是旧 bundled browser 复用被系统 Chrome 升级过的共享 profile，而不是 cookie 注入链路损坏
+  - 已确认系统 Chrome + `.sasiki/chrome_profile` 今天仍能直接进入 `https://creator.xiaohongshu.com/publish`
+  - 当前 refactor 第一阶段收尾完成；后续若继续，需切到新的 approved refactor slice
+- 已完成第二阶段重构边界收口（draft spec）：
+  - 新增 draft spec：`docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md`
+  - 该 draft 明确解释了为什么旧 provider/composition-root plan 不能直接把未完成尾项继续算作同一执行 slice
+  - 下一刀限定为 executor/bootstrap boundary，要求显式 lint、focused tests、full repo verification，以及一条 fresh refinement e2e
+- 已完成第二阶段重构闭环切换：
+  - `docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md` 已提升为当前 active spec
+  - `docs/superpowers/plans/2026-03-20-executor-bootstrap-boundary-refactor-implementation.md` 已建立为当前 active plan
+  - 旧 provider/composition-root spec / plan 已降级为 `superseded`
+- 已完成 executor/bootstrap boundary 重构的主要代码落地：
+  - 新增 `runtime/providers/legacy-run-bootstrap-provider.ts`，从 `run-executor.ts` 抽离 legacy run 的 SOP consumption bootstrap
+  - 新增 `runtime/providers/refine-run-bootstrap-provider.ts`，从 `react-refinement-run-executor.ts` 抽离 resume / pre-observation / guidance preload / prompt ingredients
+  - `runtime-composition-root.ts` 已负责把 bootstrap providers 接入 executors
+  - `run-executor.ts` 与 `react-refinement-run-executor.ts` 已缩窄到执行控制流、artifact、pause/resume 等职责
+  - 新增测试：`test/runtime/legacy-run-bootstrap-provider.test.ts`、`test/runtime/refine-run-bootstrap-provider.test.ts`、`test/runtime/run-executor-regression.test.ts`
+  - `lint-architecture.mjs` 已新增 executor import boundary 约束
+  - 当前 fresh verification 通过：`lint:arch`、`lint`、`test`（46/46）、`typecheck`、`build`、`hardgate`
+  - 最新 hardgate report：`artifacts/code-gate/2026-03-20T14-33-39-707Z/report.json`
+- 已完成 refine e2e 卡死问题的第一轮根因排查，并落下可验证修复：
+  - 已修复 OpenRouter `baseUrl` 被误解析成 `openai` provider 的问题；带工具的 `AgentLoop` 不再在模型初始化后长期无响应
+  - 已修复 CDP 启动后 reset page 时误处理 `chrome://` 内部页导致的 hang
+  - 已修复 modal/file chooser 场景下 `observe.page` 可能信任 stale `Page URL` 的解析问题，优先对齐 live active tab
+  - 已补 focused tests：`test/core/model-resolver.test.ts`、`test/infrastructure/cdp-browser-launcher.test.ts`、`test/replay-refinement/refine-react-tool-client.test.ts`
+  - 当前仍未宣称 file chooser 场景已经完整闭环；还需要一条 fresh refinement e2e 作为最终验收

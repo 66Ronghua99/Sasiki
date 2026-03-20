@@ -8,7 +8,12 @@ import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contr
 import type { HitlController } from "../../src/contracts/hitl-controller.js";
 import type { Logger } from "../../src/contracts/logger.js";
 import type { AgentRunResult } from "../../src/domain/agent-types.js";
+import { PromptProvider } from "../../src/runtime/providers/prompt-provider.js";
+import { RefineRunBootstrapProvider } from "../../src/runtime/providers/refine-run-bootstrap-provider.js";
+import { AttentionGuidanceLoader } from "../../src/runtime/replay-refinement/attention-guidance-loader.js";
+import { AttentionKnowledgeStore } from "../../src/runtime/replay-refinement/attention-knowledge-store.js";
 import { createRefineReactSession } from "../../src/runtime/replay-refinement/refine-react-session.js";
+import { RefineHitlResumeStore } from "../../src/runtime/replay-refinement/refine-hitl-resume-store.js";
 import { ReactRefinementRunExecutor } from "../../src/runtime/replay-refinement/react-refinement-run-executor.js";
 import { RefineReactToolClient } from "../../src/runtime/replay-refinement/refine-react-tool-client.js";
 
@@ -133,6 +138,44 @@ function buildBaseLoopResult(task: string, status: AgentRunResult["status"] = "c
   };
 }
 
+function createRefinementStores(tmpRoot: string): {
+  knowledgeStore: AttentionKnowledgeStore;
+  guidanceLoader: AttentionGuidanceLoader;
+  hitlResumeStore: RefineHitlResumeStore;
+} {
+  const knowledgeStore = new AttentionKnowledgeStore({
+    filePath: path.join(tmpRoot, "knowledge-store.json"),
+  });
+
+  return {
+    knowledgeStore,
+    guidanceLoader: new AttentionGuidanceLoader(knowledgeStore),
+    hitlResumeStore: new RefineHitlResumeStore({
+      baseDir: tmpRoot,
+    }),
+  };
+}
+
+function createRefinementDependencies(
+  tmpRoot: string,
+  createRunId: () => string
+): {
+  knowledgeStore: AttentionKnowledgeStore;
+  bootstrapProvider: RefineRunBootstrapProvider;
+} {
+  const stores = createRefinementStores(tmpRoot);
+  return {
+    knowledgeStore: stores.knowledgeStore,
+    bootstrapProvider: new RefineRunBootstrapProvider({
+      createRunId,
+      guidanceLoader: stores.guidanceLoader,
+      hitlResumeStore: stores.hitlResumeStore,
+      promptProvider: new PromptProvider(),
+      knowledgeTopN: 8,
+    }),
+  };
+}
+
 test("executor runs browser observe/action through composite tools and persists promoted knowledge for next run", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-run-"));
   const raw = new StubRawToolClient();
@@ -184,10 +227,9 @@ test("executor runs browser observe/action through composite tools and persists 
     loop: loop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId,
     maxTurns: 8,
     toolClient,
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, createRunId),
   });
 
   const firstRun = await executor.execute({
@@ -211,10 +253,9 @@ test("executor runs browser observe/action through composite tools and persists 
     loop: secondLoop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId,
     maxTurns: 8,
     toolClient,
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, createRunId),
   });
 
   const secondRun = await secondExecutor.execute({
@@ -248,10 +289,9 @@ test("executor returns paused_hitl and persists resume payload when HITL cannot 
     loop: loop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId: () => "paused_run",
     maxTurns: 8,
     toolClient,
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, () => "paused_run"),
   });
 
   const result = await executor.execute({
@@ -287,10 +327,9 @@ test("executor resumes the same run id after human input and requires run.finish
     loop: pausedLoop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId: () => "run_resume_target",
     maxTurns: 8,
     toolClient,
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, () => "run_resume_target"),
   });
 
   const paused = await pausedExecutor.execute({ task: "resume me" });
@@ -312,11 +351,10 @@ test("executor resumes the same run id after human input and requires run.finish
     loop: resumedLoop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId: () => "should_not_be_used",
     maxTurns: 8,
     toolClient,
     hitlController: new StubHitlController(),
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, () => "should_not_be_used"),
   });
 
   const resumed = await resumedExecutor.execute({
@@ -355,10 +393,9 @@ test("executor returns budget_exhausted when turn budget safety fuse is reached"
     loop: loop as never,
     logger: new StubLogger(),
     artifactsDir: tmpRoot,
-    createRunId: () => "budget_run",
     maxTurns: 2,
     toolClient,
-    knowledgeStorePath: path.join(tmpRoot, "knowledge-store.json"),
+    ...createRefinementDependencies(tmpRoot, () => "budget_run"),
   });
 
   const result = await executor.execute({

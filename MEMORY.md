@@ -18,9 +18,13 @@
 - `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。
 - 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
 - 为避免大小写环境变量差异，运行 refine e2e 时优先同时设置 `NO_PROXY` 与 `no_proxy`，并在同一命令里 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY`。
+- 当前本地 refine e2e 的默认路径应固定为：系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`。
+- 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
+- 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
+- 大范围重构不要在单个 worktree 中长时间累积；更稳的节奏是每个可独立验证的小步骤完成后立刻回基线分支合并。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
@@ -34,6 +38,9 @@
 - 终端 HITL 当前已改为自然语言 incident brief + 单个可选自然语言恢复说明输入；结构化字段仍保留在内部 request/response 契约中用于记录与兼容，不再直接暴露为终端固定标签。
 - 当页面出现系统级 `file chooser dialog` 时，refine agent 会持续触发 `hitl.request`（uncertain_state）；若人类侧未真实关闭弹窗，流程会重复同类 HITL，难以前进到工具执行阶段。
 - 若 run 卡在首轮前（无工具调用），对应 run 目录里的 `refine_turn_logs.jsonl` / `refine_browser_observations.jsonl` / `refine_action_executions.jsonl` / `refine_knowledge_events.jsonl` 会保持空文件，且 run summary 文件仅为 `{}`，可据此快速识别“初始化后未进入有效执行”。
+- 若 refine run 在 modal / file chooser 场景里反复 `navigate`，先检查两件事：
+  - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
+  - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
 - old stitched refinement 子树已在确认零活跃入口引用后移除；后续若再做 legacy cleanup，先验证 runtime 主路径和测试引用图，再删文件。
 - refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。
