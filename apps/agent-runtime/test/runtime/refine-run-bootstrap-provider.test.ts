@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AgentRunRequest } from "../../src/domain/agent-types.js";
-import { RefineRunBootstrapProvider } from "../../src/runtime/providers/refine-run-bootstrap-provider.js";
+import { RefineRunBootstrapProvider } from "../../src/application/refine/refine-run-bootstrap-provider.js";
 
 interface ResumeRecord {
   runId: string;

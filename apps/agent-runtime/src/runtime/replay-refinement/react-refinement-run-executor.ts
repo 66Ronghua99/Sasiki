@@ -10,7 +10,7 @@ import type { AgentRunRequest, AgentRunResult, AssistantTurnRecord } from "../..
 import type { HitlInterventionRequest } from "../../domain/intervention-learning.js";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
 import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
-import type { RefineRunBootstrapProvider } from "../providers/refine-run-bootstrap-provider.js";
+import type { RefineRunBootstrapProvider } from "../../application/refine/refine-run-bootstrap-provider.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
 
 interface RefinementKnowledgeSink {

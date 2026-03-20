@@ -14,8 +14,8 @@ import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js"
 import { ObserveExecutor } from "../observe/observe-executor.js";
 import { ObserveRuntime } from "../observe/observe-runtime.js";
 import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
-import { PromptProvider, type RuntimePromptBundle } from "../../runtime/providers/prompt-provider.js";
-import { RefineRunBootstrapProvider } from "../../runtime/providers/refine-run-bootstrap-provider.js";
+import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
+import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
 import { ToolSurfaceProvider } from "../providers/tool-surface-provider.js";
 import { ReactRefinementRunExecutor } from "../../runtime/replay-refinement/react-refinement-run-executor.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";

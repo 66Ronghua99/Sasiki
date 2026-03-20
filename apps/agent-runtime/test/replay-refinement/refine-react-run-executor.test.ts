@@ -8,8 +8,8 @@ import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contr
 import type { HitlController } from "../../src/contracts/hitl-controller.js";
 import type { Logger } from "../../src/contracts/logger.js";
 import type { AgentRunResult } from "../../src/domain/agent-types.js";
-import { PromptProvider } from "../../src/runtime/providers/prompt-provider.js";
-import { RefineRunBootstrapProvider } from "../../src/runtime/providers/refine-run-bootstrap-provider.js";
+import { PromptProvider } from "../../src/application/refine/prompt-provider.js";
+import { RefineRunBootstrapProvider } from "../../src/application/refine/refine-run-bootstrap-provider.js";
 import { AttentionGuidanceLoader } from "../../src/runtime/replay-refinement/attention-guidance-loader.js";
 import { AttentionKnowledgeStore } from "../../src/infrastructure/persistence/attention-knowledge-store.js";
 import { createRefineReactSession } from "../../src/runtime/replay-refinement/refine-react-session.js";
