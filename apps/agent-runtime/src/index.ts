@@ -5,8 +5,8 @@
  */
 import process from "node:process";
 
-import { parseCliArguments } from "./runtime/command-router.js";
-import { WorkflowRuntime } from "./runtime/workflow-runtime.js";
+import { parseCliArguments } from "./application/shell/command-router.js";
+import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./runtime/runtime-config.js";
 import { InteractiveSopCompactService } from "./runtime/interactive-sop-compact.js";
 

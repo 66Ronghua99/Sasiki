@@ -6,7 +6,7 @@ import {
   parseObserveArguments,
   parseRefineArguments,
   parseSopCompactArguments,
-} from "../../src/runtime/command-router.js";
+} from "../../src/application/shell/command-router.js";
 
 test("parseObserveArguments preserves explicit observe grammar", () => {
   assert.deepEqual(

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createRuntimeComposition, planRuntimeComposition } from "../../src/runtime/runtime-composition-root.js";
+import { createRuntimeComposition, planRuntimeComposition } from "../../src/application/shell/runtime-composition-root.js";
 import type { RuntimeConfig } from "../../src/runtime/runtime-config.js";
 
 function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
