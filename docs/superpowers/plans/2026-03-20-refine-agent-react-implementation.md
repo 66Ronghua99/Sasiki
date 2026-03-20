@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: active
+status: archived
 implements:
   - docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md
 verified_by: []
@@ -69,11 +69,7 @@ related:
 - Modify: `PROGRESS.md`
 - Modify: `NEXT_STEP.md`
 - Modify: `MEMORY.md`
-- Delete after cutover if unused: `apps/agent-runtime/src/runtime/replay-refinement/browser-operator-gateway.ts`
-- Delete after cutover if unused: `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-orchestrator.ts`
-- Delete after cutover if unused: `apps/agent-runtime/src/runtime/replay-refinement/refinement-decision-engine.ts`
-- Delete after cutover if unused: `apps/agent-runtime/src/runtime/replay-refinement/refinement-hitl-loop.ts`
-- Delete after cutover if unused: `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-run-executor.ts`
+- Delete after cutover if unused: legacy stitched refinement gateway/orchestrator/decision stack.
 
 ## Tasks
 
@@ -179,11 +175,7 @@ related:
 - Modify: `apps/agent-runtime/src/index.ts`
 - Modify: `apps/agent-runtime/src/runtime/workflow-runtime.ts`
 - Modify: `apps/agent-runtime/src/runtime/runtime-config.ts`
-- Delete if unused: `apps/agent-runtime/src/runtime/replay-refinement/browser-operator-gateway.ts`
-- Delete if unused: `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-orchestrator.ts`
-- Delete if unused: `apps/agent-runtime/src/runtime/replay-refinement/refinement-decision-engine.ts`
-- Delete if unused: `apps/agent-runtime/src/runtime/replay-refinement/refinement-hitl-loop.ts`
-- Delete if unused: `apps/agent-runtime/src/runtime/replay-refinement/online-refinement-run-executor.ts`
+- Delete if unused: legacy stitched refinement gateway/orchestrator/decision stack.
 
 - [x] Modify `workflow-runtime.ts` so `refinementEnabled` instantiates the new refinement-specific `AgentLoop` and `react-refinement-run-executor.ts` instead of the old orchestrator stack.
 - [x] Modify `index.ts` and the runtime entry surface so a paused refinement run has an explicit resume path, for example `--resume-run-id <run_id>`, that reattaches the persisted HITL resume state to the same refinement run.

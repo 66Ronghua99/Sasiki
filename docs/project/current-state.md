@@ -3,11 +3,11 @@
 ## Restart Status
 - Repository baseline has been rolled back to commit `3c97346`.
 - Harness migration bootstrap is complete.
+- Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - Historical `.plan/*` documents remain available as background references, but they are no longer treated as active source of truth.
 
 ## Current Entry Commands
-- `npm --prefix apps/agent-runtime run lint:docs`
 - `npm --prefix apps/agent-runtime run lint:arch`
 - `npm --prefix apps/agent-runtime run lint`
 - `npm --prefix apps/agent-runtime run test`
@@ -15,6 +15,10 @@
 - `npm --prefix apps/agent-runtime run build`
 - `npm --prefix apps/agent-runtime run hardgate`
 - `node apps/agent-runtime/dist/index.js "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"`
+
+## Project Verification Notes
+- `npm --prefix apps/agent-runtime run lint:docs` remains a project-local doc alignment check where needed, but it is not a latest-Harness requirement.
+- `npm --prefix apps/agent-runtime run lint:arch`, `lint`, `test`, `typecheck`, `build`, and `hardgate` remain the current project verification commands.
 
 ## Code-Backed Baseline
 - CLI entrypoints live in `apps/agent-runtime/src/index.ts`:
@@ -27,6 +31,7 @@
 - The current shared browser execution kernel remains:
   - legacy run path: `AgentLoop -> McpToolBridge -> Playwright MCP`
   - refinement path: `AgentLoop -> RefineReactToolClient -> Playwright MCP`
+- The disconnected stitched refinement subtree has been removed after zero-reference verification; the active refinement runtime is now the React refinement path only.
 - Current major code areas:
   - `observe`: `apps/agent-runtime/src/runtime/observe-runtime.ts`
   - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
@@ -51,5 +56,5 @@
 
 ## Follow-Up
 - Run one real CDP/cookies/MCP refinement smoke on the new runtime path and capture a fresh `artifacts/e2e/<run_id>/` directory.
-- After smoke prerequisites are met, decide whether to physically delete old stitched refinement files or keep them as archive-only code.
-- Keep `.harness/bootstrap.toml` updated if verify or E2E commands change.
+- After the low-risk legacy cleanup, design the next provider/composition refactor on top of the cleaned refinement runtime baseline.
+- Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

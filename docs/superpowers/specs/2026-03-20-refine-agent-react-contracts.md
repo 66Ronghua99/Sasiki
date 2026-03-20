@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: draft
+status: archived
 implements:
   - docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md
 related:
@@ -355,4 +355,3 @@ Handshake observability requirements:
 
 - Promotion events must include `sourceRunId`.
 - Load events must include matched keys and loaded ids count.
-

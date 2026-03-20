@@ -13,8 +13,6 @@ const DEFAULT_MAX_LINES = 500;
 const LEGACY_MAX_LINES = new Map([
   ["core/agent-loop.ts", 760],
   ["runtime/run-executor.ts", 780],
-  ["runtime/replay-refinement/online-refinement-run-executor.ts", 840],
-  ["runtime/replay-refinement/refinement-decision-engine.ts", 670],
 ]);
 
 const LAYER_ORDER = ["domain", "contracts", "core", "runtime", "infrastructure"];

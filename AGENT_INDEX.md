@@ -12,7 +12,7 @@
    - runtime failure or regression -> `systematic-debugging`
    - delivery review -> `requesting-code-review`
    - completion claim -> `verification-before-completion`
-   - documentation drift or contract sync -> `harness-doc-health`
+   - documentation drift or contract sync -> `harness:doc-health`
 
 ## Bootstrap Rule
 

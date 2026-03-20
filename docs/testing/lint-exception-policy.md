@@ -14,8 +14,6 @@ This policy applies to architecture and docs lint rules enforced by:
 - Current allowlist and budget:
   - `core/agent-loop.ts` <= 760 lines
   - `runtime/run-executor.ts` <= 780 lines
-  - `runtime/replay-refinement/online-refinement-run-executor.ts` <= 840 lines
-  - `runtime/replay-refinement/refinement-decision-engine.ts` <= 670 lines
 - Governance: no new file may enter this allowlist without owner review.
 
 ## Non-Exception Rules

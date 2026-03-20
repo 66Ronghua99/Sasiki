@@ -5,7 +5,7 @@
 - 已经变成“阶段流水账”或“旧方案实现细节”的内容，不再继续堆在这里。
 
 ## Stable Lessons
-- Harness 初始化后，`.harness/bootstrap.toml` 是仓库入口真源；不要再靠猜目录结构来推断项目模式和验证命令。
+- Harness 初始化后，`.harness/bootstrap.toml` 是仓库 governance 元数据真源；不要把它当成命令注册表，也不要再靠猜目录结构来推断项目模式和验证命令。
 - 这个仓库的真实可执行命令在 `apps/agent-runtime/package.json`，不是仓库根目录。
 - 浏览器任务“看起来完成”不等于业务完成；任何完成声明都要有 `artifacts/e2e/<run_id>/` 里的新鲜证据支撑。
 - shared execution kernel 仍是当前代码的核心边界：
@@ -19,6 +19,7 @@
 - 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
 - 为避免大小写环境变量差异，运行 refine e2e 时优先同时设置 `NO_PROXY` 与 `no_proxy`，并在同一命令里 `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY`。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
+- `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
@@ -34,7 +35,7 @@
 - 当页面出现系统级 `file chooser dialog` 时，refine agent 会持续触发 `hitl.request`（uncertain_state）；若人类侧未真实关闭弹窗，流程会重复同类 HITL，难以前进到工具执行阶段。
 - 若 run 卡在首轮前（无工具调用），对应 run 目录里的 `refine_turn_logs.jsonl` / `refine_browser_observations.jsonl` / `refine_action_executions.jsonl` / `refine_knowledge_events.jsonl` 会保持空文件，且 run summary 文件仅为 `{}`，可据此快速识别“初始化后未进入有效执行”。
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
-- old stitched refinement 文件在 smoke gate 前可以先断链保留，不要在缺少真实环境证据时直接物理删除。
+- old stitched refinement 子树已在确认零活跃入口引用后移除；后续若再做 legacy cleanup，先验证 runtime 主路径和测试引用图，再删文件。
 - refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。
 - `observe.page` 的页面识别必须按 Playwright markdown 事实解析（`Page URL` / `Page Title` + `Open tabs`）；不能再假设旧 `URL:` / `TITLE:` 行格式。
 - `observe.query` 元素提取必须兼容 YAML `- role [ref=...]` 行；否则会出现“页面有元素但 query 常年空结果”的假阴性。

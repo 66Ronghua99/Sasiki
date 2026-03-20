@@ -1,9 +1,10 @@
 ---
 doc_type: plan
-status: draft
+status: active
 implements:
   - docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md
-verified_by: []
+verified_by:
+  - artifacts/doc-health/2026-03-20-harness-doc-truth-sync.md
 supersedes: []
 related:
   - docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md
@@ -65,11 +66,11 @@ related:
 - Modify: `.harness/bootstrap.toml`
 - Create: `artifacts/doc-health/2026-03-20-harness-doc-truth-sync.md`
 
-- [ ] Capture the red-state baseline in the evidence draft: note that `.harness/bootstrap.toml` currently stores command fields and is missing `governance_model`, `doc_health_skill`, and `lint_test_skill`.
-- [ ] Rewrite `.harness/bootstrap.toml` to the governance-only manifest contract with exactly the required Harness keys and repository-relative values.
-- [ ] Remove legacy command fields (`docs_health_command`, `verify_command`, `e2e_command`) from the manifest.
-- [ ] Run `rg -n "^(bootstrap_version|mode|preset|entry_skill|governance_model|templates_dir|doc_health_skill|lint_test_skill)\\s*=" .harness/bootstrap.toml` and confirm every required key is present.
-- [ ] Run `rg -n "docs_health_command|verify_command|e2e_command" .harness/bootstrap.toml` and confirm it returns no matches.
+- [x] Capture the red-state baseline in the evidence draft: note that `.harness/bootstrap.toml` currently stores command fields and is missing `governance_model`, `doc_health_skill`, and `lint_test_skill`.
+- [x] Rewrite `.harness/bootstrap.toml` to the governance-only manifest contract with exactly the required Harness keys and repository-relative values.
+- [x] Remove legacy command fields (`docs_health_command`, `verify_command`, `e2e_command`) from the manifest.
+- [x] Run `rg -n "^(bootstrap_version|mode|preset|entry_skill|governance_model|templates_dir|doc_health_skill|lint_test_skill)\\s*=" .harness/bootstrap.toml` and confirm every required key is present.
+- [x] Run `rg -n "docs_health_command|verify_command|e2e_command" .harness/bootstrap.toml` and confirm it returns no matches.
 
 ### Task 2: Sync Project Docs To The New Harness Model
 
@@ -79,11 +80,11 @@ related:
 - Modify: `docs/testing/strategy.md`
 - Modify: `MEMORY.md`
 
-- [ ] Update project docs so they describe latest Harness as governance-only bootstrap plus doc-health audit, not as a repo-local doc-lint runtime.
-- [ ] Remove or reword claims that `lint:docs` is required by Harness; if the repository keeps a local doc checker, describe it as project-specific rather than Harness-mandated.
-- [ ] Keep project-specific verification commands in project/testing docs where they still matter, but do not treat them as bootstrap-manifest truth.
-- [ ] Update any stable lesson in `MEMORY.md` that still implies `.harness/bootstrap.toml` is a command registry instead of governance metadata.
-- [ ] Run `rg -n "lint:docs" PROGRESS.md docs/project/current-state.md docs/project/README.md docs/testing/strategy.md` and confirm any remaining matches are intentional historical references rather than active governance claims.
+- [x] Update project docs so they describe latest Harness as governance-only bootstrap plus doc-health audit, not as a repo-local doc-lint runtime.
+- [x] Remove or reword claims that `lint:docs` is required by Harness; if the repository keeps a local doc checker, describe it as project-specific rather than Harness-mandated.
+- [x] Keep project-specific verification commands in project/testing docs where they still matter, but do not treat them as bootstrap-manifest truth.
+- [x] Update any stable lesson in `MEMORY.md` that still implies `.harness/bootstrap.toml` is a command registry instead of governance metadata.
+- [x] Run `rg -n "lint:docs" PROGRESS.md docs/project/current-state.md docs/project/README.md docs/testing/strategy.md` and confirm any remaining matches are intentional historical references rather than active governance claims.
 
 ### Task 3: Rotate The Active Loop And Canonical Statuses
 
@@ -101,11 +102,11 @@ related:
 - Modify: `docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
 - Modify: `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
 
-- [ ] Promote the doc-truth-sync loop into the current top-level pointer set and make `NEXT_STEP.md` point to the next action inside this loop only.
-- [ ] Reclassify the prior refine-runtime documents using canonical Harness lifecycle statuses only: `draft`, `active`, `superseded`, `deprecated`, or `archived`.
-- [ ] Ensure no prior loop remains marked `active` once the doc-truth-sync loop becomes current.
-- [ ] Update `PROGRESS.md` so the active references, TODO, and DONE sections describe the same doc-truth-sync loop as `NEXT_STEP.md`.
-- [ ] Run `rg -n "^status:" docs/superpowers/specs docs/superpowers/plans -g '*.md'` and manually verify there is one coherent current loop rather than overlapping active histories.
+- [x] Promote the doc-truth-sync loop into the current top-level pointer set and make `NEXT_STEP.md` point to the next action inside this loop only.
+- [x] Reclassify the prior refine-runtime documents using canonical Harness lifecycle statuses only: `draft`, `active`, `superseded`, `deprecated`, or `archived`.
+- [x] Ensure no prior loop remains marked `active` once the doc-truth-sync loop becomes current.
+- [x] Update `PROGRESS.md` so the active references, TODO, and DONE sections describe the same doc-truth-sync loop as `NEXT_STEP.md`.
+- [x] Run `rg -n "^status:" docs/superpowers/specs docs/superpowers/plans -g '*.md'` and manually verify there is one coherent current loop rather than overlapping active histories.
 
 ### Task 4: Record Evidence And Finalize Handoff
 
@@ -114,18 +115,18 @@ related:
 - Modify: `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 - Create: `artifacts/doc-health/2026-03-20-harness-doc-truth-sync.md`
 
-- [ ] Fill the evidence record with scenario, commands run, before-state mismatches, after-state sync results, and residual risks.
-- [ ] Add the evidence path to the plan metadata or task notes so the doc-truth-sync loop has an explicit `spec -> plan -> evidence` chain.
-- [ ] Run `git diff --check` and confirm the docs-only sync introduces no malformed markdown/TOML edits.
-- [ ] Record residual risks explicitly: disconnected legacy refinement code is still present, and cleanup/refactor is still deferred.
-- [ ] Set the post-sync next action to planning or executing the legacy-cleanup loop, not directly to provider/composition refactor.
+- [x] Fill the evidence record with scenario, commands run, before-state mismatches, after-state sync results, and residual risks.
+- [x] Add the evidence path to the plan metadata or task notes so the doc-truth-sync loop has an explicit `spec -> plan -> evidence` chain.
+- [x] Run `git diff --check` and confirm the docs-only sync introduces no malformed markdown/TOML edits.
+- [x] Record residual risks explicitly: disconnected legacy refinement code is still present, and cleanup/refactor is still deferred.
+- [x] Set the post-sync next action to planning or executing the legacy-cleanup loop, not directly to provider/composition refactor.
 
 ## Completion Checklist
 
-- [ ] Manifest uses the latest governance-only Harness key set
-- [ ] Repo-local command fields are removed from `.harness/bootstrap.toml`
-- [ ] Project docs no longer describe `lint:docs` as a Harness requirement
-- [ ] Top-level pointers reflect the doc-truth-sync loop
-- [ ] Prior active loop is explicitly demoted with canonical statuses
-- [ ] Evidence location is populated or explicitly noted
-- [ ] No runtime behavior or code files were changed
+- [x] Manifest uses the latest governance-only Harness key set
+- [x] Repo-local command fields are removed from `.harness/bootstrap.toml`
+- [x] Project docs no longer describe `lint:docs` as a Harness requirement
+- [x] Top-level pointers reflect the doc-truth-sync loop
+- [x] Prior active loop is explicitly demoted with canonical statuses
+- [x] Evidence location is populated or explicitly noted
+- [x] No runtime behavior or code files were changed

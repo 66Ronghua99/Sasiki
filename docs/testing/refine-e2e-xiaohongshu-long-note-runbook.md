@@ -22,6 +22,10 @@
 2. 本地 cookies 可用（默认 `~/.sasiki/cookies/*.json`）。
 3. 已完成构建（或本轮先执行 build）。
 4. Playwright MCP 可正常拉起。
+5. 运行环境必须提供可用模型配置：
+   - 基于 `apps/agent-runtime/runtime.config.example.json` 准备的本地 runtime config 文件，或
+   - shell 环境中的 `LLM_*` / `DASHSCOPE_*` / `OPENROUTER_*` 相关变量。
+   否则流程可能在首轮前卡住，浏览器已启动但不会产出新的 `run_id` 工件。
 
 ## 标准执行流程
 
@@ -115,4 +119,3 @@ sed -n '1,220p' "artifacts/e2e/${RUN_ID}/refine_action_executions.jsonl"
 2. 最终状态（`completed` / `failed`）
 3. 关键证据路径（`refine_run_summary.json`、`steps.json`、`refine_action_executions.jsonl`）
 4. 是否触发 proxy 相关问题以及最终处理方式
-

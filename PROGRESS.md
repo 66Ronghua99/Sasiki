@@ -6,10 +6,11 @@
 
 ## Restart Baseline
 - 仓库已回滚到 `3c973462158c2cdb22c4cd7fb803db88af8bcbb7`，作为这次重启同步的代码基线。
-- 仓库已完成 Harness migration bootstrap，`.harness/bootstrap.toml` 是当前机器可读入口真源。
+- 仓库已完成 Harness migration bootstrap，`.harness/bootstrap.toml` 是当前机器可读 governance 入口真源。
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- 当前活跃闭环已经切换为 `harness doc-truth-sync`，旧 refinement / e2e 闭环仅保留为历史背景。
 - CLI 当前有两类入口：
   - `runtime`：支持 `run` / `observe`
   - `runtime --resume-run-id <run_id>`：用于 paused refinement run 的同 run 恢复
@@ -21,7 +22,7 @@
   - `false -> RunExecutor`
   - `true -> ReactRefinementRunExecutor`
 - `refinementMode` 配置字段保留兼容，但在新 refinement 路径中显式 no-op（仅日志告知 ignored）。
-- old stitched refinement 文件仍在仓库（未删除），但已从 `refinement.enabled` 主路径断开。
+- old stitched refinement 子树已移除；当前 refinement 只保留 `ReactRefinementRunExecutor` 这一条活跃代码路径。
 - 当前仓库已接入的验证命令是：
   - `npm --prefix apps/agent-runtime run lint:docs`
   - `npm --prefix apps/agent-runtime run lint:arch`
@@ -41,9 +42,8 @@
 - `docs/architecture/overview.md`
 - `docs/architecture/layers.md`
 - `docs/testing/strategy.md`
-- `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
-- `docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
-- `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
+- `docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md`
+- `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -53,13 +53,21 @@
 - `.plan/checklist_interactive_reasoning_sop_compact.md`
 - `.plan/checklist_replay_refinement_online.md`
 - `.plan/checklist_execution_kernel_refine_core_rollout.md`
+- `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+- `docs/superpowers/specs/2026-03-19-agent-architecture-redesign.md`
+- `docs/superpowers/specs/2026-03-20-refine-agent-react-contracts.md`
+- `docs/superpowers/specs/2026-03-20-refine-react-tool-surface-hardening.md`
+- `docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
+- `docs/superpowers/plans/2026-03-20-refine-agent-react-implementation.md`
+- `docs/superpowers/plans/2026-03-20-refine-react-tool-surface-hardening-implementation.md`
+- `docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`
 
 说明：
 - 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
-- 新的 active spec / plan 将在 `docs/superpowers/specs/` 下重建。
+- 旧 refinement / e2e 文档已经降级为历史背景；当前 active spec / plan 是 doc-truth-sync 这一条闭环。
 
 ## TODO
-- `P0` 按 `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md` 再跑一条真实 refinement e2e，并把 `run_id + proxy 情况 + tab/context 检查结论` 回写 `PROGRESS.md`。
+- `P0` 基于已清理的 refinement runtime 基线，起草 provider / composition-root 重构 spec，并先走你的 review 再进入实现。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -93,12 +101,12 @@
   - `refinement.enabled=true` 已切到 `ReactRefinementRunExecutor`
   - CLI 增加 `--resume-run-id <run_id>`
   - `refinementMode` 在新路径中显式记录为 ignored/no-op
-  - old stitched refinement 文件暂未删除（待真实 smoke gate）
+  - 后续已进一步确认旧 stitched refinement 子树无活跃入口引用，并已完成物理删除
 - 已同步仓库内最新 lint / verification 口径到项目文档：
   - 当前基线明确包含 `lint:docs`、`lint:arch`、`lint`、`test`、`hardgate`、`typecheck`、`build`
 - 已完成一次新鲜验证：
   - `npm --prefix apps/agent-runtime run test`：通过（10 tests）
-  - `npm --prefix apps/agent-runtime run lint`：通过，`lint:arch` 保留 2 个 near-limit warning（`runtime/interactive-sop-compact.ts`、`runtime/replay-refinement/refinement-memory-store.ts`）
+  - `npm --prefix apps/agent-runtime run lint`：通过，`lint:arch` 当时保留 2 个 near-limit warning
   - `npm --prefix apps/agent-runtime run hardgate`：通过
   - `npm --prefix apps/agent-runtime run typecheck`：通过
   - `npm --prefix apps/agent-runtime run build`：通过
@@ -166,3 +174,22 @@
   - 证据目录：`artifacts/e2e/20260320_152942_514/`
 - 已新增可复用 e2e 操作手册（含 proxy 避坑与验收步骤）：
   - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+- 已完成当前治理闭环旋转：
+  - `docs/superpowers/specs/2026-03-20-harness-doc-truth-sync.md` 已提升为当前 active spec
+  - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md` 已提升为当前 active plan
+  - 旧 refinement 相关 spec / plan 已统一降级为历史背景
+- 已完成 doc-truth-sync 最终审计与 handoff：
+  - evidence 记录已补全为正式 `harness:doc-health` 审计条目
+  - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md` 已通过 `verified_by` 绑定到 evidence
+  - 下一步已转为 legacy-cleanup 规划，不直接进入 provider/composition refactor
+- 已完成低风险 legacy cleanup：
+  - 已确认 stitched refinement 旧子树没有活跃入口引用，并删除 7 个断链文件
+  - 已同步当前 refinement 入口文档到 `ReactRefinementRunExecutor`
+  - 已更新 `lint:arch` 预算与 `lint:docs` 规则，使其对齐当前 governance-only Harness 模型
+  - 新鲜验证：`test` 通过（22 tests），`typecheck` 通过，`build` 通过，`lint` 通过（保留 `runtime/interactive-sop-compact.ts` 1 个 near-limit warning），`hardgate` 通过
+  - hardgate report：`artifacts/code-gate/2026-03-20T09-52-52-308Z/report.json`
+- 已尝试 cleanup 后真实 refinement e2e，但当前 worktree 未完成验收：
+  - 执行时间：2026-03-20
+  - 结果：浏览器可自动拉起、cookies 可注入、CDP 可探活，但 run 在首轮前卡住，未产生新的 `artifacts/e2e/<run_id>/`
+  - 已确认当前 worktree 缺少本地 runtime config 文件，且 shell 环境没有 `LLM_*` / `DASHSCOPE_*` / `OPENROUTER_*` 模型配置
+  - 结论：本轮无法用真实 e2e 最终确认“无行为影响”，当前能确认的是 cleanup 后代码门禁全部通过，阻塞更像环境未配置齐而非 cleanup 回归
