@@ -14,10 +14,15 @@ const LEGACY_MAX_LINES = new Map([
   ["kernel/agent-loop.ts", 760],
 ]);
 const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
-const PROMPT_PROVIDER_FILE = "application/refine/prompt-provider.ts";
 const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "application/refine/react-refinement-run-executor.ts";
 const LEGACY_REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
+const APPLICATION_RUNTIME_SHIMS = new Set([
+  "runtime/artifacts-writer.ts",
+  "runtime/runtime-config.ts",
+  "runtime/system-prompts.ts",
+  "runtime/replay-refinement/attention-guidance-loader.ts",
+]);
 const REFINE_TOOLING_SHIM_FILES = [
   "runtime/replay-refinement/attention-guidance-loader.ts",
   "runtime/replay-refinement/refine-react-session.ts",
@@ -33,7 +38,6 @@ const SHIM_ONLY_FILES = new Set([
   "core/model-resolver.ts",
   "core/json-model-client.ts",
   "runtime/artifacts-writer.ts",
-  "runtime/agent-runtime.ts",
   "runtime/observe-executor.ts",
   "runtime/observe-runtime.ts",
   "runtime/compact-session-machine.ts",
@@ -219,11 +223,11 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
       ));
     }
 
-    if (toRel === "runtime/system-prompts.ts" && fromRel !== PROMPT_PROVIDER_FILE) {
+    if (fromLayer === "application" && APPLICATION_RUNTIME_SHIMS.has(toRel)) {
       errors.push(addError(
-        "dep.prompt.provider.boundary",
+        "dep.application.no-runtime-shim",
         fromRel,
-        `Only ${PROMPT_PROVIDER_FILE} may import runtime/system-prompts.ts directly, found import to ${toRel}.`
+        `Application code must import the canonical owner module instead of runtime shim ${toRel}.`
       ));
     }
 

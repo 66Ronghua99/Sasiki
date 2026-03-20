@@ -1,5 +1,5 @@
 /**
- * Deps: node:path, infrastructure/persistence/*, runtime/replay-refinement/*
+ * Deps: node:path, infrastructure/persistence/*, application/refine/*
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
@@ -7,7 +7,7 @@ import path from "node:path";
 
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
-import { AttentionGuidanceLoader } from "../../runtime/replay-refinement/attention-guidance-loader.js";
+import { AttentionGuidanceLoader } from "../refine/attention-guidance-loader.js";
 import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
 import { RefineHitlResumeStore } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
 

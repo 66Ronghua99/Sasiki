@@ -1,10 +1,10 @@
 /**
- * Deps: runtime-config.ts, runtime/system-prompts.ts
+ * Deps: runtime-config.ts, application/refine/system-prompts.ts
  * Used By: application/shell/runtime-composition-root.ts, application/refine/refine-run-bootstrap-provider.ts
  * Last Updated: 2026-03-21
  */
 import type { RuntimeConfig } from "../config/runtime-config.js";
-import { REFINE_REACT_SYSTEM_PROMPT, RUN_OPERATOR_SYSTEM_PROMPT } from "../../runtime/system-prompts.js";
+import { REFINE_REACT_SYSTEM_PROMPT, RUN_OPERATOR_SYSTEM_PROMPT } from "./system-prompts.js";
 
 export interface RuntimePromptBundle {
   runSystemPrompt: string;

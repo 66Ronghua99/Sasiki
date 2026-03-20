@@ -16,7 +16,8 @@ import type { LlmThinkingLevel } from "../../domain/llm-thinking.js";
 import type { SopTrace } from "../../domain/sop-trace.js";
 import { validateSopTrace } from "../../domain/sop-trace.js";
 import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
-import { ArtifactsWriter } from "../../runtime/artifacts-writer.js";
+import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
+import type { RuntimeSemanticMode } from "../config/runtime-config.js";
 import { applyCompactSessionPatch, buildInitialCompactSessionState, type CompactTraceSummary } from "./compact-session-machine.js";
 import { normalizeCompactTurnOutput } from "./compact-turn-normalizer.js";
 import {
@@ -25,7 +26,6 @@ import {
   SUMMARIZE_SYSTEM_PROMPT,
 } from "./interactive-sop-compact-prompts.js";
 import { SopRuleCompactBuilder } from "./sop-rule-compact-builder.js";
-import type { RuntimeSemanticMode } from "../../runtime/runtime-config.js";
 
 interface CompactSemanticOptions {
   mode: RuntimeSemanticMode;
