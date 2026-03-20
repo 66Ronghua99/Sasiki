@@ -102,6 +102,18 @@ const REFINE_REACT_TOOL_SCHEMAS: Record<(typeof REFINE_REACT_TOOL_NAMES)[number]
     required: ["sourceObservationRef"],
     additionalProperties: false,
   },
+  "act.file_upload": {
+    type: "object",
+    properties: {
+      sourceObservationRef: { type: "string" },
+      paths: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+    required: ["sourceObservationRef"],
+    additionalProperties: false,
+  },
   "hitl.request": {
     type: "object",
     properties: {
@@ -254,6 +266,11 @@ export class RefineReactToolClient implements ToolClient {
           fullPage: this.readBooleanArg(args, "fullPage"),
           filename: this.readScreenshotOutputArg(args),
         });
+      case "act.file_upload":
+        return this.browserTools.actFileUpload({
+          sourceObservationRef: this.readStringArg(args, "sourceObservationRef"),
+          paths: this.readStringArrayArg(args, "paths"),
+        });
       case "hitl.request":
         return (await this.runtimeTools.requestHitl({
           prompt: this.readStringArg(args, "prompt"),
@@ -336,6 +353,20 @@ export class RefineReactToolClient implements ToolClient {
       this.readOptionalStringArg(args, "path") ??
       this.readOptionalStringArg(args, "filePath")
     );
+  }
+
+  private readStringArrayArg(args: Record<string, unknown>, key: string): string[] | undefined {
+    const value = args[key];
+    if (value === undefined) {
+      return undefined;
+    }
+    if (!Array.isArray(value)) {
+      throw new Error(`invalid argument: ${key}`);
+    }
+    if (value.some((item) => typeof item !== "string")) {
+      throw new Error(`invalid argument: ${key}`);
+    }
+    return value.length > 0 ? value : undefined;
   }
 
   private readPageArg(args: Record<string, unknown>): { origin: string; normalizedPath: string } {

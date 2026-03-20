@@ -45,6 +45,7 @@ class StubRawToolClient implements ToolClient {
       { name: "browser_type" },
       { name: "browser_press_key" },
       { name: "browser_navigate" },
+      { name: "browser_file_upload" },
       { name: screenshotToolName },
     ];
     if (includeBrowserTabsTool) {
@@ -82,6 +83,17 @@ class StubRawToolClient implements ToolClient {
     }
     if (name === "browser_navigate") {
       return { content: [{ type: "text", text: `navigated ${String(args.url ?? "")}` }] };
+    }
+    if (name === "browser_file_upload") {
+      const paths = Array.isArray(args.paths) ? args.paths : undefined;
+      return {
+        content: [
+          {
+            type: "text",
+            text: paths && paths.length > 0 ? `uploaded ${paths.join(",")}` : "file chooser closed",
+          },
+        ],
+      };
     }
     if (name === "browser_tabs") {
       const action = typeof args.action === "string" ? args.action : "list";
@@ -169,7 +181,7 @@ function readScreenshotOutputArg(args: Record<string, unknown>): string | undefi
   return undefined;
 }
 
-test("composite tool client exposes exactly eleven refine-agent facing tools", async () => {
+test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-1", "task", { taskScope: "search-product" });
   const client = new RefineReactToolClient({ rawClient: raw, session });
@@ -189,6 +201,7 @@ test("composite tool client exposes exactly eleven refine-agent facing tools", a
       "act.navigate",
       "act.select_tab",
       "act.screenshot",
+      "act.file_upload",
       "hitl.request",
       "knowledge.record_candidate",
       "run.finish",
@@ -253,6 +266,15 @@ test("composite tool client emits frozen field-level input schemas for critical 
       typeof screenshotProperties.filePath === "object",
     "act.screenshot must define an output path field"
   );
+
+  const fileUpload = readSchema(findTool(tools, "act.file_upload"));
+  assert.equal(fileUpload.type, "object");
+  assert.equal(fileUpload.additionalProperties, false);
+  assert.deepEqual(readRequired(fileUpload), ["sourceObservationRef"]);
+  const fileUploadProperties = readProperties(fileUpload);
+  assert.equal(readObjectPropertySchema(fileUpload, "sourceObservationRef").type, "string");
+  assert.equal(readObjectPropertySchema(fileUpload, "paths").type, "array");
+  assert.deepEqual((fileUploadProperties.paths as Record<string, unknown>).items, { type: "string" });
 });
 
 test("observe.query uses only deterministic structural narrowing and ignores intent semantics", async () => {
@@ -421,6 +443,113 @@ test("act.select_tab routes to browser_tabs select action", async () => {
   assert.equal(result.success, true);
 });
 
+test("act.file_upload routes to browser_file_upload with provided paths", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-upload-1", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  const action = (await client.callTool("act.file_upload", {
+    sourceObservationRef: observationRef,
+    paths: ["~/Downloads/foo.png", "~/Downloads/bar.png"],
+  })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const uploadCall = raw.calls.find((call) => call.name === "browser_file_upload");
+  assert.ok(uploadCall, "expected act.file_upload to call browser_file_upload");
+  assert.deepEqual(uploadCall.args.paths, ["~/Downloads/foo.png", "~/Downloads/bar.png"]);
+  const result = action.result as Record<string, unknown>;
+  assert.equal(result.action, "file_upload");
+  assert.equal(result.success, true);
+});
+
+test("act.file_upload preserves exact path strings when forwarding to browser_file_upload", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-upload-spaces", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await client.callTool("act.file_upload", {
+    sourceObservationRef: observationRef,
+    paths: ["  ~/Downloads/foo.png  ", "\t~/Downloads/bar.png\n"],
+  });
+  await client.disconnect();
+
+  const uploadCall = raw.calls.find((call) => call.name === "browser_file_upload");
+  assert.ok(uploadCall, "expected act.file_upload to call browser_file_upload");
+  assert.deepEqual(uploadCall.args.paths, ["  ~/Downloads/foo.png  ", "\t~/Downloads/bar.png\n"]);
+});
+
+test("act.file_upload cancels file chooser by calling browser_file_upload without paths", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-upload-2", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await client.callTool("act.file_upload", {
+    sourceObservationRef: observationRef,
+  });
+  await client.callTool("act.file_upload", {
+    sourceObservationRef: observationRef,
+    paths: [],
+  });
+  await client.disconnect();
+
+  const uploadCalls = raw.calls.filter((call) => call.name === "browser_file_upload");
+  assert.equal(uploadCalls.length, 2);
+  assert.ok(!("paths" in uploadCalls[0].args), "expected cancel upload to omit paths");
+  assert.ok(!("paths" in uploadCalls[1].args), "expected cancel upload to omit paths");
+});
+
+test("act.file_upload rejects non-array paths values", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-upload-invalid-type", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await assert.rejects(
+    () =>
+      client.callTool("act.file_upload", {
+        sourceObservationRef: observationRef,
+        paths: "foo.png",
+      }),
+    /invalid argument: paths/
+  );
+  await client.disconnect();
+});
+
+test("act.file_upload rejects arrays containing non-string path entries", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-upload-invalid-entry", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await assert.rejects(
+    () =>
+      client.callTool("act.file_upload", {
+        sourceObservationRef: observationRef,
+        paths: ["foo.png", 123],
+      }),
+    /invalid argument: paths/
+  );
+  await client.disconnect();
+});
+
 test("action reports success=false when tool output is explicit error text", async () => {
   const raw = new StubRawToolClient({
     clickText: "### Error\nTimeoutError: locator.click: Timeout 5000ms exceeded.",
@@ -462,6 +591,32 @@ test("action fails fast when sourceObservationRef tab is stale against live acti
       client.callTool("act.click", {
         elementRef: "el-buy",
         sourceObservationRef: observationRef,
+      }),
+    /sourceObservationRef|tab/i
+  );
+  await client.disconnect();
+});
+
+test("act.file_upload fails fast when sourceObservationRef tab is stale against live active tab", async () => {
+  const raw = new StubRawToolClient({
+    tabsListText: [
+      "### Open tabs",
+      "- 0: [Explore](https://www.xiaohongshu.com/explore)",
+      "- 1: (current) [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
+    ].join("\n"),
+  });
+  const session = createRefineReactSession("run-stale-upload", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await assert.rejects(
+    () =>
+      client.callTool("act.file_upload", {
+        sourceObservationRef: observationRef,
+        paths: ["~/Downloads/foo.png"],
       }),
     /sourceObservationRef|tab/i
   );

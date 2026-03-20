@@ -41,6 +41,7 @@
 - 若 refine run 在 modal / file chooser 场景里反复 `navigate`，先检查两件事：
   - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
   - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航
+- 系统 Chrome 的首轮 observation 可能从 `about:blank`、空白 tab 或 omnibox tab 开始；first-turn bootstrap 不能假设一开始就有稳定的业务页 observation，也不能在无有效 observation 时伪造 `sourceObservationRef`。
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
 - old stitched refinement 子树已在确认零活跃入口引用后移除；后续若再做 legacy cleanup，先验证 runtime 主路径和测试引用图，再删文件。
 - refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。

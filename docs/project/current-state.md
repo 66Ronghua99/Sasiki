@@ -24,6 +24,10 @@
   - `~/.sasiki/chrome_profile`
   - `~/.sasiki/cookies/*.json`
   - proxy-disabled launch command with `NO_PROXY` / `no_proxy`
+- Fresh focused verification for the new refine-react slice passed:
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
 
 ## Code-Backed Baseline
 - CLI entrypoints live in `apps/agent-runtime/src/index.ts`:
@@ -43,6 +47,7 @@
   - legacy run path: `AgentLoop -> McpToolBridge -> Playwright MCP`
   - refinement path: `AgentLoop -> RefineReactToolClient -> Playwright MCP`
 - The disconnected stitched refinement subtree has been removed after zero-reference verification; the active refinement runtime is now the React refinement path only.
+- The refine-react tool surface now includes `act.file_upload` with strict `paths` handling and focused tests.
 - Current major code areas:
   - `observe`: `apps/agent-runtime/src/runtime/observe-runtime.ts`
   - `compact`: `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`
@@ -66,6 +71,8 @@
   - `.plan/20260313_execution_kernel_refine_core_rollout.md`
 
 ## Follow-Up
-- Current code baseline has executor/bootstrap providers and green repo gates, but still lacks one fresh passing refinement e2e for this slice.
-- If fresh e2e still loops around file chooser/modal state, the next change must be a smaller focused slice instead of continuing this refactor in-place.
+- Current code baseline now has the new file-upload slice plus green focused tests and core repo gates, but the latest fresh refinement e2e still failed before useful execution.
+- The latest e2e used system Chrome with `.sasiki/chrome_profile` and cookies, and the first turn attempted `act.navigate` with invented `sourceObservationRef` values before any valid observation existed.
+- System Chrome observation can begin on `about:blank` or extra blank / omnibox tabs, so first-turn bootstrap must explicitly handle that state.
+- The next change must be a smaller focused slice around first-turn navigation bootstrap and invalid synthetic `sourceObservationRef` behavior before broader e2e stabilization continues.
 - Keep `.harness/bootstrap.toml` aligned with governance metadata semantics if the bootstrap contract changes.

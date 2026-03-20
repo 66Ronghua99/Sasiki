@@ -175,6 +175,29 @@ export class RefineBrowserTools {
     return { result };
   }
 
+  async actFileUpload(args: {
+    sourceObservationRef: string;
+    paths?: string[];
+  }): Promise<{ result: ActionExecutionResult }> {
+    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const raw = await this.rawClient.callTool(
+      "browser_file_upload",
+      Array.isArray(args.paths) && args.paths.length > 0 ? { paths: args.paths } : {},
+    );
+    const message = this.readToolText(raw);
+    const metadata = this.parser.parseObservationMetadata(message);
+    const result = this.toActionResult("file_upload", args.sourceObservationRef, {
+      fallbackPage: sourceObservation.page,
+      page: metadata.page,
+      tabs: metadata.tabs,
+      activeTabIndex: metadata.activeTabIndex,
+      message,
+      success: this.resolveActionSuccess(raw, message),
+    });
+    this.session.recordAction(result);
+    return { result };
+  }
+
   async actScreenshot(args: {
     sourceObservationRef: string;
     fullPage?: boolean;

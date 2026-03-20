@@ -69,9 +69,9 @@
 - 旧 refinement / e2e 文档已经降级为历史背景；当前 active spec / plan 是 doc-truth-sync 这一条闭环。
 
 ## TODO
-- `P0` 将当前已验证基线合并回主分支后，先跑一条 fresh refinement e2e，确认 executor/bootstrap boundary 重构没有破坏真实长文草稿闭环。
-- 后续执行方式改为“小步实现 -> focused tests -> repo gates -> merge”，不再在单个 worktree 中累积大范围未合并改动。
-- 若 fresh e2e 仍在 file chooser / modal 场景下出现连续 speculative `navigate`，下一刀单独开成“file chooser tool-surface + stale-page guard”小闭环，并按 TDD 执行。
+- `P0` 先修正 first-turn navigation bootstrap / invalid synthetic `sourceObservationRef` 行为，保证系统 Chrome 首轮观察即使落在 `about:blank` / omnibox tab 上也能稳定对齐到有效 observation，再继续更大的 e2e 稳定化。
+- 后续执行方式保持“小步实现 -> focused tests -> repo gates -> 1 条 e2e -> sync docs”，不再在单个 worktree 中累积大范围未合并改动。
+- 若后续 e2e 仍在 file chooser / modal 场景下出现连续 speculative `navigate`，再单独切出“file chooser tool-surface + stale-page guard”小闭环，并按 TDD 执行。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -156,6 +156,21 @@
 - 已完成当前闭环验收收尾：
   - 用户确认已跑通一条结果并通过 HITL 验收
   - 当前任务转为已完成，后续进入新的优化任务阶段
+- 已完成新的 refine-react 小切片 landing：
+  - `act.file_upload` 已加入 tool surface
+  - 对 `paths` 做了严格处理
+  - 配套 focused tests 已补齐
+- 已完成 fresh focused verification：
+  - `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-contracts.test.ts test/replay-refinement/refine-react-tool-client.test.ts`：通过（49/49 tests）
+  - `npm --prefix apps/agent-runtime run typecheck`：通过
+  - `npm --prefix apps/agent-runtime run build`：通过
+- 已完成一条新的 refine e2e 尝试：
+  - `run_id`: `20260320_231626_543`
+  - 环境：系统 Chrome + `.sasiki/chrome_profile` + cookies
+  - 结果：失败，`finishReason = run.finish not called`
+  - 新发现：首轮就出现 `act.navigate` 使用自造的 `sourceObservationRef`（`navigate_to_creator_platform`，随后 `initial_navigation`），而不是等到有效 observation 之后再继续
+  - 系统 Chrome 的首轮 observation 可能从 `about:blank` 和额外空白 / omnibox tabs 开始，first-turn 逻辑必须显式处理这个现实
+  - 证据目录：`artifacts/e2e/20260320_231626_543/`
 - 已完成 tab/context consistency 闭环（spec + plan + code）：
   - 新增 spec：`docs/superpowers/specs/2026-03-20-refine-react-tab-context-consistency.md`
   - 新增并完成 plan：`docs/superpowers/plans/2026-03-20-refine-react-tab-context-consistency-implementation.md`

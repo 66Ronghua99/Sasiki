@@ -14,6 +14,7 @@ export const REFINE_REACT_TOOL_NAMES = [
   "act.navigate",
   "act.select_tab",
   "act.screenshot",
+  "act.file_upload",
   "hitl.request",
   "knowledge.record_candidate",
   "run.finish",
@@ -22,7 +23,7 @@ export const REFINE_REACT_TOOL_NAMES = [
 export const OBSERVE_QUERY_ALLOWED_NARROWING_FIELDS = ["mode", "text", "role", "elementRef", "limit"] as const;
 
 export type ObserveQueryMode = "search" | "inspect";
-export type RefineActionName = "click" | "type" | "press" | "navigate" | "select_tab" | "screenshot";
+export type RefineActionName = "click" | "type" | "press" | "navigate" | "select_tab" | "screenshot" | "file_upload";
 export type RefineFinishReason = "goal_achieved" | "hard_failure";
 
 export interface BrowserTabIdentity {

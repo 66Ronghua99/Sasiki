@@ -96,14 +96,17 @@ test("attention knowledge categories are frozen to v1 contract", () => {
   assert.deepEqual(ATTENTION_KNOWLEDGE_CATEGORIES, ["keep", "ignore", "action-target", "success-indicator"]);
 });
 
-test("refine-react tool surface includes screenshot and tab-select actions", () => {
+test("refine-react tool surface includes screenshot, tab-select, and file-upload actions", () => {
   assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.screenshot"));
   assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.select_tab"));
+  assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.file_upload"));
 });
 
-test("action execution result action enum includes screenshot and tab-select", () => {
+test("action execution result action enum includes screenshot, tab-select, and file-upload", () => {
   const screenshotAction: ActionExecutionResult["action"] = "screenshot";
   const selectTabAction: ActionExecutionResult["action"] = "select_tab";
+  const fileUploadAction: ActionExecutionResult["action"] = "file_upload";
   assert.equal(screenshotAction, "screenshot");
   assert.equal(selectTabAction, "select_tab");
+  assert.equal(fileUploadAction, "file_upload");
 });
