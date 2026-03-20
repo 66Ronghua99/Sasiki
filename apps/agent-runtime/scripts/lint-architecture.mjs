@@ -25,6 +25,8 @@ const SHIM_ONLY_FILES = new Set([
   "core/json-model-client.ts",
   "runtime/artifacts-writer.ts",
   "runtime/agent-runtime.ts",
+  "runtime/observe-executor.ts",
+  "runtime/observe-runtime.ts",
   "runtime/command-router.ts",
   "runtime/runtime-composition-root.ts",
   "runtime/runtime-config.ts",

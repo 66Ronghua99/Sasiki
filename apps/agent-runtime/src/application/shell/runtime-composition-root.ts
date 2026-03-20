@@ -11,8 +11,8 @@ import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
-import { ObserveExecutor } from "../../runtime/observe-executor.js";
-import { ObserveRuntime } from "../../runtime/observe-runtime.js";
+import { ObserveExecutor } from "../observe/observe-executor.js";
+import { ObserveRuntime } from "../observe/observe-runtime.js";
 import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../../runtime/providers/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../../runtime/providers/refine-run-bootstrap-provider.js";
