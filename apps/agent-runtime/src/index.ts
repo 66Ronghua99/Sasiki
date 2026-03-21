@@ -6,9 +6,12 @@
 import process from "node:process";
 
 import { parseCliArguments } from "./application/shell/command-router.js";
+import { RuntimeHost } from "./application/shell/runtime-host.js";
+import { createWorkflowRegistry } from "./application/shell/workflow-registry.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
 import { InteractiveSopCompactService } from "./application/compact/interactive-sop-compact.js";
+import { createCompactWorkflow } from "./application/compact/compact-workflow.js";
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
@@ -25,8 +28,24 @@ async function main(): Promise<void> {
         thinkingLevel: config.thinkingLevel,
       },
     });
-    const result = await service.compact(args.runId);
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    const registry = createWorkflowRegistry({
+      "sop-compact": () =>
+        createCompactWorkflow({
+          service,
+          runId: args.runId,
+        }),
+    });
+    const factory = registry.resolve("sop-compact");
+    if (!factory) {
+      throw new Error("missing workflow factory for command: sop-compact");
+    }
+    const host = new RuntimeHost({ workflow: factory() });
+    try {
+      const result = await host.execute();
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    } finally {
+      await host.dispose();
+    }
     return;
   }
 
