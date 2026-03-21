@@ -16,11 +16,11 @@
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
 - **Cleanup Task 4 已完成**: taxonomy migration docs 已归档；`docs/architecture/overview.md` 现在是唯一前台架构入口，`docs/architecture/layers.md` 降级为 supporting reference，`apps/agent-runtime/README.md` 也已切到当前 CLI surface。
-- **Cleanup Task 5 已完成**: 早前 post-cleanup gates 已通过；本轮 workflow-host clarification 的 fresh hardgate evidence 已记录为 `artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`。
+- **Cleanup Task 5 已完成**: 早前 post-cleanup gates 已通过；本轮 workflow-host clarification 的 fresh hardgate evidence 已记录为 `artifacts/code-gate/2026-03-21T06-29-23-232Z/report.json`。
 - **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
 - **Task 8 已被当前真相取代**: 顶层 runtime lifecycle wrapper 已删除；shell front door 现在直接以 `application/shell/runtime-host.ts` 承接 workflow lifecycle。
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；旧 `runtime/replay-refinement/*` 已被移除，不再作为活跃目录语义存在。
-- **Task 6 已完成**: `application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
+- **Task 6 已完成**: `application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home；旧 runtime-era 路径不再作为活跃目录语义存在。
 - **Task 5 已完成**: `application/shell/` 与 `application/config/` 现在是 shell/composition 和 runtime-config loader/types 的 canonical home；旧 provider 层已经退场，不再作为长期目录边界保留。
 - **Task 4 已完成**: `kernel/` 现在是 true execution kernel 的 canonical home（`agent-loop.ts`, `mcp-tool-bridge.ts`）；`core/` 仅保留为迁移期 shim。
 - **Task 3 已完成**: LLM adapters (`infrastructure/llm/`), config loading (`infrastructure/config/`), persistence adapters (`infrastructure/persistence/`) 已迁移到 infrastructure 层。
