@@ -10,6 +10,7 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`AgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
@@ -77,7 +78,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 基于当前 workflow-host clarified 基线，先写一份新的 refine stability / e2e tooling optimization spec，再进入下一轮实现。
+- `P0` 基于新的 telemetry / checkpoint 基线，先冻结一份 refine debug / repro harness spec，再进入下一轮实现。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -110,3 +111,9 @@ apps/agent-runtime/src/
   - 将 compact service 构造移回 composition root
   - 收紧了 lint / boundary tests / front-door docs
   - fresh hardgate report：`artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`
+- 已完成 runtime telemetry event stream pass：
+  - 新增 `telemetry` config contract 与 run-scoped telemetry registry
+  - `AgentLoop`、observe、compact 都接入统一 telemetry 注入
+  - refine canonical artifacts 收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/`
+  - 旧 steps / assistant turns / `refine_*` 平行 artifacts 不再作为 refine 主真源
+  - fresh hardgate report：`artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`

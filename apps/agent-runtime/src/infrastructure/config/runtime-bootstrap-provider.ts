@@ -5,106 +5,21 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-
-export type RuntimeThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
-export type RuntimeSemanticMode = "off" | "auto" | "on";
-
-export interface RuntimeConfigFile {
-  llm?: {
-    model?: string;
-    apiKey?: string;
-    baseUrl?: string;
-    thinkingLevel?: RuntimeThinkingLevel;
-  };
-  mcp?: {
-    command?: string;
-    args?: string[] | string;
-    env?: Record<string, string>;
-  };
-  cdp?: {
-    endpoint?: string;
-    launch?: boolean;
-    userDataDir?: string;
-    resetPagesOnLaunch?: boolean;
-    headless?: boolean;
-    injectCookies?: boolean;
-    cookiesDir?: string;
-    preferSystemBrowser?: boolean;
-    executablePath?: string;
-    startupTimeoutMs?: number;
-  };
-  runtime?: {
-    artifactsDir?: string;
-    runSystemPrompt?: string;
-    refineSystemPrompt?: string;
-  };
-  observe?: {
-    timeoutMs?: number;
-  };
-  semantic?: {
-    mode?: RuntimeSemanticMode;
-    timeoutMs?: number;
-  };
-  hitl?: {
-    enabled?: boolean;
-    retryLimit?: number;
-    maxInterventions?: number;
-  };
-  refinement?: {
-    enabled?: boolean;
-    mode?: "filtered_view" | "full_snapshot_debug";
-    maxRounds?: number;
-    tokenBudget?: number;
-    knowledgeTopN?: number;
-  };
-}
-
-export interface RuntimeConfig {
-  configPath?: string;
-  mcpCommand: string;
-  mcpArgs: string[];
-  mcpEnv: Record<string, string>;
-  cdpEndpoint: string;
-  launchCdp: boolean;
-  cdpUserDataDir: string;
-  cdpResetPagesOnLaunch: boolean;
-  cdpHeadless: boolean;
-  cdpInjectCookies: boolean;
-  cdpCookiesDir: string;
-  cdpPreferSystemBrowser: boolean;
-  cdpExecutablePath?: string;
-  cdpStartupTimeoutMs: number;
-  model: string;
-  apiKey: string;
-  baseUrl?: string;
-  thinkingLevel: RuntimeThinkingLevel;
-  artifactsDir: string;
-  runSystemPrompt?: string;
-  refineSystemPrompt?: string;
-  observeTimeoutMs: number;
-  sopAssetRootDir: string;
-  semanticMode: RuntimeSemanticMode;
-  semanticTimeoutMs: number;
-  hitlEnabled: boolean;
-  hitlRetryLimit: number;
-  hitlMaxInterventions: number;
-  refinementEnabled: boolean;
-  refinementMode: "filtered_view" | "full_snapshot_debug";
-  refinementMaxRounds: number;
-  refinementTokenBudget: number;
-  refinementKnowledgeTopN: number;
-}
-
-export interface RuntimeConfigSourceOptions {
-  configPath?: string;
-}
+import { DEFAULT_SOP_ASSET_ROOT_DIR } from "../../contracts/runtime-config.js";
+import type {
+  RuntimeConfig,
+  RuntimeConfigFile,
+  RuntimeConfigSourceOptions,
+  RuntimeSemanticMode,
+  RuntimeTelemetryArtifactCheckpointMode,
+  RuntimeTelemetryTerminalMode,
+  RuntimeThinkingLevel,
+} from "../../contracts/runtime-config.js";
 
 export interface RuntimeBootstrapProviderOptions extends RuntimeConfigSourceOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
 }
-
-const DEFAULT_SOP_ASSET_ROOT_DIR = "~/.sasiki/sop_assets";
 const DEFAULT_ARTIFACTS_SUBDIR = path.join("artifacts", "e2e");
 
 export class RuntimeBootstrapProvider {
@@ -164,6 +79,28 @@ export class RuntimeBootstrapProvider {
         file?.runtime?.refineSystemPrompt,
         this.env.RUNTIME_REFINE_SYSTEM_PROMPT
       ),
+      telemetry: {
+        terminalEnabled: this.readBoolean(
+          file?.telemetry?.terminal?.enabled,
+          this.env.TELEMETRY_TERMINAL_ENABLED,
+          true
+        ),
+        terminalMode: this.readTelemetryTerminalMode(
+          file?.telemetry?.terminal?.mode,
+          this.env.TELEMETRY_TERMINAL_MODE,
+          "agent"
+        ),
+        artifactEventStreamEnabled: this.readBoolean(
+          file?.telemetry?.artifacts?.eventStream,
+          this.env.TELEMETRY_ARTIFACT_EVENT_STREAM_ENABLED,
+          true
+        ),
+        artifactCheckpointMode: this.readTelemetryArtifactCheckpointMode(
+          file?.telemetry?.artifacts?.checkpointMode,
+          this.env.TELEMETRY_ARTIFACT_CHECKPOINT_MODE,
+          "key_turns"
+        ),
+      },
       observeTimeoutMs: this.readPositiveInt(file?.observe?.timeoutMs, this.env.OBSERVE_TIMEOUT_MS, 120000),
       sopAssetRootDir: DEFAULT_SOP_ASSET_ROOT_DIR,
       semanticMode: this.readSemanticMode(file?.semantic?.mode, this.env.SOP_COMPACT_SEMANTIC_MODE, "auto"),
@@ -334,6 +271,52 @@ export class RuntimeBootstrapProvider {
       return normalized;
     }
     return fallback;
+  }
+
+  private readTelemetryTerminalMode(
+    configValue: RuntimeTelemetryTerminalMode | undefined,
+    envValue: string | undefined,
+    fallback: RuntimeTelemetryTerminalMode
+  ): RuntimeTelemetryTerminalMode {
+    return this.readTelemetryEnum("telemetry.terminal.mode", configValue, envValue, fallback, ["progress", "agent"]);
+  }
+
+  private readTelemetryArtifactCheckpointMode(
+    configValue: RuntimeTelemetryArtifactCheckpointMode | undefined,
+    envValue: string | undefined,
+    fallback: RuntimeTelemetryArtifactCheckpointMode
+  ): RuntimeTelemetryArtifactCheckpointMode {
+    return this.readTelemetryEnum(
+      "telemetry.artifacts.checkpointMode",
+      configValue,
+      envValue,
+      fallback,
+      ["off", "key_turns", "all_turns"]
+    );
+  }
+
+  private readTelemetryEnum<T extends string>(
+    label: string,
+    configValue: T | undefined,
+    envValue: string | undefined,
+    fallback: T,
+    allowed: readonly T[]
+  ): T {
+    if (configValue !== undefined) {
+      return this.assertTelemetryEnum(label, configValue, allowed);
+    }
+    if (envValue !== undefined) {
+      return this.assertTelemetryEnum(label, envValue as T, allowed);
+    }
+    return fallback;
+  }
+
+  private assertTelemetryEnum<T extends string>(label: string, value: T, allowed: readonly T[]): T {
+    const normalized = value.trim() as T;
+    if (allowed.includes(normalized)) {
+      return normalized;
+    }
+    throw new Error(`invalid ${label}: ${value}`);
   }
 
   private resolveArtifactsDir(root: string, configValue: string | undefined, envValue: string | undefined): string {

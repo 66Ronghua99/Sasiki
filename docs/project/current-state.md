@@ -6,6 +6,8 @@
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The workflow-host boundary clarification pass is now the active front-door truth for the current baseline.
+- **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
+- Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
 - **Workflow Host Task 5 is complete**: `runtime/agent-execution-runtime.ts` has been removed, `application/shell/runtime-host.ts` is the only top-level lifecycle owner, and compact service construction now happens in `runtime-composition-root.ts` instead of `workflow-runtime.ts`.
 - **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
@@ -29,26 +31,28 @@
 - `npm --prefix apps/agent-runtime run build`
 - `npm --prefix apps/agent-runtime run hardgate`
 - `node apps/agent-runtime/dist/index.js observe "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"`
+- `node apps/agent-runtime/dist/index.js refine "打开小红书创作服务平台，创建一条长文笔记草稿（不要发布），填写任意标题后点击暂存离开；正文可留空。"`
 
 ## Canonical Architecture
 
 ```
 apps/agent-runtime/src/
   domain/           - Product concepts, state schemas, cross-layer contracts
-  contracts/        - Capability interfaces (logger, tool-client, HITL, etc.)
+  contracts/        - Capability interfaces plus shared runtime config / telemetry contracts
   kernel/           - Reusable execution kernel (CANONICAL)
     - agent-loop.ts
     - mcp-tool-bridge.ts
   application/      - Use-case orchestration layer
     shell/          - CLI shell, command-router, runtime-host, composition-root
-    config/         - Application-facing config contracts
+    config/         - Application-facing config loader entry
     observe/        - Observe orchestration + recording support
     compact/        - SOP compact workflow
     refine/         - Refine bootstrap, prompts, tooling, orchestration, executor
   infrastructure/   - External adapters
     llm/            - model-resolver.ts, json-model-client.ts
     config/         - runtime-bootstrap-provider.ts
-    persistence/    - artifacts-writer, sop-asset-store, attention-knowledge-store, refine-hitl-resume-store
+    persistence/    - artifacts-writer, runtime-event-stream-writer, agent-checkpoint-writer, sop-asset-store, attention-knowledge-store, refine-hitl-resume-store
+    logging/        - runtime-logger, terminal-telemetry-sink
     mcp/            - mcp-stdio-client.ts
     browser/        - cdp-browser-launcher.ts, cookie-loader.ts
     hitl/           - terminal-hitl-controller.ts
@@ -75,7 +79,8 @@ apps/agent-runtime/src/
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active spec / plan:
-  - none; current front-door truth is the workflow-host clarified codebase plus the active entry docs until the next stability spec is frozen
+  - `docs/superpowers/specs/2026-03-21-runtime-telemetry-event-stream-design.md`
+  - `docs/superpowers/plans/2026-03-21-runtime-telemetry-event-stream-implementation.md`
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -92,5 +97,5 @@ apps/agent-runtime/src/
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The workflow-host boundary clarification pass is now the current baseline.
-- The active next step is to freeze a new refine stability / e2e tooling optimization spec on top of the workflow-host clarified baseline.
+- The active next step is to freeze a refine debug / repro harness spec on top of the runtime telemetry baseline.
 - See `NEXT_STEP.md` for the exact current task pointer.

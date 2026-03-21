@@ -5,6 +5,7 @@
  */
 import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import type { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
+import type { RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
 import { ObserveExecutor } from "./observe-executor.js";
 import { createObserveWorkflow, type ObserveWorkflow, type ObserveWorkflowBrowserLifecycle } from "./observe-workflow.js";
 import { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
@@ -17,6 +18,7 @@ export interface ObserveWorkflowFactoryOptions {
   artifactsDir: string;
   createRunId: () => string;
   sopAssetRootDir: string;
+  telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
 export function createObserveWorkflowFactory(
@@ -32,6 +34,7 @@ export function createObserveWorkflowFactory(
       sopRecorder: new SopDemonstrationRecorder(),
       sopAssetRootDir: options.sopAssetRootDir,
       createRecorder: () => new PlaywrightDemonstrationRecorder(),
+      telemetryRegistry: options.telemetryRegistry,
     });
 
     return createObserveWorkflow({

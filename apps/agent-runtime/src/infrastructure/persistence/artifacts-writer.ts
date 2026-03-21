@@ -6,8 +6,6 @@
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { AgentStepRecord, AssistantTurnRecord, McpCallRecord } from "../../domain/agent-types.js";
-import type { ActionExecutionResult, PageObservation } from "../../domain/refine-react.js";
 import type {
   CompactCapabilityOutput,
   CompactHumanLoopEvent,
@@ -35,18 +33,6 @@ export class ArtifactsWriter {
 
   async ensureDir(): Promise<void> {
     await mkdir(this.runDir, { recursive: true });
-  }
-
-  async writeSteps(steps: AgentStepRecord[]): Promise<void> {
-    await this.writeJson("steps.json", steps);
-  }
-
-  async writeMcpCalls(calls: McpCallRecord[]): Promise<void> {
-    await this.writeJsonLines("mcp_calls.jsonl", calls);
-  }
-
-  async writeAssistantTurns(turns: AssistantTurnRecord[]): Promise<void> {
-    await this.writeJson("assistant_turns.json", turns);
   }
 
   async writeHighLevelLogs(entries: HighLevelLogEntry[]): Promise<void> {
@@ -94,24 +80,8 @@ export class ArtifactsWriter {
     await this.writeJson("consumption_bundle.json", bundle);
   }
 
-  async writeRefineTurnLogs(records: AssistantTurnRecord[]): Promise<void> {
-    await this.writeJsonLines("refine_turn_logs.jsonl", records);
-  }
-
-  async writeRefineBrowserObservations(records: PageObservation[]): Promise<void> {
-    await this.writeJsonLines("refine_browser_observations.jsonl", records);
-  }
-
-  async writeRefineActionExecutions(records: ActionExecutionResult[]): Promise<void> {
-    await this.writeJsonLines("refine_action_executions.jsonl", records);
-  }
-
-  async writeRefineKnowledgeEvents(records: unknown[]): Promise<void> {
-    await this.writeJsonLines("refine_knowledge_events.jsonl", records);
-  }
-
-  async writeRefineRunSummary(summary: unknown): Promise<void> {
-    await this.writeJson("refine_run_summary.json", summary);
+  async writeRunSummary(summary: unknown): Promise<void> {
+    await this.writeJson("run_summary.json", summary);
   }
 
   async initializeRefinementArtifacts(): Promise<void> {
@@ -119,16 +89,6 @@ export class ArtifactsWriter {
       this.writeRefinementSteps([]),
       this.writeSnapshotIndex([]),
       this.writeRefinementKnowledge([]),
-    ]);
-  }
-
-  async initializeReactRefinementArtifacts(): Promise<void> {
-    await Promise.all([
-      this.writeRefineTurnLogs([]),
-      this.writeRefineBrowserObservations([]),
-      this.writeRefineActionExecutions([]),
-      this.writeRefineKnowledgeEvents([]),
-      this.writeRefineRunSummary({}),
     ]);
   }
 
@@ -158,10 +118,6 @@ export class ArtifactsWriter {
     if (sessionId) {
       await this.writeCompactSessionJson(sessionId, "compact_capability_output.json", output);
     }
-  }
-
-  async writeRuntimeLog(runtimeLog: string): Promise<void> {
-    await writeFile(path.join(this.runDir, "runtime.log"), runtimeLog, "utf-8");
   }
 
   demonstrationRawPath(): string {

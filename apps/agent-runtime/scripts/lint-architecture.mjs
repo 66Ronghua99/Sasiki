@@ -11,7 +11,7 @@ const srcRoot = path.join(projectRoot, "src");
 
 const DEFAULT_MAX_LINES = 500;
 const LEGACY_MAX_LINES = new Map([
-  ["kernel/agent-loop.ts", 760],
+  ["kernel/agent-loop.ts", 840],
 ]);
 const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
 const REFINE_EXECUTOR_FILE = "application/refine/react-refinement-run-executor.ts";

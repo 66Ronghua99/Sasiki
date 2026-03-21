@@ -5,6 +5,7 @@
  */
 import type { HitlController } from "../../contracts/hitl-controller.js";
 import type { Logger } from "../../contracts/logger.js";
+import type { RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
 import type { ToolClient } from "../../contracts/tool-client.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
 import { AgentLoop } from "../../kernel/agent-loop.js";
@@ -51,6 +52,7 @@ export interface CreateRefineWorkflowFactoryOptions {
     RuntimeConfig,
     "apiKey" | "artifactsDir" | "baseUrl" | "model" | "refinementKnowledgeTopN" | "refinementMaxRounds" | "thinkingLevel"
   >;
+  telemetryRegistry: RuntimeTelemetryRegistry;
   refineSystemPrompt: string;
 }
 
@@ -217,6 +219,7 @@ export function createRefineWorkflowAssembly(
     logger: options.logger,
     artifactsDir: options.config.artifactsDir,
     maxTurns: options.config.refinementMaxRounds,
+    telemetryRegistry: options.telemetryRegistry,
     toolClient,
     hitlController: options.hitlController,
     knowledgeStore: persistence.knowledgeStore,

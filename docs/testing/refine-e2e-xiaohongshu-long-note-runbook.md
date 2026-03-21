@@ -19,7 +19,7 @@
 
 - 最近一次成功 run：`20260320_152942_514`（2026-03-20）
 - 证据目录：`artifacts/e2e/20260320_152942_514/`
-- 关键成功信号：`refine_run_summary.json` 中 `status=completed`，且摘要包含“保存成功”。
+- 关键成功信号：`run_summary.json` 中 `status=completed`，且 `event_stream.jsonl` 里能看到 `run.finish` 与保存动作。
 
 ## 前置条件
 
@@ -81,6 +81,7 @@ env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
 NO_PROXY=localhost,127.0.0.1,::1 no_proxy=localhost,127.0.0.1,::1 \
 node apps/agent-runtime/dist/index.js \
   --config apps/agent-runtime/runtime.config.json \
+  refine \
   "打开小红书创作服务平台，创建一条长文笔记草稿（不要发布），填写任意标题后点击暂存离开；正文可留空。"
 ```
 
@@ -94,15 +95,14 @@ echo "$RUN_ID"
 ### 5) 验收检查
 
 ```bash
-sed -n '1,200p' "artifacts/e2e/${RUN_ID}/refine_run_summary.json"
-sed -n '1,220p' "artifacts/e2e/${RUN_ID}/steps.json"
-sed -n '1,220p' "artifacts/e2e/${RUN_ID}/refine_action_executions.jsonl"
+sed -n '1,200p' "artifacts/e2e/${RUN_ID}/run_summary.json"
+rg -n '"toolName":"run.finish"|"toolName":"act.type"|"toolName":"act.click"' "artifacts/e2e/${RUN_ID}/event_stream.jsonl"
 ```
 
 通过标准：
-1. `refine_run_summary.json` 中 `status` 为 `completed`。
-2. `steps.json` 中存在 `run.finish` 且 `reason=goal_achieved`。
-3. `refine_action_executions.jsonl` 中能看到标题输入与“暂存离开”点击，且快照包含“保存成功”或草稿箱新增记录。
+1. `run_summary.json` 中 `status` 为 `completed`。
+2. `event_stream.jsonl` 中存在 `toolName":"run.finish"` 且对应 `phase":"end"`。
+3. `event_stream.jsonl` 中能看到标题输入与“暂存离开”相关的 `act.type` / `act.click` 调用。
 
 ## Tab/Context 一致性检查（Refine React 新约束）
 
@@ -112,9 +112,9 @@ sed -n '1,220p' "artifacts/e2e/${RUN_ID}/refine_action_executions.jsonl"
 3. 在关键动作前，`observe.page` 的 `page.url` 与 active tab 应一致。
 
 可重点查看：
-- `artifacts/e2e/<run_id>/steps.json`
-- `artifacts/e2e/<run_id>/refine_browser_observations.jsonl`
-- `artifacts/e2e/<run_id>/refine_action_executions.jsonl`
+- `artifacts/e2e/<run_id>/event_stream.jsonl`
+- `artifacts/e2e/<run_id>/run_summary.json`
+- `artifacts/e2e/<run_id>/agent_checkpoints/`
 
 ## 常见故障与处理
 
@@ -160,5 +160,5 @@ sed -n '1,220p' "artifacts/e2e/${RUN_ID}/refine_action_executions.jsonl"
 每次执行后至少记录：
 1. `run_id`
 2. 最终状态（`completed` / `failed`）
-3. 关键证据路径（`refine_run_summary.json`、`steps.json`、`refine_action_executions.jsonl`）
+3. 关键证据路径（`run_summary.json`、`event_stream.jsonl`、`agent_checkpoints/`）
 4. 是否触发 proxy 相关问题以及最终处理方式

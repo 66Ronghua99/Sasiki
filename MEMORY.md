@@ -61,7 +61,7 @@
 - `HITL` 在 refinement 里是“暂停并等待人类回复”，不是切到另一套控制流；人类回复后应恢复同一条 ReAct loop 继续执行。
 - 终端 HITL 当前已改为自然语言 incident brief + 单个可选自然语言恢复说明输入；结构化字段仍保留在内部 request/response 契约中用于记录与兼容，不再直接暴露为终端固定标签。
 - 当页面出现系统级 `file chooser dialog` 时，refine agent 会持续触发 `hitl.request`（uncertain_state）；若人类侧未真实关闭弹窗，流程会重复同类 HITL，难以前进到工具执行阶段。
-- 若 run 卡在首轮前（无工具调用），对应 run 目录里的 `refine_turn_logs.jsonl` / `refine_browser_observations.jsonl` / `refine_action_executions.jsonl` / `refine_knowledge_events.jsonl` 会保持空文件，且 run summary 文件仅为 `{}`，可据此快速识别“初始化后未进入有效执行”。
+- runtime telemetry 重构后，refine run 的 canonical 工件应优先看 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 和 attention knowledge store；旧的步骤快照与 `refine_*` 平行投影不应再作为主排查入口。
 - 若 refine run 在 modal / file chooser 场景里反复 `navigate`，先检查两件事：
   - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
   - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航

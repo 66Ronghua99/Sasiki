@@ -32,6 +32,12 @@ function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConf
     refineSystemPrompt: undefined,
     observeTimeoutMs: 120000,
     sopAssetRootDir: "~/.sasiki/sop_assets",
+    telemetry: {
+      terminalEnabled: true,
+      terminalMode: "agent",
+      artifactEventStreamEnabled: true,
+      artifactCheckpointMode: "key_turns",
+    },
     semanticMode: "auto",
     semanticTimeoutMs: 12000,
     hitlEnabled: false,
@@ -90,6 +96,7 @@ test("createRuntimeComposition builds workflow factories without exposing legacy
   assert.equal(typeof compatConfig.observeWorkflowFactory, "function");
   assert.equal(typeof compatConfig.refineWorkflowFactory, "function");
   assert.equal(typeof compatConfig.compactWorkflowFactory, "function");
+  assert.equal(typeof compatConfig.telemetryRegistry.createRunTelemetry, "function");
   assert.equal("agentRuntime" in (compatConfig as Record<string, unknown>), false);
   assert.equal("observeRuntime" in (compatConfig as Record<string, unknown>), false);
 
@@ -97,8 +104,25 @@ test("createRuntimeComposition builds workflow factories without exposing legacy
   assert.equal(typeof refine.observeWorkflowFactory, "function");
   assert.equal(typeof refine.refineWorkflowFactory, "function");
   assert.equal(typeof refine.compactWorkflowFactory, "function");
+  assert.equal(typeof refine.telemetryRegistry.createRunTelemetry, "function");
   assert.equal("agentRuntime" in (refine as Record<string, unknown>), false);
   assert.equal("observeRuntime" in (refine as Record<string, unknown>), false);
+
+  const compatTelemetry = compatConfig.telemetryRegistry.createRunTelemetry({
+    workflow: "refine",
+    runId: "run-compat",
+    artifactsDir: path.join(tmpRoot, "compat", "artifacts"),
+  });
+  const refineTelemetry = refine.telemetryRegistry.createRunTelemetry({
+    workflow: "refine",
+    runId: "run-refine",
+    artifactsDir: path.join(tmpRoot, "refine", "artifacts"),
+  });
+
+  assert.equal(compatTelemetry.artifacts.artifactsDir, path.join(tmpRoot, "compat", "artifacts"));
+  assert.equal(refineTelemetry.artifacts.artifactsDir, path.join(tmpRoot, "refine", "artifacts"));
+  assert.equal(compatTelemetry.artifacts.checkpointMode, "key_turns");
+  assert.equal(refineTelemetry.artifacts.checkpointMode, "key_turns");
 
   const compatWorkflow = compatConfig.refineWorkflowFactory({
     task: "refine me",

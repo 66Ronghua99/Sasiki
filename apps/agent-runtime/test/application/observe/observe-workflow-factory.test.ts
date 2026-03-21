@@ -4,10 +4,10 @@ import test from "node:test";
 
 import { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import { createObserveWorkflowFactory } from "../../../src/application/observe/observe-workflow-factory.js";
-import type { RuntimeLogger } from "../../../src/infrastructure/logging/runtime-logger.js";
 
 test("createObserveWorkflowFactory keeps observe assembly inside application/observe", async () => {
   const calls: string[] = [];
+  const telemetryScopes: Array<{ workflow: string; runId: string; artifactsDir: string }> = [];
   try {
     mock.method(ObserveExecutor.prototype, "execute", async (taskHint: string) => {
       calls.push(`execute:${taskHint}`);
@@ -41,19 +41,32 @@ test("createObserveWorkflowFactory keeps observe assembly inside application/obs
         info: () => undefined,
         warn: () => undefined,
         error: () => undefined,
-        toText: () => "",
-      } as RuntimeLogger,
+      } as never,
       cdpEndpoint: "http://localhost:9222",
       observeTimeoutMs: 1234,
       artifactsDir: "/tmp/sasiki-observe",
       createRunId: () => "run-1",
       sopAssetRootDir: "/tmp/sasiki-sop",
-    });
+      telemetryRegistry: {
+        createRunTelemetry(scope: { workflow: string; runId: string; artifactsDir: string }) {
+          telemetryScopes.push(scope);
+          return {
+            eventBus: {
+              emit: async () => undefined,
+              dispose: async () => undefined,
+            },
+            dispose: async () => undefined,
+          };
+        },
+      } as never,
+    } as never);
 
     assert.deepEqual(calls, []);
+    assert.deepEqual(telemetryScopes, []);
 
     const workflow = workflowFactory("record the homepage");
     assert.deepEqual(calls, []);
+    assert.deepEqual(telemetryScopes, []);
 
     await workflow.prepare();
     const result = await workflow.execute();

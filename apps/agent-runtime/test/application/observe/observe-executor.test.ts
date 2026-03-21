@@ -6,9 +6,8 @@ import test from "node:test";
 
 import { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { DemonstrationRawEvent, SopTrace } from "../../../src/domain/sop-trace.js";
-import type { Logger } from "../../../src/contracts/logger.js";
 
-class TestLogger implements Logger {
+class TestLogger {
   readonly entries: string[] = [];
 
   info(event: string, payload?: Record<string, unknown>): void {
@@ -22,15 +21,13 @@ class TestLogger implements Logger {
   error(event: string, payload?: Record<string, unknown>): void {
     this.entries.push(`error:${event}:${JSON.stringify(payload ?? {})}`);
   }
-
-  toText(): string {
-    return this.entries.join("\n");
-  }
 }
 
-test("application observe executor owns observe artifact orchestration", async () => {
+test("application observe executor creates run-scoped telemetry from the real observe run id", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-observe-executor-"));
   const logger = new TestLogger();
+  const telemetryScopes: Array<{ workflow: string; runId: string; artifactsDir: string }> = [];
+  const emittedEvents: Array<{ eventType: string; runId: string; workflow: string; payload: Record<string, unknown> }> = [];
   const rawEvents: DemonstrationRawEvent[] = [
     {
       eventId: "event-1",
@@ -81,13 +78,27 @@ test("application observe executor owns observe artifact orchestration", async (
       assert.equal(value, trace);
       return [];
     },
-    buildTags: (value: SopTrace) => {
-      assert.equal(value, trace);
-      return ["observe", "navigate"];
+      buildTags: (value: SopTrace) => {
+        assert.equal(value, trace);
+        return ["observe", "navigate"];
+      },
+    };
+  const telemetryRegistry = {
+    createRunTelemetry(scope: { workflow: string; runId: string; artifactsDir: string }) {
+      telemetryScopes.push(scope);
+      return {
+        eventBus: {
+          emit: async (event: { eventType: string; runId: string; workflow: string; payload: Record<string, unknown> }) => {
+            emittedEvents.push(event);
+          },
+          dispose: async () => undefined,
+        },
+        dispose: async () => undefined,
+      };
     },
   };
   const observer = new ObserveExecutor({
-    logger,
+    logger: logger as never,
     cdpEndpoint: "http://localhost:9222",
     observeTimeoutMs: 0,
     artifactsDir: path.join(tmpRoot, "artifacts"),
@@ -95,6 +106,7 @@ test("application observe executor owns observe artifact orchestration", async (
     sopRecorder: sopRecorder as never,
     sopAssetRootDir: path.join(tmpRoot, "sop-assets"),
     createRecorder: () => recorder as never,
+    telemetryRegistry: telemetryRegistry as never,
   });
 
   const result = await observer.execute("record the homepage");
@@ -112,4 +124,26 @@ test("application observe executor owns observe artifact orchestration", async (
     await readFile(path.join(tmpRoot, "sop-assets", "index.json"), "utf-8").then((value) => value.includes("sop_run-1")),
     true
   );
+  assert.deepEqual(telemetryScopes, [
+    {
+      workflow: "observe",
+      runId: "run-1",
+      artifactsDir: path.join(tmpRoot, "artifacts", "run-1"),
+    },
+  ]);
+  assert.deepEqual(emittedEvents.map((event) => event.eventType), ["workflow.lifecycle", "workflow.lifecycle"]);
+  assert.equal(
+    emittedEvents.every((event) => event.workflow === "observe" && event.runId === "run-1"),
+    true
+  );
+  assert.deepEqual(logger.entries, [
+    'info:observe_started:{"runId":"run-1","taskHint":"record the homepage","artifactsDir":"' +
+      path.join(tmpRoot, "artifacts", "run-1") +
+      '","timeoutMs":0}',
+    'info:observe_finished:{"runId":"run-1","status":"completed","finishReason":"observe_timeout_reached","events":1,"tracePath":"' +
+      path.join(tmpRoot, "artifacts", "run-1", "demonstration_trace.json") +
+      '","assetPath":"' +
+      path.join(tmpRoot, "artifacts", "run-1", "sop_asset.json") +
+      '"}',
+  ]);
 });

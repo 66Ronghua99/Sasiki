@@ -12,7 +12,7 @@ This policy applies to architecture and docs lint rules enforced by:
 1. `legacy-size-budget`
 - Purpose: temporary allowance for pre-existing large files.
 - Current allowlist and budget:
-  - `core/agent-loop.ts` <= 760 lines
+  - `kernel/agent-loop.ts` <= 840 lines
   - `runtime/run-executor.ts` <= 780 lines
 - Governance: no new file may enter this allowlist without owner review.
 

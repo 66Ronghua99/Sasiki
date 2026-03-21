@@ -45,10 +45,13 @@ There is no legacy `runtime` command surface anymore.
 - `observe` records a browser demonstration and emits trace/artifact inputs.
 - `sop-compact` turns a recorded run into reusable compact workflow knowledge.
 - `refine` runs the active browser agent loop, pauses for HITL when needed, and writes reusable refinement knowledge.
+- Runtime telemetry is assembled once in `application/shell/runtime-composition-root.ts`, then injected into each workflow as run-scoped telemetry.
+- `refine` persists canonical run truth as append-only `event_stream.jsonl`, plus a run summary artifact and optional `agent_checkpoints/`.
 
 ## Stable Boundaries
 
 - Only `application/shell/runtime-composition-root.ts` may assemble concrete MCP/browser infrastructure and shell-owned workflow factories.
+- Only `application/shell/runtime-composition-root.ts` may assemble telemetry sinks and artifact checkpoint writers.
 - Only `application/shell/runtime-host.ts` owns the top-level workflow lifecycle and interrupt forwarding.
 - Workflow modules own their own semantics:
   - `observe` owns demonstration recording setup/execution

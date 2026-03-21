@@ -7,7 +7,7 @@ import process from "node:process";
 
 import { parseCliArguments } from "./application/shell/command-router.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
-import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
+import { RuntimeConfigLoader } from "./application/config/runtime-config-loader.js";
 import { createProcessInterruptHandler } from "./application/shell/process-interrupt-handler.js";
 
 async function main(): Promise<void> {

@@ -5,6 +5,12 @@
  */
 import type { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
 import type { Logger } from "../../contracts/logger.js";
+import type {
+  RuntimeEvent,
+  RuntimeRunTelemetry,
+  RuntimeRunTelemetryScope,
+  RuntimeTelemetryRegistry,
+} from "../../contracts/runtime-telemetry.js";
 import type { ObserveRunResult } from "../../domain/agent-types.js";
 import { RuntimeError } from "../../domain/runtime-errors.js";
 import type { SopAsset, WebElementHint } from "../../domain/sop-asset.js";
@@ -14,18 +20,15 @@ import type { ObserveCaptureOptions, PlaywrightDemonstrationRecorder } from "../
 import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
 import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
 
-interface RuntimeLogBuffer extends Logger {
-  toText(): string;
-}
-
 interface ActiveObserveState {
   runId: string;
   artifacts: ArtifactsWriter;
   controller: AbortController;
+  telemetry: RuntimeRunTelemetry | null;
 }
 
 export interface ObserveExecutorOptions {
-  logger: RuntimeLogBuffer;
+  logger: Logger;
   cdpEndpoint: string;
   observeTimeoutMs: number;
   artifactsDir: string;
@@ -33,16 +36,18 @@ export interface ObserveExecutorOptions {
   sopRecorder: SopDemonstrationRecorder;
   sopAssetRootDir: string;
   createRecorder: () => PlaywrightDemonstrationRecorder;
+  telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
 export class ObserveExecutor {
-  private readonly logger: RuntimeLogBuffer;
+  private readonly logger: Logger;
   private readonly observeOptions: ObserveCaptureOptions;
   private readonly artifactsDir: string;
   private readonly createRunId: () => string;
   private readonly sopRecorder: SopDemonstrationRecorder;
   private readonly sopAssetStore: SopAssetStore;
   private readonly createRecorder: () => PlaywrightDemonstrationRecorder;
+  private readonly telemetryRegistry: RuntimeTelemetryRegistry;
   private activeObserve: ActiveObserveState | null = null;
 
   constructor(options: ObserveExecutorOptions) {
@@ -56,6 +61,7 @@ export class ObserveExecutor {
     this.sopRecorder = options.sopRecorder;
     this.sopAssetStore = new SopAssetStore(options.sopAssetRootDir);
     this.createRecorder = options.createRecorder;
+    this.telemetryRegistry = options.telemetryRegistry;
   }
 
   async execute(taskHint: string): Promise<ObserveRunResult> {
@@ -64,13 +70,25 @@ export class ObserveExecutor {
     await artifacts.ensureDir();
     const recorder = this.createRecorder();
     const controller = new AbortController();
-    this.activeObserve = { runId, artifacts, controller };
+    const telemetry = this.createTelemetry({ workflow: "observe", runId, artifactsDir: artifacts.runDir });
+    this.activeObserve = { runId, artifacts, controller, telemetry };
 
     this.logger.info("observe_started", {
       runId,
       taskHint,
       artifactsDir: artifacts.runDir,
       timeoutMs: this.observeOptions.timeoutMs,
+    });
+    await this.emitTelemetry(telemetry, {
+      timestamp: new Date().toISOString(),
+      workflow: "observe",
+      runId,
+      eventType: "workflow.lifecycle",
+      payload: {
+        phase: "started",
+        taskHint,
+        artifactsDir: artifacts.runDir,
+      },
     });
 
     let recorderStarted = false;
@@ -113,14 +131,38 @@ export class ObserveExecutor {
         tracePath: result.tracePath,
         assetPath: result.assetPath,
       });
+      await this.emitTelemetry(telemetry, {
+        timestamp: new Date().toISOString(),
+        workflow: "observe",
+        runId,
+        eventType: "workflow.lifecycle",
+        payload: {
+          phase: "finished",
+          status: result.status,
+          finishReason: result.finishReason,
+          artifactsDir: artifacts.runDir,
+        },
+      });
       return result;
     } catch (error) {
       this.logger.error("observe_failed", {
         runId,
         error: error instanceof Error ? error.message : String(error),
       });
+      await this.emitTelemetry(telemetry, {
+        timestamp: new Date().toISOString(),
+        workflow: "observe",
+        runId,
+        eventType: "workflow.lifecycle",
+        payload: {
+          phase: "failed",
+          error: error instanceof Error ? error.message : String(error),
+          artifactsDir: artifacts.runDir,
+        },
+      });
       throw error;
     } finally {
+      this.activeObserve = null;
       if (recorderStarted && !recorderStopped) {
         try {
           await recorder.stop();
@@ -128,8 +170,7 @@ export class ObserveExecutor {
           // Best effort stop during error path.
         }
       }
-      await artifacts.writeRuntimeLog(this.logger.toText());
-      this.activeObserve = null;
+      await telemetry?.dispose();
     }
   }
 
@@ -142,8 +183,44 @@ export class ObserveExecutor {
       runId: this.activeObserve.runId,
     });
     this.activeObserve.controller.abort();
-    await this.activeObserve.artifacts.writeRuntimeLog(this.logger.toText());
+    await this.emitTelemetry(this.activeObserve.telemetry, {
+      timestamp: new Date().toISOString(),
+      workflow: "observe",
+      runId: this.activeObserve.runId,
+      eventType: "workflow.lifecycle",
+      payload: {
+        phase: "interrupt_requested",
+        signal: signalName,
+      },
+    });
     return true;
+  }
+
+  private async emitTelemetry(telemetry: RuntimeRunTelemetry | null, event: RuntimeEvent): Promise<void> {
+    if (!telemetry) {
+      return;
+    }
+    try {
+      await telemetry.eventBus.emit(event);
+    } catch (error) {
+      this.logger.warn("observe_telemetry_emit_failed", {
+        runId: event.runId,
+        eventType: event.eventType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private createTelemetry(scope: RuntimeRunTelemetryScope): RuntimeRunTelemetry | null {
+    try {
+      return this.telemetryRegistry.createRunTelemetry(scope);
+    } catch (error) {
+      this.logger.warn("observe_telemetry_setup_failed", {
+        runId: scope.runId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private assertRawEvents(rawEvents: DemonstrationRawEvent[]): void {

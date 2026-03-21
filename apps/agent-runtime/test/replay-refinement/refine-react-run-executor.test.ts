@@ -16,6 +16,7 @@ import { createRefineReactSession } from "../../src/application/refine/refine-re
 import { RefineHitlResumeStore } from "../../src/infrastructure/persistence/refine-hitl-resume-store.js";
 import { ReactRefinementRunExecutor } from "../../src/application/refine/react-refinement-run-executor.js";
 import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
+import type { RuntimeTelemetryRegistry } from "../../src/contracts/runtime-telemetry.js";
 
 class StubLogger implements Logger {
   info(): void {}
@@ -95,8 +96,21 @@ class StubHitlController implements HitlController {
   }
 }
 
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 class FakeLoop {
   private readonly script: (task: string) => Promise<AgentRunResult>;
+  runtimeTelemetry: unknown = null;
+  readonly calls: string[] = [];
 
   constructor(script: (task: string) => Promise<AgentRunResult>) {
     this.script = script;
@@ -105,8 +119,12 @@ class FakeLoop {
   async initialize(): Promise<void> {}
   async shutdown(): Promise<void> {}
   abort(): void {}
+  setRuntimeTelemetry(runtimeTelemetry: unknown): void {
+    this.runtimeTelemetry = runtimeTelemetry;
+  }
 
   async run(task: string): Promise<AgentRunResult> {
+    this.calls.push("run");
     return this.script(task);
   }
 
@@ -162,8 +180,13 @@ function createRefinementDependencies(
 ): {
   knowledgeStore: AttentionKnowledgeStore;
   bootstrapProvider: RefineRunBootstrapProvider;
+  telemetryRegistry: RuntimeTelemetryRegistry;
 } {
   const stores = createRefinementStores(tmpRoot);
+  const checkpoints = {
+    async append(): Promise<void> {},
+    async dispose(): Promise<void> {},
+  };
   return {
     knowledgeStore: stores.knowledgeStore,
     bootstrapProvider: new RefineRunBootstrapProvider({
@@ -173,8 +196,256 @@ function createRefinementDependencies(
       promptProvider: new PromptProvider(),
       knowledgeTopN: 8,
     }),
+    telemetryRegistry: {
+      createRunTelemetry() {
+        return {
+          eventBus: {
+            async emit(): Promise<void> {},
+          },
+          artifacts: {
+            scope: {
+              workflow: "refine",
+              runId: "noop",
+              artifactsDir: tmpRoot,
+            },
+            artifactsDir: tmpRoot,
+            checkpointMode: "off",
+            checkpoints,
+            async dispose(): Promise<void> {},
+          },
+          async dispose(): Promise<void> {},
+        };
+      },
+      async dispose(): Promise<void> {},
+    },
   };
 }
+
+test("executor creates run-scoped telemetry before loop execution", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-telemetry-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "telemetry-task" }),
+  });
+
+  const createdScopes: Array<{ workflow: string; runId: string; artifactsDir: string }> = [];
+  const lifecycleEvents: string[] = [];
+  const telemetryRegistry: RuntimeTelemetryRegistry = {
+    createRunTelemetry(scope) {
+      createdScopes.push(scope);
+      const checkpoints = {
+        async append(): Promise<void> {},
+        async dispose(): Promise<void> {},
+      };
+      return {
+        eventBus: {
+          async emit(event) {
+            lifecycleEvents.push(`${event.eventType}:${String((event.payload as Record<string, unknown>).phase)}`);
+          },
+        },
+        artifacts: {
+          scope,
+          artifactsDir: scope.artifactsDir,
+          checkpointMode: "key_turns",
+          checkpoints,
+          async dispose(): Promise<void> {
+            lifecycleEvents.push("artifacts.dispose");
+          },
+        },
+        async dispose(): Promise<void> {
+          lifecycleEvents.push("telemetry.dispose");
+        },
+      };
+    },
+    async dispose(): Promise<void> {},
+  };
+
+  const loop = new FakeLoop(async (task) => {
+    assert.notEqual(loop.runtimeTelemetry, null);
+    lifecycleEvents.push("loop.run");
+    await toolClient.callTool("observe.page", {});
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "done",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+
+  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-telemetry");
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    maxTurns: 8,
+    telemetryRegistry,
+    toolClient,
+    knowledgeStore,
+    bootstrapProvider,
+  });
+
+  const result = await executor.execute({
+    task: "confirm telemetry",
+  });
+
+  assert.equal(result.runId, "run-telemetry");
+  assert.deepEqual(createdScopes, [
+    {
+      workflow: "refine",
+      runId: "run-telemetry",
+      artifactsDir: path.join(tmpRoot, "run-telemetry"),
+    },
+  ]);
+  assert.deepEqual(lifecycleEvents.slice(0, 2), ["workflow.lifecycle:started", "loop.run"]);
+  assert.ok(lifecycleEvents.includes("workflow.lifecycle:finished"));
+  assert.equal(loop.runtimeTelemetry, null);
+});
+
+test("executor rejects when lifecycle telemetry emit fails", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-telemetry-fail-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "telemetry-fail-task" }),
+  });
+
+  const telemetryRegistry: RuntimeTelemetryRegistry = {
+    createRunTelemetry() {
+      const checkpoints = {
+        async append(): Promise<void> {},
+        async dispose(): Promise<void> {},
+      };
+      return {
+        eventBus: {
+          async emit() {
+            throw new Error("telemetry emit failed");
+          },
+        },
+        artifacts: {
+          scope: {
+            workflow: "refine",
+            runId: "run-telemetry-fail",
+            artifactsDir: path.join(tmpRoot, "run-telemetry-fail"),
+          },
+          artifactsDir: path.join(tmpRoot, "run-telemetry-fail"),
+          checkpointMode: "key_turns",
+          checkpoints,
+          async dispose(): Promise<void> {},
+        },
+        async dispose(): Promise<void> {},
+      };
+    },
+    async dispose(): Promise<void> {},
+  };
+
+  const finishingLoop = new FakeLoop(async (task) => {
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "done",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-telemetry-fail");
+  const executor = new ReactRefinementRunExecutor({
+    loop: finishingLoop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    maxTurns: 8,
+    telemetryRegistry,
+    toolClient,
+    knowledgeStore,
+    bootstrapProvider,
+  });
+
+  await assert.rejects(
+    executor.execute({
+      task: "confirm telemetry",
+    }),
+    /telemetry emit failed/
+  );
+});
+
+test("executor clears active telemetry before waiting on dispose so interrupt becomes a no-op", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-teardown-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "teardown-task" }),
+  });
+
+  const disposeGate = createDeferred<void>();
+  const telemetryEvents: string[] = [];
+  const telemetryRegistry: RuntimeTelemetryRegistry = {
+    createRunTelemetry(scope) {
+      const checkpoints = {
+        async append(): Promise<void> {},
+        async dispose(): Promise<void> {},
+      };
+      return {
+        eventBus: {
+          async emit(event) {
+            telemetryEvents.push(`${event.eventType}:${String((event.payload as Record<string, unknown>).phase)}`);
+          },
+        },
+        artifacts: {
+          scope,
+          artifactsDir: scope.artifactsDir,
+          checkpointMode: "key_turns",
+          checkpoints,
+          async dispose(): Promise<void> {},
+        },
+        async dispose(): Promise<void> {
+          telemetryEvents.push("telemetry.dispose.start");
+          await disposeGate.promise;
+          telemetryEvents.push("telemetry.dispose.end");
+        },
+      };
+    },
+    async dispose(): Promise<void> {},
+  };
+
+  const loop = new FakeLoop(async (task) => {
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "done",
+    });
+    return buildBaseLoopResult(task, "completed");
+  });
+  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-teardown");
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    maxTurns: 8,
+    telemetryRegistry,
+    toolClient,
+    knowledgeStore,
+    bootstrapProvider,
+  });
+
+  const executePromise = executor.execute({
+    task: "confirm telemetry",
+  });
+
+  await new Promise<void>((resolve) => {
+    const poll = () => {
+      if (telemetryEvents.includes("telemetry.dispose.start")) {
+        resolve();
+        return;
+      }
+      setImmediate(poll);
+    };
+    poll();
+  });
+
+  const interruptAccepted = await executor.requestInterrupt("SIGINT");
+  disposeGate.resolve();
+  const result = await executePromise;
+
+  assert.equal(interruptAccepted, false);
+  assert.equal(result.status, "completed");
+  assert.equal(telemetryEvents.includes("workflow.lifecycle:interrupt_requested"), false);
+});
 
 test("executor runs browser observe/action through composite tools and persists promoted knowledge for next run", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-run-"));
@@ -263,10 +534,10 @@ test("executor runs browser observe/action through composite tools and persists 
   });
   assert.equal(secondRun.status, "completed");
 
-  const knowledgeEventsPath = path.join(secondRun.artifactsDir ?? "", "refine_knowledge_events.jsonl");
-  const eventsRaw = await readFile(knowledgeEventsPath, "utf-8");
-  assert.match(eventsRaw, /guidance_loaded/);
-  assert.match(eventsRaw, /"count":1/);
+  const runSummaryPath = path.join(secondRun.artifactsDir ?? "", "run_summary.json");
+  const summaryRaw = await readFile(runSummaryPath, "utf-8");
+  assert.match(summaryRaw, /"loadedKnowledgeCount": 1/);
+  await assert.rejects(readFile(path.join(secondRun.artifactsDir ?? "", "refine_knowledge_events.jsonl"), "utf-8"), /ENOENT/);
 });
 
 test("executor returns paused_hitl and persists resume payload when HITL cannot be answered inline", async () => {

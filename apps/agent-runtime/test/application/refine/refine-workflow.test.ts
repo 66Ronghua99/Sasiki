@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { RuntimeTelemetryRegistry } from "../../../src/contracts/runtime-telemetry.js";
 import type { ToolClient } from "../../../src/contracts/tool-client.js";
 import type { AgentRunResult } from "../../../src/domain/agent-types.js";
 import { RefineReactToolClient } from "../../../src/application/refine/refine-react-tool-client.js";
@@ -33,6 +34,32 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
     knowledgeStore: { kind: "knowledge-store" },
     guidanceLoader: { kind: "guidance-loader" },
     hitlResumeStore: { kind: "hitl-resume-store" },
+  };
+  const telemetryRegistry: RuntimeTelemetryRegistry = {
+    createRunTelemetry() {
+      const checkpoints = {
+        async append(): Promise<void> {},
+        async dispose(): Promise<void> {},
+      };
+      return {
+        eventBus: {
+          async emit(): Promise<void> {},
+        },
+        artifacts: {
+          scope: {
+            workflow: "refine",
+            runId: "run-1",
+            artifactsDir: "/tmp/artifacts/run-1",
+          },
+          artifactsDir: "/tmp/artifacts/run-1",
+          checkpointMode: "off",
+          checkpoints,
+          async dispose(): Promise<void> {},
+        },
+        async dispose(): Promise<void> {},
+      };
+    },
+    async dispose(): Promise<void> {},
   };
   const loop = { kind: "loop" };
   const runExecutor = { kind: "run-executor" };
@@ -87,6 +114,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         refinementMaxRounds: 12,
         thinkingLevel: "minimal",
       },
+      telemetryRegistry,
       refineSystemPrompt: "refine prompt",
     },
     {
@@ -125,6 +153,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         assert.equal(input.toolClient, toolClient);
         assert.equal(input.knowledgeStore, persistence.knowledgeStore);
         assert.equal(input.bootstrapProvider instanceof RefineRunBootstrapProvider, true);
+        assert.equal(input.telemetryRegistry, telemetryRegistry);
         events.push("assemble.run-executor");
         return runExecutor as never;
       },

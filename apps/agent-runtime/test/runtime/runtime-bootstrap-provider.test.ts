@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { RuntimeConfigLoader } from "../../src/application/config/runtime-config.js";
+import { RuntimeConfigLoader } from "../../src/application/config/runtime-config-loader.js";
 import { RuntimeBootstrapProvider } from "../../src/infrastructure/config/runtime-bootstrap-provider.js";
 
 test("runtime bootstrap provider prefers file config over env and resolves relative artifacts under project root", async () => {
@@ -137,6 +137,46 @@ test("runtime bootstrap provider prefers file config over env and resolves relat
   assert.equal(config.refinementMaxRounds, 9);
   assert.equal(config.refinementTokenBudget, 321);
   assert.equal(config.refinementKnowledgeTopN, 4);
+});
+
+test("runtime bootstrap provider prefers telemetry config file values over env values", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sasiki-bootstrap-telemetry-precedence-"));
+  await mkdir(path.join(root, ".git"));
+
+  const configPath = path.join(root, "runtime.config.json");
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      telemetry: {
+        terminal: {
+          enabled: false,
+          mode: "progress",
+        },
+        artifacts: {
+          eventStream: false,
+          checkpointMode: "all_turns",
+        },
+      },
+    })
+  );
+
+  const provider = new RuntimeBootstrapProvider({
+    configPath,
+    cwd: root,
+    env: {
+      TELEMETRY_TERMINAL_ENABLED: "true",
+      TELEMETRY_TERMINAL_MODE: "agent",
+      TELEMETRY_ARTIFACT_EVENT_STREAM_ENABLED: "true",
+      TELEMETRY_ARTIFACT_CHECKPOINT_MODE: "key_turns",
+    },
+  });
+
+  const config = provider.load();
+
+  assert.equal(config.telemetry.terminalEnabled, false);
+  assert.equal(config.telemetry.terminalMode, "progress");
+  assert.equal(config.telemetry.artifactEventStreamEnabled, false);
+  assert.equal(config.telemetry.artifactCheckpointMode, "all_turns");
 });
 
 test("runtime bootstrap provider falls back to env-driven defaults when file omits fields", async () => {

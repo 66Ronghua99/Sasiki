@@ -5,8 +5,11 @@
  */
 import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-launcher.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
+import { FileAgentCheckpointWriter, createNoopAgentCheckpointWriter } from "../../infrastructure/persistence/agent-checkpoint-writer.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
+import { TerminalTelemetrySink } from "../../infrastructure/logging/terminal-telemetry-sink.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
+import { RuntimeEventStreamWriter } from "../../infrastructure/persistence/runtime-event-stream-writer.js";
 import { createCompactWorkflow } from "../compact/compact-workflow.js";
 import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
 import type { RuntimeSemanticMode } from "../config/runtime-config.js";
@@ -19,6 +22,13 @@ import {
   type RefineWorkflowRequest,
 } from "../refine/refine-workflow.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
+import { createRuntimeTelemetryRegistry } from "./runtime-telemetry-registry.js";
+import type {
+  RuntimeRunTelemetryArtifacts,
+  RuntimeRunTelemetryScope,
+  RuntimeTelemetryRegistry,
+  RuntimeTelemetrySink,
+} from "../../contracts/runtime-telemetry.js";
 
 export interface RuntimeCompositionPlanInput {
   refinementEnabled: boolean;
@@ -40,6 +50,7 @@ export interface BrowserLifecycle {
 
 export interface RuntimeComposition {
   browserLifecycle: BrowserLifecycle;
+  telemetryRegistry: RuntimeTelemetryRegistry;
   observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
   refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
   compactWorkflowFactory: (request: CompactWorkflowRequest) => ReturnType<typeof createCompactWorkflow>;
@@ -62,6 +73,31 @@ export function planRuntimeComposition(input: RuntimeCompositionPlanInput): Runt
 export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposition {
   const plan = planRuntimeComposition(config);
   const logger = new RuntimeLogger();
+  const telemetryRegistry = createRuntimeTelemetryRegistry({
+    createSinks: (scope: RuntimeRunTelemetryScope) => {
+      const sinks: RuntimeTelemetrySink[] = [new TerminalTelemetrySink(config.telemetry)];
+      if (scope.workflow === "refine" && config.telemetry.artifactEventStreamEnabled) {
+        sinks.unshift(new RuntimeEventStreamWriter(scope.artifactsDir));
+      }
+      return sinks;
+    },
+    createArtifacts: (scope: RuntimeRunTelemetryScope): RuntimeRunTelemetryArtifacts => {
+      const checkpoints =
+        scope.workflow === "refine" && config.telemetry.artifactCheckpointMode !== "off"
+          ? new FileAgentCheckpointWriter(scope.artifactsDir)
+          : createNoopAgentCheckpointWriter();
+
+      return {
+        scope,
+        artifactsDir: scope.artifactsDir,
+        checkpointMode: config.telemetry.artifactCheckpointMode,
+        checkpoints,
+        async dispose(): Promise<void> {
+          await checkpoints.dispose();
+        },
+      };
+    },
+  });
   const browserLifecycle = new CdpBrowserLauncher(
     {
       cdpEndpoint: config.cdpEndpoint,
@@ -100,6 +136,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     artifactsDir: config.artifactsDir,
     createRunId,
     sopAssetRootDir: config.sopAssetRootDir,
+    telemetryRegistry,
   });
   const refineAssembly = createRefineWorkflowAssembly({
     browserLifecycle,
@@ -108,11 +145,13 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     hitlController,
     createRunId,
     config,
+    telemetryRegistry,
     refineSystemPrompt: plan.prompts.refineSystemPrompt,
   });
 
   return {
     browserLifecycle,
+    telemetryRegistry,
     observeWorkflowFactory,
     refineWorkflowFactory: refineAssembly.createWorkflow,
     compactWorkflowFactory: (request: CompactWorkflowRequest) => {
@@ -126,6 +165,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
           baseUrl: config.baseUrl,
           thinkingLevel: config.thinkingLevel,
         },
+        telemetryRegistry,
       });
 
       return createCompactWorkflow({

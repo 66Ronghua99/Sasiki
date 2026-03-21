@@ -1,15 +1,17 @@
-import { readFile, appendFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
 
 import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
 import type { CompactHumanLoopTool } from "../../contracts/compact-human-loop-tool.js";
 import type {
+  RuntimeEvent,
+  RuntimeRunTelemetry,
+  RuntimeRunTelemetryScope,
+  RuntimeTelemetryRegistry,
+} from "../../contracts/runtime-telemetry.js";
+import type {
   CompactCapabilityOutput,
-  CompactConvergenceState,
   CompactConvergenceStatus,
-  CompactHumanLoopEvent,
-  CompactHumanLoopRequest,
   CompactSessionState,
 } from "../../domain/compact-reasoning.js";
 import type { LlmThinkingLevel } from "../../domain/llm-thinking.js";
@@ -25,6 +27,13 @@ import {
   REASONER_SYSTEM_PROMPT,
   SUMMARIZE_SYSTEM_PROMPT,
 } from "./interactive-sop-compact-prompts.js";
+import {
+  buildCompactAgentTurnEvent,
+  buildCompactAssistantEvent,
+  buildCompactClarificationRequestEvent,
+  buildCompactSessionStatusEvent,
+  normalizeCompactCapabilityOutput,
+} from "./compact-runtime-support.js";
 import { SopRuleCompactBuilder } from "./sop-rule-compact-builder.js";
 
 interface CompactSemanticOptions {
@@ -40,6 +49,7 @@ interface InteractiveSopCompactOptions {
   semantic: CompactSemanticOptions;
   hardLimit?: number;
   humanLoopTool?: CompactHumanLoopTool;
+  telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
 export interface InteractiveSopCompactResult {
@@ -62,6 +72,7 @@ export class InteractiveSopCompactService {
   private readonly hardLimit: number;
   private readonly humanLoopTool: CompactHumanLoopTool;
   private readonly modelClient: JsonModelClient;
+  private readonly telemetryRegistry: RuntimeTelemetryRegistry;
   private readonly ruleBuilder = new SopRuleCompactBuilder();
 
   constructor(artifactsDir: string, options: InteractiveSopCompactOptions) {
@@ -69,6 +80,7 @@ export class InteractiveSopCompactService {
     this.semanticOptions = options.semantic;
     this.hardLimit = options.hardLimit ?? 6;
     this.humanLoopTool = options.humanLoopTool ?? new TerminalCompactHumanLoopTool();
+    this.telemetryRegistry = options.telemetryRegistry;
     this.modelClient = new JsonModelClient({
       model: options.semantic.model,
       apiKey: options.semantic.apiKey,
@@ -89,126 +101,169 @@ export class InteractiveSopCompactService {
     const writer = new ArtifactsWriter(this.artifactsDir, runId);
     await writer.ensureDir();
     await writer.resetCompactSessionArtifacts(sessionId);
+    const telemetry = this.createTelemetry({ workflow: "compact", runId, artifactsDir: runDir });
 
-    const trace = await this.readTrace(sourceTracePath);
-    const summary = this.buildTraceSummary(runId, trace);
-    let state = buildInitialCompactSessionState(runId, sessionId, summary);
-    let latestHumanReply: string | undefined;
-
-    await writer.writeCompactSessionState(state, sessionId);
-    await this.appendRuntimeLog(runDir, "INFO", "interactive_sop_compact_started", {
-      runId,
-      sessionId,
-      hardLimit: this.hardLimit,
-      totalSteps: summary.totalSteps,
-      totalHighLevelSteps: summary.highLevelSteps.length,
-    });
-
-    while (true) {
-      if (state.roundIndex >= this.hardLimit) {
-        state = {
-          ...state,
-          convergence: {
-            status: "max_round_reached",
-            reason: `hard limit ${this.hardLimit} reached`,
-          },
-        };
-        await writer.writeCompactSessionState(state, sessionId);
-        await writer.appendCompactHumanLoop(this.buildSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-        break;
-      }
-
-      const roundNumber = state.roundIndex + 1;
-      const turn = await this.reasonRound(summary, state, latestHumanReply);
-      this.printAssistantResponse(roundNumber, turn.assistantResponse);
-      await writer.appendCompactHumanLoop(this.buildAssistantEvent(roundNumber, turn.assistantResponse), sessionId);
-
-      state = applyCompactSessionPatch(state, turn.patch);
-      await writer.writeCompactSessionState(state, sessionId);
-      await writer.appendCompactHumanLoop(this.buildSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-      await this.appendRuntimeLog(runDir, "INFO", "interactive_sop_compact_round_applied", {
+    try {
+      await this.emitTelemetry(telemetry, {
+        timestamp: new Date().toISOString(),
+        workflow: "compact",
         runId,
-        sessionId,
-        round: state.roundIndex,
-        convergenceStatus: state.convergence.status,
-        remainingOpenDecisions: state.openDecisions.length,
+        eventType: "workflow.lifecycle",
+        payload: {
+          phase: "started",
+          artifactsDir: runDir,
+        },
       });
 
-      if (state.convergence.status !== "continue") {
-        latestHumanReply = undefined;
-        break;
-      }
+      const trace = await this.readTrace(sourceTracePath);
+      const summary = this.buildTraceSummary(runId, trace);
+      let state = buildInitialCompactSessionState(runId, sessionId, summary);
+      let latestHumanReply: string | undefined;
 
-      if (!turn.humanLoopRequest) {
-        latestHumanReply = undefined;
-        continue;
-      }
+      await writer.writeCompactSessionState(state, sessionId);
 
-      await writer.appendCompactHumanLoop(
-        this.buildClarificationRequestEvent(state.roundIndex, turn.humanLoopRequest),
-        sessionId
-      );
-      const humanResponse = await this.humanLoopTool.requestClarification(turn.humanLoopRequest);
-      await writer.appendCompactHumanLoop(
-        {
+      while (true) {
+        if (state.roundIndex >= this.hardLimit) {
+          state = {
+            ...state,
+            convergence: {
+              status: "max_round_reached",
+              reason: `hard limit ${this.hardLimit} reached`,
+            },
+          };
+          await writer.writeCompactSessionState(state, sessionId);
+          await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
+          break;
+        }
+
+        const roundNumber = state.roundIndex + 1;
+        const turn = await this.reasonRound(summary, state, latestHumanReply);
+        await this.emitTelemetry(
+          telemetry,
+          buildCompactAgentTurnEvent({
+            runId,
+            roundIndex: roundNumber,
+            assistantResponse: turn.assistantResponse,
+            convergenceStatus: turn.patch.convergenceNext.status,
+          })
+        );
+        await writer.appendCompactHumanLoop(buildCompactAssistantEvent(roundNumber, turn.assistantResponse), sessionId);
+
+        state = applyCompactSessionPatch(state, turn.patch);
+        await writer.writeCompactSessionState(state, sessionId);
+        await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
+        await this.emitTelemetry(telemetry, {
           timestamp: new Date().toISOString(),
-          roundIndex: state.roundIndex,
-          role: "human",
-          eventType: "human_reply",
+          workflow: "compact",
+          runId,
+          eventType: "workflow.lifecycle",
           payload: {
-            interaction_status: humanResponse.interaction_status,
-            human_reply: humanResponse.human_reply,
+            phase: "round_completed",
+            sessionId,
+            roundIndex: state.roundIndex,
+            convergenceStatus: state.convergence.status,
+            artifactsDir: runDir,
           },
-        },
-        sessionId
-      );
+        });
 
-      if (humanResponse.interaction_status === "defer" || humanResponse.interaction_status === "stop") {
+        if (state.convergence.status !== "continue") {
+          latestHumanReply = undefined;
+          break;
+        }
+
+        if (!turn.humanLoopRequest) {
+          latestHumanReply = undefined;
+          continue;
+        }
+
+        await writer.appendCompactHumanLoop(
+          buildCompactClarificationRequestEvent(state.roundIndex, turn.humanLoopRequest),
+          sessionId
+        );
+        const humanResponse = await this.humanLoopTool.requestClarification(turn.humanLoopRequest);
+        await writer.appendCompactHumanLoop(
+          {
+            timestamp: new Date().toISOString(),
+            roundIndex: state.roundIndex,
+            role: "human",
+            eventType: "human_reply",
+            payload: {
+              interaction_status: humanResponse.interaction_status,
+              human_reply: humanResponse.human_reply,
+            },
+          },
+          sessionId
+        );
+
+        if (humanResponse.interaction_status === "defer" || humanResponse.interaction_status === "stop") {
+          state = {
+            ...state,
+            convergence: {
+              status: "user_stopped",
+              reason:
+                humanResponse.interaction_status === "stop"
+                  ? "user explicitly stopped compact session"
+                  : "user deferred clarification",
+            },
+          };
+          await writer.writeCompactSessionState(state, sessionId);
+          await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
+          break;
+        }
+
+        latestHumanReply = humanResponse.human_reply.trim();
         state = {
           ...state,
-          convergence: {
-            status: "user_stopped",
-            reason:
-              humanResponse.interaction_status === "stop"
-                ? "user explicitly stopped compact session"
-                : "user deferred clarification",
-          },
+          humanFeedbackMemory: uniqueStrings([...state.humanFeedbackMemory, latestHumanReply]),
         };
         await writer.writeCompactSessionState(state, sessionId);
-        await writer.appendCompactHumanLoop(this.buildSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-        break;
       }
 
-      latestHumanReply = humanResponse.human_reply.trim();
-      state = {
-        ...state,
-        humanFeedbackMemory: this.uniqueStrings([...state.humanFeedbackMemory, latestHumanReply]),
+      const capabilityOutput = await this.finalize(summary, state);
+      await writer.writeCompactCapabilityOutput(capabilityOutput, sessionId);
+      await this.emitTelemetry(telemetry, {
+        timestamp: new Date().toISOString(),
+        workflow: "compact",
+        runId,
+        eventType: "workflow.lifecycle",
+        payload: {
+          phase: "finished",
+          sessionId,
+          convergenceStatus: state.convergence.status,
+          roundsCompleted: state.roundIndex,
+          artifactsDir: runDir,
+        },
+      });
+
+      return {
+        runId,
+        sessionId,
+        sessionDir: writer.compactSessionDir(sessionId),
+        runDir,
+        sourceTracePath,
+        sessionStatePath: path.join(writer.compactSessionDir(sessionId), "compact_session_state.json"),
+        humanLoopPath: path.join(writer.compactSessionDir(sessionId), "compact_human_loop.jsonl"),
+        capabilityOutputPath: path.join(writer.compactSessionDir(sessionId), "compact_capability_output.json"),
+        status: state.convergence.status,
+        roundsCompleted: state.roundIndex,
+        remainingOpenDecisions: [...state.openDecisions],
       };
-      await writer.writeCompactSessionState(state, sessionId);
+    } catch (error) {
+      await this.emitTelemetry(telemetry, {
+        timestamp: new Date().toISOString(),
+        workflow: "compact",
+        runId,
+        eventType: "workflow.lifecycle",
+        payload: {
+          phase: "failed",
+          error: error instanceof Error ? error.message : String(error),
+          artifactsDir: runDir,
+        },
+      });
+      throw error;
+    } finally {
+      await telemetry?.dispose();
     }
-
-    const capabilityOutput = await this.finalize(summary, state);
-    await writer.writeCompactCapabilityOutput(capabilityOutput, sessionId);
-    await this.appendRuntimeLog(runDir, "INFO", "interactive_sop_compact_finalized", {
-      runId,
-      sessionId,
-      convergenceStatus: state.convergence.status,
-      roundsCompleted: state.roundIndex,
-    });
-
-    return {
-      runId,
-      sessionId,
-      sessionDir: writer.compactSessionDir(sessionId),
-      runDir,
-      sourceTracePath,
-      sessionStatePath: path.join(writer.compactSessionDir(sessionId), "compact_session_state.json"),
-      humanLoopPath: path.join(writer.compactSessionDir(sessionId), "compact_human_loop.jsonl"),
-      capabilityOutputPath: path.join(writer.compactSessionDir(sessionId), "compact_capability_output.json"),
-      status: state.convergence.status,
-      roundsCompleted: state.roundIndex,
-      remainingOpenDecisions: [...state.openDecisions],
-    };
   }
 
   private async readTrace(tracePath: string): Promise<SopTrace> {
@@ -370,123 +425,39 @@ export class InteractiveSopCompactService {
     payload: Record<string, unknown>,
     state: CompactSessionState
   ): CompactCapabilityOutput {
-    const actionPolicy = this.readRecord(payload.actionPolicy);
-    const reuseBoundary = this.readRecord(payload.reuseBoundary);
-    const remainingUncertainties = [
-      ...this.readStringArray(payload.remainingUncertainties),
-      ...state.openDecisions,
-      ...state.workflowSkeleton.uncertainSteps,
-    ];
-
-    return {
-      schemaVersion: "compact_capability_output.v0",
-      runId: state.runId,
-      taskUnderstanding: this.readString(payload.taskUnderstanding) ?? state.taskUnderstanding,
-      workflowSkeleton: this.readStringArray(payload.workflowSkeleton, state.workflowSkeleton.stableSteps),
-      decisionStrategy: this.readStringArray(payload.decisionStrategy),
-      actionPolicy: {
-        requiredActions: this.readStringArray(actionPolicy?.requiredActions),
-        optionalActions: this.readStringArray(actionPolicy?.optionalActions),
-        conditionalActions: this.readStringArray(actionPolicy?.conditionalActions),
-        nonCoreActions: this.readStringArray(actionPolicy?.nonCoreActions),
-      },
-      stopPolicy: this.readStringArray(payload.stopPolicy),
-      reuseBoundary: {
-        applicableWhen: this.readStringArray(reuseBoundary?.applicableWhen),
-        notApplicableWhen: this.readStringArray(reuseBoundary?.notApplicableWhen),
-        contextDependencies: this.readStringArray(reuseBoundary?.contextDependencies),
-      },
-      remainingUncertainties: this.uniqueStrings(remainingUncertainties),
-    };
+    return normalizeCompactCapabilityOutput(payload, state);
   }
 
-  private buildAssistantEvent(roundIndex: number, assistantResponse: string): CompactHumanLoopEvent {
-    return {
-      timestamp: new Date().toISOString(),
-      roundIndex,
-      role: "agent",
-      eventType: "assistant_response",
-      payload: {
-        message: assistantResponse,
-      },
-    };
-  }
-
-  private buildClarificationRequestEvent(roundIndex: number, request: CompactHumanLoopRequest): CompactHumanLoopEvent {
-    return {
-      timestamp: new Date().toISOString(),
-      roundIndex,
-      role: "agent",
-      eventType: "clarification_request",
-      payload: {
-        reason_for_clarification: request.reason_for_clarification,
-        current_understanding: request.current_understanding,
-        focus_question: request.focus_question,
-        why_this_matters: request.why_this_matters,
-      },
-    };
-  }
-
-  private buildSessionStatusEvent(roundIndex: number, convergence: CompactConvergenceState): CompactHumanLoopEvent {
-    return {
-      timestamp: new Date().toISOString(),
-      roundIndex,
-      role: "system",
-      eventType: "session_status",
-      payload: {
-        status: convergence.status,
-        reason: convergence.reason,
-      },
-    };
-  }
-
-  private uniqueStrings(values: string[]): string[] {
-    const result: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of values) {
-      const normalized = raw.trim();
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      result.push(normalized);
-    }
-    return result;
-  }
-
-  private readString(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-  }
-
-  private readStringArray(value: unknown, fallback: string[] = []): string[] {
-    if (!Array.isArray(value)) {
-      return [...fallback];
-    }
-    return this.uniqueStrings(
-      value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-    );
-  }
-
-  private readRecord(value: unknown): Record<string, unknown> | undefined {
-    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
-  }
-
-  private printAssistantResponse(roundNumber: number, message: string): void {
-    if (!process.stdout.isTTY || !message.trim()) {
+  private async emitTelemetry(telemetry: RuntimeRunTelemetry | null, event: RuntimeEvent): Promise<void> {
+    if (!telemetry) {
       return;
     }
-    process.stdout.write(`\n--- compact round ${roundNumber} ---\n${message}\n`);
+    try {
+      await telemetry.eventBus.emit(event);
+    } catch {
+      // lifecycle telemetry is best-effort for compact runs
+    }
   }
 
-  private async appendRuntimeLog(
-    runDir: string,
-    level: "INFO" | "WARN" | "ERROR",
-    event: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    const line = `${new Date().toISOString()} ${level} ${event} ${JSON.stringify(data)}\n`;
-    await appendFile(path.join(runDir, "runtime.log"), line, "utf-8");
+  private createTelemetry(scope: RuntimeRunTelemetryScope): RuntimeRunTelemetry | null {
+    try {
+      return this.telemetryRegistry.createRunTelemetry(scope);
+    } catch {
+      return null;
+    }
   }
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const normalized = raw.trim();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }

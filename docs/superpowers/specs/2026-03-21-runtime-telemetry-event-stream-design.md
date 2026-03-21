@@ -107,7 +107,8 @@ The current refine output writes overlapping views of the same run:
 - `refine_turn_logs.jsonl`
 - `refine_browser_observations.jsonl`
 - `refine_action_executions.jsonl`
-- `refine_run_summary.json`
+- `refine_knowledge_events.jsonl`
+- `run_summary.json`
 
 Some of these are useful as read models, but they should not all remain canonical truth.
 
@@ -404,6 +405,7 @@ The following refine files should no longer be treated as parallel canonical tru
 - `refine_turn_logs.jsonl`
 - `refine_browser_observations.jsonl`
 - `refine_action_executions.jsonl`
+- `refine_knowledge_events.jsonl`
 
 If a compatibility bridge is needed during migration, these may temporarily be produced as projections from the event stream, but the design target is:
 

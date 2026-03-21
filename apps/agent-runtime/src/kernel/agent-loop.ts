@@ -8,6 +8,7 @@ import { stat } from "node:fs/promises";
 import { inspect } from "node:util";
 
 import type { Logger } from "../contracts/logger.js";
+import type { RuntimeEvent, RuntimeRunTelemetry } from "../contracts/runtime-telemetry.js";
 import type { ToolClient } from "../contracts/tool-client.js";
 import type {
   AgentRunResult,
@@ -28,6 +29,29 @@ export interface AgentLoopConfig {
   baseUrl?: string;
   thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   systemPrompt?: string;
+  createAgent?: (input: AgentLoopCreateAgentInput) => AgentLoopAgent;
+}
+
+export interface AgentLoopCreateAgentInput {
+  model: ReturnType<typeof ModelResolver.resolve>;
+  apiKey: string;
+  baseUrl?: string;
+  thinkingLevel: AgentLoopConfig["thinkingLevel"];
+  systemPrompt: string;
+  tools: unknown[];
+}
+
+export interface AgentLoopAgent {
+  setSystemPrompt(prompt: string): void;
+  setThinkingLevel(level: AgentLoopConfig["thinkingLevel"]): void;
+  setTools(tools: unknown[]): void;
+  subscribe(listener: (event: AgentEvent) => void): () => void;
+  prompt(task: string): Promise<void>;
+  waitForIdle(): Promise<void>;
+  abort(): void;
+  state: {
+    error?: unknown;
+  };
 }
 
 export interface AgentLoopProgressSnapshot {
@@ -64,7 +88,8 @@ export class AgentLoop {
   private readonly tools: ToolClient;
   private readonly logger: Logger;
   private readonly toolAdapter: McpToolBridge;
-  private agent: Agent | null = null;
+  private runtimeTelemetry: RuntimeRunTelemetry | null = null;
+  private agent: AgentLoopAgent | null = null;
   private activeProgress: AgentLoopProgressSnapshot | null = null;
   private latestProgress: AgentLoopProgressSnapshot = this.emptyProgressSnapshot();
 
@@ -86,12 +111,21 @@ export class AgentLoop {
     });
     const model = ModelResolver.resolve({ model: this.config.model, baseUrl: this.config.baseUrl });
     const agentTools = await this.toolAdapter.buildAgentTools();
-    const agent = new Agent({
-      initialState: {
-        model,
-      },
-      getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
-    });
+    const agent: AgentLoopAgent = this.config.createAgent
+      ? this.config.createAgent({
+          model,
+          apiKey: this.config.apiKey,
+          baseUrl: this.config.baseUrl,
+          thinkingLevel: this.config.thinkingLevel,
+          systemPrompt: this.config.systemPrompt ?? SYSTEM_PROMPT,
+          tools: agentTools,
+        })
+      : new Agent({
+          initialState: {
+            model,
+          },
+          getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
+        });
     agent.setSystemPrompt(this.config.systemPrompt ?? SYSTEM_PROMPT);
     agent.setThinkingLevel(this.config.thinkingLevel);
     agent.setTools(agentTools);
@@ -119,6 +153,36 @@ export class AgentLoop {
 
   setToolHookContext(context: Partial<ToolCallHookContext>): void {
     this.toolAdapter.setHookContext(context);
+  }
+
+  setRuntimeTelemetry(runtimeTelemetry: RuntimeRunTelemetry | null): void {
+    this.runtimeTelemetry = runtimeTelemetry;
+  }
+
+  private emitRuntimeEvent(
+    eventType: string,
+    payload: Record<string, unknown>,
+    options?: { turnIndex?: number; stepIndex?: number }
+  ): void {
+    if (!this.runtimeTelemetry) {
+      return;
+    }
+    const scope = this.runtimeTelemetry.artifacts.scope;
+    const event: RuntimeEvent = {
+      timestamp: new Date().toISOString(),
+      workflow: scope.workflow,
+      runId: scope.runId,
+      eventType,
+      turnIndex: options?.turnIndex,
+      stepIndex: options?.stepIndex,
+      payload,
+    };
+    void this.runtimeTelemetry.eventBus.emit(event).catch((error: unknown) => {
+      this.logger.warn("runtime_telemetry_emit_failed", {
+        eventType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   async run(task: string, options?: AgentLoopRunOptions): Promise<AgentRunResult> {
@@ -196,7 +260,7 @@ export class AgentLoop {
           const stateError = agent.state.error;
           if (stateError) {
             status = "failed";
-            finishReason = stateError;
+            finishReason = stateError instanceof Error ? stateError.message : String(stateError);
           }
         }
       }
@@ -329,7 +393,7 @@ export class AgentLoop {
     }
   }
 
-  private requireAgent(): Agent {
+  private requireAgent(): AgentLoopAgent {
     if (!this.agent) {
       throw new Error("agent loop is not initialized");
     }
@@ -350,6 +414,18 @@ export class AgentLoop {
         name: event.toolName,
         args,
       });
+      this.emitRuntimeEvent(
+        "tool.call",
+        {
+          phase: "start",
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          args,
+        },
+        {
+          turnIndex: toolCallTurnIndexes.get(event.toolCallId),
+        }
+      );
       mcpCalls.push({
         index: mcpCalls.length + 1,
         timestamp: new Date().toISOString(),
@@ -394,6 +470,21 @@ export class AgentLoop {
       isError: isToolError,
       resultExcerpt: excerpt,
     });
+    this.emitRuntimeEvent(
+      "tool.call",
+      {
+        phase: "end",
+        toolCallId: event.toolCallId,
+        toolName: running?.name ?? event.toolName,
+        args,
+        resultExcerpt: excerpt,
+        isError: isToolError,
+      },
+      {
+        turnIndex: toolCallTurnIndexes.get(event.toolCallId),
+        stepIndex,
+      }
+    );
 
     steps.push({
       stepIndex,
@@ -476,6 +567,24 @@ export class AgentLoop {
       errorMessage: typeof event.message.errorMessage === "string" ? event.message.errorMessage : undefined,
     };
     assistantTurns.push(turnRecord);
+    this.emitRuntimeEvent(
+      "agent.turn",
+      {
+        turnIndex: turnRecord.index,
+        stopReason: turnRecord.stopReason,
+        text: turnRecord.text,
+        thinking: turnRecord.thinking,
+        errorMessage: turnRecord.errorMessage,
+        toolCalls: toolCalls.map((toolCall) => ({
+          id: toolCall.id,
+          name: toolCall.name,
+          arguments: toolCall.arguments,
+        })),
+      },
+      {
+        turnIndex: turnRecord.index,
+      }
+    );
     for (const toolCall of toolCalls) {
       if (toolCall.id) {
         toolCallTurnIndexes.set(toolCall.id, turnRecord.index);
