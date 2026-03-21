@@ -10,10 +10,10 @@
 - **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
 - **Cleanup Task 4 is complete**: migration docs are archived, `docs/architecture/overview.md` is now the single short architecture front door, and `apps/agent-runtime/README.md` documents only the surviving CLI surface.
-- **Cleanup Task 5 is complete**: the earlier post-cleanup gate set passed, and the workflow-host clarification pass now has fresh hardgate evidence at `artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`.
+- **Cleanup Task 5 is complete**: the earlier post-cleanup gate set passed, and the workflow-host clarification pass now has fresh hardgate evidence at `artifacts/code-gate/2026-03-21T06-17-12-038Z/report.json`.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
 - **Task 8 is superseded by the current front door**: the remaining runtime lifecycle wrapper has been deleted, so top-level workflow lifecycle now lives in `application/shell/runtime-host.ts`.
-- **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
+- **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old runtime-era refine paths are no longer part of the active front door.
 - **Task 6 is complete**: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
 - **Task 5 is complete**: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
 - **Task 4 is complete**: `kernel/` is now the canonical home for the true execution kernel; `core/` is shim-only.

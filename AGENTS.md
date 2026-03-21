@@ -3,7 +3,7 @@
 ## Project Overview
 Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示教一次”沉淀为后续可复用的执行能力，并在真实执行中持续优化。
 
-当前仓库处于“重启同步”阶段：代码基线已经回滚，文档入口已经切到 Harness 格式，旧 `.plan/*` 设计文档默认只作为背景资料。
+当前仓库处于 workflow-host boundary clarification 已完成后的基线：代码与前门文档已经重新收口，旧 `.plan/*` 设计文档默认只作为背景资料。
 
 ## Read First
 1. `PROGRESS.md`
@@ -26,18 +26,19 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 
 ## Key Flows
 1. `observe -> sop-compact`：示教录制与流程能力抽取。
-2. `run -> replay/refinement`：执行任务、在线复盘、HITL 介入、知识沉淀。
+2. `refine`：执行任务、在线复盘、HITL 介入、知识沉淀。
 3. `knowledge -> core consumption`：把 refinement 知识压缩为低 token 可消费上下文。
 
 ## Module Boundaries
-- `apps/agent-runtime/src/index.ts`：CLI 入口，当前支持 `run` / `observe` / `sop-compact`。
-- `apps/agent-runtime/src/runtime/command-router.ts`：CLI 参数解析与 archived command 拒绝。
-- `apps/agent-runtime/src/runtime/runtime-composition-root.ts`：runtime 级 composition root，负责 browser/MCP/prompt/context/executor 装配。
-- `apps/agent-runtime/src/runtime/interactive-sop-compact.ts`：当前 `sop agent` 主流程。
-- `apps/agent-runtime/src/core/agent-loop.ts`：shared execution kernel 的核心执行环。
-- `apps/agent-runtime/src/runtime/run-executor.ts`：legacy run 主路径。
-- `apps/agent-runtime/src/runtime/replay-refinement/react-refinement-run-executor.ts`：当前 refinement run 入口。
-- `apps/agent-runtime/src/runtime/providers/`：prompt / tool-surface / execution-context / bootstrap provider 边界。
+- `apps/agent-runtime/src/index.ts`：CLI 入口，当前支持 `observe` / `refine` / `sop-compact`。
+- `apps/agent-runtime/src/application/shell/command-router.ts`：CLI 参数解析与 archived command 拒绝。
+- `apps/agent-runtime/src/application/shell/runtime-host.ts`：唯一顶层 workflow lifecycle owner。
+- `apps/agent-runtime/src/application/shell/workflow-runtime.ts`：command -> workflow 选择与 host handoff 的薄协调层。
+- `apps/agent-runtime/src/application/shell/runtime-composition-root.ts`：shell 级 composition root，负责 browser/MCP 与 workflow factory 装配。
+- `apps/agent-runtime/src/application/observe/`：observe workflow 与 recording support。
+- `apps/agent-runtime/src/application/compact/`：sop-compact workflow。
+- `apps/agent-runtime/src/application/refine/`：refine bootstrap、tooling、executor、workflow。
+- `apps/agent-runtime/src/kernel/agent-loop.ts`：shared execution kernel 的核心执行环。
 
 ## Quality Gates
 代码变更交付前至少通过：
