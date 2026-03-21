@@ -1,6 +1,6 @@
 /**
  * Deps: application/observe/observe-executor.ts, shell/workflow-contract.ts
- * Used By: application/observe/observe-runtime.ts
+ * Used By: application/observe/observe-workflow-factory.ts
  * Last Updated: 2026-03-21
  */
 import type { ObserveRunResult } from "../../domain/agent-types.js";

@@ -241,10 +241,3 @@ export function createRefineWorkflowAssembly(
     },
   };
 }
-
-export function createRefineWorkflowFactory(
-  options: CreateRefineWorkflowFactoryOptions
-): (request: RefineWorkflowRequest) => RefineWorkflow {
-  const assembly = createRefineWorkflowAssembly(options);
-  return (request: RefineWorkflowRequest) => assembly.createWorkflow(request);
-}

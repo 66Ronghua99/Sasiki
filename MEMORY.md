@@ -12,6 +12,7 @@
   - canonical home: `apps/agent-runtime/src/kernel/agent-loop.ts` + `mcp-tool-bridge.ts`
   - old `core/` paths are migration shims only
 - `application/shell/runtime-host.ts` 是当前唯一顶层 workflow lifecycle owner；不要再把 prepare/execute/dispose fallback 逻辑散落回 `workflow-runtime.ts` 或其他 wrapper。
+- workflow 注册主链路当前固定为 `workflow-runtime -> runtime-host -> *-workflow`；不要再恢复 `application/observe/observe-runtime.ts` 这类单 workflow wrapper，也不要把 `RuntimeHost` 扩回“先绑定 workflow 再 start/execute”的双形态 API。
 - `application/shell/workflow-runtime.ts` 当前只负责 CLI command -> workflow 选择与交给 host 执行；不要再把 compact service 构造或 interrupt fallback 塞回去。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
 - `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
@@ -62,6 +63,7 @@
 - 终端 HITL 当前已改为自然语言 incident brief + 单个可选自然语言恢复说明输入；结构化字段仍保留在内部 request/response 契约中用于记录与兼容，不再直接暴露为终端固定标签。
 - 当页面出现系统级 `file chooser dialog` 时，refine agent 会持续触发 `hitl.request`（uncertain_state）；若人类侧未真实关闭弹窗，流程会重复同类 HITL，难以前进到工具执行阶段。
 - runtime telemetry 重构后，refine run 的 canonical 工件应优先看 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 和 attention knowledge store；旧的步骤快照与 `refine_*` 平行投影不应再作为主排查入口。
+- 2026-03-22 的百度 smoke refine run（`20260322_002735_676`）说明两类噪声还在：模型首轮仍可能错误调用 `act.navigate` with `initial_navigation`，以及 page-changing action 后仍会短暂拿旧 observation 继续动作；虽然当前能自恢复，但这正是下一轮工具面和 e2e 流程优化的优先目标。
 - 若 refine run 在 modal / file chooser 场景里反复 `navigate`，先检查两件事：
   - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
   - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航

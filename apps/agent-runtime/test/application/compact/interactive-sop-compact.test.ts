@@ -48,10 +48,8 @@ test("compact workflow adapts the host contract without changing compact semanti
   const workflow = createCompactWorkflow({ service, runId: "run-123" });
   assert.equal(await workflow.requestInterrupt("SIGINT"), false);
 
-  const host = new RuntimeHost({ workflow });
-  await host.start();
-  const result = await host.execute();
-  await host.dispose();
+  const host = new RuntimeHost();
+  const result = await host.run(workflow);
 
   assert.deepEqual(calls, ["compact:run-123"]);
   assert.deepEqual(result, {

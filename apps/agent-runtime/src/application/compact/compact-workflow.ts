@@ -1,6 +1,6 @@
 /**
  * Deps: application/compact/interactive-sop-compact.ts, application/shell/workflow-contract.ts
- * Used By: index.ts
+ * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import type { InteractiveSopCompactResult } from "./interactive-sop-compact.js";
@@ -43,14 +43,4 @@ export class CompactWorkflow implements HostedWorkflow<InteractiveSopCompactResu
 
 export function createCompactWorkflow(options: CompactWorkflowOptions): CompactWorkflow {
   return new CompactWorkflow(options);
-}
-
-export function createCompactWorkflowFactory(
-  service: CompactWorkflowService
-): (runId: string) => HostedWorkflow<InteractiveSopCompactResult> {
-  return (runId: string): HostedWorkflow<InteractiveSopCompactResult> =>
-    createCompactWorkflow({
-      service,
-      runId,
-    });
 }

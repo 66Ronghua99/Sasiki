@@ -18,6 +18,8 @@ test("application boundaries use canonical application and infrastructure module
   const observeExecutorSource = await readSource("application/observe/observe-executor.ts");
   const runtimeCompositionRootSource = await readSource("application/shell/runtime-composition-root.ts");
   const workflowRuntimeSource = await readSource("application/shell/workflow-runtime.ts");
+  const runtimeHostSource = await readSource("application/shell/runtime-host.ts");
+  const compactWorkflowSource = await readSource("application/compact/compact-workflow.ts");
   const compactSource = await readSource("application/compact/interactive-sop-compact.ts");
 
   assert.match(promptProviderSource, /from "\.\/system-prompts\.js"/);
@@ -52,6 +54,14 @@ test("application boundaries use canonical application and infrastructure module
 
   assert.doesNotMatch(workflowRuntimeSource, /InteractiveSopCompactService/);
   assert.doesNotMatch(workflowRuntimeSource, /runtime\/agent-execution-runtime\.js/);
+
+  assert.doesNotMatch(runtimeHostSource, /constructor\(options/);
+  assert.doesNotMatch(runtimeHostSource, /async start\(\)/);
+  assert.doesNotMatch(runtimeHostSource, /async execute\(\)/);
+
+  assert.doesNotMatch(compactWorkflowSource, /createCompactWorkflowFactory/);
+  assert.doesNotMatch(refineWorkflowSource, /createRefineWorkflowFactory/);
+  assert.equal(existsSync(path.join(srcRoot, "application/observe/observe-runtime.ts")), false);
 });
 
 test("compatibility source shells have been removed from core and runtime", () => {

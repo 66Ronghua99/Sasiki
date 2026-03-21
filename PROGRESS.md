@@ -13,6 +13,8 @@
 - **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`AgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
+- **Workflow registration cleanup 已完成**: `application/observe/observe-runtime.ts` 这个过渡 wrapper 已删除；`RuntimeHost` 只保留 `run(workflow)` 这条活跃宿主接口；未使用的 `createRefineWorkflowFactory` / `createCompactWorkflowFactory` 已移除，workflow 注册链路现在统一收敛为 `workflow-runtime -> runtime-host -> *-workflow`。
+- **Refine smoke e2e 已完成**: 真实任务 `打开百度搜索咖啡豆，点开第一条链接` 已在 `run_id=20260322_002735_676` 跑通，最终 `completed`，并产出新的 `artifacts/e2e/20260322_002735_676/run_summary.json` 与 `artifacts/e2e/20260322_002735_676/event_stream.jsonl` 证据；本轮暴露的问题已收敛为“首轮仍会尝试 `initial_navigation`”与“page-changing action 后仍偶发 stale observation 自恢复”。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
@@ -80,7 +82,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 基于新的 telemetry / checkpoint 基线，先冻结一份 refine debug / repro harness spec，再进入下一轮实现。
+- `P0` 基于最新 refine smoke e2e 证据，优先优化工具面与端到端 refine 流程，重点压掉 `initial_navigation` / stale observation 这类可恢复但高噪声的首轮失步。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -119,3 +121,15 @@ apps/agent-runtime/src/
   - refine canonical artifacts 收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/`
   - 旧 steps / assistant turns / `refine_*` 平行 artifacts 不再作为 refine 主真源
   - fresh hardgate report：`artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`
+- 已完成 workflow registration cleanup：
+  - 删除 `apps/agent-runtime/src/application/observe/observe-runtime.ts`
+  - 删除未使用的 `createRefineWorkflowFactory` / `createCompactWorkflowFactory`
+  - 将 `RuntimeHost` 收敛为只承载 `run(workflow)` 的共享 host 契约
+  - fresh hardgate report：`artifacts/code-gate/2026-03-21T16-10-40-375Z/report.json`
+- 已完成 refine smoke e2e：
+  - 任务：`打开百度搜索咖啡豆，点开第一条链接`
+  - run id：`20260322_002735_676`
+  - 结果：`completed`
+  - 关键证据：
+    - `artifacts/e2e/20260322_002735_676/run_summary.json`
+    - `artifacts/e2e/20260322_002735_676/event_stream.jsonl`

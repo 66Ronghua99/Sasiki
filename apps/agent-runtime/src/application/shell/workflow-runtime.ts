@@ -1,6 +1,6 @@
 /**
  * Deps: domain/agent-types.ts, application/config/runtime-config.ts, application/shell/runtime-composition-root.ts
- * Used By: index.ts, runtime/agent-runtime.ts
+ * Used By: index.ts
  * Last Updated: 2026-03-21
  */
 import type { AgentRunResult, ObserveRunResult } from "../../domain/agent-types.js";

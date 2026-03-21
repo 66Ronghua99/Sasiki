@@ -5,19 +5,10 @@
  */
 import type { HostedWorkflow } from "./workflow-contract.js";
 
-export interface RuntimeHostOptions<T> {
-  workflow?: HostedWorkflow<T>;
-}
-
-export class RuntimeHost<T = never> {
-  private readonly workflow?: HostedWorkflow<T>;
+export class RuntimeHost {
   private activeWorkflow: HostedWorkflow<unknown> | null = null;
   private started = false;
   private disposePromise: Promise<void> | null = null;
-
-  constructor(options: RuntimeHostOptions<T> = {}) {
-    this.workflow = options.workflow;
-  }
 
   async run<TResult>(workflow: HostedWorkflow<TResult>): Promise<TResult> {
     this.claimWorkflow(workflow);
@@ -27,16 +18,6 @@ export class RuntimeHost<T = never> {
     } finally {
       await this.disposeActiveWorkflow(workflow);
     }
-  }
-
-  async start(): Promise<void> {
-    this.claimWorkflow(this.requireWorkflow());
-    await this.startActiveWorkflow();
-  }
-
-  async execute(): Promise<T> {
-    await this.start();
-    return this.requireWorkflow().execute();
   }
 
   async requestInterrupt(signal: "SIGINT" | "SIGTERM"): Promise<boolean> {
@@ -51,13 +32,6 @@ export class RuntimeHost<T = never> {
       return;
     }
     await this.disposeActiveWorkflow(this.activeWorkflow);
-  }
-
-  private requireWorkflow(): HostedWorkflow<T> {
-    if (!this.workflow) {
-      throw new Error("runtime host requires a bound workflow");
-    }
-    return this.workflow;
   }
 
   private claimWorkflow<TResult>(workflow: HostedWorkflow<TResult>): void {
