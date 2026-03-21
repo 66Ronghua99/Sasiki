@@ -8,6 +8,7 @@ import process from "node:process";
 import { parseCliArguments } from "./application/shell/command-router.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
+import { createProcessInterruptHandler } from "./application/shell/process-interrupt-handler.js";
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
@@ -22,19 +23,21 @@ async function main(): Promise<void> {
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
   const runtime = new WorkflowRuntime(config);
-  let interrupting = false;
-  const requestInterrupt = (signal: "SIGINT" | "SIGTERM"): void => {
-    if (interrupting) {
-      process.stderr.write(`Force exiting after repeated ${signal}.\n`);
-      process.exit(130);
-      return;
-    }
-    interrupting = true;
-    process.stderr.write(`Received ${signal}, requesting graceful stop and flushing logs...\n`);
-    void runtime.requestInterrupt(signal);
+  const requestInterrupt = createProcessInterruptHandler({
+    requestInterrupt: (signal) => runtime.requestInterrupt(signal),
+    writeStderr: (message) => {
+      process.stderr.write(message);
+    },
+    forceExit: (code) => {
+      process.exit(code);
+    },
+  });
+  const onSigint = (): void => {
+    void requestInterrupt("SIGINT");
   };
-  const onSigint = (): void => requestInterrupt("SIGINT");
-  const onSigterm = (): void => requestInterrupt("SIGTERM");
+  const onSigterm = (): void => {
+    void requestInterrupt("SIGTERM");
+  };
   process.on("SIGINT", onSigint);
   process.on("SIGTERM", onSigterm);
 

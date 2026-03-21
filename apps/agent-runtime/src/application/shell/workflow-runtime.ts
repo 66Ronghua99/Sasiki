@@ -55,7 +55,7 @@ export class WorkflowRuntime {
         return this.observeWorkflowFactory(workflowTask);
       },
       refine: () => {
-        if (!workflowTask) {
+        if (workflowTask === undefined) {
           throw new Error("missing task for refine workflow");
         }
         return this.refineWorkflowFactory({
@@ -86,8 +86,8 @@ export class WorkflowRuntime {
     return this.executeWorkflow<AgentRunResult>(factory as () => HostedWorkflow<AgentRunResult>);
   }
 
-  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<void> {
-    await this.runtimeHost.requestInterrupt(signalName);
+  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean> {
+    return this.runtimeHost.requestInterrupt(signalName);
   }
 
   async stop(): Promise<void> {

@@ -266,6 +266,41 @@ test("workflow runtime dispatches refine through the shared registry and host pa
   ]);
 });
 
+test("workflow runtime allows resume-only refine requests through the shared host path", async () => {
+  const events: string[] = [];
+  let receivedRequest: { task: string; resumeRunId?: string } | null = null;
+
+  const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
+    createRuntimeComposition: () =>
+      ({
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: (request) => {
+          receivedRequest = request;
+          return createRefineWorkflowFactory(events)(request);
+        },
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
+      }) as never,
+    createRuntimeHost: () => createRuntimeHost(events),
+  });
+
+  const result = await runtime.execute({
+    command: "refine",
+    task: "",
+    resumeRunId: "paused-run",
+  });
+
+  assert.deepEqual(receivedRequest, {
+    task: "",
+    resumeRunId: "paused-run",
+  });
+  assert.equal(result.task, "");
+  assert.deepEqual(events, ["host.run:start", "browser.start", "agent.start", "agent.run:", "host.run:dispose", "agent.stop", "browser.stop"]);
+});
+
 test("workflow runtime dispatches sop-compact through the shared registry and host path", async () => {
   const events: string[] = [];
   let registryFactoryKeys: string[] = [];
