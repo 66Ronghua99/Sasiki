@@ -10,7 +10,7 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
-- 当前活跃闭环已经切换为 `agent runtime global layer taxonomy`，之前的 `executor/bootstrap boundary refactor` 与 `runtime surface pruning` 只保留为已完成或已被更大方向覆盖的历史背景。
+- 当前活跃闭环已经切换为 `backward capability cleanup`；全局 taxonomy 重组已经完成，当前任务是删除迁移期兼容代码、兼容测试和旧入口文档。
 - **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
 - **Task 8 已完成**: `runtime/` 已收窄到 session/state/execution semantics；`runtime/agent-execution-runtime.ts` 是剩余的真实 runtime 实现，其余 `runtime/` 路径为兼容 shim。
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
@@ -60,8 +60,8 @@ apps/agent-runtime/src/
 - `docs/architecture/overview.md`
 - `docs/architecture/layers.md`
 - `docs/testing/strategy.md`
-- `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
-- `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
+- `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
+- `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -75,10 +75,10 @@ apps/agent-runtime/src/
 
 说明：
 - 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
-- 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor` 和 `runtime surface pruning` 文档都已降级为历史背景；当前 active spec 是全局 layer taxonomy 重组。
+- 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning` 和 taxonomy reorg 文档都已降级为历史背景；当前 active loop 是 backward capability cleanup。
 
 ## TODO
-- `P0` 为独立的 stability / e2e / tooling optimization 轨道写新的 spec，优先收 first-turn bootstrap、navigation robustness 和工具面稳定性。
+- `P0` 执行 `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md` 的 Task 2，删除兼容源码壳并同步清理对应 shim 测试与 lint 断言。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。

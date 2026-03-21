@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: draft
+status: active
 supersedes: []
 related:
   - docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md
