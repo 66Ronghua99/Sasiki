@@ -6,6 +6,16 @@ import { ObserveRuntime, createObserveRuntime } from "../../../src/application/o
 import type { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { ObserveRunResult } from "../../../src/domain/agent-types.js";
 
+function createDeferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 test("application observe workflow prepares browser state before execute", async () => {
   const calls: string[] = [];
   const workflow = new ObserveWorkflow({
@@ -48,7 +58,7 @@ test("application observe workflow prepares browser state before execute", async
   assert.deepEqual(calls, ["start", "prepareObserveSession", "execute:record the homepage", "stop"]);
 });
 
-test("application observe runtime hosts the actual workflow lifecycle", async () => {
+test("application observe runtime directly drives the workflow lifecycle and forwards interrupts while active", async () => {
   const result: ObserveRunResult = {
     runId: "run-1",
     mode: "observe",
@@ -62,6 +72,8 @@ test("application observe runtime hosts the actual workflow lifecycle", async ()
   };
 
   const calls: string[] = [];
+  const ready = createDeferred<void>();
+  const release = createDeferred<void>();
   const runtime = new ObserveRuntime({
     createWorkflow: (taskHint: string) => {
       calls.push(`factory:${taskHint}`);
@@ -75,6 +87,8 @@ test("application observe runtime hosts the actual workflow lifecycle", async ()
           },
           prepareObserveSession: async () => {
             calls.push("prepareObserveSession");
+            ready.resolve();
+            await release.promise;
           },
         },
         observeExecutor: {
@@ -92,9 +106,20 @@ test("application observe runtime hosts the actual workflow lifecycle", async ()
     },
   });
 
-  assert.equal(await runtime.observe("record the homepage"), result);
-  assert.equal(await runtime.requestInterrupt("SIGINT"), false);
-  assert.deepEqual(calls, ["factory:record the homepage", "start", "prepareObserveSession", "execute:record the homepage", "stop"]);
+  const observePromise = runtime.observe("record the homepage");
+  await ready.promise;
+  assert.equal(await runtime.requestInterrupt("SIGINT"), true);
+  release.resolve();
+  assert.equal(await observePromise, result);
+  assert.equal(await runtime.requestInterrupt("SIGTERM"), false);
+  assert.deepEqual(calls, [
+    "factory:record the homepage",
+    "start",
+    "prepareObserveSession",
+    "interrupt:SIGINT",
+    "execute:record the homepage",
+    "stop",
+  ]);
 });
 
 test("application observe runtime factory stays lazy until observe is called", async () => {
