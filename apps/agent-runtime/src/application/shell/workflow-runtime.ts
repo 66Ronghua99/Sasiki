@@ -96,8 +96,9 @@ export class WorkflowRuntime {
 
   async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<void> {
     if (this.activeHost) {
-      await this.activeHost.requestInterrupt(signalName);
-      return;
+      if (await this.activeHost.requestInterrupt(signalName)) {
+        return;
+      }
     }
     if (await this.observeRuntime.requestInterrupt(signalName)) {
       return;
