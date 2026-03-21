@@ -19,7 +19,7 @@ function createDeferred<T = void>() {
   return { promise, resolve, reject };
 }
 
-test("workflow runtime dispatches observe through the shared registry and host path", async () => {
+test("workflow runtime delegates observe directly to observe runtime", async () => {
   const events: string[] = [];
   let registryFactoryKeys: string[] = [];
 
@@ -80,22 +80,8 @@ test("workflow runtime dispatches observe through the shared registry and host p
         },
       };
     },
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-        },
-      };
+    createRuntimeHost: () => {
+      throw new Error("observe should not use the shell runtime host");
     },
   });
 
@@ -104,18 +90,11 @@ test("workflow runtime dispatches observe through the shared registry and host p
     task: "observe me",
   });
 
-  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
+  assert.deepEqual(registryFactoryKeys, []);
   assert.equal(result.mode, "observe");
   assert.equal(result.taskHint, "observe me");
   assert.deepEqual(events, [
-    "host.start",
-    "browser.start",
-    "browser.prepareObserveSession",
-    "host.execute",
     "observeRuntime.observe:observe me",
-    "host.dispose",
-    "agent.stop",
-    "browser.stop",
   ]);
 });
 
@@ -204,7 +183,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
     task: "refine me",
   });
 
-  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
+  assert.deepEqual(registryFactoryKeys, ["refine"]);
   assert.equal(result.task, "refine me");
   assert.deepEqual(events, [
     "host.start",

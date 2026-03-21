@@ -11,9 +11,8 @@ import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
-import { ObserveExecutor } from "../observe/observe-executor.js";
-import { ObserveRuntime } from "../observe/observe-runtime.js";
-import { createObserveWorkflow } from "../observe/observe-workflow.js";
+import { createObserveRuntime } from "../observe/observe-runtime.js";
+import type { ObserveRuntime } from "../observe/observe-runtime.js";
 import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
@@ -122,29 +121,21 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     }),
   });
 
-  const observeExecutor = new ObserveExecutor({
-    logger,
-    cdpEndpoint: config.cdpEndpoint,
-    observeTimeoutMs: config.observeTimeoutMs,
-    artifactsDir: config.artifactsDir,
-    createRunId,
-    sopRecorder: new SopDemonstrationRecorder(),
-    sopAssetRootDir: config.sopAssetRootDir,
-    createRecorder: () => new PlaywrightDemonstrationRecorder(),
-  });
-
   return {
     browserLifecycle,
     agentRuntime: new AgentExecutionRuntime({ loop: runLoop, runExecutor }),
-    observeRuntime: new ObserveRuntime({
-      createWorkflow: (taskHint) =>
-        createObserveWorkflow({
-          browserLifecycle: {
-            prepareObserveSession: async () => browserLifecycle.prepareObserveSession(),
-          },
-          observeExecutor,
-          taskHint,
-        }),
+    observeRuntime: createObserveRuntime({
+      logger,
+      cdpEndpoint: config.cdpEndpoint,
+    observeTimeoutMs: config.observeTimeoutMs,
+    artifactsDir: config.artifactsDir,
+    createRunId,
+    sopAssetRootDir: config.sopAssetRootDir,
+    browserLifecycle: {
+      prepareObserveSession: async () => browserLifecycle.prepareObserveSession(),
+    },
+    createSopRecorder: () => new SopDemonstrationRecorder(),
+    createRecorder: () => new PlaywrightDemonstrationRecorder(),
     }),
   };
 }

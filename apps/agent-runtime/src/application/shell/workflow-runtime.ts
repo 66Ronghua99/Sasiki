@@ -57,20 +57,19 @@ export class WorkflowRuntime {
   }
 
   async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult> {
+    if (request.command === "observe") {
+      return this.observeRuntime.observe(request.task);
+    }
     const registry = this.createWorkflowRegistry({
-      observe: () => this.createObserveWorkflow(request.task),
       refine: () =>
         this.createRefineWorkflow({
           task: request.task,
-          resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
+          resumeRunId: request.resumeRunId,
         }),
     });
     const factory = registry.resolve(request.command);
     if (!factory) {
       throw new Error(`missing workflow factory for command: ${request.command}`);
-    }
-    if (request.command === "observe") {
-      return this.executeWorkflow<ObserveRunResult>(factory as () => HostedWorkflow<ObserveRunResult>);
     }
     return this.executeWorkflow<AgentRunResult>(factory as () => HostedWorkflow<AgentRunResult>);
   }
@@ -126,21 +125,6 @@ export class WorkflowRuntime {
         this.activeHost = null;
       }
     }
-  }
-
-  private createObserveWorkflow(taskHint: string): HostedWorkflow<ObserveRunResult> {
-    return {
-      prepare: async () => {
-        await this.browserLifecycle.start();
-        await this.browserLifecycle.prepareObserveSession();
-      },
-      execute: async () => this.observeRuntime.observe(taskHint),
-      requestInterrupt: async (signalName) => this.observeRuntime.requestInterrupt(signalName),
-      dispose: async () => {
-        await this.agentRuntime.stop();
-        await this.browserLifecycle.stop();
-      },
-    };
   }
 
   private createRefineWorkflow(request: Pick<AgentRunRequest, "task" | "resumeRunId">): HostedWorkflow<AgentRunResult> {

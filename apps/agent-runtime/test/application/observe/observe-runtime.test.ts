@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ObserveWorkflow } from "../../../src/application/observe/observe-workflow.js";
-import { ObserveRuntime } from "../../../src/application/observe/observe-runtime.js";
+import { ObserveRuntime, createObserveRuntime } from "../../../src/application/observe/observe-runtime.js";
 import type { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { ObserveRunResult } from "../../../src/domain/agent-types.js";
 
@@ -41,7 +41,7 @@ test("application observe workflow prepares browser state before execute", async
   assert.deepEqual(calls, ["prepareObserveSession", "execute:record the homepage"]);
 });
 
-test("application observe runtime delegates to its executor", async () => {
+test("application observe runtime hosts the actual workflow lifecycle", async () => {
   const result: ObserveRunResult = {
     runId: "run-1",
     mode: "observe",
@@ -81,5 +81,73 @@ test("application observe runtime delegates to its executor", async () => {
 
   assert.equal(await runtime.observe("record the homepage"), result);
   assert.equal(await runtime.requestInterrupt("SIGINT"), false);
-  assert.deepEqual(calls, ["factory:record the homepage", "execute:record the homepage"]);
+  assert.deepEqual(calls, ["factory:record the homepage", "prepareObserveSession", "execute:record the homepage"]);
+});
+
+test("application observe runtime factory stays lazy until observe is called", async () => {
+  const calls: string[] = [];
+  const result: ObserveRunResult = {
+    runId: "run-1",
+    mode: "observe",
+    taskHint: "record the homepage",
+    status: "completed",
+    finishReason: "observe_timeout_reached",
+    artifactsDir: "/tmp/sasiki-observe/run-1",
+    tracePath: "/tmp/sasiki-observe/run-1/demonstration_trace.json",
+    draftPath: "/tmp/sasiki-observe/run-1/sop_draft.md",
+    assetPath: "/tmp/sasiki-observe/run-1/sop_asset.json",
+  };
+  const runtime = createObserveRuntime({
+    logger: {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      toText: () => "",
+    },
+    cdpEndpoint: "http://localhost:9222",
+    observeTimeoutMs: 0,
+    artifactsDir: "/tmp/sasiki-observe",
+    createRunId: () => "run-1",
+    sopAssetRootDir: "/tmp/sasiki-sop-assets",
+    browserLifecycle: {
+      prepareObserveSession: async () => {
+        calls.push("prepareObserveSession");
+      },
+    },
+    createSopRecorder: () => {
+      calls.push("createSopRecorder");
+      return {
+        buildTrace: () => ({
+          traceVersion: "v0",
+          traceId: "run-1",
+          mode: "observe",
+          site: "example.com",
+          singleTabOnly: true,
+          taskHint: "record the homepage",
+          steps: [],
+        }),
+        buildDraft: () => "# draft\n",
+        buildWebElementHints: () => [],
+        buildTags: () => ["observe"],
+      } as never;
+    },
+    createRecorder: () => {
+      calls.push("createRecorder");
+      return {
+        start: async () => {},
+        stop: async () => [],
+      } as never;
+    },
+    createObserveExecutor: () => ({
+      execute: async (taskHint: string) => {
+        calls.push(`execute:${taskHint}`);
+        return result;
+      },
+      requestInterrupt: async () => false,
+    }),
+  });
+
+  assert.deepEqual(calls, []);
+  assert.equal(await runtime.observe("record the homepage"), result);
+  assert.deepEqual(calls, ["createSopRecorder", "createRecorder", "prepareObserveSession", "execute:record the homepage"]);
 });
