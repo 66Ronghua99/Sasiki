@@ -12,7 +12,12 @@ import type { ObserveRuntime } from "../observe/observe-runtime.js";
 import type { ObserveWorkflow } from "../observe/observe-workflow.js";
 import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
-import { createRefineWorkflowFactory, type RefineWorkflow, type RefineWorkflowRequest } from "../refine/refine-workflow.js";
+import {
+  createRefineWorkflowAssembly,
+  type RefineWorkflowAgentRuntime,
+  type RefineWorkflow,
+  type RefineWorkflowRequest,
+} from "../refine/refine-workflow.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
@@ -35,6 +40,7 @@ export interface BrowserLifecycle {
 
 export interface RuntimeComposition {
   browserLifecycle: BrowserLifecycle;
+  agentRuntime: RefineWorkflowAgentRuntime;
   observeRuntime: ObserveRuntime;
   observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
   refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
@@ -91,7 +97,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     createRunId,
     sopAssetRootDir: config.sopAssetRootDir,
   });
-  const refineWorkflowFactory = createRefineWorkflowFactory({
+  const refineAssembly = createRefineWorkflowAssembly({
     browserLifecycle,
     logger,
     rawToolClient,
@@ -103,11 +109,12 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
 
   return {
     browserLifecycle,
+    agentRuntime: refineAssembly.agentRuntime,
     observeRuntime: createObserveRuntime({
       createWorkflow: observeWorkflowFactory,
     }),
     observeWorkflowFactory,
-    refineWorkflowFactory,
+    refineWorkflowFactory: refineAssembly.createWorkflow,
   };
 }
 

@@ -8,7 +8,7 @@ import type { Logger } from "../../contracts/logger.js";
 import type { ToolClient } from "../../contracts/tool-client.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
 import { AgentLoop } from "../../kernel/agent-loop.js";
-import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
+import { AgentExecutionRuntime, type AgentRunExecutor } from "../../runtime/agent-execution-runtime.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import { PromptProvider } from "./prompt-provider.js";
@@ -54,6 +54,35 @@ export interface CreateRefineWorkflowFactoryOptions {
   refineSystemPrompt: string;
 }
 
+export interface RefineWorkflowAssembly {
+  agentRuntime: RefineWorkflowAgentRuntime;
+  createWorkflow(request: RefineWorkflowRequest): RefineWorkflow;
+}
+
+export interface RefineWorkflowLoopInput {
+  model: string;
+  apiKey: string;
+  baseUrl?: string;
+  thinkingLevel: RuntimeConfig["thinkingLevel"];
+  systemPrompt: string;
+  toolClient: ToolClient;
+  logger: Logger;
+}
+
+export interface RefineWorkflowAssemblyOverrides {
+  createBootstrapToolClient?: (rawClient: ToolClient) => ToolClient;
+  createPromptProvider?: () => Pick<PromptProvider, "buildRefineStartPrompt">;
+  createPersistenceContext?: (
+    config: Pick<RuntimeConfig, "artifactsDir">
+  ) => ReturnType<typeof createRefinePersistenceContext>;
+  createBootstrapProvider?: (
+    options: ConstructorParameters<typeof RefineRunBootstrapProvider>[0]
+  ) => Pick<RefineRunBootstrapProvider, "prepare" | "saveResumeRecord">;
+  createLoop?: (input: RefineWorkflowLoopInput) => AgentLoop;
+  createRunExecutor?: (options: ReactRefinementRunExecutorOptions) => AgentRunExecutor;
+  createAgentRuntime?: (input: { loop: AgentLoop; runExecutor: AgentRunExecutor }) => RefineWorkflowAgentRuntime;
+}
+
 export class RefineWorkflow implements HostedWorkflow<AgentRunResult> {
   private readonly browserLifecycle: RefineWorkflowBrowserLifecycle;
   private readonly agentRuntime: RefineWorkflowAgentRuntime;
@@ -93,50 +122,83 @@ export function createRefineWorkflow(options: RefineWorkflowOptions): RefineWork
   return new RefineWorkflow(options);
 }
 
-export function createRefineWorkflowFactory(
-  options: CreateRefineWorkflowFactoryOptions
-): (request: RefineWorkflowRequest) => RefineWorkflow {
-  const promptProvider = new PromptProvider();
-  const toolClient = createBootstrapRefineReactToolClient(options.rawToolClient);
-  const persistence = createRefinePersistenceContext(options.config);
-  const loop = new AgentLoop(
-    {
-      model: options.config.model,
-      apiKey: options.config.apiKey,
-      baseUrl: options.config.baseUrl,
-      thinkingLevel: options.config.thinkingLevel,
-      systemPrompt: options.refineSystemPrompt,
-    },
-    toolClient,
-    options.logger
-  );
+export function createRefineWorkflowAssembly(
+  options: CreateRefineWorkflowFactoryOptions,
+  overrides: RefineWorkflowAssemblyOverrides = {}
+): RefineWorkflowAssembly {
+  const createBootstrapToolClient = overrides.createBootstrapToolClient ?? createBootstrapRefineReactToolClient;
+  const createPromptProvider = overrides.createPromptProvider ?? (() => new PromptProvider());
+  const createPersistenceContext = overrides.createPersistenceContext ?? ((config) => createRefinePersistenceContext(config));
+  const createBootstrapProvider =
+    overrides.createBootstrapProvider ?? ((input) => new RefineRunBootstrapProvider(input));
+  const createLoop =
+    overrides.createLoop ??
+    ((input) =>
+      new AgentLoop(
+        {
+          model: input.model,
+          apiKey: input.apiKey,
+          baseUrl: input.baseUrl,
+          thinkingLevel: input.thinkingLevel,
+          systemPrompt: input.systemPrompt,
+        },
+        input.toolClient,
+        input.logger
+      ));
+  const createRunExecutor = overrides.createRunExecutor ?? createReactRefinementRunExecutor;
+  const createAgentRuntime =
+    overrides.createAgentRuntime ?? ((input) => new AgentExecutionRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
 
-  const runExecutorOptions: ReactRefinementRunExecutorOptions = {
+  const toolClient = createBootstrapToolClient(options.rawToolClient);
+  const promptProvider = createPromptProvider();
+  const persistence = createPersistenceContext(options.config);
+  const bootstrapProvider = createBootstrapProvider({
+    createRunId: options.createRunId,
+    guidanceLoader: persistence.guidanceLoader,
+    hitlResumeStore: persistence.hitlResumeStore,
+    promptProvider,
+    knowledgeTopN: options.config.refinementKnowledgeTopN,
+  });
+  const loop = createLoop({
+    model: options.config.model,
+    apiKey: options.config.apiKey,
+    baseUrl: options.config.baseUrl,
+    thinkingLevel: options.config.thinkingLevel,
+    systemPrompt: options.refineSystemPrompt,
+    toolClient,
+    logger: options.logger,
+  });
+  const runExecutor = createRunExecutor({
     loop,
     logger: options.logger,
     artifactsDir: options.config.artifactsDir,
     maxTurns: options.config.refinementMaxRounds,
-    toolClient,
+    toolClient: toolClient as never,
     hitlController: options.hitlController,
     knowledgeStore: persistence.knowledgeStore,
-    bootstrapProvider: new RefineRunBootstrapProvider({
-      createRunId: options.createRunId,
-      guidanceLoader: persistence.guidanceLoader,
-      hitlResumeStore: persistence.hitlResumeStore,
-      promptProvider,
-      knowledgeTopN: options.config.refinementKnowledgeTopN,
-    }),
-  };
-  const agentRuntime = new AgentExecutionRuntime({
+    bootstrapProvider: bootstrapProvider as never,
+  });
+  const agentRuntime = createAgentRuntime({
     loop,
-    runExecutor: createReactRefinementRunExecutor(runExecutorOptions),
+    runExecutor,
   });
 
-  return (request: RefineWorkflowRequest): RefineWorkflow =>
-    createRefineWorkflow({
-      browserLifecycle: options.browserLifecycle,
-      agentRuntime,
-      task: request.task,
-      resumeRunId: request.resumeRunId,
-    });
+  return {
+    agentRuntime,
+    createWorkflow(request: RefineWorkflowRequest): RefineWorkflow {
+      return createRefineWorkflow({
+        browserLifecycle: options.browserLifecycle,
+        agentRuntime,
+        task: request.task,
+        resumeRunId: request.resumeRunId,
+      });
+    },
+  };
+}
+
+export function createRefineWorkflowFactory(
+  options: CreateRefineWorkflowFactoryOptions
+): (request: RefineWorkflowRequest) => RefineWorkflow {
+  const assembly = createRefineWorkflowAssembly(options);
+  return (request: RefineWorkflowRequest) => assembly.createWorkflow(request);
 }

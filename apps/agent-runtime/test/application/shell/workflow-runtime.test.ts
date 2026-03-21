@@ -89,6 +89,32 @@ function createRefineWorkflowFactory(
   });
 }
 
+function createAgentRuntime(events: string[]) {
+  return {
+    start: async () => {
+      events.push("agentRuntime.start");
+    },
+    run: async () => {
+      events.push("agentRuntime.run");
+      return {
+        task: "unused",
+        status: "completed",
+        finishReason: "unused",
+        steps: [],
+        mcpCalls: [],
+        assistantTurns: [],
+      };
+    },
+    requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => {
+      events.push(`agentRuntime.requestInterrupt:${signal}`);
+      return false;
+    },
+    stop: async () => {
+      events.push("agentRuntime.stop");
+    },
+  };
+}
+
 test("workflow runtime dispatches observe through the shared registry and host path", async () => {
   const events: string[] = [];
   let registryFactoryKeys: string[] = [];
@@ -107,6 +133,7 @@ test("workflow runtime dispatches observe through the shared registry and host p
             events.push("browser.prepareObserveSession");
           },
         },
+        agentRuntime: createAgentRuntime(events),
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -180,6 +207,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
             events.push("browser.prepareObserveSession");
           },
         },
+        agentRuntime: createAgentRuntime(events),
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -254,6 +282,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             events.push("browser.prepareObserveSession");
           },
         },
+        agentRuntime: createAgentRuntime(events),
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -297,7 +326,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
 
   await execution;
 
-  assert.equal(interruptCalls, 1);
+  assert.equal(interruptCalls, 0);
   assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
 });
 
@@ -320,6 +349,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             events.push("browser.prepareObserveSession");
           },
         },
+        agentRuntime: createAgentRuntime(events),
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -365,6 +395,6 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
 
   await execution;
 
-  assert.equal(interruptCalls, 1);
+  assert.equal(interruptCalls, 0);
   assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
 });

@@ -88,6 +88,7 @@ test("createRuntimeComposition builds runtime services and observe workflow wiri
   );
 
   assert.equal(typeof compatConfig.browserLifecycle.start, "function");
+  assert.equal(typeof compatConfig.agentRuntime.run, "function");
   assert.equal(typeof compatConfig.observeRuntime.observe, "function");
   assert.equal(typeof compatConfig.observeRuntime.requestInterrupt, "function");
   assert.equal(typeof compatConfig.observeWorkflowFactory, "function");
@@ -95,6 +96,7 @@ test("createRuntimeComposition builds runtime services and observe workflow wiri
   assert.equal(compatConfig.observeRuntime instanceof ObserveRuntime, true);
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
+  assert.equal(typeof refine.agentRuntime.run, "function");
   assert.equal(typeof refine.observeRuntime.observe, "function");
   assert.equal(typeof refine.observeRuntime.requestInterrupt, "function");
   assert.equal(typeof refine.observeWorkflowFactory, "function");
@@ -117,4 +119,7 @@ test("createRuntimeComposition builds runtime services and observe workflow wiri
   assert.equal(typeof refineWorkflow.execute, "function");
   assert.equal(typeof refineWorkflow.requestInterrupt, "function");
   assert.equal(typeof refineWorkflow.dispose, "function");
+
+  await compatConfig.agentRuntime.stop();
+  await refine.agentRuntime.stop();
 });

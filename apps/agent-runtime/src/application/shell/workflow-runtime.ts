@@ -40,6 +40,7 @@ export interface RuntimeHostLike<T> {
 
 export class WorkflowRuntime {
   private readonly browserLifecycle: BrowserLifecycle;
+  private readonly agentRuntime: RuntimeComposition["agentRuntime"];
   private readonly observeRuntime: RuntimeComposition["observeRuntime"];
   private readonly observeWorkflowFactory: RuntimeComposition["observeWorkflowFactory"];
   private readonly refineWorkflowFactory: RuntimeComposition["refineWorkflowFactory"];
@@ -51,6 +52,7 @@ export class WorkflowRuntime {
   constructor(config: RuntimeConfig, dependencies: WorkflowRuntimeDependencies = {}) {
     const composition = (dependencies.createRuntimeComposition ?? createRuntimeComposition)(config);
     this.browserLifecycle = composition.browserLifecycle;
+    this.agentRuntime = composition.agentRuntime;
     this.observeRuntime = composition.observeRuntime;
     this.observeWorkflowFactory = composition.observeWorkflowFactory;
     this.refineWorkflowFactory = composition.refineWorkflowFactory;
@@ -111,6 +113,7 @@ export class WorkflowRuntime {
     if (await this.observeRuntime.requestInterrupt(signalName)) {
       return;
     }
+    await this.agentRuntime.requestInterrupt(signalName);
   }
 
   async stop(): Promise<void> {
