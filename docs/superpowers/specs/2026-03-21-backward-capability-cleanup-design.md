@@ -41,6 +41,12 @@ This cleanup removes:
 - legacy CLI compatibility branches that only fail with upgrade guidance
 - compatibility-only tests that assert old paths or old CLI migration messages
 
+In practice, the legacy CLI compatibility surface explicitly includes:
+
+- old `runtime` command parsing branches
+- old `--mode run|observe` compatibility handling
+- archived compact aliases such as `sop-compact-hitl` and `sop-compact-clarify`
+
 This cleanup keeps:
 
 - the canonical implementation files under `application/`, `kernel/`, and `infrastructure/`
@@ -81,8 +87,15 @@ Expected targets include:
 Rules:
 
 - delete files only after all in-repo imports are cut to canonical paths
+- update or delete lint/test fixtures that read shim source files directly in the same slice as deletion
 - if a file contains real implementation, it is not part of this slice
 - `runtime/agent-execution-runtime.ts` stays
+
+Important note:
+
+- deletion safety is not only about production imports
+- this repository also has architecture lint and tests that directly read shim files or import runtime wrappers
+- those fixtures must be rewritten or removed atomically with shim deletion, not deferred
 
 ### Slice 2: Remove Legacy CLI Compatibility Surface
 
@@ -92,6 +105,7 @@ Expected targets include:
 
 - old `runtime` command parsing branches
 - old `--mode run|observe` compatibility handling
+- archived compact aliases `sop-compact-hitl` and `sop-compact-clarify`
 - tests that only assert migration guidance for those retired entrypoints
 
 Rules:
@@ -113,12 +127,14 @@ Expected changes:
   - current layer ownership
   - current product flows
   - current canonical code homes
+- rewrite or replace `docs/architecture/overview.md` so it becomes the single short current-architecture front door
 - update `PROGRESS.md`, `NEXT_STEP.md`, `MEMORY.md`, `docs/project/current-state.md`, and architecture docs to stop speaking in shim-era terms
 
 Rules:
 
 - historical docs are kept, not deleted
 - historical docs must be clearly marked as no longer active truth
+- there should be exactly one short active current-architecture front door after cleanup
 - current front-door docs should describe what exists now, not the migration process that produced it
 
 ## Lint And Test Expectations
@@ -183,7 +199,9 @@ This cleanup is complete when all of the following are true:
 - canonical imports are used throughout the repository
 - legacy CLI compatibility branches are removed
 - compatibility-only tests are removed
+- `docs/architecture/overview.md` is rewritten or replaced as the single short active current-architecture entrypoint
 - active docs no longer describe shim-era structure as current truth
+- `npm --prefix apps/agent-runtime run lint:arch` passes
 - repo gates pass:
   - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run test`
