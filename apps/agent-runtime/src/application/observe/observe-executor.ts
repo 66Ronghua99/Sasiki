@@ -12,7 +12,7 @@ import { SOP_ASSET_VERSION } from "../../domain/sop-asset.js";
 import type { DemonstrationRawEvent, SopTrace } from "../../domain/sop-trace.js";
 import type { ObserveCaptureOptions, PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
-import type { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
+import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
 
 interface RuntimeLogBuffer extends Logger {
   toText(): string;
@@ -31,7 +31,7 @@ export interface ObserveExecutorOptions {
   artifactsDir: string;
   createRunId: () => string;
   sopRecorder: SopDemonstrationRecorder;
-  sopAssetStore: SopAssetStore;
+  sopAssetRootDir: string;
   createRecorder: () => PlaywrightDemonstrationRecorder;
 }
 
@@ -54,7 +54,7 @@ export class ObserveExecutor {
     this.artifactsDir = options.artifactsDir;
     this.createRunId = options.createRunId;
     this.sopRecorder = options.sopRecorder;
-    this.sopAssetStore = options.sopAssetStore;
+    this.sopAssetStore = new SopAssetStore(options.sopAssetRootDir);
     this.createRecorder = options.createRecorder;
   }
 

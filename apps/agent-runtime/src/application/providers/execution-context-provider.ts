@@ -6,14 +6,9 @@
 import path from "node:path";
 
 import type { RuntimeConfig } from "../config/runtime-config.js";
-import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
 import { AttentionGuidanceLoader } from "../refine/attention-guidance-loader.js";
 import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
 import { RefineHitlResumeStore } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
-
-export interface ObserveExecutionContext {
-  sopAssetStore: SopAssetStore;
-}
 
 export interface RefinementExecutionContext {
   knowledgeStore: AttentionKnowledgeStore;
@@ -22,12 +17,6 @@ export interface RefinementExecutionContext {
 }
 
 export class ExecutionContextProvider {
-  createObserveContext(config: RuntimeConfig): ObserveExecutionContext {
-    return {
-      sopAssetStore: new SopAssetStore(config.sopAssetRootDir),
-    };
-  }
-
   createRefinementContext(config: RuntimeConfig): RefinementExecutionContext {
     const knowledgeStore = new AttentionKnowledgeStore({
       filePath: path.join(config.artifactsDir, "refinement", "attention-knowledge-store.json"),

@@ -71,7 +71,7 @@ test("planRuntimeComposition selects refine-react surface and respects prompt ov
   assert.equal(plan.prompts.refineSystemPrompt, "custom refine prompt");
 });
 
-test("createRuntimeComposition builds runtime services for both legacy and refine modes", async () => {
+test("createRuntimeComposition builds runtime services and observe workflow wiring", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-runtime-composition-"));
 
   const compatConfig = createRuntimeComposition(
@@ -90,11 +90,13 @@ test("createRuntimeComposition builds runtime services for both legacy and refin
   assert.equal(typeof compatConfig.browserLifecycle.start, "function");
   assert.equal(typeof compatConfig.agentRuntime.run, "function");
   assert.equal(typeof compatConfig.observeRuntime.observe, "function");
+  assert.equal(typeof compatConfig.observeRuntime.requestInterrupt, "function");
   assert.equal(compatConfig.observeRuntime instanceof ObserveRuntime, true);
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
   assert.equal(typeof refine.agentRuntime.run, "function");
   assert.equal(typeof refine.observeRuntime.observe, "function");
+  assert.equal(typeof refine.observeRuntime.requestInterrupt, "function");
   assert.equal(refine.observeRuntime instanceof ObserveRuntime, true);
 
   await compatConfig.agentRuntime.stop();

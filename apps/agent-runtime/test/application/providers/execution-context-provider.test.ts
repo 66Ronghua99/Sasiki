@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,7 +7,6 @@ import test from "node:test";
 import { ExecutionContextProvider } from "../../../src/application/providers/execution-context-provider.js";
 import type { RuntimeConfig } from "../../../src/application/config/runtime-config.js";
 import type { AttentionKnowledge } from "../../../src/domain/attention-knowledge.js";
-import type { SopAsset } from "../../../src/domain/sop-asset.js";
 
 function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
   return {
@@ -56,22 +55,7 @@ test("execution context provider canonical home wires persistence paths under ar
   });
 
   const provider = new ExecutionContextProvider();
-  const observeContext = provider.createObserveContext(config);
   const refinementContext = provider.createRefinementContext(config);
-
-  const asset: SopAsset = {
-    assetVersion: "v0",
-    assetId: "asset-1",
-    site: "example.com",
-    taskHint: "save this page",
-    tags: ["observe"],
-    tracePath: "trace.json",
-    draftPath: "draft.md",
-    guidePath: "guide.md",
-    webElementHints: [],
-    createdAt: new Date("2026-03-21T00:00:00.000Z").toISOString(),
-  };
-  await observeContext.sopAssetStore.upsert(asset);
 
   const knowledge: AttentionKnowledge = {
     id: "knowledge-1",
@@ -106,8 +90,4 @@ test("execution context provider canonical home wires persistence paths under ar
   assert.equal(loaded.records.length, 1);
   assert.match(loaded.guidance, /keep the hero button visible/);
   assert.equal(resumePath, path.join(tmpRoot, "artifacts", "run-1", "hitl_resume.json"));
-  assert.equal(
-    await readFile(path.join(tmpRoot, "sop-assets", "index.json"), "utf-8").then((value) => value.includes("asset-1")),
-    true
-  );
 });

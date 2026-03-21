@@ -1,27 +1,43 @@
 /**
- * Deps: domain/agent-types.ts, application/observe/observe-executor.ts
+ * Deps: domain/agent-types.ts, application/observe/observe-workflow.ts
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import type { ObserveRunResult } from "../../domain/agent-types.js";
-import { ObserveExecutor } from "./observe-executor.js";
+import { ObserveWorkflow } from "./observe-workflow.js";
 
 export interface ObserveRuntimeOptions {
-  observeExecutor: ObserveExecutor;
+  createWorkflow: (taskHint: string) => ObserveWorkflow;
 }
 
 export class ObserveRuntime {
-  private readonly observeExecutor: ObserveExecutor;
+  private readonly createWorkflow: (taskHint: string) => ObserveWorkflow;
+  private activeWorkflow: ObserveWorkflow | null = null;
 
   constructor(options: ObserveRuntimeOptions) {
-    this.observeExecutor = options.observeExecutor;
+    this.createWorkflow = options.createWorkflow;
   }
 
   async observe(taskHint: string): Promise<ObserveRunResult> {
-    return this.observeExecutor.execute(taskHint);
+    const workflow = this.createWorkflow(taskHint);
+    this.activeWorkflow = workflow;
+    try {
+      return await workflow.execute();
+    } finally {
+      try {
+        await workflow.dispose();
+      } finally {
+        if (this.activeWorkflow === workflow) {
+          this.activeWorkflow = null;
+        }
+      }
+    }
   }
 
   async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean> {
-    return this.observeExecutor.requestInterrupt(signalName);
+    if (!this.activeWorkflow) {
+      return false;
+    }
+    return this.activeWorkflow.requestInterrupt(signalName);
   }
 }

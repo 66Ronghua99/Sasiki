@@ -13,6 +13,7 @@ import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
 import { ObserveExecutor } from "../observe/observe-executor.js";
 import { ObserveRuntime } from "../observe/observe-runtime.js";
+import { createObserveWorkflow } from "../observe/observe-workflow.js";
 import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
@@ -89,7 +90,6 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
 
   const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
   const executionContextProvider = new ExecutionContextProvider();
-  const observeContext = executionContextProvider.createObserveContext(config);
   const refinementContext = executionContextProvider.createRefinementContext(config);
 
   const runLoop = new AgentLoop(
@@ -129,14 +129,23 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     artifactsDir: config.artifactsDir,
     createRunId,
     sopRecorder: new SopDemonstrationRecorder(),
-    sopAssetStore: observeContext.sopAssetStore,
+    sopAssetRootDir: config.sopAssetRootDir,
     createRecorder: () => new PlaywrightDemonstrationRecorder(),
   });
 
   return {
     browserLifecycle,
     agentRuntime: new AgentExecutionRuntime({ loop: runLoop, runExecutor }),
-    observeRuntime: new ObserveRuntime({ observeExecutor }),
+    observeRuntime: new ObserveRuntime({
+      createWorkflow: (taskHint) =>
+        createObserveWorkflow({
+          browserLifecycle: {
+            prepareObserveSession: async () => browserLifecycle.prepareObserveSession(),
+          },
+          observeExecutor,
+          taskHint,
+        }),
+    }),
   };
 }
 

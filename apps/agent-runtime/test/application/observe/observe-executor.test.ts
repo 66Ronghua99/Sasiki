@@ -7,7 +7,6 @@ import test from "node:test";
 import { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { DemonstrationRawEvent, SopTrace } from "../../../src/domain/sop-trace.js";
 import type { Logger } from "../../../src/contracts/logger.js";
-import type { SopAsset } from "../../../src/domain/sop-asset.js";
 
 class TestLogger implements Logger {
   readonly entries: string[] = [];
@@ -62,7 +61,6 @@ test("application observe executor owns observe artifact orchestration", async (
       },
     ],
   };
-  const assetCalls: SopAsset[] = [];
   const recorder = {
     start: async (): Promise<void> => {},
     stop: async (): Promise<DemonstrationRawEvent[]> => rawEvents,
@@ -95,11 +93,7 @@ test("application observe executor owns observe artifact orchestration", async (
     artifactsDir: path.join(tmpRoot, "artifacts"),
     createRunId: () => "run-1",
     sopRecorder: sopRecorder as never,
-    sopAssetStore: {
-      upsert: async (asset: SopAsset) => {
-        assetCalls.push(asset);
-      },
-    },
+    sopAssetRootDir: path.join(tmpRoot, "sop-assets"),
     createRecorder: () => recorder as never,
   });
 
@@ -112,8 +106,10 @@ test("application observe executor owns observe artifact orchestration", async (
   assert.equal(result.tracePath, path.join(tmpRoot, "artifacts", "run-1", "demonstration_trace.json"));
   assert.equal(result.draftPath, path.join(tmpRoot, "artifacts", "run-1", "sop_draft.md"));
   assert.equal(result.assetPath, path.join(tmpRoot, "artifacts", "run-1", "sop_asset.json"));
-  assert.equal(assetCalls.length, 1);
-  assert.equal(assetCalls[0]?.assetId, "sop_run-1");
   assert.equal(await readFile(result.tracePath ?? "", "utf-8").then((value) => value.includes("run-1")), true);
   assert.equal(await readFile(result.draftPath ?? "", "utf-8"), "# draft\n");
+  assert.equal(
+    await readFile(path.join(tmpRoot, "sop-assets", "index.json"), "utf-8").then((value) => value.includes("sop_run-1")),
+    true
+  );
 });

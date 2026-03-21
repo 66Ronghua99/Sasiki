@@ -10,6 +10,7 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除，仅保留 `runtime/agent-execution-runtime.ts` 作为真实 runtime 实现；对应 shim 测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
