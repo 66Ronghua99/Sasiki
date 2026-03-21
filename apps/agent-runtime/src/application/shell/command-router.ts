@@ -29,14 +29,20 @@ export interface SopCompactCliArguments {
 
 export type CliArguments = ObserveCliArguments | RefineCliArguments | SopCompactCliArguments;
 
-const LEGACY_RUNTIME_UPGRADE_MESSAGE =
-  "legacy runtime CLI has been retired. use `observe \"task\"`, `refine \"task\"`, or `sop-compact --run-id <run_id>` instead.";
+const EXPLICIT_COMMAND_GUIDANCE = "use an explicit command: observe, refine, or sop-compact.";
 
 export function parseCliArguments(argv: string[]): CliArguments {
-  if (hasLegacyRuntimeGrammar(argv)) {
-    throw new Error(LEGACY_RUNTIME_UPGRADE_MESSAGE);
+  if (argv.length === 0) {
+    throw new Error(`missing command. ${EXPLICIT_COMMAND_GUIDANCE}`);
   }
-  const command = argv[0] as RuntimeCliCommand | undefined;
+  const rawCommand = argv[0];
+  if (rawCommand === "runtime") {
+    throw new Error(`legacy runtime command grammar is no longer supported. ${EXPLICIT_COMMAND_GUIDANCE}`);
+  }
+  if (hasLegacyModeFlags(argv)) {
+    throw new Error(`legacy --mode grammar is no longer supported. ${EXPLICIT_COMMAND_GUIDANCE}`);
+  }
+  const command = rawCommand as RuntimeCliCommand;
   if (command === "observe") {
     return parseObserveArguments(argv.slice(1));
   }
@@ -47,11 +53,9 @@ export function parseCliArguments(argv: string[]): CliArguments {
     return parseSopCompactArguments(argv.slice(1));
   }
   if (command === "sop-compact-hitl" || command === "sop-compact-clarify") {
-    throw new Error(
-      `${command} is archived. use \`sop-compact --run-id <run_id>\` on the interactive reasoning path instead.`
-    );
+    throw new Error(`${command} is archived and no longer supported.`);
   }
-  throw new Error(LEGACY_RUNTIME_UPGRADE_MESSAGE);
+  throw new Error(`unknown command: ${rawCommand}. ${EXPLICIT_COMMAND_GUIDANCE}`);
 }
 
 export function parseObserveArguments(argv: string[]): ObserveCliArguments {
@@ -148,10 +152,7 @@ function parseTaskArguments(argv: string[]): { configPath?: string; task: string
   return { configPath, task: taskParts.join(" ").trim(), resumeRunId };
 }
 
-function hasLegacyRuntimeGrammar(argv: string[]): boolean {
-  if (argv[0] === "runtime") {
-    return true;
-  }
+function hasLegacyModeFlags(argv: string[]): boolean {
   return argv.some((arg) => arg === "--mode" || arg === "-m" || arg.startsWith("--mode="));
 }
 

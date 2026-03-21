@@ -7,6 +7,7 @@
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The active engineering loop is now the backward-capability cleanup pass, not the completed taxonomy migration.
 - **Cleanup Task 2 is complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted; `runtime/agent-execution-runtime.ts` is the only retained runtime file from the migration-era surface.
+- **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
 - **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
 - **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
@@ -89,5 +90,5 @@ apps/agent-runtime/src/
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The active next step is the backward-capability cleanup plan, continuing with legacy CLI compatibility removal.
+- The active next step is the backward-capability cleanup plan, continuing with migration-doc archiving and front-door doc reset.
 - See `NEXT_STEP.md` for the exact current task pointer.

@@ -56,7 +56,7 @@ test("parseSopCompactArguments preserves current compact grammar", () => {
 test("parseCliArguments rejects archived sop compact commands", () => {
   assert.throws(
     () => parseCliArguments(["sop-compact-hitl"]),
-    /sop-compact-hitl is archived\. use `sop-compact --run-id <run_id>` on the interactive reasoning path instead\./
+    /sop-compact-hitl is archived and no longer supported\./
   );
 });
 
@@ -89,24 +89,31 @@ test("parseCliArguments delegates explicit refine parsing", () => {
   );
 });
 
-test("parseCliArguments rejects legacy runtime command with upgrade guidance", () => {
+test("parseCliArguments rejects legacy runtime command grammar explicitly", () => {
   assert.throws(
     () => parseCliArguments(["runtime", "--mode", "observe", "hello"]),
-    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
+    /legacy runtime command grammar is no longer supported\. use an explicit command: observe, refine, or sop-compact\./
   );
 });
 
-test("parseCliArguments rejects legacy mode flags with upgrade guidance", () => {
+test("parseCliArguments rejects legacy mode flags explicitly", () => {
   assert.throws(
     () => parseCliArguments(["--mode", "run", "hello"]),
-    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
+    /legacy --mode grammar is no longer supported\. use an explicit command: observe, refine, or sop-compact\./
   );
 });
 
-test("parseCliArguments rejects implicit legacy runtime grammar with upgrade guidance", () => {
+test("parseCliArguments rejects bare task invocation as an unknown command", () => {
   assert.throws(
     () => parseCliArguments(["hello", "world"]),
-    /legacy runtime CLI has been retired\. use `observe "task"`, `refine "task"`, or `sop-compact --run-id <run_id>` instead\./
+    /unknown command: hello\. use an explicit command: observe, refine, or sop-compact\./
+  );
+});
+
+test("parseCliArguments rejects empty argv explicitly", () => {
+  assert.throws(
+    () => parseCliArguments([]),
+    /missing command\. use an explicit command: observe, refine, or sop-compact\./
   );
 });
 

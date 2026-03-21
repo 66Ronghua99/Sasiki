@@ -105,22 +105,22 @@ High-churn areas expected across this cleanup:
 - Modify/Delete: `apps/agent-runtime/test/runtime/command-router.test.ts`
 - Modify: any CLI-facing docs or tests touched by parser simplification
 
-- [ ] Write failing CLI tests for the desired post-cleanup behavior:
+- [x] Write failing CLI tests for the desired post-cleanup behavior:
   - `observe`, `refine`, and `sop-compact` still parse explicitly
   - bare task invocation is explicitly rejected
   - unknown commands are explicitly rejected
   - archived aliases `sop-compact-hitl` and `sop-compact-clarify` are explicitly rejected without migration-era upgrade messaging
-- [ ] Run the focused CLI tests and verify the red phase.
-- [ ] Remove legacy compatibility branches for `runtime`, `--mode`, and archived compact aliases.
-- [ ] Delete compatibility-only CLI tests that only protect old upgrade guidance.
-- [ ] Run focused CLI tests.
-- [ ] Run repo-wide:
+- [x] Run the focused CLI tests and verify the red phase.
+- [x] Remove legacy compatibility branches for `runtime`, `--mode`, and archived compact aliases.
+- [x] Delete compatibility-only CLI tests that only protect old upgrade guidance.
+- [x] Run focused CLI tests.
+- [x] Run repo-wide:
   - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run test`
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
-- [ ] Run `git diff --check`.
+- [x] Run `git diff --check`.
 - [ ] Commit with: `refactor: remove legacy cli compatibility`
 
 ### Task 4: Archive Migration Docs And Reset Front-Door Truth
