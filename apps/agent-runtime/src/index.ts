@@ -58,8 +58,6 @@ async function main(): Promise<void> {
   process.on("SIGTERM", onSigterm);
 
   try {
-    const startMode = args.command === "observe" ? "observe" : "refine";
-    await runtime.start(startMode);
     const result =
       args.command === "observe"
         ? await runtime.observe(args.task)

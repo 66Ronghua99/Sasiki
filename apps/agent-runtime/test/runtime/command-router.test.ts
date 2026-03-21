@@ -60,6 +60,13 @@ test("parseCliArguments rejects archived sop compact commands", () => {
   );
 });
 
+test("parseCliArguments rejects archived sop compact clarify commands", () => {
+  assert.throws(
+    () => parseCliArguments(["sop-compact-clarify"]),
+    /sop-compact-clarify is archived and no longer supported\./
+  );
+});
+
 test("parseCliArguments delegates sop compact parsing", () => {
   assert.deepEqual(parseCliArguments(["sop-compact", "--run-id", "run-777"]), {
     command: "sop-compact",
