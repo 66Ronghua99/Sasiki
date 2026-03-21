@@ -114,7 +114,11 @@ Rules:
   - `observe`
   - `refine`
   - `sop-compact`
-- unsupported legacy argv shapes may fail generically; they no longer need custom migration messaging
+- unsupported legacy argv shapes no longer need migration-specific upgrade text, but parser behavior must stay explicit and testable
+- post-cleanup CLI acceptance must pin at least:
+  - explicit support for `observe`, `refine`, and `sop-compact`
+  - explicit rejection of archived aliases such as `sop-compact-hitl` and `sop-compact-clarify`
+  - explicit rejection of bare task invocation and unknown commands
 
 ### Slice 3: Archive Migration Docs And Reset Front-Door Truth
 
@@ -128,6 +132,7 @@ Expected changes:
   - current product flows
   - current canonical code homes
 - rewrite or replace `docs/architecture/overview.md` so it becomes the single short current-architecture front door
+- rewrite `apps/agent-runtime/README.md` so shipped command documentation matches the cleaned CLI surface
 - update `PROGRESS.md`, `NEXT_STEP.md`, `MEMORY.md`, `docs/project/current-state.md`, and architecture docs to stop speaking in shim-era terms
 
 Rules:
@@ -135,6 +140,7 @@ Rules:
 - historical docs are kept, not deleted
 - historical docs must be clearly marked as no longer active truth
 - there should be exactly one short active current-architecture front door after cleanup
+- `docs/architecture/layers.md` must either be rewritten as supporting reference only or explicitly downgraded from front-door truth so it does not compete with the single short architecture entrypoint
 - current front-door docs should describe what exists now, not the migration process that produced it
 
 ## Lint And Test Expectations
@@ -199,6 +205,7 @@ This cleanup is complete when all of the following are true:
 - canonical imports are used throughout the repository
 - legacy CLI compatibility branches are removed
 - compatibility-only tests are removed
+- `apps/agent-runtime/README.md` no longer documents deleted compatibility commands or migration-era grammars
 - `docs/architecture/overview.md` is rewritten or replaced as the single short active current-architecture entrypoint
 - active docs no longer describe shim-era structure as current truth
 - `npm --prefix apps/agent-runtime run lint:arch` passes
