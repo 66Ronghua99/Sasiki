@@ -6,49 +6,11 @@
 import process from "node:process";
 
 import { parseCliArguments } from "./application/shell/command-router.js";
-import { RuntimeHost } from "./application/shell/runtime-host.js";
-import { createWorkflowRegistry } from "./application/shell/workflow-registry.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
-import { InteractiveSopCompactService } from "./application/compact/interactive-sop-compact.js";
-import { createCompactWorkflow } from "./application/compact/compact-workflow.js";
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
-  if (args.command === "sop-compact") {
-    const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
-    const semanticMode = args.semanticMode ?? config.semanticMode;
-    const service = new InteractiveSopCompactService(config.artifactsDir, {
-      semantic: {
-        mode: semanticMode,
-        timeoutMs: config.semanticTimeoutMs,
-        model: config.model,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        thinkingLevel: config.thinkingLevel,
-      },
-    });
-    const registry = createWorkflowRegistry({
-      "sop-compact": () =>
-        createCompactWorkflow({
-          service,
-          runId: args.runId,
-        }),
-    });
-    const factory = registry.resolve("sop-compact");
-    if (!factory) {
-      throw new Error("missing workflow factory for command: sop-compact");
-    }
-    const host = new RuntimeHost({ workflow: factory() });
-    try {
-      const result = await host.execute();
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    } finally {
-      await host.dispose();
-    }
-    return;
-  }
-
   if (args.command === "observe" && !args.task) {
     printUsageAndExit();
     return;
@@ -77,18 +39,7 @@ async function main(): Promise<void> {
   process.on("SIGTERM", onSigterm);
 
   try {
-    const result = await runtime.execute(
-      args.command === "observe"
-        ? {
-            command: "observe",
-            task: args.task,
-          }
-        : {
-            command: "refine",
-            task: args.task,
-            resumeRunId: args.resumeRunId,
-          }
-    );
+    const result = await runtime.execute(args);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
     process.off("SIGINT", onSigint);

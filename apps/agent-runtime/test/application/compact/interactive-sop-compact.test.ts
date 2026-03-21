@@ -25,24 +25,18 @@ test("compact workflow adapts the host contract without changing compact semanti
     async compact(runId: string) {
       calls.push(`compact:${runId}`);
       return {
-        schemaVersion: "compact_capability_output.v0",
         runId,
-        taskUnderstanding: "understood",
-        workflowSkeleton: ["step one"],
-        decisionStrategy: ["ask once"],
-        actionPolicy: {
-          requiredActions: ["record"],
-          optionalActions: [],
-          conditionalActions: [],
-          nonCoreActions: [],
-        },
-        stopPolicy: ["stop when done"],
-        reuseBoundary: {
-          applicableWhen: ["clear scope"],
-          notApplicableWhen: ["browser state needed"],
-          contextDependencies: ["trace artifacts"],
-        },
-        remainingUncertainties: [],
+        sessionId: `${runId}_compact_20260321`,
+        sessionDir: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321",
+        runDir: "/tmp/artifacts/run-123",
+        sourceTracePath: "/tmp/artifacts/run-123/demonstration_trace.json",
+        sessionStatePath: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_session_state.json",
+        humanLoopPath: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_human_loop.jsonl",
+        capabilityOutputPath:
+          "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_capability_output.json",
+        status: "ready_to_finalize",
+        roundsCompleted: 2,
+        remainingOpenDecisions: ["confirm reuse boundary"],
       };
     },
   };
@@ -57,23 +51,17 @@ test("compact workflow adapts the host contract without changing compact semanti
 
   assert.deepEqual(calls, ["compact:run-123"]);
   assert.deepEqual(result, {
-    schemaVersion: "compact_capability_output.v0",
     runId: "run-123",
-    taskUnderstanding: "understood",
-    workflowSkeleton: ["step one"],
-    decisionStrategy: ["ask once"],
-    actionPolicy: {
-      requiredActions: ["record"],
-      optionalActions: [],
-      conditionalActions: [],
-      nonCoreActions: [],
-    },
-    stopPolicy: ["stop when done"],
-    reuseBoundary: {
-      applicableWhen: ["clear scope"],
-      notApplicableWhen: ["browser state needed"],
-      contextDependencies: ["trace artifacts"],
-    },
-    remainingUncertainties: [],
+    sessionId: "run-123_compact_20260321",
+    sessionDir: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321",
+    runDir: "/tmp/artifacts/run-123",
+    sourceTracePath: "/tmp/artifacts/run-123/demonstration_trace.json",
+    sessionStatePath: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_session_state.json",
+    humanLoopPath: "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_human_loop.jsonl",
+    capabilityOutputPath:
+      "/tmp/artifacts/run-123/compact_sessions/run-123_compact_20260321/compact_capability_output.json",
+    status: "ready_to_finalize",
+    roundsCompleted: 2,
+    remainingOpenDecisions: ["confirm reuse boundary"],
   });
 });

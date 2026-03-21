@@ -1,10 +1,14 @@
 /**
- * Deps: domain/agent-types.ts, application/config/runtime-config.ts, application/shell/runtime-composition-root.ts
+ * Deps: domain/agent-types.ts, application/config/runtime-config.ts, application/shell/runtime-composition-root.ts, application/compact/interactive-sop-compact.ts
  * Used By: index.ts, runtime/agent-runtime.ts
  * Last Updated: 2026-03-21
  */
 import type { AgentRunRequest, AgentRunResult, ObserveRunResult } from "../../domain/agent-types.js";
-import type { RuntimeConfig } from "../config/runtime-config.js";
+import type { InteractiveSopCompactResult } from "../compact/interactive-sop-compact.js";
+import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
+import { createCompactWorkflow } from "../compact/compact-workflow.js";
+import type { CliArguments, SopCompactCliArguments } from "./command-router.js";
+import type { RuntimeConfig, RuntimeSemanticMode } from "../config/runtime-config.js";
 import {
   createRuntimeComposition,
   type BrowserLifecycle,
@@ -15,15 +19,9 @@ import { createWorkflowRegistry } from "./workflow-registry.js";
 import type { HostedWorkflow } from "./workflow-contract.js";
 
 type WorkflowRuntimeCommandRequest =
-  | {
-      command: "observe";
-      task: string;
-    }
-  | {
-      command: "refine";
-      task: string;
-      resumeRunId?: string;
-    };
+  | Extract<CliArguments, { command: "observe" }>
+  | Extract<CliArguments, { command: "refine" }>
+  | Extract<CliArguments, { command: "sop-compact" }>;
 
 export interface WorkflowRuntimeDependencies {
   createRuntimeComposition?: typeof createRuntimeComposition;
@@ -39,6 +37,7 @@ export interface RuntimeHostLike<T> {
 }
 
 export class WorkflowRuntime {
+  private readonly config: RuntimeConfig;
   private readonly browserLifecycle: BrowserLifecycle;
   private readonly agentRuntime: RuntimeComposition["agentRuntime"];
   private readonly observeRuntime: RuntimeComposition["observeRuntime"];
@@ -50,6 +49,7 @@ export class WorkflowRuntime {
   private activeWorkflow: HostedWorkflow<unknown> | null = null;
 
   constructor(config: RuntimeConfig, dependencies: WorkflowRuntimeDependencies = {}) {
+    this.config = config;
     const composition = (dependencies.createRuntimeComposition ?? createRuntimeComposition)(config);
     this.browserLifecycle = composition.browserLifecycle;
     this.agentRuntime = composition.agentRuntime;
@@ -61,14 +61,42 @@ export class WorkflowRuntime {
       dependencies.createRuntimeHost ?? ((workflow) => new RuntimeHost({ workflow }));
   }
 
-  async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult> {
+  async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult | InteractiveSopCompactResult> {
+    const workflowTask = request.command === "observe" || request.command === "refine" ? request.task : undefined;
     const registry = this.createWorkflowRegistry({
-      observe: () => this.observeWorkflowFactory(request.task),
-      refine: () =>
-        this.refineWorkflowFactory({
-          task: request.task,
+      observe: () => {
+        if (!workflowTask) {
+          throw new Error("missing task for observe workflow");
+        }
+        return this.observeWorkflowFactory(workflowTask);
+      },
+      refine: () => {
+        if (!workflowTask) {
+          throw new Error("missing task for refine workflow");
+        }
+        return this.refineWorkflowFactory({
+          task: workflowTask,
           resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
-        }),
+        });
+      },
+      "sop-compact": () => {
+        const compactRequest = request as SopCompactCliArguments;
+        const compactSemanticMode: RuntimeSemanticMode = compactRequest.semanticMode ?? this.config.semanticMode;
+        const compactService = new InteractiveSopCompactService(this.config.artifactsDir, {
+          semantic: {
+            mode: compactSemanticMode,
+            timeoutMs: this.config.semanticTimeoutMs,
+            model: this.config.model,
+            apiKey: this.config.apiKey,
+            baseUrl: this.config.baseUrl,
+            thinkingLevel: this.config.thinkingLevel,
+          },
+        });
+        return createCompactWorkflow({
+          service: compactService,
+          runId: compactRequest.runId,
+        });
+      },
     });
     const factory = registry.resolve(request.command);
     if (!factory) {
@@ -76,6 +104,11 @@ export class WorkflowRuntime {
     }
     if (request.command === "observe") {
       return this.executeWorkflow<ObserveRunResult>(factory as () => HostedWorkflow<ObserveRunResult>);
+    }
+    if (request.command === "sop-compact") {
+      return this.executeWorkflow<InteractiveSopCompactResult>(
+        factory as () => HostedWorkflow<InteractiveSopCompactResult>
+      );
     }
     return this.executeWorkflow<AgentRunResult>(factory as () => HostedWorkflow<AgentRunResult>);
   }

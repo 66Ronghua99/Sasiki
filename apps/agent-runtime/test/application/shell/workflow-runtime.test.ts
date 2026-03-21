@@ -89,6 +89,51 @@ function createRefineWorkflowFactory(
   });
 }
 
+function createCompactWorkflowFactory(
+  events: string[]
+): (request: { runId: string; semanticMode?: "off" | "auto" | "on" }) => HostedWorkflow<{
+  runId: string;
+  sessionId: string;
+  sessionDir: string;
+  runDir: string;
+  sourceTracePath: string;
+  sessionStatePath: string;
+  humanLoopPath: string;
+  capabilityOutputPath: string;
+  status: "ready_to_finalize";
+  roundsCompleted: number;
+  remainingOpenDecisions: string[];
+}> {
+  return (request) => ({
+    prepare: async () => {
+      events.push(`compact.prepare:${request.runId}`);
+    },
+    execute: async () => {
+      events.push(`compact.execute:${request.runId}`);
+      return {
+        runId: request.runId,
+        sessionId: `${request.runId}_compact_session`,
+        sessionDir: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session`,
+        runDir: `/tmp/${request.runId}`,
+        sourceTracePath: `/tmp/${request.runId}/demonstration_trace.json`,
+        sessionStatePath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_session_state.json`,
+        humanLoopPath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_human_loop.jsonl`,
+        capabilityOutputPath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_capability_output.json`,
+        status: "ready_to_finalize",
+        roundsCompleted: 2,
+        remainingOpenDecisions: ["confirm reuse boundary"],
+      };
+    },
+    requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => {
+      events.push(`compact.requestInterrupt:${signal}`);
+      return false;
+    },
+    dispose: async () => {
+      events.push(`compact.dispose:${request.runId}`);
+    },
+  });
+}
+
 function createAgentRuntime(events: string[]) {
   return {
     start: async () => {
@@ -146,7 +191,14 @@ test("workflow runtime dispatches observe through the shared registry and host p
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
       return {
-        resolve(command: "observe" | "refine") {
+        resolve(command: "observe" | "refine" | "sop-compact") {
+          if (command === "sop-compact") {
+            return () =>
+              createCompactWorkflowFactory(events)({
+                runId: "compact-run",
+                semanticMode: "on",
+              });
+          }
           return factories[command];
         },
       };
@@ -175,7 +227,7 @@ test("workflow runtime dispatches observe through the shared registry and host p
     task: "observe me",
   });
 
-  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
+  assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
   assert.equal(result.mode, "observe");
   assert.equal(result.taskHint, "observe me");
   assert.deepEqual(events, [
@@ -220,7 +272,14 @@ test("workflow runtime dispatches refine through the shared registry and host pa
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
       return {
-        resolve(command: "observe" | "refine") {
+        resolve(command: "observe" | "refine" | "sop-compact") {
+          if (command === "sop-compact") {
+            return () =>
+              createCompactWorkflowFactory(events)({
+                runId: "compact-run",
+                semanticMode: "on",
+              });
+          }
           return factories[command];
         },
       };
@@ -249,7 +308,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
     task: "refine me",
   });
 
-  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
+  assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
   assert.equal(result.task, "refine me");
   assert.deepEqual(events, [
     "host.start",
@@ -261,6 +320,79 @@ test("workflow runtime dispatches refine through the shared registry and host pa
     "agent.stop",
     "browser.stop",
   ]);
+});
+
+test("workflow runtime dispatches sop-compact through the shared registry and host path", async () => {
+  const events: string[] = [];
+  let registryFactoryKeys: string[] = [];
+
+  const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
+    createRuntimeComposition: () =>
+      ({
+        browserLifecycle: {
+          start: async () => {
+            events.push("browser.start");
+          },
+          stop: async () => {
+            events.push("browser.stop");
+          },
+          prepareObserveSession: async () => {
+            events.push("browser.prepareObserveSession");
+          },
+        },
+        agentRuntime: createAgentRuntime(events),
+        observeRuntime: {
+          observe: async () => {
+            throw new Error("observe should use the shared shell host path");
+          },
+          requestInterrupt: async () => false,
+        },
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
+      }) as never,
+    createWorkflowRegistry: (factories) => {
+      registryFactoryKeys = Object.keys(factories).sort();
+      return {
+        resolve(command: "observe" | "refine" | "sop-compact") {
+          if (command === "sop-compact") {
+            return () =>
+              createCompactWorkflowFactory(events)({
+                runId: "compact-run",
+                semanticMode: "on",
+              });
+          }
+          return factories[command];
+        },
+      };
+    },
+    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
+      return {
+        start: async () => {
+          events.push("host.start");
+          await workflow.prepare();
+        },
+        execute: async () => {
+          events.push("host.execute");
+          return workflow.execute();
+        },
+        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
+        dispose: async () => {
+          events.push("host.dispose");
+          await workflow.dispose();
+        },
+      };
+    },
+  });
+
+  const result = await runtime.execute({
+    command: "sop-compact",
+    runId: "compact-run",
+    semanticMode: "on",
+  });
+
+  assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
+  assert.equal(result.runId, "compact-run");
+  assert.deepEqual(events, ["host.start", "compact.prepare:compact-run", "host.execute", "compact.execute:compact-run", "host.dispose", "compact.dispose:compact-run"]);
 });
 
 test("workflow runtime falls through to underlying interrupt handlers while observe is still preparing", async () => {
