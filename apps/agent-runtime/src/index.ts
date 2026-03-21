@@ -58,13 +58,18 @@ async function main(): Promise<void> {
   process.on("SIGTERM", onSigterm);
 
   try {
-    const result =
+    const result = await runtime.execute(
       args.command === "observe"
-        ? await runtime.observe(args.task)
-        : await runtime.run({
+        ? {
+            command: "observe",
+            task: args.task,
+          }
+        : {
+            command: "refine",
             task: args.task,
             resumeRunId: args.resumeRunId,
-          });
+          }
+    );
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
     process.off("SIGINT", onSigint);
