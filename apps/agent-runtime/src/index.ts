@@ -8,28 +8,10 @@ import process from "node:process";
 import { parseCliArguments } from "./application/shell/command-router.js";
 import { WorkflowRuntime } from "./application/shell/workflow-runtime.js";
 import { RuntimeConfigLoader } from "./application/config/runtime-config.js";
-import { InteractiveSopCompactService } from "./application/compact/interactive-sop-compact.js";
+import { createProcessInterruptHandler } from "./application/shell/process-interrupt-handler.js";
 
 async function main(): Promise<void> {
   const args = parseCliArguments(process.argv.slice(2));
-  if (args.command === "sop-compact") {
-    const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
-    const semanticMode = args.semanticMode ?? config.semanticMode;
-    const service = new InteractiveSopCompactService(config.artifactsDir, {
-      semantic: {
-        mode: semanticMode,
-        timeoutMs: config.semanticTimeoutMs,
-        model: config.model,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        thinkingLevel: config.thinkingLevel,
-      },
-    });
-    const result = await service.compact(args.runId);
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return;
-  }
-
   if (args.command === "observe" && !args.task) {
     printUsageAndExit();
     return;
@@ -41,32 +23,26 @@ async function main(): Promise<void> {
 
   const config = RuntimeConfigLoader.fromSources({ configPath: args.configPath });
   const runtime = new WorkflowRuntime(config);
-  let interrupting = false;
-  const requestInterrupt = (signal: "SIGINT" | "SIGTERM"): void => {
-    if (interrupting) {
-      process.stderr.write(`Force exiting after repeated ${signal}.\n`);
-      process.exit(130);
-      return;
-    }
-    interrupting = true;
-    process.stderr.write(`Received ${signal}, requesting graceful stop and flushing logs...\n`);
-    void runtime.requestInterrupt(signal);
+  const requestInterrupt = createProcessInterruptHandler({
+    requestInterrupt: (signal) => runtime.requestInterrupt(signal),
+    writeStderr: (message) => {
+      process.stderr.write(message);
+    },
+    forceExit: (code) => {
+      process.exit(code);
+    },
+  });
+  const onSigint = (): void => {
+    void requestInterrupt("SIGINT");
   };
-  const onSigint = (): void => requestInterrupt("SIGINT");
-  const onSigterm = (): void => requestInterrupt("SIGTERM");
+  const onSigterm = (): void => {
+    void requestInterrupt("SIGTERM");
+  };
   process.on("SIGINT", onSigint);
   process.on("SIGTERM", onSigterm);
 
   try {
-    const startMode = args.command === "observe" ? "observe" : "refine";
-    await runtime.start(startMode);
-    const result =
-      args.command === "observe"
-        ? await runtime.observe(args.task)
-        : await runtime.run({
-            task: args.task,
-            resumeRunId: args.resumeRunId,
-          });
+    const result = await runtime.execute(args);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } finally {
     process.off("SIGINT", onSigint);

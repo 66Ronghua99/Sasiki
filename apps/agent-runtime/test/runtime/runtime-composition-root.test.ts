@@ -5,7 +5,6 @@ import path from "node:path";
 import test from "node:test";
 
 import { createRuntimeComposition, planRuntimeComposition } from "../../src/application/shell/runtime-composition-root.js";
-import { ObserveRuntime } from "../../src/application/observe/observe-runtime.js";
 import type { RuntimeConfig } from "../../src/application/config/runtime-config.js";
 
 function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
@@ -71,7 +70,7 @@ test("planRuntimeComposition selects refine-react surface and respects prompt ov
   assert.equal(plan.prompts.refineSystemPrompt, "custom refine prompt");
 });
 
-test("createRuntimeComposition builds runtime services for both legacy and refine modes", async () => {
+test("createRuntimeComposition builds workflow factories without exposing legacy runtime wrappers", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-runtime-composition-"));
 
   const compatConfig = createRuntimeComposition(
@@ -88,15 +87,43 @@ test("createRuntimeComposition builds runtime services for both legacy and refin
   );
 
   assert.equal(typeof compatConfig.browserLifecycle.start, "function");
-  assert.equal(typeof compatConfig.agentRuntime.run, "function");
-  assert.equal(typeof compatConfig.observeRuntime.observe, "function");
-  assert.equal(compatConfig.observeRuntime instanceof ObserveRuntime, true);
+  assert.equal(typeof compatConfig.observeWorkflowFactory, "function");
+  assert.equal(typeof compatConfig.refineWorkflowFactory, "function");
+  assert.equal(typeof compatConfig.compactWorkflowFactory, "function");
+  assert.equal("agentRuntime" in (compatConfig as Record<string, unknown>), false);
+  assert.equal("observeRuntime" in (compatConfig as Record<string, unknown>), false);
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
-  assert.equal(typeof refine.agentRuntime.run, "function");
-  assert.equal(typeof refine.observeRuntime.observe, "function");
-  assert.equal(refine.observeRuntime instanceof ObserveRuntime, true);
+  assert.equal(typeof refine.observeWorkflowFactory, "function");
+  assert.equal(typeof refine.refineWorkflowFactory, "function");
+  assert.equal(typeof refine.compactWorkflowFactory, "function");
+  assert.equal("agentRuntime" in (refine as Record<string, unknown>), false);
+  assert.equal("observeRuntime" in (refine as Record<string, unknown>), false);
 
-  await compatConfig.agentRuntime.stop();
-  await refine.agentRuntime.stop();
+  const compatWorkflow = compatConfig.refineWorkflowFactory({
+    task: "refine me",
+  });
+  const refineWorkflow = refine.refineWorkflowFactory({
+    task: "refine me too",
+    resumeRunId: "resume-run",
+  });
+
+  assert.equal(typeof compatWorkflow.prepare, "function");
+  assert.equal(typeof compatWorkflow.execute, "function");
+  assert.equal(typeof compatWorkflow.requestInterrupt, "function");
+  assert.equal(typeof compatWorkflow.dispose, "function");
+  assert.equal(typeof refineWorkflow.prepare, "function");
+  assert.equal(typeof refineWorkflow.execute, "function");
+  assert.equal(typeof refineWorkflow.requestInterrupt, "function");
+  assert.equal(typeof refineWorkflow.dispose, "function");
+
+  const compactWorkflow = compatConfig.compactWorkflowFactory({
+    runId: "compact-run",
+    semanticMode: "on",
+  });
+
+  assert.equal(typeof compactWorkflow.prepare, "function");
+  assert.equal(typeof compactWorkflow.execute, "function");
+  assert.equal(typeof compactWorkflow.requestInterrupt, "function");
+  assert.equal(typeof compactWorkflow.dispose, "function");
 });

@@ -15,7 +15,9 @@ There is no legacy `runtime` command surface anymore.
 - `apps/agent-runtime/src/application/shell/`
   - CLI parsing
   - workflow entry wiring
-  - runtime composition
+  - `runtime-host.ts` as the top-level workflow lifecycle owner
+  - `workflow-runtime.ts` as the thin command-to-workflow coordinator
+  - runtime composition / workflow factory assembly
 - `apps/agent-runtime/src/application/observe/`
   - observe orchestration
   - demonstration recording support
@@ -30,8 +32,6 @@ There is no legacy `runtime` command surface anymore.
   - reusable execution kernel
   - `agent-loop.ts`
   - `mcp-tool-bridge.ts`
-- `apps/agent-runtime/src/runtime/agent-execution-runtime.ts`
-  - remaining live runtime/session wrapper
 - `apps/agent-runtime/src/infrastructure/`
   - browser
   - MCP
@@ -48,8 +48,14 @@ There is no legacy `runtime` command surface anymore.
 
 ## Stable Boundaries
 
-- Only `application/shell/runtime-composition-root.ts` may assemble concrete MCP/browser infrastructure.
+- Only `application/shell/runtime-composition-root.ts` may assemble concrete MCP/browser infrastructure and shell-owned workflow factories.
+- Only `application/shell/runtime-host.ts` owns the top-level workflow lifecycle and interrupt forwarding.
+- Workflow modules own their own semantics:
+  - `observe` owns demonstration recording setup/execution
+  - `refine` owns loop bootstrap, execution, interrupt, and shutdown semantics
+  - `sop-compact` owns offline compact execution semantics
 - Application code imports canonical owners directly; migration-era `core/*` and `runtime/*` re-export shells have been removed.
+- `workflow-runtime.ts` does not own lifecycle fallback logic or compact service construction; it only resolves the selected workflow and hands it to the host.
 - The execution kernel stays reusable and does not own CLI grammar, config loading, or flow-specific orchestration.
 - Runtime success claims still require fresh artifacts under `artifacts/e2e/<run_id>/`.
 

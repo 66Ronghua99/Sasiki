@@ -11,7 +11,8 @@
 - shared execution kernel 仍是当前代码的核心边界：
   - canonical home: `apps/agent-runtime/src/kernel/agent-loop.ts` + `mcp-tool-bridge.ts`
   - old `core/` paths are migration shims only
-- `WorkflowRuntime` 当前是 mode-gated split：legacy `RunExecutor` 与 `ReactRefinementRunExecutor` 并存。
+- `application/shell/runtime-host.ts` 是当前唯一顶层 workflow lifecycle owner；不要再把 prepare/execute/dispose fallback 逻辑散落回 `workflow-runtime.ts` 或其他 wrapper。
+- `application/shell/workflow-runtime.ts` 当前只负责 CLI command -> workflow 选择与交给 host 执行；不要再把 compact service 构造或 interrupt fallback 塞回去。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
 - `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
 - SOP recorder / trace builder 的 canonical home: `src/application/observe/support/`；`src/core/` 和 `src/runtime/observe-support/` 中同名文件是迁移期 shim。
@@ -22,7 +23,7 @@
 - refine 全部代码（bootstrap, prompts, tooling, orchestration, executor）的 canonical home: `src/application/refine/`。
 - observe 全部代码（orchestration, recording support）的 canonical home: `src/application/observe/`。
 - compact 全部代码：canonical home `src/application/compact/`。
-- `runtime/` 已收窄到 live execution state；`runtime/agent-execution-runtime.ts` 是剩余的真实实现，其余为兼容 shim。
+- `runtime/agent-execution-runtime.ts` 已删除；如果未来又想引入 `src/runtime/*` 的新实现层，必须先证明它是跨 workflow 共享 primitive，而不是 shell / workflow 责任回退。
 - 历史 `.plan/*` 文档现在只作为背景，不再自动代表 active direction；新的方向必须重新写 spec。
 - `LLM model` 与 `baseUrl` 很容易错配；DashScope 场景优先用 `openai/qwen-plus`。
 - 本地如果设置了 `http_proxy/https_proxy`，CDP 探活和 `localhost:9222` 可能会被误代理；必要时显式设置 `NO_PROXY=localhost,127.0.0.1,::1`。
@@ -38,17 +39,18 @@
 - Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
 - Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim。
 - Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`。
-- Task 5 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
+- Task 5 之后，runtime-config loader/types 的 canonical home 是 `application/config/*`；原先的 provider 组织已经退出长期边界，不要再把 `application/providers/*` 当成真源目录。
 - Task 5 之后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim。
 - Task 6 之后，observe orchestration / recording support 的 canonical home 是 `application/observe/*`，SOP compact 的 canonical home 是 `application/compact/*`。
 - Task 7 之后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`。
-- Task 8 之后，`runtime/agent-execution-runtime.ts` 是 runtime 里剩余的真实实现，其余 `runtime/*` 只应作为兼容 shim 或迁移占位。
+- Workflow Host Task 5 之后，`runtime/agent-execution-runtime.ts` 已被删掉；refine loop 的 initialize/run/shutdown wrapper 现在留在 refine-owned 代码里，shell 只保留 host/front door。
 - Task 9 之后，全局 taxonomy 重组完成；后续工作转向 stability / e2e / tooling optimization 轨道。
 - backward capability cleanup Task 2 之后，`src/core/**` 和迁移期 `src/runtime/**` 一行 re-export 壳已经删除；如果后续再出现同名旧路径，应视为架构回退而不是正常扩展。
 - backward capability cleanup Task 3 之后，CLI 不再承担迁移提示职责；旧 `runtime` / `--mode` / archived compact alias 统一显式失败，但不再输出升级引导文案。
 - backward capability cleanup Task 4 之后，`docs/architecture/overview.md` 是唯一前台架构入口；`docs/architecture/layers.md` 和 taxonomy migration docs 只作为 supporting / archived background，不再并列充当前门真源。
 - backward capability cleanup 完成后，`core/*` 与迁移期 `runtime/*` 兼容壳、legacy CLI upgrade-error 面、以及 migration-era README grammar 都已经删净；后续若再引入类似兼容层，应视为新需求而不是默认回归。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
+- observe 侧的 workflow 构造要留在 `application/observe/`，并让 observe-owned 代码自己构造 `SopAssetStore`，这样 shell/composition 只保留通用 host 组装。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
 - refinement 模式下，模型可见的工具与 schema 来自 `RefineReactToolClient.listTools()`，并经 `McpToolBridge` 注入到 pi-agent；不是直接暴露 raw MCP 工具集。

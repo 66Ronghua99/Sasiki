@@ -3,61 +3,98 @@
  * Used By: index.ts, runtime/agent-runtime.ts
  * Last Updated: 2026-03-21
  */
-import type { AgentRunRequest, AgentRunResult, ObserveRunResult, RuntimeMode } from "../../domain/agent-types.js";
+import type { AgentRunResult, ObserveRunResult } from "../../domain/agent-types.js";
+import type { InteractiveSopCompactResult } from "../compact/interactive-sop-compact.js";
+import type { CliArguments, SopCompactCliArguments } from "./command-router.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
-import {
-  createRuntimeComposition,
-  type BrowserLifecycle,
-  type RuntimeComposition,
-} from "./runtime-composition-root.js";
+import { createRuntimeComposition, type RuntimeComposition } from "./runtime-composition-root.js";
+import { RuntimeHost } from "./runtime-host.js";
+import { createWorkflowRegistry } from "./workflow-registry.js";
+import type { HostedWorkflow } from "./workflow-contract.js";
+
+type WorkflowRuntimeCommandRequest =
+  | Extract<CliArguments, { command: "observe" }>
+  | Extract<CliArguments, { command: "refine" }>
+  | Extract<CliArguments, { command: "sop-compact" }>;
+
+export interface WorkflowRuntimeDependencies {
+  createRuntimeComposition?: typeof createRuntimeComposition;
+  createWorkflowRegistry?: typeof createWorkflowRegistry;
+  createRuntimeHost?: () => RuntimeHostLike;
+}
+
+export interface RuntimeHostLike {
+  run<T>(workflow: HostedWorkflow<T>): Promise<T>;
+  requestInterrupt(signal: "SIGINT" | "SIGTERM"): Promise<boolean>;
+  dispose(): Promise<void>;
+}
 
 export class WorkflowRuntime {
-  private readonly browserLifecycle: BrowserLifecycle;
-  private readonly agentRuntime: RuntimeComposition["agentRuntime"];
-  private readonly observeRuntime: RuntimeComposition["observeRuntime"];
-  private started = false;
+  private readonly observeWorkflowFactory: RuntimeComposition["observeWorkflowFactory"];
+  private readonly refineWorkflowFactory: RuntimeComposition["refineWorkflowFactory"];
+  private readonly compactWorkflowFactory: RuntimeComposition["compactWorkflowFactory"];
+  private readonly createWorkflowRegistry: typeof createWorkflowRegistry;
+  private readonly runtimeHost: RuntimeHostLike;
 
-  constructor(config: RuntimeConfig) {
-    const composition = createRuntimeComposition(config);
-    this.browserLifecycle = composition.browserLifecycle;
-    this.agentRuntime = composition.agentRuntime;
-    this.observeRuntime = composition.observeRuntime;
+  constructor(config: RuntimeConfig, dependencies: WorkflowRuntimeDependencies = {}) {
+    const composition = (dependencies.createRuntimeComposition ?? createRuntimeComposition)(config);
+    this.observeWorkflowFactory = composition.observeWorkflowFactory;
+    this.refineWorkflowFactory = composition.refineWorkflowFactory;
+    this.compactWorkflowFactory = composition.compactWorkflowFactory;
+    this.createWorkflowRegistry = dependencies.createWorkflowRegistry ?? createWorkflowRegistry;
+    this.runtimeHost = (dependencies.createRuntimeHost ?? (() => new RuntimeHost()))();
   }
 
-  async start(mode: RuntimeMode = "refine"): Promise<void> {
-    if (!this.started) {
-      await this.browserLifecycle.start();
-      this.started = true;
+  async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult | InteractiveSopCompactResult> {
+    const workflowTask = request.command === "observe" || request.command === "refine" ? request.task : undefined;
+    const registry = this.createWorkflowRegistry({
+      observe: () => {
+        if (!workflowTask) {
+          throw new Error("missing task for observe workflow");
+        }
+        return this.observeWorkflowFactory(workflowTask);
+      },
+      refine: () => {
+        if (workflowTask === undefined) {
+          throw new Error("missing task for refine workflow");
+        }
+        return this.refineWorkflowFactory({
+          task: workflowTask,
+          resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
+        });
+      },
+      "sop-compact": () => {
+        const compactRequest = request as SopCompactCliArguments;
+        return this.compactWorkflowFactory({
+          runId: compactRequest.runId,
+          semanticMode: compactRequest.semanticMode,
+        });
+      },
+    });
+    const factory = registry.resolve(request.command);
+    if (!factory) {
+      throw new Error(`missing workflow factory for command: ${request.command}`);
     }
-    if (mode === "observe") {
-      await this.browserLifecycle.prepareObserveSession();
+    if (request.command === "observe") {
+      return this.executeWorkflow<ObserveRunResult>(factory as () => HostedWorkflow<ObserveRunResult>);
     }
-    if (mode === "refine") {
-      await this.agentRuntime.start();
+    if (request.command === "sop-compact") {
+      return this.executeWorkflow<InteractiveSopCompactResult>(
+        factory as () => HostedWorkflow<InteractiveSopCompactResult>
+      );
     }
+    return this.executeWorkflow<AgentRunResult>(factory as () => HostedWorkflow<AgentRunResult>);
   }
 
-  async run(request: AgentRunRequest): Promise<AgentRunResult> {
-    return this.agentRuntime.run(request);
-  }
-
-  async observe(taskHint: string): Promise<ObserveRunResult> {
-    return this.observeRuntime.observe(taskHint);
-  }
-
-  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<void> {
-    if (await this.observeRuntime.requestInterrupt(signalName)) {
-      return;
-    }
-    await this.agentRuntime.requestInterrupt(signalName);
+  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean> {
+    return this.runtimeHost.requestInterrupt(signalName);
   }
 
   async stop(): Promise<void> {
-    await this.agentRuntime.stop();
-    if (!this.started) {
-      return;
-    }
-    await this.browserLifecycle.stop();
-    this.started = false;
+    await this.runtimeHost.dispose();
+  }
+
+  private async executeWorkflow<T>(workflowFactory: () => HostedWorkflow<T>): Promise<T> {
+    return this.runtimeHost.run(workflowFactory());
   }
 }

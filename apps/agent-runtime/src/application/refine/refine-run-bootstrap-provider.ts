@@ -3,17 +3,21 @@
  * Used By: application/refine/react-refinement-run-executor.ts, application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
+import path from "node:path";
+
 import type { AgentRunRequest } from "../../domain/agent-types.js";
+import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
 import type { HitlAnswerProvider } from "./refine-runtime-tools.js";
 import { createRefineReactSession } from "./refine-react-session.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
-import type { AttentionGuidanceLoader } from "./attention-guidance-loader.js";
-import type { RefineHitlResumeStore, RefineHitlResumeRecord } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
+import { AttentionGuidanceLoader, type AttentionGuidanceLoader as AttentionGuidanceLoaderContract } from "./attention-guidance-loader.js";
+import { RefineHitlResumeStore, type RefineHitlResumeRecord } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
+import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { PromptProvider } from "./prompt-provider.js";
 
 export interface RefineRunBootstrapProviderOptions {
   createRunId: () => string;
-  guidanceLoader: Pick<AttentionGuidanceLoader, "load">;
+  guidanceLoader: Pick<AttentionGuidanceLoaderContract, "load">;
   hitlResumeStore: Pick<RefineHitlResumeStore, "load" | "save">;
   promptProvider: Pick<PromptProvider, "buildRefineStartPrompt">;
   knowledgeTopN?: number;
@@ -31,6 +35,12 @@ export interface RefineRunBootstrapResult {
   taskScope: string;
   prompt: string;
   loadedGuidanceCount: number;
+}
+
+export interface RefinePersistenceContext {
+  knowledgeStore: AttentionKnowledgeStore;
+  guidanceLoader: AttentionGuidanceLoader;
+  hitlResumeStore: RefineHitlResumeStore;
 }
 
 export class RefineRunBootstrapProvider {
@@ -111,4 +121,20 @@ export class RefineRunBootstrapProvider {
       typeof page?.normalizedPath === "string" && page.normalizedPath.trim() ? page.normalizedPath.trim() : "/";
     return { origin, normalizedPath };
   }
+}
+
+export function createRefinePersistenceContext(
+  config: Pick<RuntimeConfig, "artifactsDir">
+): RefinePersistenceContext {
+  const knowledgeStore = new AttentionKnowledgeStore({
+    filePath: path.join(config.artifactsDir, "refinement", "attention-knowledge-store.json"),
+  });
+
+  return {
+    knowledgeStore,
+    guidanceLoader: new AttentionGuidanceLoader(knowledgeStore),
+    hitlResumeStore: new RefineHitlResumeStore({
+      baseDir: config.artifactsDir,
+    }),
+  };
 }

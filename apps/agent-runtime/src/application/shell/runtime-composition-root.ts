@@ -3,21 +3,21 @@
  * Used By: application/shell/workflow-runtime.ts
  * Last Updated: 2026-03-21
  */
-import { AgentLoop } from "../../kernel/agent-loop.js";
-import { SopDemonstrationRecorder } from "../observe/support/sop-demonstration-recorder.js";
 import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-launcher.js";
-import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
-import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
-import { ObserveExecutor } from "../observe/observe-executor.js";
-import { ObserveRuntime } from "../observe/observe-runtime.js";
-import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
+import { createCompactWorkflow } from "../compact/compact-workflow.js";
+import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
+import type { RuntimeSemanticMode } from "../config/runtime-config.js";
+import type { ObserveWorkflow } from "../observe/observe-workflow.js";
+import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
-import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
-import { ToolSurfaceProvider } from "../providers/tool-surface-provider.js";
-import { ReactRefinementRunExecutor } from "../refine/react-refinement-run-executor.js";
+import {
+  createRefineWorkflowAssembly,
+  type RefineWorkflow,
+  type RefineWorkflowRequest,
+} from "../refine/refine-workflow.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
@@ -40,8 +40,14 @@ export interface BrowserLifecycle {
 
 export interface RuntimeComposition {
   browserLifecycle: BrowserLifecycle;
-  agentRuntime: AgentExecutionRuntime;
-  observeRuntime: ObserveRuntime;
+  observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
+  refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
+  compactWorkflowFactory: (request: CompactWorkflowRequest) => ReturnType<typeof createCompactWorkflow>;
+}
+
+export interface CompactWorkflowRequest {
+  runId: string;
+  semanticMode?: RuntimeSemanticMode;
 }
 
 export function planRuntimeComposition(input: RuntimeCompositionPlanInput): RuntimeCompositionPlan {
@@ -55,7 +61,6 @@ export function planRuntimeComposition(input: RuntimeCompositionPlanInput): Runt
 
 export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposition {
   const plan = planRuntimeComposition(config);
-  const promptProvider = new PromptProvider();
   const logger = new RuntimeLogger();
   const browserLifecycle = new CdpBrowserLauncher(
     {
@@ -85,58 +90,49 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     },
   });
 
-  const toolSurface = new ToolSurfaceProvider().select({ rawClient: rawToolClient });
-
   const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
-  const executionContextProvider = new ExecutionContextProvider();
-  const observeContext = executionContextProvider.createObserveContext(config);
-  const refinementContext = executionContextProvider.createRefinementContext(config);
-
-  const runLoop = new AgentLoop(
-    {
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      thinkingLevel: config.thinkingLevel,
-      systemPrompt: plan.prompts.refineSystemPrompt,
-    },
-    toolSurface.runToolClient,
-    logger
-  );
-
   const createRunId = createRunIdFactory();
-  const runExecutor = new ReactRefinementRunExecutor({
-    loop: runLoop,
-    logger,
-    artifactsDir: config.artifactsDir,
-    maxTurns: config.refinementMaxRounds,
-    toolClient: toolSurface.refineToolClient,
-    hitlController,
-    knowledgeStore: refinementContext.knowledgeStore,
-    bootstrapProvider: new RefineRunBootstrapProvider({
-      createRunId,
-      guidanceLoader: refinementContext.guidanceLoader,
-      hitlResumeStore: refinementContext.hitlResumeStore,
-      promptProvider,
-      knowledgeTopN: config.refinementKnowledgeTopN,
-    }),
-  });
-
-  const observeExecutor = new ObserveExecutor({
+  const observeWorkflowFactory = createObserveWorkflowFactory({
+    browserLifecycle,
     logger,
     cdpEndpoint: config.cdpEndpoint,
     observeTimeoutMs: config.observeTimeoutMs,
     artifactsDir: config.artifactsDir,
     createRunId,
-    sopRecorder: new SopDemonstrationRecorder(),
-    sopAssetStore: observeContext.sopAssetStore,
-    createRecorder: () => new PlaywrightDemonstrationRecorder(),
+    sopAssetRootDir: config.sopAssetRootDir,
+  });
+  const refineAssembly = createRefineWorkflowAssembly({
+    browserLifecycle,
+    logger,
+    rawToolClient,
+    hitlController,
+    createRunId,
+    config,
+    refineSystemPrompt: plan.prompts.refineSystemPrompt,
   });
 
   return {
     browserLifecycle,
-    agentRuntime: new AgentExecutionRuntime({ loop: runLoop, runExecutor }),
-    observeRuntime: new ObserveRuntime({ observeExecutor }),
+    observeWorkflowFactory,
+    refineWorkflowFactory: refineAssembly.createWorkflow,
+    compactWorkflowFactory: (request: CompactWorkflowRequest) => {
+      const compactSemanticMode = request.semanticMode ?? config.semanticMode;
+      const compactService = new InteractiveSopCompactService(config.artifactsDir, {
+        semantic: {
+          mode: compactSemanticMode,
+          timeoutMs: config.semanticTimeoutMs,
+          model: config.model,
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
+          thinkingLevel: config.thinkingLevel,
+        },
+      });
+
+      return createCompactWorkflow({
+        service: compactService,
+        runId: request.runId,
+      });
+    },
   };
 }
 
