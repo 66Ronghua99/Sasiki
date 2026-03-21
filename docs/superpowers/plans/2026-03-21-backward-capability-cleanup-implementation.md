@@ -65,6 +65,7 @@ High-churn areas expected across this cleanup:
 
 - [ ] Mark the cleanup spec as the active direction and update project pointers away from the stability-track placeholder.
 - [ ] Write or update doc-health assertions in docs so the repo truth says cleanup is the active loop.
+- [ ] Record explicit pointer evidence that cleanup is the only active loop (active spec, active plan, unique next step).
 - [ ] Run `npm --prefix apps/agent-runtime run lint:docs`.
 - [ ] Run `git diff --check`.
 - [ ] Commit with: `docs: freeze backward capability cleanup plan`
@@ -88,6 +89,7 @@ High-churn areas expected across this cleanup:
 - [ ] Update `lint-architecture.mjs` so deleted shim roots cannot regrow.
 - [ ] Run focused tests for affected boundaries.
 - [ ] Run repo-wide:
+  - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run test`
   - `npm --prefix apps/agent-runtime run typecheck`
@@ -113,6 +115,7 @@ High-churn areas expected across this cleanup:
 - [ ] Delete compatibility-only CLI tests that only protect old upgrade guidance.
 - [ ] Run focused CLI tests.
 - [ ] Run repo-wide:
+  - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run test`
   - `npm --prefix apps/agent-runtime run typecheck`
@@ -126,10 +129,6 @@ High-churn areas expected across this cleanup:
 - Modify: `apps/agent-runtime/README.md`
 - Modify or replace: `docs/architecture/overview.md`
 - Modify: `docs/architecture/layers.md`
-- Modify: `docs/project/current-state.md`
-- Modify: `PROGRESS.md`
-- Modify: `NEXT_STEP.md`
-- Modify: `MEMORY.md`
 - Modify: `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
 - Modify: `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
 - Modify: `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
@@ -138,8 +137,9 @@ High-churn areas expected across this cleanup:
 - [ ] Rewrite `docs/architecture/overview.md` into the single short current-architecture entrypoint.
 - [ ] Rewrite `apps/agent-runtime/README.md` so it no longer documents deleted compatibility commands or migration-era grammars.
 - [ ] Re-scope `docs/architecture/layers.md` so it does not compete with the single front-door architecture doc.
-- [ ] Update `PROGRESS.md`, `NEXT_STEP.md`, `MEMORY.md`, and `docs/project/current-state.md` to describe the post-cleanup baseline.
+- [ ] Record explicit doc-health evidence that migration docs are archived and only one short architecture front door remains active.
 - [ ] Run `npm --prefix apps/agent-runtime run lint:docs`.
+- [ ] Run `npm --prefix apps/agent-runtime run lint`.
 - [ ] Run `git diff --check`.
 - [ ] Commit with: `docs: archive migration truth and reset front-door docs`
 
@@ -147,6 +147,10 @@ High-churn areas expected across this cleanup:
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
+- Modify: `docs/project/current-state.md`
+- Modify: `PROGRESS.md`
+- Modify: `NEXT_STEP.md`
+- Modify: `MEMORY.md`
 - Modify: any docs or lint file needed only if final gate output requires a small corrective follow-up
 
 - [ ] Run:
@@ -157,6 +161,8 @@ High-churn areas expected across this cleanup:
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
+- [ ] Update `docs/project/current-state.md`, `PROGRESS.md`, `NEXT_STEP.md`, and `MEMORY.md` to the verified post-cleanup baseline only after all gates pass.
+- [ ] Record explicit pointer evidence that post-cleanup docs are the only active truth.
 - [ ] Record the fresh hardgate report path under `verified_by`.
 - [ ] Confirm `git status --short` is clean except intended closure changes.
 - [ ] Run `git diff --check`.
