@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ObserveRuntime } from "../../../src/application/observe/observe-runtime.js";
-import { ObserveRuntime as RuntimeObserveRuntime } from "../../../src/runtime/observe-runtime.js";
 import type { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { ObserveRunResult } from "../../../src/domain/agent-types.js";
 
@@ -39,8 +38,4 @@ test("application observe runtime delegates to its executor", async () => {
     ["execute", "record the homepage"],
     ["interrupt", "SIGINT"],
   ]);
-});
-
-test("runtime observe runtime is a shim over the application observe runtime", () => {
-  assert.equal(RuntimeObserveRuntime, ObserveRuntime);
 });

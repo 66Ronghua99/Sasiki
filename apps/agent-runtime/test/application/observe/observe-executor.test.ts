@@ -8,7 +8,6 @@ import { ObserveExecutor } from "../../../src/application/observe/observe-execut
 import type { DemonstrationRawEvent, SopTrace } from "../../../src/domain/sop-trace.js";
 import type { Logger } from "../../../src/contracts/logger.js";
 import type { SopAsset } from "../../../src/domain/sop-asset.js";
-import { ObserveExecutor as RuntimeObserveExecutor } from "../../../src/runtime/observe-executor.js";
 
 class TestLogger implements Logger {
   readonly entries: string[] = [];
@@ -117,8 +116,4 @@ test("application observe executor owns observe artifact orchestration", async (
   assert.equal(assetCalls[0]?.assetId, "sop_run-1");
   assert.equal(await readFile(result.tracePath ?? "", "utf-8").then((value) => value.includes("run-1")), true);
   assert.equal(await readFile(result.draftPath ?? "", "utf-8"), "# draft\n");
-});
-
-test("runtime observe executor is a shim over the application observe executor", () => {
-  assert.equal(RuntimeObserveExecutor, ObserveExecutor);
 });

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { SopRuleCompactBuilder } from "../../../src/application/compact/sop-rule-compact-builder.js";
-import { SopRuleCompactBuilder as RuntimeSopRuleCompactBuilder } from "../../../src/runtime/sop-rule-compact-builder.js";
 import type { SopTrace } from "../../../src/domain/sop-trace.js";
 
 const trace: SopTrace = {
@@ -79,8 +78,4 @@ test("application compact rule builder compresses typed input and enter into a r
     "按下 Enter",
     '点击 选择器 "#submit"',
   ]);
-});
-
-test("runtime compact rule builder is a shim over the application compact rule builder", () => {
-  assert.equal(RuntimeSopRuleCompactBuilder, SopRuleCompactBuilder);
 });

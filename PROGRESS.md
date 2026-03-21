@@ -11,6 +11,7 @@
 
 ## Current Code Status
 - 当前活跃闭环已经切换为 `backward capability cleanup`；全局 taxonomy 重组已经完成，当前任务是删除迁移期兼容代码、兼容测试和旧入口文档。
+- **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除，仅保留 `runtime/agent-execution-runtime.ts` 作为真实 runtime 实现；对应 shim 测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
 - **Task 8 已完成**: `runtime/` 已收窄到 session/state/execution semantics；`runtime/agent-execution-runtime.ts` 是剩余的真实 runtime 实现，其余 `runtime/` 路径为兼容 shim。
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
@@ -78,7 +79,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning` 和 taxonomy reorg 文档都已降级为历史背景；当前 active loop 是 backward capability cleanup。
 
 ## TODO
-- `P0` 执行 `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md` 的 Task 2，删除兼容源码壳并同步清理对应 shim 测试与 lint 断言。
+- `P0` 执行 `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md` 的 Task 3，删除 legacy CLI compatibility surface，并同步移除兼容升级错误相关测试。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。

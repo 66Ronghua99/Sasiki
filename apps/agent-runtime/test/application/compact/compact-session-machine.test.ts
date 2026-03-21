@@ -5,10 +5,6 @@ import {
   applyCompactSessionPatch,
   buildInitialCompactSessionState,
 } from "../../../src/application/compact/compact-session-machine.js";
-import {
-  applyCompactSessionPatch as runtimeApplyCompactSessionPatch,
-  buildInitialCompactSessionState as runtimeBuildInitialCompactSessionState,
-} from "../../../src/runtime/compact-session-machine.js";
 
 test("application compact session machine builds and applies compact state", () => {
   const state = buildInitialCompactSessionState("run-1", "session-1", {
@@ -60,9 +56,4 @@ test("application compact session machine builds and applies compact state", () 
   assert.deepEqual(nextState.openDecisions, ["是否需要登录后再搜索？"]);
   assert.deepEqual(nextState.humanFeedbackMemory, ["先确认页面再搜索"]);
   assert.equal(nextState.convergence.status, "continue");
-});
-
-test("runtime compact session machine is a shim over the application compact session machine", () => {
-  assert.equal(runtimeBuildInitialCompactSessionState, buildInitialCompactSessionState);
-  assert.equal(runtimeApplyCompactSessionPatch, applyCompactSessionPatch);
 });

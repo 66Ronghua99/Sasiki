@@ -14,65 +14,58 @@ const LEGACY_MAX_LINES = new Map([
   ["kernel/agent-loop.ts", 760],
 ]);
 const COMPOSITION_ROOT_FILE = "application/shell/runtime-composition-root.ts";
-const LEGACY_EXECUTOR_FILE = "runtime/run-executor.ts";
 const REFINE_EXECUTOR_FILE = "application/refine/react-refinement-run-executor.ts";
-const LEGACY_REFINE_EXECUTOR_FILE = "runtime/replay-refinement/react-refinement-run-executor.ts";
-const APPLICATION_RUNTIME_SHIMS = new Set([
+const FORBIDDEN_COMPAT_FILES = new Set([
+  "core/agent-loop.ts",
+  "core/json-model-client.ts",
+  "core/mcp-tool-bridge.ts",
+  "core/model-resolver.ts",
+  "core/sop-demonstration-recorder.ts",
+  "core/sop-trace-builder.ts",
+  "core/sop-trace-guide-builder.ts",
+  "runtime/artifacts-writer.ts",
+  "runtime/command-router.ts",
+  "runtime/compact-session-machine.ts",
+  "runtime/compact-turn-normalizer.ts",
+  "runtime/interactive-sop-compact-prompts.ts",
+  "runtime/interactive-sop-compact.ts",
+  "runtime/observe-executor.ts",
+  "runtime/observe-runtime.ts",
+  "runtime/runtime-config.ts",
+  "runtime/runtime-composition-root.ts",
+  "runtime/sop-asset-store.ts",
+  "runtime/sop-rule-compact-builder.ts",
+  "runtime/system-prompts.ts",
+  "runtime/workflow-runtime.ts",
+]);
+const FORBIDDEN_COMPAT_PREFIXES = [
+  "core/",
+  "runtime/observe-support/",
+  "runtime/providers/",
+  "runtime/replay-refinement/",
+];
+const FORBIDDEN_APPLICATION_IMPORTS = new Set([
   "runtime/artifacts-writer.ts",
   "runtime/runtime-config.ts",
   "runtime/system-prompts.ts",
-  "runtime/replay-refinement/attention-guidance-loader.ts",
   "runtime/observe-support/sop-demonstration-recorder.ts",
   "runtime/observe-support/sop-trace-builder.ts",
   "runtime/observe-support/sop-trace-guide-builder.ts",
-]);
-const REFINE_TOOLING_SHIM_FILES = [
   "runtime/replay-refinement/attention-guidance-loader.ts",
   "runtime/replay-refinement/refine-react-session.ts",
   "runtime/replay-refinement/refine-react-tool-client.ts",
   "runtime/replay-refinement/refine-runtime-tools.ts",
   "runtime/replay-refinement/refine-browser-tools.ts",
   "runtime/replay-refinement/refine-browser-snapshot-parser.ts",
-];
-const SHIM_ONLY_FILES = new Set([
-  "core/agent-loop.ts",
-  "core/mcp-tool-bridge.ts",
-  "core/sop-demonstration-recorder.ts",
-  "core/model-resolver.ts",
-  "core/json-model-client.ts",
-  "runtime/artifacts-writer.ts",
-  "runtime/observe-executor.ts",
-  "runtime/observe-runtime.ts",
-  "runtime/compact-session-machine.ts",
-  "runtime/compact-turn-normalizer.ts",
-  "runtime/sop-rule-compact-builder.ts",
-  "runtime/command-router.ts",
-  "runtime/runtime-composition-root.ts",
-  "runtime/runtime-config.ts",
-  "runtime/sop-asset-store.ts",
-  "runtime/workflow-runtime.ts",
-  "runtime/providers/execution-context-provider.ts",
-  "runtime/providers/tool-surface-provider.ts",
-  "runtime/providers/prompt-provider.ts",
-  "runtime/providers/refine-run-bootstrap-provider.ts",
+  "runtime/replay-refinement/react-refinement-run-executor.ts",
   "runtime/replay-refinement/attention-knowledge-store.ts",
   "runtime/replay-refinement/refine-hitl-resume-store.ts",
-  LEGACY_REFINE_EXECUTOR_FILE,
-  ...REFINE_TOOLING_SHIM_FILES,
-  "runtime/interactive-sop-compact.ts",
-  "runtime/interactive-sop-compact-prompts.ts",
-  "runtime/observe-support/sop-demonstration-recorder.ts",
-  "runtime/observe-support/sop-trace-builder.ts",
-  "runtime/observe-support/sop-trace-guide-builder.ts",
 ]);
 const CLI_ENTRY_FILES = new Set([
   "index.ts",
-  "runtime/command-router.ts",
 ]);
 const EXECUTOR_FILES = new Set([
-  LEGACY_EXECUTOR_FILE,
   REFINE_EXECUTOR_FILE,
-  LEGACY_REFINE_EXECUTOR_FILE,
 ]);
 
 const LAYER_ORDER = ["domain", "contracts", "kernel", "application", "core", "runtime", "infrastructure", "utils"];
@@ -150,18 +143,6 @@ function addWarning(ruleId, fileRel, message) {
   return { ruleId, fileRel, message };
 }
 
-function stripComments(sourceText) {
-  return sourceText
-    .replace(/\/\*[\s\S]*?\*\//gu, "")
-    .replace(/^\s*\/\/.*$/gmu, "")
-    .trim();
-}
-
-function isBareReexportShim(sourceText) {
-  const trimmed = stripComments(sourceText);
-  return /^export\s+(?:\*\s+from|\{[\s\S]*?\}\s+from)\s+["'][^"']+["'];?$/u.test(trimmed);
-}
-
 function checkFileSize(absPath, sourceText, errors, warnings, srcRoot) {
   const rel = relFromSrc(absPath, srcRoot);
   const lines = sourceText.split(/\r?\n/).length;
@@ -187,7 +168,6 @@ function checkFileSize(absPath, sourceText, errors, warnings, srcRoot) {
 function checkImports(absPath, sourceText, errors, srcRoot) {
   const fromRel = relFromSrc(absPath, srcRoot);
   const fromLayer = inferLayer(absPath, srcRoot);
-  const isShimOnlyFile = SHIM_ONLY_FILES.has(fromRel) && isBareReexportShim(sourceText);
   const importRegex = /^import\s+[\s\S]*?\sfrom\s+["']([^"']+)["'];?/gm;
   const localDependencies = new Set();
 
@@ -229,19 +209,11 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
       ));
     }
 
-    if (fromLayer === "application" && APPLICATION_RUNTIME_SHIMS.has(toRel)) {
+    if (fromLayer === "application" && FORBIDDEN_APPLICATION_IMPORTS.has(toRel)) {
       errors.push(addError(
         "dep.application.no-runtime-shim",
         fromRel,
         `Application code must import the canonical owner module instead of runtime shim ${toRel}.`
-      ));
-    }
-
-    if (fromRel === LEGACY_EXECUTOR_FILE && toRel === "runtime/sop-consumption-context.ts") {
-      errors.push(addError(
-        "dep.executor.legacy-bootstrap-boundary",
-        fromRel,
-        `Legacy executor must consume prepared bootstrap input instead of importing ${toRel} directly.`
       ));
     }
 
@@ -277,10 +249,6 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
       }
     }
 
-    if (isShimOnlyFile && toLayer === "application") {
-      continue;
-    }
-
     if (fromLayer !== "other") {
       const allowed = ALLOWED_DEPENDENCIES[fromLayer];
       if (allowed && !allowed.has(toLayer)) {
@@ -296,17 +264,26 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
   return localDependencies;
 }
 
-function checkShimOnlyFiles(absPath, sourceText, errors, srcRoot) {
+function checkForbiddenCompatFiles(absPath, errors, srcRoot) {
   const rel = relFromSrc(absPath, srcRoot);
-  if (!SHIM_ONLY_FILES.has(rel)) {
+  if (FORBIDDEN_COMPAT_FILES.has(rel)) {
+    errors.push(addError(
+      "dep.legacy-adapter.deleted",
+      rel,
+      "Compatibility source shell must be deleted after migration cleanup."
+    ));
     return;
   }
-  if (!isBareReexportShim(sourceText)) {
-    errors.push(addError(
-      "dep.legacy-adapter.shim-only",
-      rel,
-      "Legacy adapter path may remain only as a temporary re-export shim after migration."
-    ));
+
+  for (const prefix of FORBIDDEN_COMPAT_PREFIXES) {
+    if (rel.startsWith(prefix)) {
+      errors.push(addError(
+        "dep.legacy-adapter.deleted",
+        rel,
+        `Compatibility source shell under ${prefix} must be deleted after migration cleanup.`
+      ));
+      return;
+    }
   }
 }
 
@@ -400,7 +377,7 @@ export function analyzeArchitecture({ srcRoot }) {
   for (const absPath of files) {
     const sourceText = fs.readFileSync(absPath, "utf8");
     checkFileSize(absPath, sourceText, errors, warnings, srcRoot);
-    checkShimOnlyFiles(absPath, sourceText, errors, srcRoot);
+    checkForbiddenCompatFiles(absPath, errors, srcRoot);
     const localDeps = checkImports(absPath, sourceText, errors, srcRoot);
     graph.set(relFromSrc(absPath, srcRoot), localDeps);
   }

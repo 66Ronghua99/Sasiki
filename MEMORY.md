@@ -44,6 +44,7 @@
 - Task 7 之后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`。
 - Task 8 之后，`runtime/agent-execution-runtime.ts` 是 runtime 里剩余的真实实现，其余 `runtime/*` 只应作为兼容 shim 或迁移占位。
 - Task 9 之后，全局 taxonomy 重组完成；后续工作转向 stability / e2e / tooling optimization 轨道。
+- backward capability cleanup Task 2 之后，`src/core/**` 和迁移期 `src/runtime/**` 一行 re-export 壳已经删除；如果后续再出现同名旧路径，应视为架构回退而不是正常扩展。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。

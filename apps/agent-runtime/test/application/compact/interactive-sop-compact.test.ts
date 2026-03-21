@@ -8,18 +8,11 @@ import {
 } from "../../../src/application/compact/interactive-sop-compact-prompts.js";
 import { InteractiveSopCompactService } from "../../../src/application/compact/interactive-sop-compact.js";
 import { SopRuleCompactBuilder } from "../../../src/application/compact/sop-rule-compact-builder.js";
-import {
-  FINALIZE_SYSTEM_PROMPT as runtimeFinalizeSystemPrompt,
-  REASONER_SYSTEM_PROMPT as runtimeReasonerSystemPrompt,
-  SUMMARIZE_SYSTEM_PROMPT as runtimeSummarizeSystemPrompt,
-} from "../../../src/runtime/interactive-sop-compact-prompts.js";
-import { InteractiveSopCompactService as RuntimeInteractiveSopCompactService } from "../../../src/runtime/interactive-sop-compact.js";
-import { SopRuleCompactBuilder as RuntimeSopRuleCompactBuilder } from "../../../src/runtime/sop-rule-compact-builder.js";
 
 test("application compact service and prompts are the canonical home", () => {
-  assert.equal(RuntimeInteractiveSopCompactService, InteractiveSopCompactService);
-  assert.equal(RuntimeSopRuleCompactBuilder, SopRuleCompactBuilder);
-  assert.equal(runtimeReasonerSystemPrompt, REASONER_SYSTEM_PROMPT);
-  assert.equal(runtimeSummarizeSystemPrompt, SUMMARIZE_SYSTEM_PROMPT);
-  assert.equal(runtimeFinalizeSystemPrompt, FINALIZE_SYSTEM_PROMPT);
+  assert.equal(typeof InteractiveSopCompactService, "function");
+  assert.equal(typeof SopRuleCompactBuilder, "function");
+  assert.match(REASONER_SYSTEM_PROMPT, /SOP compact reasoning agent/i);
+  assert.match(SUMMARIZE_SYSTEM_PROMPT, /machine-readable state update/i);
+  assert.match(FINALIZE_SYSTEM_PROMPT, /finalizing a reusable SOP compact capability/i);
 });

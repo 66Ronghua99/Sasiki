@@ -63,12 +63,12 @@ High-churn areas expected across this cleanup:
 - Modify: `NEXT_STEP.md`
 - Modify: `docs/project/current-state.md`
 
-- [ ] Mark the cleanup spec as the active direction and update project pointers away from the stability-track placeholder.
-- [ ] Write or update doc-health assertions in docs so the repo truth says cleanup is the active loop.
-- [ ] Record explicit pointer evidence that cleanup is the only active loop (active spec, active plan, unique next step).
-- [ ] Run `npm --prefix apps/agent-runtime run lint:docs`.
-- [ ] Run `git diff --check`.
-- [ ] Commit with: `docs: freeze backward capability cleanup plan`
+- [x] Mark the cleanup spec as the active direction and update project pointers away from the stability-track placeholder.
+- [x] Write or update doc-health assertions in docs so the repo truth says cleanup is the active loop.
+- [x] Record explicit pointer evidence that cleanup is the only active loop (active spec, active plan, unique next step).
+- [x] Run `npm --prefix apps/agent-runtime run lint:docs`.
+- [x] Run `git diff --check`.
+- [x] Commit with: `docs: freeze backward capability cleanup plan`
 
 ### Task 2: Delete Source Compatibility Shells
 
@@ -79,22 +79,22 @@ High-churn areas expected across this cleanup:
 - Modify/Delete: shim-assertion tests under `apps/agent-runtime/test/**`
 - Modify: `apps/agent-runtime/scripts/lint-architecture.mjs`
 
-- [ ] Write failing tests for the new source-boundary truth:
+- [x] Write failing tests for the new source-boundary truth:
   - no compatibility re-export shells under `src/core/**`
   - no compatibility re-export shells under `src/runtime/**`
   - canonical imports point directly to `application/`, `kernel/`, or `infrastructure/`
-- [ ] Run the focused failing tests and confirm they fail for shim-presence reasons.
-- [ ] Delete compatibility-only source shells, leaving `runtime/agent-execution-runtime.ts` intact.
-- [ ] Rewrite or remove tests that only assert shim equality or read shim source files directly.
-- [ ] Update `lint-architecture.mjs` so deleted shim roots cannot regrow.
-- [ ] Run focused tests for affected boundaries.
-- [ ] Run repo-wide:
+- [x] Run the focused failing tests and confirm they fail for shim-presence reasons.
+- [x] Delete compatibility-only source shells, leaving `runtime/agent-execution-runtime.ts` intact.
+- [x] Rewrite or remove tests that only assert shim equality or read shim source files directly.
+- [x] Update `lint-architecture.mjs` so deleted shim roots cannot regrow.
+- [x] Run focused tests for affected boundaries.
+- [x] Run repo-wide:
   - `npm --prefix apps/agent-runtime run lint`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run test`
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
-- [ ] Run `git diff --check`.
+- [x] Run `git diff --check`.
 - [ ] Commit with: `refactor: remove compatibility source shells`
 
 ### Task 3: Remove Legacy CLI Compatibility Surface

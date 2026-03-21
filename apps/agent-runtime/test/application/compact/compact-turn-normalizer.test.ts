@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { normalizeCompactTurnOutput } from "../../../src/application/compact/compact-turn-normalizer.js";
-import { normalizeCompactTurnOutput as runtimeNormalizeCompactTurnOutput } from "../../../src/runtime/compact-turn-normalizer.js";
 import type { CompactSessionState } from "../../../src/domain/compact-reasoning.js";
 
 const baseState: CompactSessionState = {
@@ -58,8 +57,4 @@ test("application compact turn normalizer keeps clarification active when finali
   assert.deepEqual(result.patch.openDecisionsNext, []);
   assert.equal(result.patch.convergenceNext.status, "continue");
   assert.equal(result.humanLoopRequest?.focus_question, "是否还需要继续确认页面？");
-});
-
-test("runtime compact turn normalizer is a shim over the application compact turn normalizer", () => {
-  assert.equal(runtimeNormalizeCompactTurnOutput, normalizeCompactTurnOutput);
 });

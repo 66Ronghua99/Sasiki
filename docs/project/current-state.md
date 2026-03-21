@@ -6,6 +6,7 @@
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
 - The active engineering loop is now the backward-capability cleanup pass, not the completed taxonomy migration.
+- **Cleanup Task 2 is complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted; `runtime/agent-execution-runtime.ts` is the only retained runtime file from the migration-era surface.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
 - **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
 - **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
@@ -43,7 +44,6 @@ apps/agent-runtime/src/
     refine/         - Refine bootstrap, prompts, tooling, orchestration, executor
   runtime/          - Narrowed to live execution/session/state semantics
     - agent-execution-runtime.ts  - Remaining real runtime implementation
-    # Other runtime/* files are migration shims
   infrastructure/   - External adapters
     llm/            - model-resolver.ts, json-model-client.ts
     config/         - runtime-bootstrap-provider.ts
@@ -53,12 +53,6 @@ apps/agent-runtime/src/
     hitl/           - terminal-hitl-controller.ts
   utils/            - Pure helper functions
 
-# Migration shims (re-export only):
-- core/* → kernel/*
-- runtime/providers/* → application/providers/* or application/refine/*
-- runtime/replay-refinement/* → application/refine/*
-- runtime/observe-executor.ts, runtime/observe-runtime.ts → application/observe/*
-- runtime/interactive-sop-compact.ts → application/compact/*
 ```
 
 ## Project Verification Notes
@@ -95,5 +89,5 @@ apps/agent-runtime/src/
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The active next step is the backward-capability cleanup plan, starting with compatibility source-shell deletion.
+- The active next step is the backward-capability cleanup plan, continuing with legacy CLI compatibility removal.
 - See `NEXT_STEP.md` for the exact current task pointer.
