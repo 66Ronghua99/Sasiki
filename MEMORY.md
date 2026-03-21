@@ -39,7 +39,7 @@
 - Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
 - Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim。
 - Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`。
-- Task 5 之后，runtime-config loader/types 与 provider 组织的 canonical home 是 `application/config/*` 和 `application/providers/*`；旧 `runtime/*` 路径只能作为薄兼容 shim 存在。
+- Task 5 之后，runtime-config loader/types 的 canonical home 是 `application/config/*`；原先的 provider 组织已经退出长期边界，不要再把 `application/providers/*` 当成真源目录。
 - Task 5 之后，`application/shell/*` 也成为 canonical home；旧 `runtime/*` 中的 shell/composition 只应保留薄 shim。
 - Task 6 之后，observe orchestration / recording support 的 canonical home 是 `application/observe/*`，SOP compact 的 canonical home 是 `application/compact/*`。
 - Task 7 之后，refine bootstrap / prompts / tooling / orchestration / executor 的 canonical home 是 `application/refine/*`。

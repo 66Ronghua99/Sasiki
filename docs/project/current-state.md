@@ -42,7 +42,6 @@ apps/agent-runtime/src/
   application/      - Use-case orchestration layer
     shell/          - CLI shell, command-router, runtime-host, composition-root
     config/         - Application-facing config contracts
-    providers/      - Tool-surface, execution-context providers
     observe/        - Observe orchestration + recording support
     compact/        - SOP compact workflow
     refine/         - Refine bootstrap, prompts, tooling, orchestration, executor

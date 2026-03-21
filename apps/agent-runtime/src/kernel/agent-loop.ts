@@ -1,7 +1,7 @@
 /**
  * Deps: infrastructure/llm/model-resolver.ts, kernel/mcp-tool-bridge.ts, contracts/*
- * Used By: runtime/agent-execution-runtime.ts, runtime/runtime-composition-root.ts, runtime/replay-refinement/react-refinement-run-executor.ts
- * Last Updated: 2026-03-06
+ * Used By: application/refine/refine-workflow.ts, application/refine/react-refinement-run-executor.ts
+ * Last Updated: 2026-03-21
  */
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { stat } from "node:fs/promises";
