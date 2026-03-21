@@ -24,6 +24,7 @@ const FORBIDDEN_COMPAT_FILES = new Set([
   "core/sop-trace-builder.ts",
   "core/sop-trace-guide-builder.ts",
   "runtime/artifacts-writer.ts",
+  "runtime/agent-execution-runtime.ts",
   "runtime/command-router.ts",
   "runtime/compact-session-machine.ts",
   "runtime/compact-turn-normalizer.ts",
@@ -46,6 +47,7 @@ const FORBIDDEN_COMPAT_PREFIXES = [
 ];
 const FORBIDDEN_APPLICATION_IMPORTS = new Set([
   "runtime/artifacts-writer.ts",
+  "runtime/agent-execution-runtime.ts",
   "runtime/runtime-config.ts",
   "runtime/system-prompts.ts",
   "runtime/observe-support/sop-demonstration-recorder.ts",

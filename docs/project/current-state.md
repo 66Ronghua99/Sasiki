@@ -5,13 +5,14 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
-- The backward-capability cleanup pass is complete; the repository is now on the post-cleanup baseline.
-- **Cleanup Task 2 is complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted; `runtime/agent-execution-runtime.ts` is the only retained runtime file from the migration-era surface.
+- The workflow-host boundary clarification pass is now the active front-door truth for the current baseline.
+- **Workflow Host Task 5 is complete**: `runtime/agent-execution-runtime.ts` has been removed, `application/shell/runtime-host.ts` is the only top-level lifecycle owner, and compact service construction now happens in `runtime-composition-root.ts` instead of `workflow-runtime.ts`.
+- **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
 - **Cleanup Task 4 is complete**: migration docs are archived, `docs/architecture/overview.md` is now the single short architecture front door, and `apps/agent-runtime/README.md` documents only the surviving CLI surface.
-- **Cleanup Task 5 is complete**: final gates passed, including fresh hardgate evidence at `artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`.
+- **Cleanup Task 5 is complete**: the earlier post-cleanup gate set passed, and the workflow-host clarification pass now has fresh hardgate evidence at `artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
-- **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
+- **Task 8 is superseded by the current front door**: the remaining runtime lifecycle wrapper has been deleted, so top-level workflow lifecycle now lives in `application/shell/runtime-host.ts`.
 - **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
 - **Task 6 is complete**: observe orchestration / recording support now live under `apps/agent-runtime/src/application/observe/`, and SOP compact now lives under `apps/agent-runtime/src/application/compact/`; old `runtime/*` paths remain thin shims where applicable.
 - **Task 5 is complete**: the application shell, config, and provider areas now have canonical homes under `apps/agent-runtime/src/application/`, while the old `runtime/*` shell/config/provider paths remain thin shims where applicable.
@@ -39,14 +40,12 @@ apps/agent-runtime/src/
     - agent-loop.ts
     - mcp-tool-bridge.ts
   application/      - Use-case orchestration layer
-    shell/          - CLI shell, command-router, composition-root
+    shell/          - CLI shell, command-router, runtime-host, composition-root
     config/         - Application-facing config contracts
     providers/      - Tool-surface, execution-context providers
     observe/        - Observe orchestration + recording support
     compact/        - SOP compact workflow
     refine/         - Refine bootstrap, prompts, tooling, orchestration, executor
-  runtime/          - Narrowed to live execution/session/state semantics
-    - agent-execution-runtime.ts  - Remaining real runtime implementation
   infrastructure/   - External adapters
     llm/            - model-resolver.ts, json-model-client.ts
     config/         - runtime-bootstrap-provider.ts
@@ -77,7 +76,7 @@ apps/agent-runtime/src/
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active spec / plan:
-  - none; current front-door truth is document-first (`overview.md` + project entry docs) until the next stability spec is frozen
+  - none; current front-door truth is the workflow-host clarified codebase plus the active entry docs until the next stability spec is frozen
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -93,5 +92,6 @@ apps/agent-runtime/src/
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The active next step is to freeze a new refine stability / e2e tooling optimization spec on top of the post-cleanup baseline.
+- The workflow-host boundary clarification pass is now the current baseline.
+- The active next step is to freeze a new refine stability / e2e tooling optimization spec on top of the workflow-host clarified baseline.
 - See `NEXT_STEP.md` for the exact current task pointer.

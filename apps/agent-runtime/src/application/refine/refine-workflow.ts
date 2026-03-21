@@ -1,5 +1,5 @@
 /**
- * Deps: application/refine/*, kernel/agent-loop.ts, runtime/agent-execution-runtime.ts
+ * Deps: application/refine/*, kernel/agent-loop.ts
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
@@ -8,7 +8,6 @@ import type { Logger } from "../../contracts/logger.js";
 import type { ToolClient } from "../../contracts/tool-client.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
 import { AgentLoop } from "../../kernel/agent-loop.js";
-import { AgentExecutionRuntime, type AgentRunExecutor } from "../../runtime/agent-execution-runtime.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import { PromptProvider } from "./prompt-provider.js";
@@ -56,7 +55,6 @@ export interface CreateRefineWorkflowFactoryOptions {
 }
 
 export interface RefineWorkflowAssembly {
-  agentRuntime: RefineWorkflowAgentRuntime;
   createWorkflow(request: RefineWorkflowRequest): RefineWorkflow;
 }
 
@@ -82,6 +80,51 @@ export interface RefineWorkflowAssemblyOverrides {
   createLoop?: (input: RefineWorkflowLoopInput) => AgentLoop;
   createRunExecutor?: (options: ReactRefinementRunExecutorOptions) => ReactRefinementRunExecutor;
   createAgentRuntime?: (input: { loop: AgentLoop; runExecutor: AgentRunExecutor }) => RefineWorkflowAgentRuntime;
+}
+
+export interface AgentRunExecutor {
+  execute(request: AgentRunRequest): Promise<AgentRunResult>;
+  requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean>;
+}
+
+class RefineWorkflowRuntime implements RefineWorkflowAgentRuntime {
+  private readonly loop: AgentLoop;
+  private readonly runExecutor: AgentRunExecutor;
+  private loopInitialized = false;
+
+  constructor(options: { loop: AgentLoop; runExecutor: AgentRunExecutor }) {
+    this.loop = options.loop;
+    this.runExecutor = options.runExecutor;
+  }
+
+  async start(): Promise<void> {
+    await this.ensureLoopInitialized();
+  }
+
+  async run(request: AgentRunRequest): Promise<AgentRunResult> {
+    await this.ensureLoopInitialized();
+    return this.runExecutor.execute(request);
+  }
+
+  async requestInterrupt(signalName: "SIGINT" | "SIGTERM"): Promise<boolean> {
+    return this.runExecutor.requestInterrupt(signalName);
+  }
+
+  async stop(): Promise<void> {
+    if (!this.loopInitialized) {
+      return;
+    }
+    await this.loop.shutdown();
+    this.loopInitialized = false;
+  }
+
+  private async ensureLoopInitialized(): Promise<void> {
+    if (this.loopInitialized) {
+      return;
+    }
+    await this.loop.initialize();
+    this.loopInitialized = true;
+  }
 }
 
 export class RefineWorkflow implements HostedWorkflow<AgentRunResult> {
@@ -148,7 +191,7 @@ export function createRefineWorkflowAssembly(
       ));
   const createRunExecutor = overrides.createRunExecutor ?? createReactRefinementRunExecutor;
   const createAgentRuntime =
-    overrides.createAgentRuntime ?? ((input) => new AgentExecutionRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
+    overrides.createAgentRuntime ?? ((input) => new RefineWorkflowRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
 
   const toolClient = createBootstrapToolClient(options.rawToolClient);
   const promptProvider = createPromptProvider();
@@ -185,7 +228,6 @@ export function createRefineWorkflowAssembly(
   });
 
   return {
-    agentRuntime,
     createWorkflow(request: RefineWorkflowRequest): RefineWorkflow {
       return createRefineWorkflow({
         browserLifecycle: options.browserLifecycle,

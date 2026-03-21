@@ -17,6 +17,7 @@ test("application boundaries use canonical application and infrastructure module
   const refineBootstrapSource = await readSource("application/refine/refine-run-bootstrap-provider.ts");
   const observeExecutorSource = await readSource("application/observe/observe-executor.ts");
   const runtimeCompositionRootSource = await readSource("application/shell/runtime-composition-root.ts");
+  const workflowRuntimeSource = await readSource("application/shell/workflow-runtime.ts");
   const compactSource = await readSource("application/compact/interactive-sop-compact.ts");
 
   assert.match(promptProviderSource, /from "\.\/system-prompts\.js"/);
@@ -24,6 +25,7 @@ test("application boundaries use canonical application and infrastructure module
 
   assert.match(refineWorkflowSource, /from "\.\/refine-react-tool-client\.js"/);
   assert.match(refineWorkflowSource, /from "\.\/refine-run-bootstrap-provider\.js"/);
+  assert.doesNotMatch(refineWorkflowSource, /runtime\/agent-execution-runtime\.js/);
   assert.doesNotMatch(refineWorkflowSource, /application\/providers\//);
 
   assert.match(refineBootstrapSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/attention-knowledge-store\.js"/);
@@ -40,12 +42,16 @@ test("application boundaries use canonical application and infrastructure module
   assert.doesNotMatch(observeExecutorSource, /runtime\/observe-support\/sop-demonstration-recorder\.js/);
 
   assert.match(runtimeCompositionRootSource, /from "\.\.\/observe\/observe-workflow-factory\.js"/);
+  assert.match(runtimeCompositionRootSource, /from "\.\.\/compact\/interactive-sop-compact\.js"/);
   assert.match(runtimeCompositionRootSource, /from "\.\.\/refine\/refine-workflow\.js"/);
   assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/observe\/observe-executor\.js"/);
   assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/observe\/support\/sop-demonstration-recorder\.js"/);
   assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/browser\/playwright-demonstration-recorder\.js"/);
   assert.doesNotMatch(runtimeCompositionRootSource, /application\/providers\//);
   assert.doesNotMatch(runtimeCompositionRootSource, /runtime\/observe-support\/sop-demonstration-recorder\.js/);
+
+  assert.doesNotMatch(workflowRuntimeSource, /InteractiveSopCompactService/);
+  assert.doesNotMatch(workflowRuntimeSource, /runtime\/agent-execution-runtime\.js/);
 });
 
 test("compatibility source shells have been removed from core and runtime", () => {
@@ -63,6 +69,7 @@ test("compatibility source shells have been removed from core and runtime", () =
     "runtime/compact-turn-normalizer.ts",
     "runtime/interactive-sop-compact-prompts.ts",
     "runtime/interactive-sop-compact.ts",
+    "runtime/agent-execution-runtime.ts",
     "runtime/observe-executor.ts",
     "runtime/observe-runtime.ts",
     "runtime/observe-support/sop-demonstration-recorder.ts",

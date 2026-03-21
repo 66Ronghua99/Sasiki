@@ -134,28 +134,24 @@ function createCompactWorkflowFactory(
   });
 }
 
-function createAgentRuntime(events: string[]) {
+function createRuntimeHost(events: string[]) {
   return {
-    start: async () => {
-      events.push("agentRuntime.start");
+    async run<T>(workflow: HostedWorkflow<T>): Promise<T> {
+      events.push("host.run:start");
+      try {
+        await workflow.prepare();
+        return await workflow.execute();
+      } finally {
+        events.push("host.run:dispose");
+        await workflow.dispose();
+      }
     },
-    run: async () => {
-      events.push("agentRuntime.run");
-      return {
-        task: "unused",
-        status: "completed",
-        finishReason: "unused",
-        steps: [],
-        mcpCalls: [],
-        assistantTurns: [],
-      };
-    },
-    requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => {
-      events.push(`agentRuntime.requestInterrupt:${signal}`);
+    async requestInterrupt(signal: "SIGINT" | "SIGTERM"): Promise<boolean> {
+      events.push(`host.requestInterrupt:${signal}`);
       return false;
     },
-    stop: async () => {
-      events.push("agentRuntime.stop");
+    async dispose(): Promise<void> {
+      events.push("host.dispose");
     },
   };
 }
@@ -178,48 +174,23 @@ test("workflow runtime dispatches observe through the shared registry and host p
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: createAgentRuntime(events),
-        observeRuntime: {
-          observe: async () => {
-            throw new Error("observe should use the shared shell host path");
-          },
-          requestInterrupt: async () => false,
-        },
         observeWorkflowFactory: createObserveWorkflowFactory(events),
         refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
       return {
         resolve(command: "observe" | "refine" | "sop-compact") {
-          if (command === "sop-compact") {
-            return () =>
-              createCompactWorkflowFactory(events)({
-                runId: "compact-run",
-                semanticMode: "on",
-              });
-          }
           return factories[command];
         },
       };
     },
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-        },
-      };
-    },
+    createRuntimeHost: () => createRuntimeHost(events),
   });
 
   const result = await runtime.execute({
@@ -231,12 +202,11 @@ test("workflow runtime dispatches observe through the shared registry and host p
   assert.equal(result.mode, "observe");
   assert.equal(result.taskHint, "observe me");
   assert.deepEqual(events, [
-    "host.start",
+    "host.run:start",
     "browser.start",
     "browser.prepareObserveSession",
-    "host.execute",
     "observe.execute:observe me",
-    "host.dispose",
+    "host.run:dispose",
     "browser.stop",
   ]);
 });
@@ -259,48 +229,23 @@ test("workflow runtime dispatches refine through the shared registry and host pa
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: createAgentRuntime(events),
-        observeRuntime: {
-          observe: async () => {
-            throw new Error("observe should use the shared shell host path");
-          },
-          requestInterrupt: async () => false,
-        },
         observeWorkflowFactory: createObserveWorkflowFactory(events),
         refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
       return {
         resolve(command: "observe" | "refine" | "sop-compact") {
-          if (command === "sop-compact") {
-            return () =>
-              createCompactWorkflowFactory(events)({
-                runId: "compact-run",
-                semanticMode: "on",
-              });
-          }
           return factories[command];
         },
       };
     },
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-        },
-      };
-    },
+    createRuntimeHost: () => createRuntimeHost(events),
   });
 
   const result = await runtime.execute({
@@ -311,12 +256,11 @@ test("workflow runtime dispatches refine through the shared registry and host pa
   assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
   assert.equal(result.task, "refine me");
   assert.deepEqual(events, [
-    "host.start",
+    "host.run:start",
     "browser.start",
     "agent.start",
-    "host.execute",
     "agent.run:refine me",
-    "host.dispose",
+    "host.run:dispose",
     "agent.stop",
     "browser.stop",
   ]);
@@ -340,48 +284,23 @@ test("workflow runtime dispatches sop-compact through the shared registry and ho
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: createAgentRuntime(events),
-        observeRuntime: {
-          observe: async () => {
-            throw new Error("observe should use the shared shell host path");
-          },
-          requestInterrupt: async () => false,
-        },
         observeWorkflowFactory: createObserveWorkflowFactory(events),
         refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
       return {
         resolve(command: "observe" | "refine" | "sop-compact") {
-          if (command === "sop-compact") {
-            return () =>
-              createCompactWorkflowFactory(events)({
-                runId: "compact-run",
-                semanticMode: "on",
-              });
-          }
           return factories[command];
         },
       };
     },
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-        },
-      };
-    },
+    createRuntimeHost: () => createRuntimeHost(events),
   });
 
   const result = await runtime.execute({
@@ -392,141 +311,83 @@ test("workflow runtime dispatches sop-compact through the shared registry and ho
 
   assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
   assert.equal(result.runId, "compact-run");
-  assert.deepEqual(events, ["host.start", "compact.prepare:compact-run", "host.execute", "compact.execute:compact-run", "host.dispose", "compact.dispose:compact-run"]);
+  assert.deepEqual(events, [
+    "host.run:start",
+    "compact.prepare:compact-run",
+    "compact.execute:compact-run",
+    "host.run:dispose",
+    "compact.dispose:compact-run",
+  ]);
 });
 
-test("workflow runtime falls through to underlying interrupt handlers while observe is still preparing", async () => {
+test("workflow runtime delegates interrupts to the shared runtime host while a workflow is preparing", async () => {
   const events: string[] = [];
-  const prepareGate = createDeferred<void>();
   let interruptCalls = 0;
+  const host = {
+    async run<T>(_workflow: HostedWorkflow<T>): Promise<T> {
+      return new Promise<T>(() => {});
+    },
+    async requestInterrupt(signal: "SIGINT" | "SIGTERM"): Promise<boolean> {
+      interruptCalls += 1;
+      events.push(`host.requestInterrupt:${signal}`);
+      return true;
+    },
+    async dispose(): Promise<void> {
+      events.push("host.dispose");
+    },
+  };
 
   const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
     createRuntimeComposition: () =>
       ({
-        browserLifecycle: {
-          start: async () => {
-            events.push("browser.start");
-          },
-          stop: async () => {
-            events.push("browser.stop");
-          },
-          prepareObserveSession: async () => {
-            events.push("browser.prepareObserveSession");
-          },
-        },
-        agentRuntime: createAgentRuntime(events),
-        observeRuntime: {
-          observe: async () => {
-            throw new Error("observe should use the shared shell host path");
-          },
-          requestInterrupt: async (signal) => {
-            interruptCalls += 1;
-            events.push(`observeRuntime.requestInterrupt:${signal}`);
-            return true;
-          },
-        },
-        observeWorkflowFactory: createObserveWorkflowFactory(events, { prepareGate }),
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
         refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
       }) as never,
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async () => false,
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-        },
-      };
-    },
+    createRuntimeHost: () => host,
   });
 
-  const execution = runtime.execute({
-    command: "observe",
-    task: "observe me",
-  });
-
-  await Promise.resolve();
   await runtime.requestInterrupt("SIGINT");
-  prepareGate.resolve();
 
-  await execution;
-
-  assert.equal(interruptCalls, 0);
-  assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
+  assert.equal(interruptCalls, 1);
+  assert.deepEqual(events, ["host.requestInterrupt:SIGINT"]);
 });
 
-test("workflow runtime falls through to underlying interrupt handlers while observe is still disposing", async () => {
+test("workflow runtime disposes through the shared runtime host", async () => {
   const events: string[] = [];
-  const disposeGate = createDeferred<void>();
-  let interruptCalls = 0;
+  let disposeCalls = 0;
 
   const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
     createRuntimeComposition: () =>
       ({
-        browserLifecycle: {
-          start: async () => {
-            events.push("browser.start");
-          },
-          stop: async () => {
-            events.push("browser.stop");
-          },
-          prepareObserveSession: async () => {
-            events.push("browser.prepareObserveSession");
-          },
-        },
-        agentRuntime: createAgentRuntime(events),
-        observeRuntime: {
-          observe: async () => {
-            throw new Error("observe should use the shared shell host path");
-          },
-          requestInterrupt: async (signal) => {
-            interruptCalls += 1;
-            events.push(`observeRuntime.requestInterrupt:${signal}`);
-            return true;
-          },
-        },
-        observeWorkflowFactory: createObserveWorkflowFactory(events, { disposeGate }),
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
         refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
       }) as never,
-    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
-      return {
-        start: async () => {
-          events.push("host.start");
-          await workflow.prepare();
-        },
-        execute: async () => {
-          events.push("host.execute");
-          return workflow.execute();
-        },
-        requestInterrupt: async () => false,
-        dispose: async () => {
-          events.push("host.dispose");
-          await workflow.dispose();
-          await disposeGate.promise;
-        },
-      };
-    },
+    createRuntimeHost: () => ({
+      async run<T>(_workflow: HostedWorkflow<T>): Promise<T> {
+        return new Promise<T>(() => {});
+      },
+      async requestInterrupt(): Promise<boolean> {
+        return false;
+      },
+      async dispose(): Promise<void> {
+        disposeCalls += 1;
+        events.push("host.dispose");
+      },
+    }),
   });
 
-  const execution = runtime.execute({
-    command: "observe",
-    task: "observe me",
-  });
+  await runtime.stop();
 
-  await Promise.resolve();
-  await Promise.resolve();
-  await runtime.requestInterrupt("SIGINT");
-  disposeGate.resolve();
-
-  await execution;
-
-  assert.equal(interruptCalls, 0);
-  assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
+  assert.equal(disposeCalls, 1);
+  assert.deepEqual(events, ["host.dispose"]);
 });

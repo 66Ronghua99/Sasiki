@@ -7,14 +7,14 @@ import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-lau
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
-import { createObserveRuntime } from "../observe/observe-runtime.js";
-import type { ObserveRuntime } from "../observe/observe-runtime.js";
+import { createCompactWorkflow } from "../compact/compact-workflow.js";
+import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
+import type { RuntimeSemanticMode } from "../config/runtime-config.js";
 import type { ObserveWorkflow } from "../observe/observe-workflow.js";
 import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
 import {
   createRefineWorkflowAssembly,
-  type RefineWorkflowAgentRuntime,
   type RefineWorkflow,
   type RefineWorkflowRequest,
 } from "../refine/refine-workflow.js";
@@ -40,10 +40,14 @@ export interface BrowserLifecycle {
 
 export interface RuntimeComposition {
   browserLifecycle: BrowserLifecycle;
-  agentRuntime: RefineWorkflowAgentRuntime;
-  observeRuntime: ObserveRuntime;
   observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
   refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
+  compactWorkflowFactory: (request: CompactWorkflowRequest) => ReturnType<typeof createCompactWorkflow>;
+}
+
+export interface CompactWorkflowRequest {
+  runId: string;
+  semanticMode?: RuntimeSemanticMode;
 }
 
 export function planRuntimeComposition(input: RuntimeCompositionPlanInput): RuntimeCompositionPlan {
@@ -109,12 +113,26 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
 
   return {
     browserLifecycle,
-    agentRuntime: refineAssembly.agentRuntime,
-    observeRuntime: createObserveRuntime({
-      createWorkflow: observeWorkflowFactory,
-    }),
     observeWorkflowFactory,
     refineWorkflowFactory: refineAssembly.createWorkflow,
+    compactWorkflowFactory: (request: CompactWorkflowRequest) => {
+      const compactSemanticMode = request.semanticMode ?? config.semanticMode;
+      const compactService = new InteractiveSopCompactService(config.artifactsDir, {
+        semantic: {
+          mode: compactSemanticMode,
+          timeoutMs: config.semanticTimeoutMs,
+          model: config.model,
+          apiKey: config.apiKey,
+          baseUrl: config.baseUrl,
+          thinkingLevel: config.thinkingLevel,
+        },
+      });
+
+      return createCompactWorkflow({
+        service: compactService,
+        runId: request.runId,
+      });
+    },
   };
 }
 

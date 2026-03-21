@@ -11,13 +11,14 @@
 
 ## Current Code Status
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
+- **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
-- **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除，仅保留 `runtime/agent-execution-runtime.ts` 作为真实 runtime 实现；对应 shim 测试与 `lint:arch` 断言已同步切到“禁止回生”。
+- **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
 - **Cleanup Task 4 已完成**: taxonomy migration docs 已归档；`docs/architecture/overview.md` 现在是唯一前台架构入口，`docs/architecture/layers.md` 降级为 supporting reference，`apps/agent-runtime/README.md` 也已切到当前 CLI surface。
-- **Cleanup Task 5 已完成**: final gates 全部通过；fresh hardgate report 已记录为 `artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`。
+- **Cleanup Task 5 已完成**: 早前 post-cleanup gates 已通过；本轮 workflow-host clarification 的 fresh hardgate evidence 已记录为 `artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`。
 - **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
-- **Task 8 已完成**: `runtime/` 已收窄到 session/state/execution semantics；`runtime/agent-execution-runtime.ts` 是剩余的真实 runtime 实现，其余 `runtime/` 路径为兼容 shim。
+- **Task 8 已被当前真相取代**: 顶层 runtime lifecycle wrapper 已删除；shell front door 现在直接以 `application/shell/runtime-host.ts` 承接 workflow lifecycle。
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
 - **Task 6 已完成**: `application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home，旧 `runtime/*` 路径只在适用处保留薄 shim。
 - **Task 5 已完成**: `application/shell/`、`application/config/` 与 `application/providers/` 现在是 shell/composition、runtime-config loader/types 和 tool-surface/execution-context providers 的 canonical home，旧 `runtime/*` 路径只保留薄 shim where applicable。
@@ -36,14 +37,12 @@ apps/agent-runtime/src/
   contracts/        - 能力接口（logger, tool-client, HITL等）
   kernel/           - 可复用执行内核（agent-loop, mcp-tool-bridge）
   application/      - 用例编排层
-    shell/          - CLI shell, command-router, composition-root
+    shell/          - CLI shell, command-router, runtime-host, composition-root
     config/         - runtime-config loader/types
     providers/      - tool-surface, execution-context providers
     observe/        - observe orchestration + recording support
     compact/        - SOP compact workflow
     refine/         - refine bootstrap, prompts, tooling, orchestration, executor
-  runtime/          - 执行态/session/state（当前只保留真实 runtime 实现）
-    agent-execution-runtime.ts
   infrastructure/   - 外部适配器
     llm/            - model-resolver, json-model-client
     config/         - runtime-bootstrap-provider
@@ -79,7 +78,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 基于当前干净基线，先写一份新的 refine stability / e2e tooling optimization spec，再进入下一轮实现。
+- `P0` 基于当前 workflow-host clarified 基线，先写一份新的 refine stability / e2e tooling optimization spec，再进入下一轮实现。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -106,3 +105,9 @@ apps/agent-runtime/src/
   - 删除了 legacy CLI compatibility surface
   - 归档了 migration truth，并重置了前门架构文档
   - fresh hardgate report：`artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`
+- 已完成 workflow-host boundary clarification Task 5：
+  - 删除了 `src/runtime/agent-execution-runtime.ts`
+  - 明确了 `runtime-host.ts` 是唯一顶层 lifecycle owner
+  - 将 compact service 构造移回 composition root
+  - 收紧了 lint / boundary tests / front-door docs
+  - fresh hardgate report：`artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`
