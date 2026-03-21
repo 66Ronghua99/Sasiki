@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: active
+status: completed
 supersedes: []
 related:
   - docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md
@@ -11,6 +11,8 @@ related:
 ---
 
 # Backward Capability Cleanup Design
+
+> Completed cleanup record. The current front-door architecture truth lives in `docs/architecture/overview.md`.
 
 ## Why This Exists
 

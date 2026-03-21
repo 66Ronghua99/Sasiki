@@ -47,6 +47,7 @@
 - backward capability cleanup Task 2 之后，`src/core/**` 和迁移期 `src/runtime/**` 一行 re-export 壳已经删除；如果后续再出现同名旧路径，应视为架构回退而不是正常扩展。
 - backward capability cleanup Task 3 之后，CLI 不再承担迁移提示职责；旧 `runtime` / `--mode` / archived compact alias 统一显式失败，但不再输出升级引导文案。
 - backward capability cleanup Task 4 之后，`docs/architecture/overview.md` 是唯一前台架构入口；`docs/architecture/layers.md` 和 taxonomy migration docs 只作为 supporting / archived background，不再并列充当前门真源。
+- backward capability cleanup 完成后，`core/*` 与迁移期 `runtime/*` 兼容壳、legacy CLI upgrade-error 面、以及 migration-era README grammar 都已经删净；后续若再引入类似兼容层，应视为新需求而不是默认回归。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。

@@ -1,4 +1,18 @@
+---
+doc_type: plan
+status: completed
+implements:
+  - docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md
+verified_by:
+  - artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json
+related:
+  - docs/architecture/overview.md
+  - apps/agent-runtime/README.md
+---
+
 # Backward Capability Cleanup Implementation Plan
+
+> Completed cleanup record. The current front-door architecture truth lives in `docs/architecture/overview.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -153,7 +167,7 @@ High-churn areas expected across this cleanup:
 - Modify: `MEMORY.md`
 - Modify: any docs or lint file needed only if final gate output requires a small corrective follow-up
 
-- [ ] Run:
+- [x] Run:
   - `npm --prefix apps/agent-runtime run lint:docs`
   - `npm --prefix apps/agent-runtime run lint:arch`
   - `npm --prefix apps/agent-runtime run lint`
@@ -161,20 +175,20 @@ High-churn areas expected across this cleanup:
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
-- [ ] Update `docs/project/current-state.md`, `PROGRESS.md`, `NEXT_STEP.md`, and `MEMORY.md` to the verified post-cleanup baseline only after all gates pass.
-- [ ] Record explicit pointer evidence that post-cleanup docs are the only active truth.
-- [ ] Record the fresh hardgate report path under `verified_by`.
-- [ ] Confirm `git status --short` is clean except intended closure changes.
-- [ ] Run `git diff --check`.
+- [x] Update `docs/project/current-state.md`, `PROGRESS.md`, `NEXT_STEP.md`, and `MEMORY.md` to the verified post-cleanup baseline only after all gates pass.
+- [x] Record explicit pointer evidence that post-cleanup docs are the only active truth.
+- [x] Record the fresh hardgate report path under `verified_by`.
+- [x] Confirm `git status --short` is clean except intended closure changes.
+- [x] Run `git diff --check`.
 - [ ] Commit with: `docs: close backward capability cleanup plan`
 
 ## Completion Checklist
 
-- [ ] compatibility-only source shells under `src/runtime/**` are removed
-- [ ] compatibility-only source shells under `src/core/**` are removed
-- [ ] `runtime/agent-execution-runtime.ts` remains as the real runtime implementation
-- [ ] legacy CLI compatibility branches are removed
-- [ ] compatibility-only tests are removed
-- [ ] `apps/agent-runtime/README.md` documents only the surviving CLI surface
-- [ ] there is exactly one short active current-architecture entrypoint
-- [ ] full repo verification passes with fresh evidence
+- [x] compatibility-only source shells under `src/runtime/**` are removed
+- [x] compatibility-only source shells under `src/core/**` are removed
+- [x] `runtime/agent-execution-runtime.ts` remains as the real runtime implementation
+- [x] legacy CLI compatibility branches are removed
+- [x] compatibility-only tests are removed
+- [x] `apps/agent-runtime/README.md` documents only the surviving CLI surface
+- [x] there is exactly one short active current-architecture entrypoint
+- [x] full repo verification passes with fresh evidence

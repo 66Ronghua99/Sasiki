@@ -5,10 +5,11 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
-- The active engineering loop is now the backward-capability cleanup pass, not the completed taxonomy migration.
+- The backward-capability cleanup pass is complete; the repository is now on the post-cleanup baseline.
 - **Cleanup Task 2 is complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted; `runtime/agent-execution-runtime.ts` is the only retained runtime file from the migration-era surface.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
 - **Cleanup Task 4 is complete**: migration docs are archived, `docs/architecture/overview.md` is now the single short architecture front door, and `apps/agent-runtime/README.md` documents only the surviving CLI surface.
+- **Cleanup Task 5 is complete**: final gates passed, including fresh hardgate evidence at `artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
 - **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
 - **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
@@ -76,8 +77,7 @@ apps/agent-runtime/src/
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active spec / plan:
-  - `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
-  - `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
+  - none; current front-door truth is document-first (`overview.md` + project entry docs) until the next stability spec is frozen
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -87,9 +87,11 @@ apps/agent-runtime/src/
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
+  - `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
+  - `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
   - `docs/architecture/layers.md`
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The active next step is the backward-capability cleanup plan, continuing with final gate closure and verified baseline sync.
+- The active next step is to freeze a new refine stability / e2e tooling optimization spec on top of the post-cleanup baseline.
 - See `NEXT_STEP.md` for the exact current task pointer.

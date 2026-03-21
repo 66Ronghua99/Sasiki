@@ -10,10 +10,11 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
-- 当前活跃闭环已经切换为 `backward capability cleanup`；全局 taxonomy 重组已经完成，当前任务是删除迁移期兼容代码、兼容测试和旧入口文档。
+- backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除，仅保留 `runtime/agent-execution-runtime.ts` 作为真实 runtime 实现；对应 shim 测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
 - **Cleanup Task 4 已完成**: taxonomy migration docs 已归档；`docs/architecture/overview.md` 现在是唯一前台架构入口，`docs/architecture/layers.md` 降级为 supporting reference，`apps/agent-runtime/README.md` 也已切到当前 CLI surface。
+- **Cleanup Task 5 已完成**: final gates 全部通过；fresh hardgate report 已记录为 `artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`。
 - **Task 9 已完成**: 文档清理、lint 硬边界最终确认、门禁闭环完成。全局 taxonomy 重组计划正式收尾。
 - **Task 8 已完成**: `runtime/` 已收窄到 session/state/execution semantics；`runtime/agent-execution-runtime.ts` 是剩余的真实 runtime 实现，其余 `runtime/` 路径为兼容 shim。
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；`runtime/replay-refinement/*` 以及已迁出的 `runtime/providers/{prompt-provider,refine-run-bootstrap-provider}.ts` 仅保留为适用处的 shim-only compatibility paths。
@@ -26,7 +27,7 @@
 
 ## Active Architecture Truth
 
-新的全局层级taxonomy已经是 canonical truth：
+当前已验证的 canonical truth：
 
 ```
 apps/agent-runtime/src/
@@ -40,9 +41,8 @@ apps/agent-runtime/src/
     observe/        - observe orchestration + recording support
     compact/        - SOP compact workflow
     refine/         - refine bootstrap, prompts, tooling, orchestration, executor
-  runtime/          - 执行态/session/state（收窄语义）
-    agent-execution-runtime.ts  - 剩余的真实 runtime 实现
-    # 其余 runtime/ 文件为迁移期兼容 shim
+  runtime/          - 执行态/session/state（当前只保留真实 runtime 实现）
+    agent-execution-runtime.ts
   infrastructure/   - 外部适配器
     llm/            - model-resolver, json-model-client
     config/         - runtime-bootstrap-provider
@@ -61,10 +61,7 @@ apps/agent-runtime/src/
 - `.harness/bootstrap.toml`
 - `docs/project/current-state.md`
 - `docs/architecture/overview.md`
-- `docs/architecture/layers.md`
 - `docs/testing/strategy.md`
-- `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
-- `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -78,10 +75,10 @@ apps/agent-runtime/src/
 
 说明：
 - 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
-- 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning` 和 taxonomy reorg 文档都已降级为历史背景；当前 active loop 是 backward capability cleanup。
+- 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 执行 `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md` 的 Task 5，跑最终 gates，回写 verified baseline，并关闭 backward capability cleanup loop。
+- `P0` 基于当前干净基线，先写一份新的 refine stability / e2e tooling optimization spec，再进入下一轮实现。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -103,3 +100,8 @@ apps/agent-runtime/src/
   - 确认了最终 taxonomy 状态
   - 通过了全部 repo gates
   - fresh hardgate report：`artifacts/code-gate/2026-03-20T19-31-13-753Z/report.json`
+- 已完成 backward capability cleanup：
+  - 删除了全部 compatibility source shells
+  - 删除了 legacy CLI compatibility surface
+  - 归档了 migration truth，并重置了前门架构文档
+  - fresh hardgate report：`artifacts/code-gate/2026-03-21T03-24-45-657Z/report.json`
