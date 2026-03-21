@@ -3,6 +3,9 @@ import test from "node:test";
 
 import type { ToolClient } from "../../../src/contracts/tool-client.js";
 import type { AgentRunResult } from "../../../src/domain/agent-types.js";
+import { RefineReactToolClient } from "../../../src/application/refine/refine-react-tool-client.js";
+import { createRefineReactSession } from "../../../src/application/refine/refine-react-session.js";
+import { RefineRunBootstrapProvider } from "../../../src/application/refine/refine-run-bootstrap-provider.js";
 import { createRefineWorkflowAssembly } from "../../../src/application/refine/refine-workflow.js";
 
 function createRawToolClient(): ToolClient {
@@ -21,14 +24,16 @@ function createRawToolClient(): ToolClient {
 test("refine workflow assembly owns refine tool surface, bootstrap, and executor wiring", async () => {
   const events: string[] = [];
   const rawToolClient = createRawToolClient();
-  const toolClient = { kind: "tool-client" };
+  const toolClient = new RefineReactToolClient({
+    rawClient: rawToolClient,
+    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  });
   const promptProvider = { buildRefineStartPrompt: () => "prompt" };
   const persistence = {
     knowledgeStore: { kind: "knowledge-store" },
     guidanceLoader: { kind: "guidance-loader" },
     hitlResumeStore: { kind: "hitl-resume-store" },
   };
-  const bootstrapProvider = { kind: "bootstrap-provider" };
   const loop = { kind: "loop" };
   const runExecutor = { kind: "run-executor" };
   const agentRuntime = {
@@ -88,7 +93,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       createBootstrapToolClient(input) {
         assert.equal(input, rawToolClient);
         events.push("assemble.tool-client");
-        return toolClient as never;
+        return toolClient;
       },
       createPromptProvider() {
         events.push("assemble.prompt-provider");
@@ -104,19 +109,22 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         assert.equal(input.hitlResumeStore, persistence.hitlResumeStore);
         assert.equal(input.promptProvider, promptProvider);
         events.push("assemble.bootstrap-provider");
-        return bootstrapProvider as never;
+        return new RefineRunBootstrapProvider(input);
       },
       createLoop(input) {
+        assert.equal(input.toolClient instanceof RefineReactToolClient, true);
         assert.equal(input.toolClient, toolClient);
+        assert.equal(input.toolClient.getSession().task, "bootstrap");
         assert.equal(input.systemPrompt, "refine prompt");
         events.push("assemble.loop");
         return loop as never;
       },
       createRunExecutor(input) {
         assert.equal(input.loop, loop);
+        assert.equal(input.toolClient instanceof RefineReactToolClient, true);
         assert.equal(input.toolClient, toolClient);
         assert.equal(input.knowledgeStore, persistence.knowledgeStore);
-        assert.equal(input.bootstrapProvider, bootstrapProvider);
+        assert.equal(input.bootstrapProvider instanceof RefineRunBootstrapProvider, true);
         events.push("assemble.run-executor");
         return runExecutor as never;
       },

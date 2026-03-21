@@ -14,9 +14,10 @@ import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import { PromptProvider } from "./prompt-provider.js";
 import {
   createReactRefinementRunExecutor,
+  type ReactRefinementRunExecutor,
   type ReactRefinementRunExecutorOptions,
 } from "./react-refinement-run-executor.js";
-import { createBootstrapRefineReactToolClient } from "./refine-react-tool-client.js";
+import { createBootstrapRefineReactToolClient, type RefineReactToolClient } from "./refine-react-tool-client.js";
 import { createRefinePersistenceContext, RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
 
 export interface RefineWorkflowBrowserLifecycle {
@@ -65,21 +66,21 @@ export interface RefineWorkflowLoopInput {
   baseUrl?: string;
   thinkingLevel: RuntimeConfig["thinkingLevel"];
   systemPrompt: string;
-  toolClient: ToolClient;
+  toolClient: RefineReactToolClient;
   logger: Logger;
 }
 
 export interface RefineWorkflowAssemblyOverrides {
-  createBootstrapToolClient?: (rawClient: ToolClient) => ToolClient;
+  createBootstrapToolClient?: (rawClient: ToolClient) => RefineReactToolClient;
   createPromptProvider?: () => Pick<PromptProvider, "buildRefineStartPrompt">;
   createPersistenceContext?: (
     config: Pick<RuntimeConfig, "artifactsDir">
   ) => ReturnType<typeof createRefinePersistenceContext>;
   createBootstrapProvider?: (
     options: ConstructorParameters<typeof RefineRunBootstrapProvider>[0]
-  ) => Pick<RefineRunBootstrapProvider, "prepare" | "saveResumeRecord">;
+  ) => RefineRunBootstrapProvider;
   createLoop?: (input: RefineWorkflowLoopInput) => AgentLoop;
-  createRunExecutor?: (options: ReactRefinementRunExecutorOptions) => AgentRunExecutor;
+  createRunExecutor?: (options: ReactRefinementRunExecutorOptions) => ReactRefinementRunExecutor;
   createAgentRuntime?: (input: { loop: AgentLoop; runExecutor: AgentRunExecutor }) => RefineWorkflowAgentRuntime;
 }
 
@@ -173,10 +174,10 @@ export function createRefineWorkflowAssembly(
     logger: options.logger,
     artifactsDir: options.config.artifactsDir,
     maxTurns: options.config.refinementMaxRounds,
-    toolClient: toolClient as never,
+    toolClient,
     hitlController: options.hitlController,
     knowledgeStore: persistence.knowledgeStore,
-    bootstrapProvider: bootstrapProvider as never,
+    bootstrapProvider,
   });
   const agentRuntime = createAgentRuntime({
     loop,
