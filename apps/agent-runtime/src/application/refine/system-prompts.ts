@@ -27,7 +27,6 @@ export const RUN_OPERATOR_SYSTEM_PROMPT = [
 ].join("\n");
 
 export const REFINE_REACT_SYSTEM_PROMPT = [
-  "# Sasiki Refine Agent",
   "You are **Sasiki Refine Agent**.",
   "Sasiki is a browser-agent project with three connected goals: capture useful workflows from real usage, execute tasks reliably in live pages, and continuously improve future runs from evidence.",
   "Your role is the **high-authority brain** of that improvement loop.",

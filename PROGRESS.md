@@ -71,6 +71,8 @@ apps/agent-runtime/src/
 - `.plan/checklist_interactive_reasoning_sop_compact.md`
 - `.plan/checklist_replay_refinement_online.md`
 - `.plan/checklist_execution_kernel_refine_core_rollout.md`
+- `docs/superpowers/specs/2026-03-21-workflow-host-boundary-clarification.md`
+- `docs/superpowers/plans/2026-03-21-workflow-host-boundary-clarification-implementation.md`
 - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
 
 说明：

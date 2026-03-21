@@ -29,16 +29,6 @@ export interface AgentLoopConfig {
   baseUrl?: string;
   thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   systemPrompt?: string;
-  createAgent?: (input: AgentLoopCreateAgentInput) => AgentLoopAgent;
-}
-
-export interface AgentLoopCreateAgentInput {
-  model: ReturnType<typeof ModelResolver.resolve>;
-  apiKey: string;
-  baseUrl?: string;
-  thinkingLevel: AgentLoopConfig["thinkingLevel"];
-  systemPrompt: string;
-  tools: unknown[];
 }
 
 export interface AgentLoopAgent {
@@ -111,21 +101,12 @@ export class AgentLoop {
     });
     const model = ModelResolver.resolve({ model: this.config.model, baseUrl: this.config.baseUrl });
     const agentTools = await this.toolAdapter.buildAgentTools();
-    const agent: AgentLoopAgent = this.config.createAgent
-      ? this.config.createAgent({
-          model,
-          apiKey: this.config.apiKey,
-          baseUrl: this.config.baseUrl,
-          thinkingLevel: this.config.thinkingLevel,
-          systemPrompt: this.config.systemPrompt ?? SYSTEM_PROMPT,
-          tools: agentTools,
-        })
-      : new Agent({
-          initialState: {
-            model,
-          },
-          getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
-        });
+    const agent: AgentLoopAgent = new Agent({
+      initialState: {
+        model,
+      },
+      getApiKey: () => (this.config.apiKey ? this.config.apiKey : undefined),
+    });
     agent.setSystemPrompt(this.config.systemPrompt ?? SYSTEM_PROMPT);
     agent.setThinkingLevel(this.config.thinkingLevel);
     agent.setTools(agentTools);

@@ -90,6 +90,8 @@ apps/agent-runtime/src/
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
+  - `docs/superpowers/specs/2026-03-21-workflow-host-boundary-clarification.md`
+  - `docs/superpowers/plans/2026-03-21-workflow-host-boundary-clarification-implementation.md`
   - `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
   - `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
   - `docs/architecture/layers.md`
