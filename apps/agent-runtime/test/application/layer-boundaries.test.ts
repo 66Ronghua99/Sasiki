@@ -32,7 +32,10 @@ test("application boundaries use canonical application and infrastructure module
   assert.match(observeExecutorSource, /from "\.\/support\/sop-demonstration-recorder\.js"/);
   assert.doesNotMatch(observeExecutorSource, /runtime\/observe-support\/sop-demonstration-recorder\.js/);
 
-  assert.match(runtimeCompositionRootSource, /from "\.\.\/observe\/support\/sop-demonstration-recorder\.js"/);
+  assert.match(runtimeCompositionRootSource, /from "\.\.\/observe\/observe-workflow-factory\.js"/);
+  assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/observe\/observe-executor\.js"/);
+  assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/observe\/support\/sop-demonstration-recorder\.js"/);
+  assert.doesNotMatch(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/browser\/playwright-demonstration-recorder\.js"/);
   assert.doesNotMatch(runtimeCompositionRootSource, /runtime\/observe-support\/sop-demonstration-recorder\.js/);
 });
 

@@ -4,17 +4,15 @@
  * Last Updated: 2026-03-21
  */
 import { AgentLoop } from "../../kernel/agent-loop.js";
-import { SopDemonstrationRecorder } from "../observe/support/sop-demonstration-recorder.js";
 import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-launcher.js";
-import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
 import { createObserveRuntime } from "../observe/observe-runtime.js";
 import type { ObserveRuntime } from "../observe/observe-runtime.js";
-import { ObserveExecutor } from "../observe/observe-executor.js";
-import { createObserveWorkflow, type ObserveWorkflow } from "../observe/observe-workflow.js";
+import type { ObserveWorkflow } from "../observe/observe-workflow.js";
+import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
 import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
 import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
@@ -124,17 +122,15 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     }),
   });
 
-  const observeWorkflowFactory = (taskHint: string): ObserveWorkflow =>
-    createObserveWorkflowFactory({
-      taskHint,
-      browserLifecycle,
-      logger,
-      cdpEndpoint: config.cdpEndpoint,
-      observeTimeoutMs: config.observeTimeoutMs,
-      artifactsDir: config.artifactsDir,
-      createRunId,
-      sopAssetRootDir: config.sopAssetRootDir,
-    });
+  const observeWorkflowFactory = createObserveWorkflowFactory({
+    browserLifecycle,
+    logger,
+    cdpEndpoint: config.cdpEndpoint,
+    observeTimeoutMs: config.observeTimeoutMs,
+    artifactsDir: config.artifactsDir,
+    createRunId,
+    sopAssetRootDir: config.sopAssetRootDir,
+  });
 
   return {
     browserLifecycle,
@@ -144,44 +140,6 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     }),
     observeWorkflowFactory,
   };
-}
-
-function createObserveWorkflowFactory(options: {
-  taskHint: string;
-  browserLifecycle: BrowserLifecycle;
-  logger: RuntimeLogger;
-  cdpEndpoint: string;
-  observeTimeoutMs: number;
-  artifactsDir: string;
-  createRunId: () => string;
-  sopAssetRootDir: string;
-}): ObserveWorkflow {
-  const observeExecutor = new ObserveExecutor({
-    logger: options.logger,
-    cdpEndpoint: options.cdpEndpoint,
-    observeTimeoutMs: options.observeTimeoutMs,
-    artifactsDir: options.artifactsDir,
-    createRunId: options.createRunId,
-    sopRecorder: new SopDemonstrationRecorder(),
-    sopAssetRootDir: options.sopAssetRootDir,
-    createRecorder: () => new PlaywrightDemonstrationRecorder(),
-  });
-
-  return createObserveWorkflow({
-    browserLifecycle: {
-      start: async () => {
-        await options.browserLifecycle.start();
-      },
-      stop: async () => {
-        await options.browserLifecycle.stop();
-      },
-      prepareObserveSession: async () => {
-        await options.browserLifecycle.prepareObserveSession();
-      },
-    },
-    observeExecutor,
-    taskHint: options.taskHint,
-  });
 }
 
 function createRunIdFactory(): () => string {

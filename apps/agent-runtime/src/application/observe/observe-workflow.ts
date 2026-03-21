@@ -8,7 +8,7 @@ import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import type { ObserveExecutor } from "./observe-executor.js";
 
 export interface ObserveWorkflowBrowserLifecycle {
-  start(): Promise<void>;
+  start(): Promise<unknown>;
   stop(): Promise<void>;
   prepareObserveSession(): Promise<void>;
 }
