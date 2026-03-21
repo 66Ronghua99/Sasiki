@@ -47,6 +47,15 @@ This spec defines a light-weight telemetry model that separates:
 
 without turning the runtime into a full event-sourced system.
 
+Non-normative reference:
+
+- `pi-mono` shows a useful split between a fine-grained low-level agent event stream, a very thin app-level event bus, and append-only session persistence:
+  - [`packages/agent/src/agent-loop.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/agent/src/agent-loop.ts)
+  - [`packages/agent/src/types.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/agent/src/types.ts)
+  - [`packages/coding-agent/src/core/event-bus.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/event-bus.ts)
+  - [`packages/coding-agent/src/core/agent-session.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/agent-session.ts)
+  - [`packages/coding-agent/src/core/session-manager.ts`](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts)
+
 ## Success
 
 - assistant `thinking` / `text` is visible in the terminal during refine execution without waiting for final artifact flush
@@ -86,6 +95,8 @@ That is enough for end-of-run summaries, but not enough for:
 - real-time operator visibility
 - stable machine-consumable run truth
 - key-turn checkpoint emission
+
+The strongest external pattern match is that `pi-mono` does not invent a heavy runtime bus below the agent loop. It exposes low-level `AgentEvent` facts and lets upper layers serialize, persist, and react to them in order. That is the correct direction here as well.
 
 ### 3. Artifact Output Has Redundant Run Projections
 
@@ -251,6 +262,26 @@ Important boundaries:
 - `RuntimeEventBus` is not a global application event bus
 - `RunTelemetry` is per run, scoped by workflow and run id
 - `RunArtifactRegistry` is a run-scoped persistence surface, not a general-purpose repository registry
+- the event bus should stay as thin as `emit/on/clear` plus lifecycle cleanup, similar to `pi-mono`'s coding-agent layer
+- low-level event richness should come from `AgentLoop` event emission, not from bus-specific abstractions
+
+### Ordered Async Dispatch
+
+The telemetry layer must preserve event order across terminal and artifact sinks.
+
+Borrow the same operational idea used in `pi-mono`'s `AgentSession`:
+
+- agent events are received synchronously from the agent loop
+- sink processing is serialized through an internal async queue
+- user-visible listeners may still remain lightweight, but canonical persistence must observe the same event order the run produced
+
+This prevents races such as:
+
+- terminal showing a tool end before the corresponding assistant text is flushed
+- event stream rows arriving out of order under async sink work
+- checkpoint emission seeing incomplete turn state
+
+The design goal is not "parallel sink throughput". The design goal is "append-only truth in run order".
 
 ## Runtime Event Model
 
@@ -303,6 +334,10 @@ Guardrails:
 - do not mirror every internal object graph into the event model
 - do not require every derived artifact to emit its own distinct event family
 - only promote events that are stable enough to be useful for telemetry, replay prep, or machine consumption
+- preserve the low-level/upper-level split:
+  - `AgentLoop` emits stable runtime facts
+  - telemetry sinks decide how to display or persist them
+  - business artifacts such as knowledge promotion remain higher-level semantics layered on top
 
 ## Terminal Monitoring Policy
 
@@ -329,6 +364,16 @@ For refine, the canonical per-run artifact should become:
 - `event_stream.jsonl`
 
 This file is appended during runtime and remains the durable run truth for monitoring-derived analysis and future replay/debug tooling.
+
+It should behave as an append-only journal, not as a final-write snapshot file.
+
+Append-only rules:
+
+- rows are appended in event order during execution
+- sinks do not rewrite previous rows for normal operation
+- end-of-run summary generation may read from the stream, but should not be required for the stream to remain valid
+
+This aligns well with the session journal pattern used by `pi-mono`'s `SessionManager`, while keeping our artifact surface smaller and more workflow-focused.
 
 ### Retained Machine-Consumable Outputs
 
@@ -414,6 +459,12 @@ Checkpoint policy:
 
 The all-turn mode must be wired from day one, even if only used in debugging.
 
+Checkpoint semantics should follow the same layering rule:
+
+- event stream is the base run truth
+- checkpoint is a curated repro artifact derived from one turn boundary
+- attention knowledge and compact outputs remain business artifacts, not generic event-bus payloads
+
 ## Workflow Responsibilities After Refactor
 
 ### `AgentLoop`
@@ -422,6 +473,7 @@ The all-turn mode must be wired from day one, even if only used in debugging.
 
 - emit structured runtime events as assistant/tool lifecycle facts happen
 - remain responsible for deriving stable step/turn semantics from `pi-agent` events
+- preserve fine-grained assistant streaming semantics such as partial thinking/text updates where useful
 - stop owning terminal presentation choices
 
 `AgentLoop` should not:
@@ -445,6 +497,7 @@ Refine should not:
 
 - instantiate telemetry sinks locally
 - own the decision of whether all-turn checkpoint capture is enabled
+- turn knowledge promotion or checkpoint writing into side effects that bypass the event stream and telemetry queue
 
 ### `observe`
 
@@ -469,6 +522,7 @@ This refactor should land in small slices.
 - add a run-scoped event bus
 - wire `AgentLoop` assistant/tool events into it
 - stream assistant `thinking` / `text` to terminal in `agent` mode
+- introduce ordered async dispatch so sinks process events deterministically
 
 ### Slice 3: Introduce Canonical Event Stream Artifact
 
@@ -510,6 +564,10 @@ Mitigation:
 - keep the event families small
 - keep one registry, one event bus, and a small set of sinks
 - avoid introducing workflow-agnostic repository abstractions that are not immediately needed
+- prefer the `pi-mono` shape:
+  - rich low-level agent events
+  - thin bus
+  - append-only persistence at stable boundaries
 
 ### 2. Event Stream Becoming Another Duplicate Layer
 
