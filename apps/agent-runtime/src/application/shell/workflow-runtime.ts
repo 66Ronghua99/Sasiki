@@ -40,9 +40,9 @@ export interface RuntimeHostLike<T> {
 
 export class WorkflowRuntime {
   private readonly browserLifecycle: BrowserLifecycle;
-  private readonly agentRuntime: RuntimeComposition["agentRuntime"];
   private readonly observeRuntime: RuntimeComposition["observeRuntime"];
   private readonly observeWorkflowFactory: RuntimeComposition["observeWorkflowFactory"];
+  private readonly refineWorkflowFactory: RuntimeComposition["refineWorkflowFactory"];
   private readonly createWorkflowRegistry: typeof createWorkflowRegistry;
   private readonly createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => RuntimeHostLike<T>;
   private activeHost: RuntimeHostLike<unknown> | null = null;
@@ -51,9 +51,9 @@ export class WorkflowRuntime {
   constructor(config: RuntimeConfig, dependencies: WorkflowRuntimeDependencies = {}) {
     const composition = (dependencies.createRuntimeComposition ?? createRuntimeComposition)(config);
     this.browserLifecycle = composition.browserLifecycle;
-    this.agentRuntime = composition.agentRuntime;
     this.observeRuntime = composition.observeRuntime;
     this.observeWorkflowFactory = composition.observeWorkflowFactory;
+    this.refineWorkflowFactory = composition.refineWorkflowFactory;
     this.createWorkflowRegistry = dependencies.createWorkflowRegistry ?? createWorkflowRegistry;
     this.createRuntimeHost =
       dependencies.createRuntimeHost ?? ((workflow) => new RuntimeHost({ workflow }));
@@ -63,7 +63,7 @@ export class WorkflowRuntime {
     const registry = this.createWorkflowRegistry({
       observe: () => this.observeWorkflowFactory(request.task),
       refine: () =>
-        this.createRefineWorkflow({
+        this.refineWorkflowFactory({
           task: request.task,
           resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
         }),
@@ -111,7 +111,6 @@ export class WorkflowRuntime {
     if (await this.observeRuntime.requestInterrupt(signalName)) {
       return;
     }
-    await this.agentRuntime.requestInterrupt(signalName);
   }
 
   async stop(): Promise<void> {
@@ -139,29 +138,5 @@ export class WorkflowRuntime {
         this.activeWorkflow = null;
       }
     }
-  }
-
-  private createRefineWorkflow(request: Pick<AgentRunRequest, "task" | "resumeRunId">): HostedWorkflow<AgentRunResult> {
-    return {
-      prepare: async () => {
-        await this.browserLifecycle.start();
-        await this.agentRuntime.start();
-      },
-      execute: async () =>
-        this.agentRuntime.run({
-          task: request.task,
-          resumeRunId: request.resumeRunId,
-        }),
-      requestInterrupt: async (signalName) => {
-        if (await this.observeRuntime.requestInterrupt(signalName)) {
-          return true;
-        }
-        return this.agentRuntime.requestInterrupt(signalName);
-      },
-      dispose: async () => {
-        await this.agentRuntime.stop();
-        await this.browserLifecycle.stop();
-      },
-    };
   }
 }

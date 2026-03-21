@@ -4,7 +4,10 @@ import test from "node:test";
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contracts/tool-client.js";
 import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../src/domain/attention-knowledge.js";
 import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
-import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
+import {
+  createBootstrapRefineReactToolClient,
+  RefineReactToolClient,
+} from "../../src/application/refine/refine-react-tool-client.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
@@ -180,6 +183,16 @@ function readScreenshotOutputArg(args: Record<string, unknown>): string | undefi
   }
   return undefined;
 }
+
+test("refine tool client module owns bootstrap tool-surface construction", () => {
+  const client = createBootstrapRefineReactToolClient(new StubRawToolClient());
+  const session = client.getSession();
+
+  assert.equal(client instanceof RefineReactToolClient, true);
+  assert.equal(session.runId, "bootstrap");
+  assert.equal(session.task, "bootstrap");
+  assert.equal(session.taskScope, "bootstrap");
+});
 
 test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {
   const raw = new StubRawToolClient();

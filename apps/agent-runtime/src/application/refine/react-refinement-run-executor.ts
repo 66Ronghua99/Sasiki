@@ -230,3 +230,9 @@ export class ReactRefinementRunExecutor {
     };
   }
 }
+
+export function createReactRefinementRunExecutor(
+  options: ReactRefinementRunExecutorOptions
+): ReactRefinementRunExecutor {
+  return new ReactRefinementRunExecutor(options);
+}

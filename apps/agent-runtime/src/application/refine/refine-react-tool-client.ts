@@ -7,7 +7,7 @@ import type { ToolCallResult, ToolClient, ToolDefinition } from "../../contracts
 import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../domain/attention-knowledge.js";
 import type { ObserveQueryRequest, RefineFinishReason } from "../../domain/refine-react.js";
 import { REFINE_REACT_TOOL_NAMES } from "../../domain/refine-react.js";
-import type { RefineReactSession } from "./refine-react-session.js";
+import { createRefineReactSession, type RefineReactSession } from "./refine-react-session.js";
 import { RefineBrowserTools } from "./refine-browser-tools.js";
 import { RefineRuntimeTools, type HitlAnswerProvider } from "./refine-runtime-tools.js";
 
@@ -388,4 +388,11 @@ export class RefineReactToolClient implements ToolClient {
       normalizedPath: normalizedPath.trim(),
     };
   }
+}
+
+export function createBootstrapRefineReactToolClient(rawClient: ToolClient): RefineReactToolClient {
+  return new RefineReactToolClient({
+    rawClient,
+    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  });
 }

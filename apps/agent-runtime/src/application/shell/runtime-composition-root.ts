@@ -3,21 +3,16 @@
  * Used By: application/shell/workflow-runtime.ts
  * Last Updated: 2026-03-21
  */
-import { AgentLoop } from "../../kernel/agent-loop.js";
 import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-launcher.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
-import { AgentExecutionRuntime } from "../../runtime/agent-execution-runtime.js";
 import { createObserveRuntime } from "../observe/observe-runtime.js";
 import type { ObserveRuntime } from "../observe/observe-runtime.js";
 import type { ObserveWorkflow } from "../observe/observe-workflow.js";
 import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
-import { ExecutionContextProvider } from "../providers/execution-context-provider.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
-import { RefineRunBootstrapProvider } from "../refine/refine-run-bootstrap-provider.js";
-import { ToolSurfaceProvider } from "../providers/tool-surface-provider.js";
-import { ReactRefinementRunExecutor } from "../refine/react-refinement-run-executor.js";
+import { createRefineWorkflowFactory, type RefineWorkflow, type RefineWorkflowRequest } from "../refine/refine-workflow.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 
 export interface RuntimeCompositionPlanInput {
@@ -40,9 +35,9 @@ export interface BrowserLifecycle {
 
 export interface RuntimeComposition {
   browserLifecycle: BrowserLifecycle;
-  agentRuntime: AgentExecutionRuntime;
   observeRuntime: ObserveRuntime;
   observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
+  refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
 }
 
 export function planRuntimeComposition(input: RuntimeCompositionPlanInput): RuntimeCompositionPlan {
@@ -56,7 +51,6 @@ export function planRuntimeComposition(input: RuntimeCompositionPlanInput): Runt
 
 export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposition {
   const plan = planRuntimeComposition(config);
-  const promptProvider = new PromptProvider();
   const logger = new RuntimeLogger();
   const browserLifecycle = new CdpBrowserLauncher(
     {
@@ -86,42 +80,8 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     },
   });
 
-  const toolSurface = new ToolSurfaceProvider().select({ rawClient: rawToolClient });
-
   const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
-  const executionContextProvider = new ExecutionContextProvider();
-  const refinementContext = executionContextProvider.createRefinementContext(config);
-
-  const runLoop = new AgentLoop(
-    {
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      thinkingLevel: config.thinkingLevel,
-      systemPrompt: plan.prompts.refineSystemPrompt,
-    },
-    toolSurface.runToolClient,
-    logger
-  );
-
   const createRunId = createRunIdFactory();
-  const runExecutor = new ReactRefinementRunExecutor({
-    loop: runLoop,
-    logger,
-    artifactsDir: config.artifactsDir,
-    maxTurns: config.refinementMaxRounds,
-    toolClient: toolSurface.refineToolClient,
-    hitlController,
-    knowledgeStore: refinementContext.knowledgeStore,
-    bootstrapProvider: new RefineRunBootstrapProvider({
-      createRunId,
-      guidanceLoader: refinementContext.guidanceLoader,
-      hitlResumeStore: refinementContext.hitlResumeStore,
-      promptProvider,
-      knowledgeTopN: config.refinementKnowledgeTopN,
-    }),
-  });
-
   const observeWorkflowFactory = createObserveWorkflowFactory({
     browserLifecycle,
     logger,
@@ -131,14 +91,23 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     createRunId,
     sopAssetRootDir: config.sopAssetRootDir,
   });
+  const refineWorkflowFactory = createRefineWorkflowFactory({
+    browserLifecycle,
+    logger,
+    rawToolClient,
+    hitlController,
+    createRunId,
+    config,
+    refineSystemPrompt: plan.prompts.refineSystemPrompt,
+  });
 
   return {
     browserLifecycle,
-    agentRuntime: new AgentExecutionRuntime({ loop: runLoop, runExecutor }),
     observeRuntime: createObserveRuntime({
       createWorkflow: observeWorkflowFactory,
     }),
     observeWorkflowFactory,
+    refineWorkflowFactory,
   };
 }
 

@@ -59,6 +59,36 @@ function createObserveWorkflowFactory(
   });
 }
 
+function createRefineWorkflowFactory(
+  events: string[]
+): (request: { task: string; resumeRunId?: string }) => HostedWorkflow<{ task: string; status: string; finishReason: string; steps: []; mcpCalls: []; assistantTurns: [] }> {
+  return (request) => ({
+    prepare: async () => {
+      events.push("browser.start");
+      events.push("agent.start");
+    },
+    execute: async () => {
+      events.push(`agent.run:${request.task}`);
+      return {
+        task: request.task,
+        status: "completed",
+        finishReason: "goal achieved",
+        steps: [],
+        mcpCalls: [],
+        assistantTurns: [],
+      };
+    },
+    requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => {
+      events.push(`refine.requestInterrupt:${signal}`);
+      return true;
+    },
+    dispose: async () => {
+      events.push("agent.stop");
+      events.push("browser.stop");
+    },
+  });
+}
+
 test("workflow runtime dispatches observe through the shared registry and host path", async () => {
   const events: string[] = [];
   let registryFactoryKeys: string[] = [];
@@ -77,26 +107,6 @@ test("workflow runtime dispatches observe through the shared registry and host p
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: {
-          start: async () => {
-            events.push("agent.start");
-          },
-          run: async () => {
-            events.push("agent.run");
-            return {
-              task: "observe me",
-              status: "completed",
-              finishReason: "goal achieved",
-              steps: [],
-              mcpCalls: [],
-              assistantTurns: [],
-            };
-          },
-          requestInterrupt: async () => false,
-          stop: async () => {
-            events.push("agent.stop");
-          },
-        },
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -104,6 +114,7 @@ test("workflow runtime dispatches observe through the shared registry and host p
           requestInterrupt: async () => false,
         },
         observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
@@ -169,26 +180,6 @@ test("workflow runtime dispatches refine through the shared registry and host pa
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: {
-          start: async () => {
-            events.push("agent.start");
-          },
-          run: async (request) => {
-            events.push(`agent.run:${request.task}`);
-            return {
-              task: request.task,
-              status: "completed",
-              finishReason: "goal achieved",
-              steps: [],
-              mcpCalls: [],
-              assistantTurns: [],
-            };
-          },
-          requestInterrupt: async () => false,
-          stop: async () => {
-            events.push("agent.stop");
-          },
-        },
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -196,6 +187,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
           requestInterrupt: async () => false,
         },
         observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
@@ -262,26 +254,6 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: {
-          start: async () => {
-            events.push("agent.start");
-          },
-          run: async () => {
-            events.push("agent.run");
-            return {
-              task: "observe me",
-              status: "completed",
-              finishReason: "goal achieved",
-              steps: [],
-              mcpCalls: [],
-              assistantTurns: [],
-            };
-          },
-          requestInterrupt: async () => false,
-          stop: async () => {
-            events.push("agent.stop");
-          },
-        },
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -293,6 +265,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
           },
         },
         observeWorkflowFactory: createObserveWorkflowFactory(events, { prepareGate }),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
       }) as never,
     createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
       return {
@@ -347,26 +320,6 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             events.push("browser.prepareObserveSession");
           },
         },
-        agentRuntime: {
-          start: async () => {
-            events.push("agent.start");
-          },
-          run: async () => {
-            events.push("agent.run");
-            return {
-              task: "observe me",
-              status: "completed",
-              finishReason: "goal achieved",
-              steps: [],
-              mcpCalls: [],
-              assistantTurns: [],
-            };
-          },
-          requestInterrupt: async () => false,
-          stop: async () => {
-            events.push("agent.stop");
-          },
-        },
         observeRuntime: {
           observe: async () => {
             throw new Error("observe should use the shared shell host path");
@@ -378,6 +331,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
           },
         },
         observeWorkflowFactory: createObserveWorkflowFactory(events, { disposeGate }),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
       }) as never,
     createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
       return {

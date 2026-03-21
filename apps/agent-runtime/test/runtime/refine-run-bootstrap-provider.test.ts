@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
+import type { RuntimeConfig } from "../../src/application/config/runtime-config.js";
 import type { AgentRunRequest } from "../../src/domain/agent-types.js";
-import { RefineRunBootstrapProvider } from "../../src/application/refine/refine-run-bootstrap-provider.js";
+import type { AttentionKnowledge } from "../../src/domain/attention-knowledge.js";
+import {
+  createRefinePersistenceContext,
+  RefineRunBootstrapProvider,
+} from "../../src/application/refine/refine-run-bootstrap-provider.js";
 
 interface ResumeRecord {
   runId: string;
@@ -21,6 +29,89 @@ function buildRequest(overrides: Partial<AgentRunRequest> = {}): AgentRunRequest
     ...overrides,
   };
 }
+
+function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
+  return {
+    configPath: undefined,
+    mcpCommand: "npx",
+    mcpArgs: ["@playwright/mcp@latest"],
+    mcpEnv: {},
+    cdpEndpoint: "http://localhost:9222",
+    launchCdp: false,
+    cdpUserDataDir: "~/.sasiki/chrome_profile",
+    cdpResetPagesOnLaunch: true,
+    cdpHeadless: false,
+    cdpInjectCookies: true,
+    cdpCookiesDir: "~/.sasiki/cookies",
+    cdpPreferSystemBrowser: true,
+    cdpExecutablePath: undefined,
+    cdpStartupTimeoutMs: 30000,
+    model: "openai/gpt-4o-mini",
+    apiKey: "test-key",
+    baseUrl: undefined,
+    thinkingLevel: "minimal",
+    artifactsDir: path.join(process.cwd(), "artifacts", "test-refine-bootstrap-context"),
+    runSystemPrompt: undefined,
+    refineSystemPrompt: undefined,
+    observeTimeoutMs: 120000,
+    sopAssetRootDir: path.join(process.cwd(), "artifacts", "test-refine-bootstrap-context", "sop-assets"),
+    semanticMode: "auto",
+    semanticTimeoutMs: 12000,
+    hitlEnabled: false,
+    hitlRetryLimit: 2,
+    hitlMaxInterventions: 1,
+    refinementEnabled: false,
+    refinementMode: "filtered_view",
+    refinementMaxRounds: 12,
+    refinementTokenBudget: 1000,
+    refinementKnowledgeTopN: 8,
+    ...overrides,
+  };
+}
+
+test("refine bootstrap module owns persistence context wiring under artifacts", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-bootstrap-context-"));
+  const context = createRefinePersistenceContext(
+    buildRuntimeConfig({
+      artifactsDir: path.join(tmpRoot, "artifacts"),
+      sopAssetRootDir: path.join(tmpRoot, "sop-assets"),
+    })
+  );
+
+  const knowledge: AttentionKnowledge = {
+    id: "knowledge-1",
+    sourceRunId: "run-1",
+    taskScope: "search",
+    page: {
+      origin: "https://example.com",
+      normalizedPath: "/",
+    },
+    category: "keep",
+    cue: "keep the hero button visible",
+    sourceObservationRef: "obs-1",
+    promotedAt: new Date("2026-03-21T00:00:01.000Z").toISOString(),
+  };
+  await context.knowledgeStore.append([knowledge]);
+  const loaded = await context.guidanceLoader.load({
+    taskScope: "search",
+    page: {
+      origin: "https://example.com",
+      normalizedPath: "/",
+    },
+  });
+
+  const resumePath = await context.hitlResumeStore.save({
+    runId: "run-1",
+    task: "save this page",
+    prompt: "resume prompt",
+    resumeToken: "resume-token",
+    createdAt: new Date("2026-03-21T00:00:02.000Z").toISOString(),
+  });
+
+  assert.equal(loaded.records.length, 1);
+  assert.match(loaded.guidance, /keep the hero button visible/);
+  assert.equal(resumePath, path.join(tmpRoot, "artifacts", "run-1", "hitl_resume.json"));
+});
 
 test("refine bootstrap provider loads resume context, pre-observes the page, loads guidance, and assembles prompt through prompt provider", async () => {
   const promptCalls: Array<Record<string, unknown>> = [];

@@ -88,19 +88,33 @@ test("createRuntimeComposition builds runtime services and observe workflow wiri
   );
 
   assert.equal(typeof compatConfig.browserLifecycle.start, "function");
-  assert.equal(typeof compatConfig.agentRuntime.run, "function");
   assert.equal(typeof compatConfig.observeRuntime.observe, "function");
   assert.equal(typeof compatConfig.observeRuntime.requestInterrupt, "function");
   assert.equal(typeof compatConfig.observeWorkflowFactory, "function");
+  assert.equal(typeof compatConfig.refineWorkflowFactory, "function");
   assert.equal(compatConfig.observeRuntime instanceof ObserveRuntime, true);
 
   assert.equal(typeof refine.browserLifecycle.start, "function");
-  assert.equal(typeof refine.agentRuntime.run, "function");
   assert.equal(typeof refine.observeRuntime.observe, "function");
   assert.equal(typeof refine.observeRuntime.requestInterrupt, "function");
   assert.equal(typeof refine.observeWorkflowFactory, "function");
+  assert.equal(typeof refine.refineWorkflowFactory, "function");
   assert.equal(refine.observeRuntime instanceof ObserveRuntime, true);
 
-  await compatConfig.agentRuntime.stop();
-  await refine.agentRuntime.stop();
+  const compatWorkflow = compatConfig.refineWorkflowFactory({
+    task: "refine me",
+  });
+  const refineWorkflow = refine.refineWorkflowFactory({
+    task: "refine me too",
+    resumeRunId: "resume-run",
+  });
+
+  assert.equal(typeof compatWorkflow.prepare, "function");
+  assert.equal(typeof compatWorkflow.execute, "function");
+  assert.equal(typeof compatWorkflow.requestInterrupt, "function");
+  assert.equal(typeof compatWorkflow.dispose, "function");
+  assert.equal(typeof refineWorkflow.prepare, "function");
+  assert.equal(typeof refineWorkflow.execute, "function");
+  assert.equal(typeof refineWorkflow.requestInterrupt, "function");
+  assert.equal(typeof refineWorkflow.dispose, "function");
 });
