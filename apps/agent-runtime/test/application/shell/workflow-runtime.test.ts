@@ -19,7 +19,47 @@ function createDeferred<T = void>() {
   return { promise, resolve, reject };
 }
 
-test("workflow runtime delegates observe directly to observe runtime", async () => {
+function createObserveWorkflowFactory(
+  events: string[],
+  options: {
+    taskHintSuffix?: string;
+    prepareGate?: ReturnType<typeof createDeferred<void>>;
+    disposeGate?: ReturnType<typeof createDeferred<void>>;
+  } = {}
+): (taskHint: string) => HostedWorkflow<{ mode: "observe"; taskHint: string; runId: string; status: string; finishReason: string; artifactsDir: string }> {
+  return (taskHint: string) => ({
+    prepare: async () => {
+      events.push("browser.start");
+      events.push("browser.prepareObserveSession");
+      if (options.prepareGate) {
+        await options.prepareGate.promise;
+      }
+    },
+    execute: async () => {
+      events.push(`observe.execute:${taskHint}`);
+      return {
+        runId: "observe-run",
+        mode: "observe",
+        taskHint,
+        status: "completed",
+        finishReason: "observe_timeout_reached",
+        artifactsDir: "/tmp/observe",
+      };
+    },
+    requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => {
+      events.push(`observe.requestInterrupt:${signal}`);
+      return true;
+    },
+    dispose: async () => {
+      events.push("browser.stop");
+      if (options.disposeGate) {
+        await options.disposeGate.promise;
+      }
+    },
+  });
+}
+
+test("workflow runtime dispatches observe through the shared registry and host path", async () => {
   const events: string[] = [];
   let registryFactoryKeys: string[] = [];
 
@@ -58,19 +98,12 @@ test("workflow runtime delegates observe directly to observe runtime", async () 
           },
         },
         observeRuntime: {
-          observe: async (taskHint: string) => {
-            events.push(`observeRuntime.observe:${taskHint}`);
-            return {
-              runId: "observe-run",
-              mode: "observe",
-              taskHint,
-              status: "completed",
-              finishReason: "observe_timeout_reached",
-              artifactsDir: "/tmp/observe",
-            };
+          observe: async () => {
+            throw new Error("observe should use the shared shell host path");
           },
           requestInterrupt: async () => false,
         },
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
@@ -80,8 +113,22 @@ test("workflow runtime delegates observe directly to observe runtime", async () 
         },
       };
     },
-    createRuntimeHost: () => {
-      throw new Error("observe should not use the shell runtime host");
+    createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
+      return {
+        start: async () => {
+          events.push("host.start");
+          await workflow.prepare();
+        },
+        execute: async () => {
+          events.push("host.execute");
+          return workflow.execute();
+        },
+        requestInterrupt: async (signal: "SIGINT" | "SIGTERM") => workflow.requestInterrupt(signal),
+        dispose: async () => {
+          events.push("host.dispose");
+          await workflow.dispose();
+        },
+      };
     },
   });
 
@@ -90,11 +137,17 @@ test("workflow runtime delegates observe directly to observe runtime", async () 
     task: "observe me",
   });
 
-  assert.deepEqual(registryFactoryKeys, []);
+  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
   assert.equal(result.mode, "observe");
   assert.equal(result.taskHint, "observe me");
   assert.deepEqual(events, [
-    "observeRuntime.observe:observe me",
+    "host.start",
+    "browser.start",
+    "browser.prepareObserveSession",
+    "host.execute",
+    "observe.execute:observe me",
+    "host.dispose",
+    "browser.stop",
   ]);
 });
 
@@ -137,19 +190,12 @@ test("workflow runtime dispatches refine through the shared registry and host pa
           },
         },
         observeRuntime: {
-          observe: async (taskHint: string) => {
-            events.push(`observeRuntime.observe:${taskHint}`);
-            return {
-              runId: "observe-run",
-              mode: "observe",
-              taskHint,
-              status: "completed",
-              finishReason: "observe_timeout_reached",
-              artifactsDir: "/tmp/observe",
-            };
+          observe: async () => {
+            throw new Error("observe should use the shared shell host path");
           },
           requestInterrupt: async () => false,
         },
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
       }) as never,
     createWorkflowRegistry: (factories) => {
       registryFactoryKeys = Object.keys(factories).sort();
@@ -183,7 +229,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
     task: "refine me",
   });
 
-  assert.deepEqual(registryFactoryKeys, ["refine"]);
+  assert.deepEqual(registryFactoryKeys, ["observe", "refine"]);
   assert.equal(result.task, "refine me");
   assert.deepEqual(events, [
     "host.start",
@@ -237,16 +283,8 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
           },
         },
         observeRuntime: {
-          observe: async (taskHint: string) => {
-            events.push(`observeRuntime.observe:${taskHint}`);
-            return {
-              runId: "observe-run",
-              mode: "observe",
-              taskHint,
-              status: "completed",
-              finishReason: "observe_timeout_reached",
-              artifactsDir: "/tmp/observe",
-            };
+          observe: async () => {
+            throw new Error("observe should use the shared shell host path");
           },
           requestInterrupt: async (signal) => {
             interruptCalls += 1;
@@ -254,13 +292,13 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             return true;
           },
         },
+        observeWorkflowFactory: createObserveWorkflowFactory(events, { prepareGate }),
       }) as never,
     createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
       return {
         start: async () => {
           events.push("host.start");
           await workflow.prepare();
-          await prepareGate.promise;
         },
         execute: async () => {
           events.push("host.execute");
@@ -287,7 +325,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
   await execution;
 
   assert.equal(interruptCalls, 1);
-  assert.ok(events.includes("observeRuntime.requestInterrupt:SIGINT"));
+  assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
 });
 
 test("workflow runtime falls through to underlying interrupt handlers while observe is still disposing", async () => {
@@ -330,16 +368,8 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
           },
         },
         observeRuntime: {
-          observe: async (taskHint: string) => {
-            events.push(`observeRuntime.observe:${taskHint}`);
-            return {
-              runId: "observe-run",
-              mode: "observe",
-              taskHint,
-              status: "completed",
-              finishReason: "observe_timeout_reached",
-              artifactsDir: "/tmp/observe",
-            };
+          observe: async () => {
+            throw new Error("observe should use the shared shell host path");
           },
           requestInterrupt: async (signal) => {
             interruptCalls += 1;
@@ -347,6 +377,7 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
             return true;
           },
         },
+        observeWorkflowFactory: createObserveWorkflowFactory(events, { disposeGate }),
       }) as never,
     createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => {
       return {
@@ -381,5 +412,5 @@ test("workflow runtime falls through to underlying interrupt handlers while obse
   await execution;
 
   assert.equal(interruptCalls, 1);
-  assert.ok(events.includes("observeRuntime.requestInterrupt:SIGINT"));
+  assert.ok(events.includes("observe.requestInterrupt:SIGINT"));
 });

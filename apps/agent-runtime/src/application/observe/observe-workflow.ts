@@ -8,6 +8,8 @@ import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import type { ObserveExecutor } from "./observe-executor.js";
 
 export interface ObserveWorkflowBrowserLifecycle {
+  start(): Promise<void>;
+  stop(): Promise<void>;
   prepareObserveSession(): Promise<void>;
 }
 
@@ -29,6 +31,7 @@ export class ObserveWorkflow implements HostedWorkflow<ObserveRunResult> {
   }
 
   async prepare(): Promise<void> {
+    await this.browserLifecycle.start();
     await this.browserLifecycle.prepareObserveSession();
   }
 
@@ -41,7 +44,7 @@ export class ObserveWorkflow implements HostedWorkflow<ObserveRunResult> {
   }
 
   async dispose(): Promise<void> {
-    return;
+    await this.browserLifecycle.stop();
   }
 }
 

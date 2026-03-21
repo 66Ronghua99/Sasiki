@@ -42,34 +42,38 @@ export class WorkflowRuntime {
   private readonly browserLifecycle: BrowserLifecycle;
   private readonly agentRuntime: RuntimeComposition["agentRuntime"];
   private readonly observeRuntime: RuntimeComposition["observeRuntime"];
+  private readonly observeWorkflowFactory: RuntimeComposition["observeWorkflowFactory"];
   private readonly createWorkflowRegistry: typeof createWorkflowRegistry;
   private readonly createRuntimeHost: <T>(workflow: HostedWorkflow<T>) => RuntimeHostLike<T>;
   private activeHost: RuntimeHostLike<unknown> | null = null;
+  private activeWorkflow: HostedWorkflow<unknown> | null = null;
 
   constructor(config: RuntimeConfig, dependencies: WorkflowRuntimeDependencies = {}) {
     const composition = (dependencies.createRuntimeComposition ?? createRuntimeComposition)(config);
     this.browserLifecycle = composition.browserLifecycle;
     this.agentRuntime = composition.agentRuntime;
     this.observeRuntime = composition.observeRuntime;
+    this.observeWorkflowFactory = composition.observeWorkflowFactory;
     this.createWorkflowRegistry = dependencies.createWorkflowRegistry ?? createWorkflowRegistry;
     this.createRuntimeHost =
       dependencies.createRuntimeHost ?? ((workflow) => new RuntimeHost({ workflow }));
   }
 
   async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult> {
-    if (request.command === "observe") {
-      return this.observeRuntime.observe(request.task);
-    }
     const registry = this.createWorkflowRegistry({
+      observe: () => this.observeWorkflowFactory(request.task),
       refine: () =>
         this.createRefineWorkflow({
           task: request.task,
-          resumeRunId: request.resumeRunId,
+          resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
         }),
     });
     const factory = registry.resolve(request.command);
     if (!factory) {
       throw new Error(`missing workflow factory for command: ${request.command}`);
+    }
+    if (request.command === "observe") {
+      return this.executeWorkflow<ObserveRunResult>(factory as () => HostedWorkflow<ObserveRunResult>);
     }
     return this.executeWorkflow<AgentRunResult>(factory as () => HostedWorkflow<AgentRunResult>);
   }
@@ -99,6 +103,11 @@ export class WorkflowRuntime {
         return;
       }
     }
+    if (this.activeWorkflow) {
+      if (await this.activeWorkflow.requestInterrupt(signalName)) {
+        return;
+      }
+    }
     if (await this.observeRuntime.requestInterrupt(signalName)) {
       return;
     }
@@ -114,8 +123,10 @@ export class WorkflowRuntime {
   }
 
   private async executeWorkflow<T>(workflowFactory: () => HostedWorkflow<T>): Promise<T> {
-    const host = this.createRuntimeHost(workflowFactory());
+    const workflow = workflowFactory();
+    const host = this.createRuntimeHost(workflow);
     this.activeHost = host as RuntimeHostLike<unknown>;
+    this.activeWorkflow = workflow as HostedWorkflow<unknown>;
     try {
       await host.start();
       return await host.execute();
@@ -123,6 +134,9 @@ export class WorkflowRuntime {
       await host.dispose();
       if (this.activeHost === host) {
         this.activeHost = null;
+      }
+      if (this.activeWorkflow === workflow) {
+        this.activeWorkflow = null;
       }
     }
   }

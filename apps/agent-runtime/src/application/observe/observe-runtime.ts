@@ -4,16 +4,8 @@
  * Last Updated: 2026-03-21
  */
 import type { ObserveRunResult } from "../../domain/agent-types.js";
-import type { Logger } from "../../contracts/logger.js";
-import type { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { RuntimeHost } from "../shell/runtime-host.js";
-import { ObserveExecutor } from "./observe-executor.js";
 import { ObserveWorkflow } from "./observe-workflow.js";
-import type { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
-
-type ObserveRuntimeLogger = Logger & {
-  toText(): string;
-};
 
 export interface ObserveRuntimeOptions {
   createWorkflow: (taskHint: string) => ObserveWorkflow;
@@ -52,47 +44,6 @@ export class ObserveRuntime {
   }
 }
 
-export interface ObserveRuntimeFactoryOptions {
-  logger: ObserveRuntimeLogger;
-  cdpEndpoint: string;
-  observeTimeoutMs: number;
-  artifactsDir: string;
-  createRunId: () => string;
-  sopAssetRootDir: string;
-  browserLifecycle: {
-    prepareObserveSession(): Promise<void>;
-  };
-  createSopRecorder: () => SopDemonstrationRecorder;
-  createRecorder: () => PlaywrightDemonstrationRecorder;
-  createObserveExecutor?: (options: import("./observe-executor.js").ObserveExecutorOptions) => ObserveExecutor;
-}
-
-export function createObserveRuntime(options: ObserveRuntimeFactoryOptions): ObserveRuntime {
-  return new ObserveRuntime({
-    createWorkflow: (taskHint: string) =>
-      new ObserveWorkflow({
-        browserLifecycle: options.browserLifecycle,
-        observeExecutor: options.createObserveExecutor?.({
-          logger: options.logger,
-          cdpEndpoint: options.cdpEndpoint,
-          observeTimeoutMs: options.observeTimeoutMs,
-          artifactsDir: options.artifactsDir,
-          createRunId: options.createRunId,
-          sopRecorder: options.createSopRecorder(),
-          sopAssetRootDir: options.sopAssetRootDir,
-          createRecorder: options.createRecorder,
-        }) ??
-          new ObserveExecutor({
-            logger: options.logger,
-            cdpEndpoint: options.cdpEndpoint,
-            observeTimeoutMs: options.observeTimeoutMs,
-            artifactsDir: options.artifactsDir,
-            createRunId: options.createRunId,
-            sopRecorder: options.createSopRecorder(),
-            sopAssetRootDir: options.sopAssetRootDir,
-            createRecorder: options.createRecorder,
-          }),
-        taskHint,
-      }),
-  });
+export function createObserveRuntime(options: ObserveRuntimeOptions): ObserveRuntime {
+  return new ObserveRuntime(options);
 }
