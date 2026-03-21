@@ -8,6 +8,7 @@
 - The active engineering loop is now the backward-capability cleanup pass, not the completed taxonomy migration.
 - **Cleanup Task 2 is complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted; `runtime/agent-execution-runtime.ts` is the only retained runtime file from the migration-era surface.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
+- **Cleanup Task 4 is complete**: migration docs are archived, `docs/architecture/overview.md` is now the single short architecture front door, and `apps/agent-runtime/README.md` documents only the surviving CLI surface.
 - **Task 9 is complete**: Final documentation cleanup, lint hardening, and gate closure done. The global layer-taxonomy reorganization plan is fully closed.
 - **Task 8 is complete**: `runtime/` has been narrowed to session/state/execution semantics; `runtime/agent-execution-runtime.ts` is the remaining real runtime implementation.
 - **Task 7 is complete**: refine bootstrap, prompts, tooling, orchestration, and executor ownership now live under `apps/agent-runtime/src/application/refine/`; the old `runtime/replay-refinement/*` and moved provider paths are shim-only compatibility paths.
@@ -74,7 +75,6 @@ apps/agent-runtime/src/
   - `.harness/bootstrap.toml`
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
-  - `docs/architecture/layers.md`
 - Active spec / plan:
   - `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
   - `docs/superpowers/plans/2026-03-21-backward-capability-cleanup-implementation.md`
@@ -87,8 +87,9 @@ apps/agent-runtime/src/
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
+  - `docs/architecture/layers.md`
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The active next step is the backward-capability cleanup plan, continuing with migration-doc archiving and front-door doc reset.
+- The active next step is the backward-capability cleanup plan, continuing with final gate closure and verified baseline sync.
 - See `NEXT_STEP.md` for the exact current task pointer.

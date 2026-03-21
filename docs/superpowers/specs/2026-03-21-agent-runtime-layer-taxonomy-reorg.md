@@ -1,6 +1,6 @@
 ---
 doc_type: spec
-status: active
+status: archived
 supersedes:
   - docs/superpowers/specs/2026-03-21-runtime-surface-pruning-refactor.md
   - docs/superpowers/specs/2026-03-20-executor-bootstrap-boundary-refactor.md
@@ -14,6 +14,8 @@ related:
 ---
 
 # Agent Runtime Global Layer Taxonomy Spec
+
+> Archived migration background. The current front-door architecture truth lives in `docs/architecture/overview.md`.
 
 ## Why This Spec Exists
 

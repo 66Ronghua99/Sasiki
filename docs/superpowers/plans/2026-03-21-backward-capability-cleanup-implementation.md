@@ -133,14 +133,14 @@ High-churn areas expected across this cleanup:
 - Modify: `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
 - Modify: `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
 
-- [ ] Archive or downgrade the taxonomy migration spec/plan from active front-door truth.
-- [ ] Rewrite `docs/architecture/overview.md` into the single short current-architecture entrypoint.
-- [ ] Rewrite `apps/agent-runtime/README.md` so it no longer documents deleted compatibility commands or migration-era grammars.
-- [ ] Re-scope `docs/architecture/layers.md` so it does not compete with the single front-door architecture doc.
-- [ ] Record explicit doc-health evidence that migration docs are archived and only one short architecture front door remains active.
-- [ ] Run `npm --prefix apps/agent-runtime run lint:docs`.
-- [ ] Run `npm --prefix apps/agent-runtime run lint`.
-- [ ] Run `git diff --check`.
+- [x] Archive or downgrade the taxonomy migration spec/plan from active front-door truth.
+- [x] Rewrite `docs/architecture/overview.md` into the single short current-architecture entrypoint.
+- [x] Rewrite `apps/agent-runtime/README.md` so it no longer documents deleted compatibility commands or migration-era grammars.
+- [x] Re-scope `docs/architecture/layers.md` so it does not compete with the single front-door architecture doc.
+- [x] Record explicit doc-health evidence that migration docs are archived and only one short architecture front door remains active.
+- [x] Run `npm --prefix apps/agent-runtime run lint:docs`.
+- [x] Run `npm --prefix apps/agent-runtime run lint`.
+- [x] Run `git diff --check`.
 - [ ] Commit with: `docs: archive migration truth and reset front-door docs`
 
 ### Task 5: Final Gate Closure

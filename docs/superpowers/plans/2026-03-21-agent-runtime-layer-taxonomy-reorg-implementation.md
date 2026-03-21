@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: completed
+status: archived
 implements:
   - docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md
 verified_by:
@@ -17,6 +17,8 @@ related:
 ---
 
 # Agent Runtime Layer Taxonomy Reorganization Implementation Plan
+
+> Archived migration background. The current front-door architecture truth lives in `docs/architecture/overview.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
