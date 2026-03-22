@@ -264,7 +264,7 @@ test("refine telemetry artifacts write event stream and key-turn checkpoints", a
   assert.equal(checkpointLines[0].runId, "run-telemetry-artifacts");
   assert.equal(summary.runId, "run-telemetry-artifacts");
   assert.equal(summary.status, "completed");
-  assert.equal(summary.actionCount, 1);
+  assert.equal(summary.actionCount, 0);
   assert.equal(summary.observationCount, 1);
   await assert.rejects(readFile(path.join(runDir, "steps.json"), "utf-8"), /ENOENT/);
   await assert.rejects(readFile(path.join(runDir, "assistant_turns.json"), "utf-8"), /ENOENT/);

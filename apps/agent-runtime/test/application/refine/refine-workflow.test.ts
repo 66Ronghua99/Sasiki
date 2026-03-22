@@ -8,6 +8,7 @@ import { RefineReactToolClient } from "../../../src/application/refine/refine-re
 import { createRefineReactSession } from "../../../src/application/refine/refine-react-session.js";
 import { RefineRunBootstrapProvider } from "../../../src/application/refine/refine-run-bootstrap-provider.js";
 import { createRefineWorkflowAssembly } from "../../../src/application/refine/refine-workflow.js";
+import { createRefineToolComposition } from "../../../src/application/refine/tools/refine-tool-composition.js";
 
 function createRawToolClient(): ToolClient {
   return {
@@ -25,9 +26,10 @@ function createRawToolClient(): ToolClient {
 test("refine workflow assembly owns refine tool surface, bootstrap, and executor wiring", async () => {
   const events: string[] = [];
   const rawToolClient = createRawToolClient();
-  const toolClient = new RefineReactToolClient({
-    rawClient: rawToolClient,
-    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  const bootstrapSession = createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" });
+  const composition = createRefineToolComposition({
+    rawToolClient,
+    session: bootstrapSession,
   });
   const promptProvider = { buildRefineStartPrompt: () => "prompt" };
   const persistence = {
@@ -118,10 +120,10 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       refineSystemPrompt: "refine prompt",
     },
     {
-      createBootstrapToolClient(input) {
+      createToolComposition(input) {
         assert.equal(input, rawToolClient);
-        events.push("assemble.tool-client");
-        return toolClient;
+        events.push("assemble.tool-composition");
+        return composition as never;
       },
       createPromptProvider() {
         events.push("assemble.prompt-provider");
@@ -141,19 +143,26 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       },
       createLoop(input) {
         assert.equal(input.toolClient instanceof RefineReactToolClient, true);
-        assert.equal(input.toolClient, toolClient);
         assert.equal(input.toolClient.getSession().task, "bootstrap");
         assert.equal(input.systemPrompt, "refine prompt");
         events.push("assemble.loop");
+        Object.assign(loop, {
+          setToolHookObserver(observer: unknown) {
+            assert.equal(typeof observer, "object");
+            events.push("assemble.loop-hook-observer");
+          },
+        });
         return loop as never;
       },
       createRunExecutor(input) {
         assert.equal(input.loop, loop);
         assert.equal(input.toolClient instanceof RefineReactToolClient, true);
-        assert.equal(input.toolClient, toolClient);
         assert.equal(input.knowledgeStore, persistence.knowledgeStore);
         assert.equal(input.bootstrapProvider instanceof RefineRunBootstrapProvider, true);
         assert.equal(input.telemetryRegistry, telemetryRegistry);
+        assert.equal(typeof input.toolClient.setSession, "function");
+        assert.equal(typeof input.toolClient.getSession, "function");
+        assert.equal(typeof input.toolClient.setHitlAnswerProvider, "function");
         events.push("assemble.run-executor");
         return runExecutor as never;
       },
@@ -172,11 +181,12 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
   });
 
   assert.deepEqual(events, [
-    "assemble.tool-client",
+    "assemble.tool-composition",
     "assemble.prompt-provider",
     "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
+    "assemble.loop-hook-observer",
     "assemble.run-executor",
     "assemble.agent-runtime",
   ]);
@@ -189,11 +199,12 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
   assert.equal(result.task, "refine coffee beans");
   assert.equal(interrupted, true);
   assert.deepEqual(events, [
-    "assemble.tool-client",
+    "assemble.tool-composition",
     "assemble.prompt-provider",
     "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
+    "assemble.loop-hook-observer",
     "assemble.run-executor",
     "assemble.agent-runtime",
     "browser.start",
@@ -203,4 +214,16 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
     "agent.stop",
     "browser.stop",
   ]);
+});
+
+test("refine workflow composition builds a surface and mutable context outside the facade", () => {
+  const composition = createRefineToolComposition({
+    rawToolClient: createRawToolClient(),
+    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  });
+
+  assert.equal(typeof composition.surface.callTool, "function");
+  assert.equal(typeof composition.surface.listTools, "function");
+  assert.equal(typeof composition.contextRef.set, "function");
+  assert.equal(typeof composition.hookObserver, "object");
 });

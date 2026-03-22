@@ -111,6 +111,7 @@ class FakeLoop {
   private readonly script: (task: string) => Promise<AgentRunResult>;
   runtimeTelemetry: unknown = null;
   readonly calls: string[] = [];
+  readonly hookContexts: Array<Record<string, unknown>> = [];
 
   constructor(script: (task: string) => Promise<AgentRunResult>) {
     this.script = script;
@@ -121,6 +122,10 @@ class FakeLoop {
   abort(): void {}
   setRuntimeTelemetry(runtimeTelemetry: unknown): void {
     this.runtimeTelemetry = runtimeTelemetry;
+  }
+
+  setToolHookContext(context: Record<string, unknown>): void {
+    this.hookContexts.push(context);
   }
 
   async run(task: string): Promise<AgentRunResult> {
@@ -299,6 +304,48 @@ test("executor creates run-scoped telemetry before loop execution", async () => 
   assert.deepEqual(lifecycleEvents.slice(0, 2), ["workflow.lifecycle:started", "loop.run"]);
   assert.ok(lifecycleEvents.includes("workflow.lifecycle:finished"));
   assert.equal(loop.runtimeTelemetry, null);
+});
+
+test("executor updates loop hook context from the active refine session after bootstrap", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-hook-context-"));
+  const raw = new StubRawToolClient();
+  const toolClient = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("bootstrap", "bootstrap task", { taskScope: "hook-task" }),
+  });
+  const loop = new FakeLoop(async (task) => {
+    await toolClient.callTool("run.finish", {
+      reason: "goal_achieved",
+      summary: "done",
+    });
+    return buildBaseLoopResult(task);
+  });
+  const { knowledgeStore, bootstrapProvider, telemetryRegistry } = createRefinementDependencies(
+    tmpRoot,
+    () => "run-hook-context",
+  );
+  const executor = new ReactRefinementRunExecutor({
+    loop: loop as never,
+    logger: new StubLogger(),
+    artifactsDir: tmpRoot,
+    maxTurns: 8,
+    telemetryRegistry,
+    toolClient,
+    knowledgeStore,
+    bootstrapProvider,
+  });
+
+  await executor.execute({
+    task: "confirm hook context",
+  });
+
+  assert.deepEqual(loop.hookContexts, [
+    {
+      runId: "run-hook-context",
+      sessionId: "run-hook-context",
+      stepIndex: 0,
+    },
+  ]);
 });
 
 test("executor rejects when lifecycle telemetry emit fails", async () => {

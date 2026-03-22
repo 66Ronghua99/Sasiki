@@ -17,8 +17,9 @@ import {
   type ReactRefinementRunExecutor,
   type ReactRefinementRunExecutorOptions,
 } from "./react-refinement-run-executor.js";
-import { createBootstrapRefineReactToolClient, type RefineReactToolClient } from "./refine-react-tool-client.js";
+import { RefineReactToolClient } from "./refine-react-tool-client.js";
 import { createRefinePersistenceContext, RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
+import { createBootstrapRefineToolComposition, type RefineToolComposition } from "./tools/refine-tool-composition.js";
 
 export interface RefineWorkflowBrowserLifecycle {
   start(): Promise<unknown>;
@@ -71,7 +72,7 @@ export interface RefineWorkflowLoopInput {
 }
 
 export interface RefineWorkflowAssemblyOverrides {
-  createBootstrapToolClient?: (rawClient: ToolClient) => RefineReactToolClient;
+  createToolComposition?: (rawClient: ToolClient) => RefineToolComposition;
   createPromptProvider?: () => Pick<PromptProvider, "buildRefineStartPrompt">;
   createPersistenceContext?: (
     config: Pick<RuntimeConfig, "artifactsDir">
@@ -172,7 +173,7 @@ export function createRefineWorkflowAssembly(
   options: CreateRefineWorkflowFactoryOptions,
   overrides: RefineWorkflowAssemblyOverrides = {}
 ): RefineWorkflowAssembly {
-  const createBootstrapToolClient = overrides.createBootstrapToolClient ?? createBootstrapRefineReactToolClient;
+  const createToolComposition = overrides.createToolComposition ?? createBootstrapRefineToolComposition;
   const createPromptProvider = overrides.createPromptProvider ?? (() => new PromptProvider());
   const createPersistenceContext = overrides.createPersistenceContext ?? ((config) => createRefinePersistenceContext(config));
   const createBootstrapProvider =
@@ -195,7 +196,8 @@ export function createRefineWorkflowAssembly(
   const createAgentRuntime =
     overrides.createAgentRuntime ?? ((input) => new RefineWorkflowRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
 
-  const toolClient = createBootstrapToolClient(options.rawToolClient);
+  const toolComposition = createToolComposition(options.rawToolClient);
+  const toolClient = new RefineReactToolClient(toolComposition.surface, toolComposition.contextRef);
   const promptProvider = createPromptProvider();
   const persistence = createPersistenceContext(options.config);
   const bootstrapProvider = createBootstrapProvider({
@@ -214,6 +216,9 @@ export function createRefineWorkflowAssembly(
     toolClient,
     logger: options.logger,
   });
+  if ("setToolHookObserver" in loop && typeof loop.setToolHookObserver === "function") {
+    loop.setToolHookObserver(toolComposition.hookObserver);
+  }
   const runExecutor = createRunExecutor({
     loop,
     logger: options.logger,

@@ -1,18 +1,19 @@
 /**
- * Deps: contracts/tool-client.ts, domain/refine-react.ts, application/refine/refine-react-tool-registry.ts
+ * Deps: contracts/tool-client.ts, application/refine/tools/refine-tool-composition.ts
  * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
  * Last Updated: 2026-03-22
  */
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../contracts/tool-client.js";
-import { createRefineReactSession, type RefineReactSession } from "./refine-react-session.js";
+import type { RefineReactSession } from "./refine-react-session.js";
 import { type HitlAnswerProvider } from "./refine-runtime-tools.js";
-import { RefineReactToolRegistry } from "./refine-react-tool-registry.js";
-import { RefineReactBrowserToolAdapter } from "./refine-react-browser-tool-adapter.js";
-import { RefineReactRuntimeToolAdapter } from "./refine-react-runtime-tool-adapter.js";
-import { REFINE_TOOL_ORDER } from "./tools/refine-tool-order.js";
-import { createRefineBrowserToolRegistry } from "./tools/refine-browser-tool-registry.js";
-import { createRefineRuntimeToolRegistry } from "./tools/refine-runtime-tool-registry.js";
-import { toToolDefinition } from "./tools/refine-tool-definition.js";
+import type { RefineToolContextRef } from "./tools/refine-tool-context.js";
+import type { RefineToolSurface } from "./tools/refine-tool-surface.js";
+import {
+  createBootstrapRefineToolComposition,
+  createRefineToolComposition,
+  type RefineToolComposition,
+  type RefineToolCompositionContext,
+} from "./tools/refine-tool-composition.js";
 
 export interface RefineReactToolClientOptions {
   rawClient: ToolClient;
@@ -21,93 +22,115 @@ export interface RefineReactToolClientOptions {
 }
 
 export class RefineReactToolClient implements ToolClient {
-  private readonly registry: RefineReactToolRegistry;
-  private readonly orderedToolDefinitions: ToolDefinition[];
-  private session: RefineReactSession;
-  private connected = false;
+  private readonly composition: RefineToolComposition;
 
-  constructor(options: RefineReactToolClientOptions) {
-    this.session = options.session;
-    const browserAdapter = new RefineReactBrowserToolAdapter({
-      rawClient: options.rawClient,
-      session: this.session,
-    });
-    const runtimeAdapter = new RefineReactRuntimeToolAdapter({
-      session: this.session,
-      hitlAnswerProvider: options.hitlAnswerProvider,
-    });
-    this.registry = new RefineReactToolRegistry({
-      adapters: [browserAdapter, runtimeAdapter],
-      orderedToolNames: REFINE_TOOL_ORDER,
-    });
-    this.orderedToolDefinitions = buildOrderedToolDefinitions({
-      browserAdapter,
-      runtimeAdapter,
+  constructor(options: RefineReactToolClientOptions);
+  constructor(
+    surface: RefineToolSurface<RefineToolCompositionContext>,
+    contextRef: RefineToolContextRef<RefineToolCompositionContext>,
+  );
+  constructor(options: RefineToolComposition);
+  constructor(
+    optionsOrSurface:
+      | RefineReactToolClientOptions
+      | RefineToolComposition
+      | RefineToolSurface<RefineToolCompositionContext>,
+    contextRef?: RefineToolContextRef<RefineToolCompositionContext>,
+  ) {
+    if (isRefineToolComposition(optionsOrSurface)) {
+      this.composition = optionsOrSurface;
+      return;
+    }
+
+    if (isRefineToolSurface(optionsOrSurface)) {
+      if (!contextRef) {
+        throw new Error("refine react tool client requires contextRef when constructed from tool surface");
+      }
+      this.composition = {
+        surface: optionsOrSurface,
+        contextRef,
+        registry: {
+          listDefinitions() {
+            throw new Error("registry is unavailable on surface-backed compatibility facade");
+          },
+          getDefinition() {
+            throw new Error("registry is unavailable on surface-backed compatibility facade");
+          },
+        } as unknown as RefineToolComposition["registry"],
+        hookPipeline: {
+          async beforeToolCall() {
+            return null;
+          },
+          async afterToolCall(_call, beforeCapture) {
+            return beforeCapture;
+          },
+        },
+        hookObserver: {
+          async beforeToolCall() {
+            return null;
+          },
+          async afterToolCall() {
+            return null;
+          },
+        },
+      };
+      return;
+    }
+
+    this.composition = createRefineToolComposition({
+      rawClient: optionsOrSurface.rawClient,
+      session: optionsOrSurface.session,
+      hitlAnswerProvider: optionsOrSurface.hitlAnswerProvider,
     });
   }
 
   setSession(session: RefineReactSession): void {
-    this.session = session;
-    this.registry.setSession(session);
+    this.composition.contextRef.set({
+      ...this.composition.contextRef.get(),
+      session,
+    });
   }
 
   setHitlAnswerProvider(provider?: HitlAnswerProvider): void {
-    this.registry.setHitlAnswerProvider(provider);
+    this.composition.contextRef.set({
+      ...this.composition.contextRef.get(),
+      hitlAnswerProvider: provider,
+    });
   }
 
   getSession(): RefineReactSession {
-    return this.session;
+    return this.composition.contextRef.get().session;
   }
 
   async connect(): Promise<void> {
-    if (this.connected) {
-      return;
-    }
-    await this.registry.connect();
-    this.connected = true;
+    await this.composition.surface.connect();
   }
 
   async disconnect(): Promise<void> {
-    if (!this.connected) {
-      return;
-    }
-    await this.registry.disconnect();
-    this.connected = false;
+    await this.composition.surface.disconnect();
   }
 
   async listTools(): Promise<ToolDefinition[]> {
-    return [...this.orderedToolDefinitions];
+    return this.composition.surface.listTools();
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
-    return this.registry.callTool(name, args);
+    return this.composition.surface.callTool(name, args);
   }
 }
 
 export function createBootstrapRefineReactToolClient(rawClient: ToolClient): RefineReactToolClient {
-  return new RefineReactToolClient({
-    rawClient,
-    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
-  });
+  return new RefineReactToolClient(createBootstrapRefineToolComposition(rawClient));
 }
 
-function buildOrderedToolDefinitions(options: {
-  browserAdapter: RefineReactBrowserToolAdapter;
-  runtimeAdapter: RefineReactRuntimeToolAdapter;
-}): ToolDefinition[] {
-  const migratedDefinitions = [
-    ...createRefineBrowserToolRegistry().listDefinitions().map((definition) => toToolDefinition(definition)),
-    ...createRefineRuntimeToolRegistry().listDefinitions().map((definition) => toToolDefinition(definition)),
-  ];
-  const migratedDefinitionByName = new Map(migratedDefinitions.map((definition) => [definition.name, definition]));
-  const legacyDefinitions = [...options.browserAdapter.listTools(), ...options.runtimeAdapter.listTools()];
-  const legacyDefinitionByName = new Map(legacyDefinitions.map((definition) => [definition.name, definition]));
+function isRefineToolComposition(
+  value: RefineReactToolClientOptions | RefineToolComposition | RefineToolSurface<RefineToolCompositionContext>,
+): value is RefineToolComposition {
+  return "surface" in value && "contextRef" in value && "registry" in value;
+}
 
-  return REFINE_TOOL_ORDER.map((name) => {
-    const definition = migratedDefinitionByName.get(name) ?? legacyDefinitionByName.get(name);
-    if (!definition) {
-      throw new Error(`tool definition missing: ${name}`);
-    }
-    return definition;
-  });
+function isRefineToolSurface(
+  value: RefineReactToolClientOptions | RefineToolComposition | RefineToolSurface<RefineToolCompositionContext>,
+): value is RefineToolSurface<RefineToolCompositionContext> {
+  return Boolean(value) && typeof value === "object" && "callTool" in value && "listTools" in value;
 }

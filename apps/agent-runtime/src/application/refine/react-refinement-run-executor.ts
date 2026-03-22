@@ -67,6 +67,14 @@ export class ReactRefinementRunExecutor {
       hitlAnswerProvider: this.hitlAnswerProvider(),
     });
     const { runId, task, prompt, loadedGuidanceCount } = bootstrap;
+    const session = this.toolClient.getSession();
+    if ("setToolHookContext" in this.loop && typeof this.loop.setToolHookContext === "function") {
+      this.loop.setToolHookContext({
+        runId: session.runId,
+        sessionId: session.runId,
+        stepIndex: session.actionHistory().length,
+      });
+    }
     const artifacts = new ArtifactsWriter(this.artifactsDir, runId);
     await artifacts.ensureDir();
     const telemetry = this.telemetryRegistry.createRunTelemetry({

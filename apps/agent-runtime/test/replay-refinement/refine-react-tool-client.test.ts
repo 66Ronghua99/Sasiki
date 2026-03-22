@@ -9,6 +9,7 @@ import {
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
 import { REFINE_BROWSER_TOOL_ORDER } from "../../src/application/refine/tools/refine-browser-tool-registry.js";
+import { createRefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
@@ -193,6 +194,19 @@ test("refine tool client module owns bootstrap tool-surface construction", () =>
   assert.equal(session.runId, "bootstrap");
   assert.equal(session.task, "bootstrap");
   assert.equal(session.taskScope, "bootstrap");
+});
+
+test("refine tool client can wrap an explicit tool surface and mutable context", () => {
+  const composition = createRefineToolComposition({
+    rawToolClient: new StubRawToolClient(),
+    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  });
+  const client = new RefineReactToolClient(composition.surface, composition.contextRef);
+
+  assert.equal(client.getSession().runId, "bootstrap");
+  client.setSession(createRefineReactSession("run-2", "task", { taskScope: "task" }));
+  assert.equal(client.getSession().runId, "run-2");
+  client.setHitlAnswerProvider(async () => "answer");
 });
 
 test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {

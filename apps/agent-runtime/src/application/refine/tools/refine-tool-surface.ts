@@ -32,7 +32,10 @@ export class RefineToolSurface<
   constructor(options: RefineToolSurfaceOptions<TContext, TDefinition, THookCapture>) {
     this.registry = options.registry;
     this.contextRef = options.contextRef;
-    this.hookPipeline = options.hookPipeline ?? NO_OP_REFINE_TOOL_HOOK_PIPELINE;
+    this.hookPipeline = (options.hookPipeline ?? NO_OP_REFINE_TOOL_HOOK_PIPELINE) as RefineToolHookPipeline<
+      TContext,
+      THookCapture
+    >;
     this.lifecycle = options.lifecycle ?? NO_OP_REFINE_TOOL_SURFACE_LIFECYCLE;
   }
 
