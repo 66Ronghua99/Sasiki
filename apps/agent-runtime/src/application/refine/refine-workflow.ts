@@ -1,5 +1,5 @@
 /**
- * Deps: application/refine/*, kernel/agent-loop.ts
+ * Deps: application/refine/*, kernel/pi-agent-loop.ts
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
@@ -8,7 +8,7 @@ import type { Logger } from "../../contracts/logger.js";
 import type { RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
 import type { ToolClient } from "../../contracts/tool-client.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
-import { AgentLoop } from "../../kernel/agent-loop.js";
+import { PiAgentLoop } from "../../kernel/pi-agent-loop.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import { PromptProvider } from "./prompt-provider.js";
@@ -80,9 +80,9 @@ export interface RefineWorkflowAssemblyOverrides {
   createBootstrapProvider?: (
     options: ConstructorParameters<typeof RefineRunBootstrapProvider>[0]
   ) => RefineRunBootstrapProvider;
-  createLoop?: (input: RefineWorkflowLoopInput) => AgentLoop;
+  createLoop?: (input: RefineWorkflowLoopInput) => PiAgentLoop;
   createRunExecutor?: (options: ReactRefinementRunExecutorOptions) => ReactRefinementRunExecutor;
-  createAgentRuntime?: (input: { loop: AgentLoop; runExecutor: AgentRunExecutor }) => RefineWorkflowAgentRuntime;
+  createAgentRuntime?: (input: { loop: PiAgentLoop; runExecutor: AgentRunExecutor }) => RefineWorkflowAgentRuntime;
 }
 
 export interface AgentRunExecutor {
@@ -91,11 +91,11 @@ export interface AgentRunExecutor {
 }
 
 class RefineWorkflowRuntime implements RefineWorkflowAgentRuntime {
-  private readonly loop: AgentLoop;
+  private readonly loop: PiAgentLoop;
   private readonly runExecutor: AgentRunExecutor;
   private loopInitialized = false;
 
-  constructor(options: { loop: AgentLoop; runExecutor: AgentRunExecutor }) {
+  constructor(options: { loop: PiAgentLoop; runExecutor: AgentRunExecutor }) {
     this.loop = options.loop;
     this.runExecutor = options.runExecutor;
   }
@@ -181,7 +181,7 @@ export function createRefineWorkflowAssembly(
   const createLoop =
     overrides.createLoop ??
     ((input) =>
-      new AgentLoop(
+      new PiAgentLoop(
         {
           model: input.model,
           apiKey: input.apiKey,

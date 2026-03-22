@@ -1,12 +1,12 @@
 /**
- * Deps: kernel/agent-loop.ts, application/refine/*, infrastructure/persistence/*
+ * Deps: kernel/pi-agent-loop.ts, application/refine/*, infrastructure/persistence/*
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
 import type { HitlController } from "../../contracts/hitl-controller.js";
 import type { Logger } from "../../contracts/logger.js";
 import type { RuntimeRunTelemetry, RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
-import type { AgentLoop } from "../../kernel/agent-loop.js";
+import type { PiAgentLoop } from "../../kernel/pi-agent-loop.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
 import type { HitlInterventionRequest } from "../../domain/intervention-learning.js";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
@@ -19,7 +19,7 @@ interface RefinementKnowledgeSink {
 }
 
 export interface ReactRefinementRunExecutorOptions {
-  loop: AgentLoop;
+  loop: PiAgentLoop;
   logger: Logger;
   artifactsDir: string;
   maxTurns: number;
@@ -37,7 +37,7 @@ interface ActiveRunState {
 }
 
 export class ReactRefinementRunExecutor {
-  private readonly loop: AgentLoop;
+  private readonly loop: PiAgentLoop;
   private readonly logger: Logger;
   private readonly artifactsDir: string;
   private readonly maxTurns: number;

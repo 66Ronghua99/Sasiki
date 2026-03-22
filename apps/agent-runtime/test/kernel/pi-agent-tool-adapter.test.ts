@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contracts/tool-client.js";
-import { McpToolBridge } from "../../src/kernel/mcp-tool-bridge.js";
+import { PiAgentToolAdapter } from "../../src/kernel/pi-agent-tool-adapter.js";
 
 class StubToolClient implements ToolClient {
   readonly calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -26,7 +26,7 @@ test("registered exact tool-name hooks run before and after adapter execution", 
 
   // Future boundary freeze: the adapter should honor exact tool-name hooks and mutate the final result.
   // Today the kernel owner still routes through classification, so act.click remains unhooked.
-  const adapter = new McpToolBridge(raw, {
+  const adapter = new PiAgentToolAdapter(raw, {
     hookObserver: {
       async beforeToolCall(context) {
         calls.push(`before:${context.toolName}`);

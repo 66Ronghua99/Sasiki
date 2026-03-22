@@ -4,6 +4,7 @@ import test from "node:test";
 import type { RuntimeTelemetryRegistry } from "../../../src/contracts/runtime-telemetry.js";
 import type { ToolClient } from "../../../src/contracts/tool-client.js";
 import type { AgentRunResult } from "../../../src/domain/agent-types.js";
+import type { PiAgentLoop } from "../../../src/kernel/pi-agent-loop.js";
 import { RefineReactToolClient } from "../../../src/application/refine/refine-react-tool-client.js";
 import { createRefineReactSession } from "../../../src/application/refine/refine-react-session.js";
 import { RefineRunBootstrapProvider } from "../../../src/application/refine/refine-run-bootstrap-provider.js";
@@ -63,7 +64,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
     },
     async dispose(): Promise<void> {},
   };
-  const loop = { kind: "loop" };
+  const loop = { kind: "loop" } as unknown as PiAgentLoop;
   const runExecutor = { kind: "run-executor" };
   const agentRuntime = {
     start: async () => {
