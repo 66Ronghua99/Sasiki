@@ -12,14 +12,52 @@ export interface RefineToolCallResult<TContext extends RefineToolContext = Refin
   readonly result: ToolCallResult;
 }
 
-export interface RefineToolHookPipeline<TContext extends RefineToolContext = RefineToolContext> {
-  beforeToolCall?(call: RefineToolCall<TContext>): Promise<void>;
-  afterToolCall?(call: RefineToolCallResult<TContext>): Promise<void>;
+export interface RefineToolHookPipeline<
+  TContext extends RefineToolContext = RefineToolContext,
+  TCapture = unknown,
+> {
+  beforeToolCall?(call: RefineToolCall<TContext>): Promise<TCapture>;
+  afterToolCall?(call: RefineToolCallResult<TContext>, beforeCapture: TCapture): Promise<TCapture>;
 }
 
-class NoOpRefineToolHookPipeline implements RefineToolHookPipeline {
-  async beforeToolCall(): Promise<void> {}
-  async afterToolCall(): Promise<void> {}
+export interface RefineToolHookPipelineOptions<
+  TContext extends RefineToolContext = RefineToolContext,
+  TCapture = unknown,
+> {
+  beforeToolCall?(call: RefineToolCall<TContext>): Promise<TCapture>;
+  afterToolCall?(call: RefineToolCallResult<TContext>, beforeCapture: TCapture): Promise<TCapture>;
 }
 
-export const NO_OP_REFINE_TOOL_HOOK_PIPELINE: RefineToolHookPipeline = new NoOpRefineToolHookPipeline();
+class ConfiguredRefineToolHookPipeline<TContext extends RefineToolContext, TCapture>
+  implements RefineToolHookPipeline<TContext, TCapture>
+{
+  readonly beforeToolCall?: (call: RefineToolCall<TContext>) => Promise<TCapture>;
+  readonly afterToolCall?: (call: RefineToolCallResult<TContext>, beforeCapture: TCapture) => Promise<TCapture>;
+
+  constructor(options: RefineToolHookPipelineOptions<TContext, TCapture>) {
+    this.beforeToolCall = options.beforeToolCall;
+    this.afterToolCall = options.afterToolCall;
+  }
+}
+
+class NoOpRefineToolHookPipeline implements RefineToolHookPipeline<RefineToolContext, undefined> {
+  async beforeToolCall(): Promise<undefined> {
+    return undefined;
+  }
+
+  async afterToolCall(): Promise<undefined> {
+    return undefined;
+  }
+}
+
+export function createRefineToolHookPipeline<
+  TContext extends RefineToolContext = RefineToolContext,
+  TCapture = unknown,
+>(
+  options: RefineToolHookPipelineOptions<TContext, TCapture>,
+): RefineToolHookPipeline<TContext, TCapture> {
+  return new ConfiguredRefineToolHookPipeline(options);
+}
+
+export const NO_OP_REFINE_TOOL_HOOK_PIPELINE: RefineToolHookPipeline<RefineToolContext, undefined> =
+  new NoOpRefineToolHookPipeline();

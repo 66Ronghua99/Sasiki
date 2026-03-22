@@ -329,7 +329,7 @@ git commit -m "refactor: add refine tool surface core abstractions"
 - Modify: `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
 - Modify: `apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts`
 
-- [ ] **Step 1: Write failing tests for context swaps and lifecycle rollback**
+- [x] **Step 1: Write failing tests for context swaps and lifecycle rollback**
 
 ```ts
 test("surface lifecycle rolls back partial connect failures", async () => {
@@ -352,12 +352,12 @@ test("hook pipeline adapts into the current bridge observer seam", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the surface tests to confirm the lifecycle cases fail first**
+- [x] **Step 2: Run the surface tests to confirm the lifecycle cases fail first**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
 Expected: FAIL because provider-backed lifecycle and rollback behavior are not implemented yet.
 
-- [ ] **Step 3: Add provider interfaces that wrap capability-oriented browser/runtime behavior**
+- [x] **Step 3: Add provider interfaces that wrap capability-oriented browser/runtime behavior**
 
 ```ts
 export interface RefineBrowserProvider {
@@ -371,7 +371,7 @@ export interface RefineBrowserProvider {
 }
 ```
 
-- [ ] **Step 4: Implement provider-backed lifecycle ownership and a bridge-observer adapter over the new hook pipeline**
+- [x] **Step 4: Implement provider-backed lifecycle ownership and a bridge-observer adapter over the new hook pipeline**
 
 ```ts
 for (const participant of this.participants) {
@@ -380,7 +380,7 @@ for (const participant of this.participants) {
 }
 ```
 
-- [ ] **Step 5: Keep `RefineBrowserTools` and `RefineRuntimeTools` as internal engines for now, but map them through capability-oriented providers**
+- [x] **Step 5: Keep `RefineBrowserTools` and `RefineRuntimeTools` as internal engines for now, but map them through capability-oriented providers**
 
 ```ts
 export class RefineBrowserProviderImpl implements RefineBrowserProvider {
@@ -391,7 +391,7 @@ export class RefineBrowserProviderImpl implements RefineBrowserProvider {
 }
 ```
 
-- [ ] **Step 6: Re-run the surface tests and verify provider/lifecycle behavior passes**
+- [x] **Step 6: Re-run the surface tests and verify provider/lifecycle behavior passes**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
 Expected: PASS

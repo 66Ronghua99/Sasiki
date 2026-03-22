@@ -23,6 +23,10 @@ export interface RefineBrowserToolsOptions {
   session: RefineReactSession;
 }
 
+export interface RefineBrowserToolProviderContext {
+  session: RefineReactSession;
+}
+
 export class RefineBrowserTools {
   private readonly rawClient: ToolClient;
   private readonly parser = new RefineBrowserSnapshotParser();
@@ -37,6 +41,13 @@ export class RefineBrowserTools {
   setSession(session: RefineReactSession): void {
     this.session = session;
     this.observationCounter = 0;
+  }
+
+  setProviderContext(context: RefineBrowserToolProviderContext): void {
+    if (context.session === this.session) {
+      return;
+    }
+    this.setSession(context.session);
   }
 
   async observePage(): Promise<ObservePageResponse> {

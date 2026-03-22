@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` 的 Task 3：先以 failing tests 补 `refine-tool-hook-observer`、provider-backed lifecycle rollback 和 run-scoped context ownership，再把新 hook/provider seam 接到后续 surface 迁移所需的最小边界。
+- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` 的 Task 4：先以 failing tests 把 `hitl.request`、`knowledge.record_candidate`、`run.finish` 迁成 first-class runtime tool definitions，并保持旧 adapter path 暂时共存。

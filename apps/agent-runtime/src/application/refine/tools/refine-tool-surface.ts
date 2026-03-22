@@ -11,23 +11,25 @@ import {
 export interface RefineToolSurfaceOptions<
   TContext extends RefineToolContext = RefineToolContext,
   TDefinition extends RefineToolDefinition<TContext> = RefineToolDefinition<TContext>,
+  THookCapture = unknown,
 > {
   registry: RefineToolRegistry<TDefinition>;
   contextRef: RefineToolContextRef<TContext>;
-  hookPipeline?: RefineToolHookPipeline<TContext>;
+  hookPipeline?: RefineToolHookPipeline<TContext, THookCapture>;
   lifecycle?: RefineToolSurfaceLifecycle;
 }
 
 export class RefineToolSurface<
   TContext extends RefineToolContext = RefineToolContext,
   TDefinition extends RefineToolDefinition<TContext> = RefineToolDefinition<TContext>,
+  THookCapture = unknown,
 > {
   private readonly registry: RefineToolRegistry<TDefinition>;
   private readonly contextRef: RefineToolContextRef<TContext>;
-  private readonly hookPipeline: RefineToolHookPipeline<TContext>;
+  private readonly hookPipeline: RefineToolHookPipeline<TContext, THookCapture>;
   private readonly lifecycle: RefineToolSurfaceLifecycle;
 
-  constructor(options: RefineToolSurfaceOptions<TContext, TDefinition>) {
+  constructor(options: RefineToolSurfaceOptions<TContext, TDefinition, THookCapture>) {
     this.registry = options.registry;
     this.contextRef = options.contextRef;
     this.hookPipeline = options.hookPipeline ?? NO_OP_REFINE_TOOL_HOOK_PIPELINE;
@@ -49,9 +51,9 @@ export class RefineToolSurface<
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
     const definition = this.registry.getDefinition(name);
     const context = this.contextRef.get();
-    await this.hookPipeline.beforeToolCall?.({ definition, args, context });
+    const beforeCapture = await this.hookPipeline.beforeToolCall?.({ definition, args, context });
     const result = await definition.invoke(args, context);
-    await this.hookPipeline.afterToolCall?.({ definition, args, context, result });
+    await this.hookPipeline.afterToolCall?.({ definition, args, context, result }, beforeCapture as THookCapture);
     return result;
   }
 }

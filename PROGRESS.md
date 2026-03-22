@@ -15,7 +15,7 @@
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
 - **Workflow registration cleanup 已完成**: `application/observe/observe-runtime.ts` 这个过渡 wrapper 已删除；`RuntimeHost` 只保留 `run(workflow)` 这条活跃宿主接口；未使用的 `createRefineWorkflowFactory` / `createCompactWorkflowFactory` 已移除，workflow 注册链路现在统一收敛为 `workflow-runtime -> runtime-host -> *-workflow`。
 - **Refine smoke e2e 已完成**: 真实任务 `打开百度搜索咖啡豆，点开第一条链接` 已在 `run_id=20260322_002735_676` 跑通，最终 `completed`，并产出新的 `artifacts/e2e/20260322_002735_676/run_summary.json` 与 `artifacts/e2e/20260322_002735_676/event_stream.jsonl` 证据；本轮暴露的问题已收敛为“首轮仍会尝试 `initial_navigation`”与“page-changing action 后仍偶发 stale observation 自恢复”。
-- **Refine tool surface unification Task 1-2 已完成**: Task 1 已冻结 bridge / bootstrap / facade regression；Task 2 已新增 refine-local `tools/` core abstractions（tool definition、context ref、hook pipeline、tool order、registry、surface、surface lifecycle），并把 12-tool order contract 从 `domain/refine-react.ts` 收回到 refine-owned 边界，但当前 live refine runtime path 仍保持旧 adapter/registry 接线不变。
+- **Refine tool surface unification Task 1-3 已完成**: Task 1 已冻结 bridge / bootstrap / facade regression；Task 2 已新增 refine-local `tools/` core abstractions；Task 3 已补上 refine-owned hook observer、provider layer、lifecycle rollback 与 run-scoped provider context seam，并通过重复 observation regression 锁住同一 run 下 observationRef 递增不回退。当前 live refine runtime path 仍保持旧 adapter/registry 接线不变。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
@@ -87,7 +87,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` Task 3：补 hook pipeline observer、provider layer 与 lifecycle rollback，把新 surface 需要的 run-scoped context ownership 接好，但仍不提前切换整条 live tool path。
+- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` Task 4：先把 runtime tools 迁成 first-class definitions，并继续保持 live refine client path 还未整体切换到新 surface。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -148,3 +148,12 @@ apps/agent-runtime/src/
   - 新增 `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
   - 将 tool order contract 从 `apps/agent-runtime/src/domain/refine-react.ts` 移至 `apps/agent-runtime/src/application/refine/tools/refine-tool-order.ts`
   - fresh verification：`npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-contracts.test.ts`
+- 已完成 refine tool surface unification Task 3 provider / hook scaffolding：
+  - 新增 `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts`
+  - 新增 `apps/agent-runtime/src/application/refine/tools/providers/refine-browser-provider.ts`
+  - 新增 `apps/agent-runtime/src/application/refine/tools/providers/refine-runtime-provider.ts`
+  - `RefineBrowserTools` / `RefineRuntimeTools` 已显式暴露 `setProviderContext(...)` seam
+  - 新增 bridge observer adapter regression 与 monotonic observation regression
+  - fresh verification：
+    - `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
+    - `npm --prefix apps/agent-runtime run test -- test/kernel/mcp-tool-bridge.test.ts`

@@ -23,6 +23,11 @@ export interface RefineRuntimeToolsOptions {
   hitlAnswerProvider?: HitlAnswerProvider;
 }
 
+export interface RefineRuntimeToolProviderContext {
+  session: RefineReactSession;
+  hitlAnswerProvider?: HitlAnswerProvider;
+}
+
 const RUN_FINISH_REASONS = new Set<RunFinishRequest["reason"]>(["goal_achieved", "hard_failure"]);
 
 export class RefineRuntimeTools {
@@ -40,6 +45,11 @@ export class RefineRuntimeTools {
 
   setHitlAnswerProvider(provider?: HitlAnswerProvider): void {
     this.hitlAnswerProvider = provider;
+  }
+
+  setProviderContext(context: RefineRuntimeToolProviderContext): void {
+    this.setSession(context.session);
+    this.setHitlAnswerProvider(context.hitlAnswerProvider);
   }
 
   async requestHitl(request: HitlRequest): Promise<HitlRequestResponse> {
