@@ -9,6 +9,10 @@ import {
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
 import { createRefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
+import { createRefineToolContextRef } from "../../src/application/refine/tools/refine-tool-context.js";
+import type { RefineToolDefinition } from "../../src/application/refine/tools/refine-tool-definition.js";
+import { RefineToolRegistry } from "../../src/application/refine/tools/refine-tool-registry.js";
+import { RefineToolSurface } from "../../src/application/refine/tools/refine-tool-surface.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
@@ -150,6 +154,21 @@ function findTool(tools: ToolDefinition[], name: string): ToolDefinition {
   return tool;
 }
 
+function createHookAwareToolDefinition(name: string): RefineToolDefinition<{ session: ReturnType<typeof createRefineReactSession> }> {
+  return {
+    name,
+    description: `${name} description`,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+    async invoke(_args, context) {
+      return { content: [{ type: "text", text: `${name}:${context.session.runId}` }] };
+    },
+  };
+}
+
 function readSchema(tool: ToolDefinition): Record<string, unknown> {
   assert.ok(tool.inputSchema && typeof tool.inputSchema === "object", `expected ${tool.name} to expose inputSchema`);
   return tool.inputSchema as Record<string, unknown>;
@@ -206,6 +225,35 @@ test("refine tool client can wrap an explicit tool surface and mutable context",
   client.setSession(createRefineReactSession("run-2", "task", { taskScope: "task" }));
   assert.equal(client.getSession().runId, "run-2");
   client.setHitlAnswerProvider(async () => "answer");
+});
+
+test("future boundary freeze: direct refine tool client calls bypass adapter-only pi-agent hooks", async () => {
+  const events: string[] = [];
+  const contextRef = createRefineToolContextRef<{ session: ReturnType<typeof createRefineReactSession> }>({
+    session: createRefineReactSession("run-direct", "task", { taskScope: "search-product" }),
+  });
+  const surface = new RefineToolSurface({
+    registry: new RefineToolRegistry({
+      definitions: [createHookAwareToolDefinition("observe.page")],
+    }),
+    contextRef,
+    hookPipeline: {
+      async beforeToolCall({ definition, context }) {
+        events.push(`before:${definition.name}:${context.session.runId}`);
+      },
+      async afterToolCall({ definition, context }) {
+        events.push(`after:${definition.name}:${context.session.runId}`);
+      },
+    },
+  });
+  const client = new RefineReactToolClient(surface, contextRef);
+
+  const result = await client.callTool("observe.page", {});
+
+  assert.deepEqual(events, []);
+  assert.deepEqual(result, {
+    content: [{ type: "text", text: "observe.page:run-direct" }],
+  });
 });
 
 test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {

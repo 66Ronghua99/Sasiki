@@ -213,6 +213,31 @@ test("tool surface delegates lifecycle and hook pipeline around tool calls", asy
   ]);
 });
 
+test("future boundary freeze: direct tool surface calls bypass adapter-only pi-agent hooks", async () => {
+  const events: string[] = [];
+  const surface = new RefineToolSurface({
+    registry: new RefineToolRegistry({
+      definitions: [createStubTool("tool.a")],
+    }),
+    contextRef: createRefineToolContextRef<StubContext>({ runId: "run-direct" }),
+    hookPipeline: {
+      async beforeToolCall({ definition, context }) {
+        events.push(`before:${definition.name}:${context.runId}`);
+      },
+      async afterToolCall({ definition, context }) {
+        events.push(`after:${definition.name}:${context.runId}`);
+      },
+    },
+  });
+
+  const result = await surface.callTool("tool.a", {});
+
+  assert.deepEqual(events, []);
+  assert.deepEqual(result, {
+    content: [{ type: "text", text: "tool.a:run-direct" }],
+  });
+});
+
 test("surface lifecycle rolls back partial connect failures", async () => {
   const events: string[] = [];
   const lifecycle = new RefineToolSurfaceLifecycleCoordinator({
