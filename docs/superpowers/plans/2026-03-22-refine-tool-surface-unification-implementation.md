@@ -565,7 +565,7 @@ git commit -m "refactor: move core refine browser tools to definitions"
 - Modify: `apps/agent-runtime/src/application/refine/tools/providers/refine-browser-provider.ts`
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 
-- [ ] **Step 1: Write failing compatibility tests for screenshot fallback and file-upload behavior**
+- [x] **Step 1: Write failing compatibility tests for screenshot fallback and file-upload behavior**
 
 ```ts
 test("act.screenshot keeps raw screenshot capability negotiation", async () => {
@@ -583,12 +583,12 @@ test("act.screenshot keeps raw screenshot capability negotiation", async () => {
 });
 ```
 
-- [ ] **Step 2: Run targeted tests and verify failure**
+- [x] **Step 2: Run targeted tests and verify failure**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: FAIL because screenshot/file-upload definitions are not wired through the new surface yet.
 
-- [ ] **Step 3: Implement `act.screenshot` as a first-class definition that delegates to the browser provider**
+- [x] **Step 3: Implement `act.screenshot` as a first-class definition that delegates to the browser provider**
 
 ```ts
 export const actScreenshotTool: RefineToolDefinition = {
@@ -605,7 +605,7 @@ export const actScreenshotTool: RefineToolDefinition = {
 };
 ```
 
-- [ ] **Step 4: Keep the existing raw-tool probing logic inside the browser provider**
+- [x] **Step 4: Keep the existing raw-tool probing logic inside the browser provider**
 
 ```ts
 const candidates = [
@@ -614,12 +614,12 @@ const candidates = [
 ];
 ```
 
-- [ ] **Step 5: Re-run targeted tests and verify pass**
+- [x] **Step 5: Re-run targeted tests and verify pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/definitions/act-screenshot-tool.ts \

@@ -1,6 +1,8 @@
 import { actClickTool } from "./definitions/act-click-tool.js";
+import { actFileUploadTool } from "./definitions/act-file-upload-tool.js";
 import { actNavigateTool } from "./definitions/act-navigate-tool.js";
 import { actPressTool } from "./definitions/act-press-tool.js";
+import { actScreenshotTool } from "./definitions/act-screenshot-tool.js";
 import { actSelectTabTool } from "./definitions/act-select-tab-tool.js";
 import { actTypeTool } from "./definitions/act-type-tool.js";
 import { observePageTool } from "./definitions/observe-page-tool.js";
@@ -15,6 +17,8 @@ export const REFINE_BROWSER_TOOL_ORDER = [
   "act.press",
   "act.navigate",
   "act.select_tab",
+  "act.screenshot",
+  "act.file_upload",
 ] as const;
 
 export function createRefineBrowserToolRegistry(): RefineToolRegistry {
@@ -27,6 +31,8 @@ export function createRefineBrowserToolRegistry(): RefineToolRegistry {
       actPressTool,
       actNavigateTool,
       actSelectTabTool,
+      actScreenshotTool,
+      actFileUploadTool,
     ],
     orderedToolNames: REFINE_BROWSER_TOOL_ORDER,
   });

@@ -87,6 +87,15 @@ interface BrowserDefinitionContext extends RefineToolContext {
     pressKey(args: { key: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
     navigateFromObservation(args: { url: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
     switchActiveTab(args: { tabIndex: number; sourceObservationRef: string }): Promise<Record<string, unknown>>;
+    captureScreenshot(args: {
+      sourceObservationRef: string;
+      fullPage?: boolean;
+      filename?: string;
+    }): Promise<Record<string, unknown>>;
+    handleFileUpload(args: {
+      sourceObservationRef: string;
+      paths?: string[];
+    }): Promise<Record<string, unknown>>;
   };
 }
 
@@ -520,6 +529,29 @@ test("browser tool definitions preserve current core order and provider-backed b
           calls.push(`act.select_tab:${args.tabIndex}:${args.sourceObservationRef}`);
           return { result: { action: "select_tab", success: true, sourceObservationRef: args.sourceObservationRef } };
         },
+        async captureScreenshot(args) {
+          calls.push(
+            `act.screenshot:${args.sourceObservationRef}:${String(args.filename ?? "")}:${args.fullPage === true ? "full" : "viewport"}`
+          );
+          return {
+            result: {
+              action: "screenshot",
+              success: true,
+              sourceObservationRef: args.sourceObservationRef,
+              evidenceRef: args.filename ?? "captured",
+            },
+          };
+        },
+        async handleFileUpload(args) {
+          calls.push(`act.file_upload:${args.sourceObservationRef}:${(args.paths ?? []).join("|")}`);
+          return {
+            result: {
+              action: "file_upload",
+              success: true,
+              sourceObservationRef: args.sourceObservationRef,
+            },
+          };
+        },
       },
     }),
   });
@@ -561,6 +593,15 @@ test("browser tool definitions preserve current core order and provider-backed b
   const selected = await surface.callTool("act.select_tab", {
     tabIndex: 1,
     sourceObservationRef: "obs-browser-1",
+  });
+  const screenshot = await surface.callTool("act.screenshot", {
+    sourceObservationRef: "obs-browser-1",
+    path: "artifacts/browser-shot.png",
+    fullPage: true,
+  });
+  const uploaded = await surface.callTool("act.file_upload", {
+    sourceObservationRef: "obs-browser-1",
+    paths: ["~/Downloads/foo.png", "~/Downloads/bar.png"],
   });
 
   assert.deepEqual(observed, {
@@ -610,6 +651,17 @@ test("browser tool definitions preserve current core order and provider-backed b
   assert.deepEqual(selected, {
     result: { action: "select_tab", success: true, sourceObservationRef: "obs-browser-1" },
   });
+  assert.deepEqual(screenshot, {
+    result: {
+      action: "screenshot",
+      success: true,
+      sourceObservationRef: "obs-browser-1",
+      evidenceRef: "artifacts/browser-shot.png",
+    },
+  });
+  assert.deepEqual(uploaded, {
+    result: { action: "file_upload", success: true, sourceObservationRef: "obs-browser-1" },
+  });
   assert.deepEqual(calls, [
     "observe.page",
     "observe.query:search:buy:2",
@@ -618,6 +670,8 @@ test("browser tool definitions preserve current core order and provider-backed b
     "act.press:Enter:obs-browser-1",
     "act.navigate:https://example.com/next:obs-browser-1",
     "act.select_tab:1:obs-browser-1",
+    "act.screenshot:obs-browser-1:artifacts/browser-shot.png:full",
+    "act.file_upload:obs-browser-1:~/Downloads/foo.png|~/Downloads/bar.png",
   ]);
 });
 

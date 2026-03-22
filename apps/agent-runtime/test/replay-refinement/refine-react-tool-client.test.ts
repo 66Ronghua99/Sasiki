@@ -225,6 +225,17 @@ test("composite tool client exposes exactly twelve refine-agent facing tools", a
       "run.finish",
     ]
   );
+  assert.deepEqual(REFINE_BROWSER_TOOL_ORDER, [
+    "observe.page",
+    "observe.query",
+    "act.click",
+    "act.type",
+    "act.press",
+    "act.navigate",
+    "act.select_tab",
+    "act.screenshot",
+    "act.file_upload",
+  ]);
 });
 
 test("composite tool client emits frozen field-level input schemas for critical tools", async () => {
