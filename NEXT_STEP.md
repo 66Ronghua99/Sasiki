@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` 的 Task 7：先以 workflow-level failing tests 锁住 facade/composition ownership，再把 `RefineReactToolClient` 改成新的 tool surface compatibility facade，并删除旧 adapters/registry。
+- `P0` 跑一轮新的真实 refine smoke e2e，验证重建后的 `RefineReactToolClient` facade、`refine-tool-composition`、hook observer/context wiring 在浏览器实流中稳定，并检查 `artifacts/e2e/<run_id>/event_stream.jsonl` 与 `agent_checkpoints/`。

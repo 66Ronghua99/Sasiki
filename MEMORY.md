@@ -78,6 +78,8 @@
 - `sourceObservationRef` 现在不仅要“存在”，还要与 live active tab 一致；不一致时应显式失败并要求先 `act.select_tab` / `observe.page` 重新对齐上下文。
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
+- `RefineReactToolClient` 现在是 compatibility facade，不再拥有 registry/adapter 装配；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
+- `RefineToolComposition` 内的 `surface` 与 `hookObserver` 必须共享同一条 hook pipeline；即使当前是 no-op，也不要再各建一份独立 pipeline，否则未来 direct surface call 与 bridge observer 会悄悄分叉。
 
 ## Environment Requirements
 - Node `>=20`

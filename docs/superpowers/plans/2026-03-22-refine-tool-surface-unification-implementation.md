@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: draft
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-22-refine-tool-surface-unification-design.md
 verified_by:
@@ -645,7 +645,7 @@ git commit -m "refactor: preserve browser tool compatibility in new refine surfa
 - Delete: `apps/agent-runtime/src/application/refine/refine-react-browser-tool-adapter.ts`
 - Delete: `apps/agent-runtime/src/application/refine/refine-react-runtime-tool-adapter.ts`
 
-- [ ] **Step 1: Write failing workflow-level tests for composition ownership and facade compatibility**
+- [x] **Step 1: Write failing workflow-level tests for composition ownership and facade compatibility**
 
 ```ts
 test("refine workflow assembly builds tool composition outside the client facade", async () => {
@@ -663,12 +663,12 @@ test("refine workflow assembly still injects a RefineReactToolClient-compatible 
 });
 ```
 
-- [ ] **Step 2: Run workflow/bootstrap tests and verify failure**
+- [x] **Step 2: Run workflow/bootstrap tests and verify failure**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-workflow.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/replay-refinement/refine-react-run-executor.test.ts test/application/refine/refine-telemetry-artifacts.test.ts`
 Expected: FAIL because composition ownership is still client-centric and direct constructor call sites are not yet updated for the new facade internals.
 
-- [ ] **Step 3: Introduce explicit refine tool composition and keep `RefineReactToolClientOptions` constructor compatibility**
+- [x] **Step 3: Introduce explicit refine tool composition and keep `RefineReactToolClientOptions` constructor compatibility**
 
 ```ts
 export function createRefineToolComposition(input: RefineToolCompositionInput): RefineToolComposition {
@@ -702,7 +702,7 @@ export class RefineReactToolClient implements ToolClient {
 }
 ```
 
-- [ ] **Step 4: Rewire refine workflow assembly and tests to depend on `createRefineToolComposition(...)`, not client-internal assembly**
+- [x] **Step 4: Rewire refine workflow assembly and tests to depend on `createRefineToolComposition(...)`, not client-internal assembly**
 
 ```ts
 const composition = createRefineToolComposition({
@@ -728,7 +728,7 @@ loop.setToolHookContext({
 });
 ```
 
-- [ ] **Step 5: Delete the old adapter-centric files only after the new facade passes tests**
+- [x] **Step 5: Delete the old adapter-centric files only after the new facade passes tests**
 
 ```bash
 git rm apps/agent-runtime/src/application/refine/refine-react-tool-registry.ts \
@@ -736,12 +736,12 @@ git rm apps/agent-runtime/src/application/refine/refine-react-tool-registry.ts \
   apps/agent-runtime/src/application/refine/refine-react-runtime-tool-adapter.ts
 ```
 
-- [ ] **Step 6: Run targeted integration tests and verify pass**
+- [x] **Step 6: Run targeted integration tests and verify pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-workflow.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/replay-refinement/refine-react-tool-client.test.ts test/replay-refinement/refine-react-run-executor.test.ts test/application/refine/refine-telemetry-artifacts.test.ts`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/refine-tool-composition.ts \
@@ -765,12 +765,12 @@ git commit -m "refactor: rebuild refine react tool client around tool surface"
 - Modify: `NEXT_STEP.md`
 - Modify: `docs/project/current-state.md`
 
-- [ ] **Step 1: Run the full refine-focused test slice before full gates**
+- [x] **Step 1: Run the full refine-focused test slice before full gates**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/*.test.ts test/replay-refinement/*.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/*.test.ts`
 Expected: PASS
 
-- [ ] **Step 2: Run full project verification**
+- [x] **Step 2: Run full project verification**
 
 Run: `npm --prefix apps/agent-runtime run lint`
 Expected: PASS
@@ -790,7 +790,7 @@ Expected: PASS
 Run: `git diff --check`
 Expected: no output
 
-- [ ] **Step 3: Update project-truth docs with the new refine tool-surface architecture and fresh evidence**
+- [x] **Step 3: Update project-truth docs with the new refine tool-surface architecture and fresh evidence**
 
 ```md
 - refine tooling now routes through first-class tool definitions, a dedicated tool surface, and an explicit hook pipeline
@@ -799,13 +799,13 @@ Expected: no output
 - sync `PROGRESS.md` with the completed implementation milestone and evidence commands
 ```
 
-- [ ] **Step 4: Set the next pointer to the next highest-value refine stability task**
+- [x] **Step 4: Set the next pointer to the next highest-value refine stability task**
 
 ```md
 - `P0` run one fresh refine smoke e2e against the new tool surface and inspect bridge/hook telemetry behavior
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add PROGRESS.md MEMORY.md NEXT_STEP.md docs/project/current-state.md
