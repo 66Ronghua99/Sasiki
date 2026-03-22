@@ -7,7 +7,7 @@ import path from "node:path";
 
 import type { AgentRunRequest } from "../../domain/agent-types.js";
 import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
-import type { HitlAnswerProvider } from "./refine-runtime-tools.js";
+import type { HitlAnswerProvider } from "./tools/runtime/refine-runtime-tools.js";
 import { createRefineReactSession } from "./refine-react-session.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
 import { AttentionGuidanceLoader, type AttentionGuidanceLoader as AttentionGuidanceLoaderContract } from "./attention-guidance-loader.js";

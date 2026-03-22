@@ -40,8 +40,8 @@ import {
   createRefineReactSession,
   type RefineReactSession,
 } from "../../../src/application/refine/refine-react-session.js";
-import type { HitlAnswerProvider } from "../../../src/application/refine/refine-runtime-tools.js";
-import { RefineBrowserTools } from "../../../src/application/refine/refine-browser-tools.js";
+import type { HitlAnswerProvider } from "../../../src/application/refine/tools/runtime/refine-runtime-tools.js";
+import { RefineBrowserTools } from "../../../src/application/refine/tools/runtime/refine-browser-tools.js";
 
 interface StubContext extends RefineToolContext {
   readonly runId: string;
@@ -327,7 +327,7 @@ test("browser provider syncs run-scoped context through the browser tool provide
         },
       };
     },
-  } as unknown as import("../../../src/application/refine/refine-browser-tools.js").RefineBrowserTools;
+  } as unknown as import("../../../src/application/refine/tools/runtime/refine-browser-tools.js").RefineBrowserTools;
   const contextRef = createRefineToolContextRef<RefineBrowserProviderContext>({ session });
   const provider = new RefineBrowserProviderImpl({ tools, contextRef });
 
@@ -354,7 +354,7 @@ test("runtime provider syncs run-scoped context through the runtime tool provide
         answer: "answer",
       };
     },
-  } as unknown as import("../../../src/application/refine/refine-runtime-tools.js").RefineRuntimeTools;
+  } as unknown as import("../../../src/application/refine/tools/runtime/refine-runtime-tools.js").RefineRuntimeTools;
   const contextRef = createRefineToolContextRef<RefineRuntimeProviderContext>({ session, hitlAnswerProvider });
   const provider = new RefineRuntimeProviderImpl({ tools, contextRef });
 

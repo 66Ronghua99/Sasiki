@@ -6,7 +6,7 @@ import type {
 } from "../../../../domain/refine-react.js";
 import type { RefineToolContext, RefineToolContextRef } from "../refine-tool-context.js";
 import type { RefineReactSession } from "../../refine-react-session.js";
-import { RefineBrowserTools, type RefineBrowserToolProviderContext } from "../../refine-browser-tools.js";
+import { RefineBrowserTools, type RefineBrowserToolProviderContext } from "../runtime/refine-browser-tools.js";
 
 export interface RefineBrowserProviderContext extends RefineToolContext, RefineBrowserToolProviderContext {}
 

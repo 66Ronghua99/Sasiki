@@ -10,8 +10,8 @@ related:
   - apps/agent-runtime/src/application/refine/refine-react-tool-registry.ts
   - apps/agent-runtime/src/application/refine/refine-react-browser-tool-adapter.ts
   - apps/agent-runtime/src/application/refine/refine-react-runtime-tool-adapter.ts
-  - apps/agent-runtime/src/application/refine/refine-browser-tools.ts
-  - apps/agent-runtime/src/application/refine/refine-runtime-tools.ts
+  - apps/agent-runtime/src/application/refine/tools/runtime/refine-browser-tools.ts
+  - apps/agent-runtime/src/application/refine/tools/runtime/refine-runtime-tools.ts
   - apps/agent-runtime/src/application/refine/refine-run-bootstrap-provider.ts
   - apps/agent-runtime/src/application/refine/refine-workflow.ts
   - apps/agent-runtime/src/application/shell/runtime-composition-root.ts

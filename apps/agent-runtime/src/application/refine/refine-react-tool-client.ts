@@ -5,7 +5,7 @@
  */
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../contracts/tool-client.js";
 import type { RefineReactSession } from "./refine-react-session.js";
-import { type HitlAnswerProvider } from "./refine-runtime-tools.js";
+import { type HitlAnswerProvider } from "./tools/runtime/refine-runtime-tools.js";
 import type { RefineToolContextRef } from "./tools/refine-tool-context.js";
 import type { RefineToolSurface } from "./tools/refine-tool-surface.js";
 import {

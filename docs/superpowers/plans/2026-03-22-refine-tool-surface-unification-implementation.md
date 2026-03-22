@@ -18,8 +18,8 @@ related:
   - apps/agent-runtime/src/application/refine/refine-react-tool-registry.ts
   - apps/agent-runtime/src/application/refine/refine-react-browser-tool-adapter.ts
   - apps/agent-runtime/src/application/refine/refine-react-runtime-tool-adapter.ts
-  - apps/agent-runtime/src/application/refine/refine-browser-tools.ts
-  - apps/agent-runtime/src/application/refine/refine-runtime-tools.ts
+  - apps/agent-runtime/src/application/refine/tools/runtime/refine-browser-tools.ts
+  - apps/agent-runtime/src/application/refine/tools/runtime/refine-runtime-tools.ts
   - apps/agent-runtime/src/application/refine/refine-run-bootstrap-provider.ts
   - apps/agent-runtime/src/application/refine/react-refinement-run-executor.ts
   - apps/agent-runtime/src/application/refine/refine-workflow.ts
@@ -88,9 +88,9 @@ related:
 
 - `apps/agent-runtime/src/application/refine/refine-react-tool-client.ts`
   Convert to a thin compatibility facade over the new refine tool surface.
-- `apps/agent-runtime/src/application/refine/refine-browser-tools.ts`
+- `apps/agent-runtime/src/application/refine/tools/runtime/refine-browser-tools.ts`
   Either narrow to provider-facing helpers or extract behavior into browser provider internals.
-- `apps/agent-runtime/src/application/refine/refine-runtime-tools.ts`
+- `apps/agent-runtime/src/application/refine/tools/runtime/refine-runtime-tools.ts`
   Either narrow to provider-facing helpers or extract behavior into runtime provider internals.
 - `apps/agent-runtime/src/application/refine/refine-run-bootstrap-provider.ts`
   Keep current caller contract, but switch to the new surface/context seam without changing returned behavior.
@@ -322,8 +322,8 @@ git commit -m "refactor: add refine tool surface core abstractions"
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/providers/refine-browser-provider.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/providers/refine-runtime-provider.ts`
-- Modify: `apps/agent-runtime/src/application/refine/refine-browser-tools.ts`
-- Modify: `apps/agent-runtime/src/application/refine/refine-runtime-tools.ts`
+- Modify: `apps/agent-runtime/src/application/refine/tools/runtime/refine-browser-tools.ts`
+- Modify: `apps/agent-runtime/src/application/refine/tools/runtime/refine-runtime-tools.ts`
 - Modify: `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
 - Modify: `apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts`
 
@@ -399,8 +399,8 @@ Expected: PASS
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/providers \
   apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts \
-  apps/agent-runtime/src/application/refine/refine-browser-tools.ts \
-  apps/agent-runtime/src/application/refine/refine-runtime-tools.ts \
+  apps/agent-runtime/src/application/refine/tools/runtime/refine-browser-tools.ts \
+  apps/agent-runtime/src/application/refine/tools/runtime/refine-runtime-tools.ts \
   apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts \
   apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
 git commit -m "refactor: add refine hook pipeline and provider layer"

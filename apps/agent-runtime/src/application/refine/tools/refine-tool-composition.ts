@@ -1,8 +1,8 @@
 import type { ToolClient } from "../../../contracts/tool-client.js";
 import type { McpToolCallHookObserver, ToolCallHookCapture } from "../../../kernel/mcp-tool-bridge.js";
 import { createRefineReactSession, type RefineReactSession } from "../refine-react-session.js";
-import { RefineBrowserTools } from "../refine-browser-tools.js";
-import { RefineRuntimeTools, type HitlAnswerProvider } from "../refine-runtime-tools.js";
+import { RefineBrowserTools } from "./runtime/refine-browser-tools.js";
+import { RefineRuntimeTools, type HitlAnswerProvider } from "./runtime/refine-runtime-tools.js";
 import { REFINE_TOOL_ORDER } from "./refine-tool-order.js";
 import { createRefineBrowserToolRegistry } from "./refine-browser-tool-registry.js";
 import { createRefineRuntimeToolRegistry } from "./refine-runtime-tool-registry.js";

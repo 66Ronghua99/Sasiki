@@ -12,7 +12,7 @@ import {
   RefineRuntimeTools,
   type HitlAnswerProvider,
   type RefineRuntimeToolProviderContext,
-} from "../../refine-runtime-tools.js";
+} from "../runtime/refine-runtime-tools.js";
 
 export interface RefineRuntimeProviderContext extends RefineToolContext, RefineRuntimeToolProviderContext {}
 
