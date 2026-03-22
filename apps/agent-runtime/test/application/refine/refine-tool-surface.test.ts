@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ToolCallResult } from "../../../src/contracts/tool-client.js";
+import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../../src/domain/attention-knowledge.js";
 import {
   createRefineToolContextRef,
   type RefineToolContext,
@@ -26,6 +27,10 @@ import {
   RefineToolSurfaceLifecycleCoordinator,
   type RefineToolSurfaceLifecycle,
 } from "../../../src/application/refine/tools/refine-tool-surface-lifecycle.js";
+import {
+  createRefineRuntimeToolRegistry,
+  REFINE_RUNTIME_TOOL_ORDER,
+} from "../../../src/application/refine/tools/refine-runtime-tool-registry.js";
 import type { ToolCallHookContext } from "../../../src/domain/refinement-session.js";
 import {
   createRefineReactSession,
@@ -40,6 +45,28 @@ interface StubContext extends RefineToolContext {
 
 interface HookAwareContext extends StubContext {
   readonly hookContext: ToolCallHookContext;
+}
+
+interface RuntimeDefinitionContext extends RefineToolContext {
+  readonly runtime: {
+    requestHumanInput(request: {
+      prompt: string;
+      context?: string;
+    }): Promise<{ status: "answered"; answer: string } | { status: "paused"; resumeRunId: string; resumeToken: string }>;
+    recordKnowledgeCandidate(request: {
+      taskScope: string;
+      page: { origin: string; normalizedPath: string };
+      category: (typeof ATTENTION_KNOWLEDGE_CATEGORIES)[number];
+      cue: string;
+      rationale?: string;
+      sourceObservationRef: string;
+      sourceActionRef?: string;
+    }): Promise<{ accepted: true; candidateId: string }>;
+    finishRun(request: {
+      reason: "goal_achieved" | "hard_failure";
+      summary: string;
+    }): Promise<{ accepted: true; finalStatus: "completed" | "failed" }>;
+  };
 }
 
 function createStubTool(name: string, behavior?: (context: StubContext) => ToolCallResult): RefineToolDefinition<StubContext> {
@@ -69,6 +96,12 @@ function createHookContext(): ToolCallHookContext {
     toolClass: "mutation",
     hookOrigin: "tool_call",
   };
+}
+
+function findListedTool(tools: Array<{ name: string }>, name: string): { name: string; description?: string; inputSchema?: unknown } {
+  const tool = tools.find((item) => item.name === name);
+  assert.ok(tool, `expected tool ${name} to be registered`);
+  return tool as { name: string; description?: string; inputSchema?: unknown };
 }
 
 test("registry rejects duplicate tool names and preserves explicit order", () => {
@@ -303,6 +336,102 @@ test("runtime provider syncs run-scoped context through the runtime tool provide
 
   assert.equal(result.status, "answered");
   assert.deepEqual(events, ["context:provider-runtime-run:same-provider", "hitl"]);
+});
+
+test("runtime tool definitions expose frozen schemas and invoke provider behavior", async () => {
+  const calls: string[] = [];
+  const registry = createRefineRuntimeToolRegistry();
+  const surface = new RefineToolSurface({
+    registry,
+    contextRef: createRefineToolContextRef<RuntimeDefinitionContext>({
+      runtime: {
+        async requestHumanInput(request) {
+          calls.push(`hitl:${request.prompt}:${request.context ?? ""}`);
+          return {
+            status: "answered",
+            answer: "confirmed",
+          };
+        },
+        async recordKnowledgeCandidate(request) {
+          calls.push(
+            `knowledge:${request.taskScope}:${request.page.origin}${request.page.normalizedPath}:${request.category}:${request.sourceObservationRef}`
+          );
+          return {
+            accepted: true,
+            candidateId: "candidate-7",
+          };
+        },
+        async finishRun(request) {
+          calls.push(`finish:${request.reason}:${request.summary}`);
+          return {
+            accepted: true,
+            finalStatus: request.reason === "goal_achieved" ? "completed" : "failed",
+          };
+        },
+      },
+    }),
+  });
+
+  const listedTools = await surface.listTools();
+  assert.deepEqual(
+    registry.listDefinitions().map((definition) => definition.name),
+    REFINE_RUNTIME_TOOL_ORDER
+  );
+  const hitl = findListedTool(listedTools, "hitl.request");
+  const recordCandidate = findListedTool(listedTools, "knowledge.record_candidate");
+  const runFinish = findListedTool(listedTools, "run.finish");
+
+  assert.equal(hitl.description, "Ask for human intervention when safe progress requires explicit human input.");
+  assert.equal(
+    recordCandidate.description,
+    "Record reusable attention knowledge candidate with provenance references."
+  );
+  assert.equal(runFinish.description, "Explicitly mark refine run completion or hard failure with a summary.");
+  assert.deepEqual((runFinish.inputSchema as { required?: unknown }).required, ["reason", "summary"]);
+  assert.deepEqual(
+    (((recordCandidate.inputSchema as { properties?: Record<string, unknown> }).properties?.category as {
+      enum?: unknown;
+    })?.enum),
+    ATTENTION_KNOWLEDGE_CATEGORIES
+  );
+
+  const hitlResult = await surface.callTool("hitl.request", {
+    prompt: "Need confirmation",
+    context: "dialog is open",
+  });
+  const knowledgeResult = await surface.callTool("knowledge.record_candidate", {
+    taskScope: "publish-flow",
+    page: {
+      origin: "https://example.com",
+      normalizedPath: "/publish",
+    },
+    category: "keep",
+    cue: "Need cover image before submit",
+    rationale: "Submit stays disabled",
+    sourceObservationRef: "obs-3",
+  });
+  const finishResult = await surface.callTool("run.finish", {
+    reason: "goal_achieved",
+    summary: "Publish flow completed",
+  });
+
+  assert.deepEqual(hitlResult, {
+    status: "answered",
+    answer: "confirmed",
+  });
+  assert.deepEqual(knowledgeResult, {
+    accepted: true,
+    candidateId: "candidate-7",
+  });
+  assert.deepEqual(finishResult, {
+    accepted: true,
+    finalStatus: "completed",
+  });
+  assert.deepEqual(calls, [
+    "hitl:Need confirmation:dialog is open",
+    "knowledge:publish-flow:https://example.com/publish:keep:obs-3",
+    "finish:goal_achieved:Publish flow completed",
+  ]);
 });
 
 test("browser provider keeps observation refs monotonic across repeated observations in one run", async () => {

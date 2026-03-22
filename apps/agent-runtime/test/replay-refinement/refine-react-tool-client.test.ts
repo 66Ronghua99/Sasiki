@@ -290,6 +290,56 @@ test("composite tool client emits frozen field-level input schemas for critical 
   assert.deepEqual((fileUploadProperties.paths as Record<string, unknown>).items, { type: "string" });
 });
 
+test("runtime tool facade keeps existing behavior contracts on the legacy client path", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-runtime-contract", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({
+    rawClient: raw,
+    session,
+    hitlAnswerProvider: async () => "Human confirmed",
+  });
+
+  await client.connect();
+  const hitl = await client.callTool("hitl.request", {
+    prompt: "Need human confirmation",
+    context: "modal is blocking progress",
+  });
+  const candidate = await client.callTool("knowledge.record_candidate", {
+    taskScope: "search-product",
+    page: {
+      origin: "https://www.xiaohongshu.com",
+      normalizedPath: "/explore",
+    },
+    category: "keep",
+    cue: "Need to confirm selection before submit",
+    rationale: "Submit can have side effects",
+    sourceObservationRef: "obs-runtime-1",
+  });
+  const finish = await client.callTool("run.finish", {
+    reason: "goal_achieved",
+    summary: "done",
+  });
+  await client.disconnect();
+
+  assert.deepEqual(hitl, {
+    status: "answered",
+    answer: "Human confirmed",
+  });
+  assert.deepEqual(candidate, {
+    accepted: true,
+    candidateId: "candidate_1",
+  });
+  assert.deepEqual(finish, {
+    accepted: true,
+    finalStatus: "completed",
+  });
+  assert.deepEqual(session.finishState(), {
+    reason: "goal_achieved",
+    summary: "done",
+    finalStatus: "completed",
+  });
+});
+
 test("observe.query uses only deterministic structural narrowing and ignores intent semantics", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-2", "task", { taskScope: "search-product" });

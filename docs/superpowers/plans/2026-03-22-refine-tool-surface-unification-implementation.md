@@ -417,7 +417,7 @@ git commit -m "refactor: add refine hook pipeline and provider layer"
 - Modify: `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 
-- [ ] **Step 1: Write failing tests that runtime tools are registered from first-class definitions**
+- [x] **Step 1: Write failing tests that runtime tools are registered from first-class definitions**
 
 ```ts
 test("runtime tool definitions expose frozen schemas and invoke provider behavior", async () => {
@@ -433,12 +433,12 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
 });
 ```
 
-- [ ] **Step 2: Run targeted tests and verify failure**
+- [x] **Step 2: Run targeted tests and verify failure**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: FAIL because runtime tool definitions are not registered yet.
 
-- [ ] **Step 3: Implement the three runtime tool definition files with colocated schema and invoke**
+- [x] **Step 3: Implement the three runtime tool definition files with colocated schema and invoke**
 
 ```ts
 export const runFinishTool: RefineToolDefinition = {
@@ -454,7 +454,7 @@ export const runFinishTool: RefineToolDefinition = {
 };
 ```
 
-- [ ] **Step 4: Register the runtime definitions in the new surface while keeping old adapters untouched**
+- [x] **Step 4: Register the runtime definitions in the new surface while keeping old adapters untouched**
 
 ```ts
 const definitions = [
@@ -464,7 +464,7 @@ const definitions = [
 ];
 ```
 
-- [ ] **Step 5: Re-run targeted tests and verify pass**
+- [x] **Step 5: Re-run targeted tests and verify pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: PASS
