@@ -27,14 +27,8 @@ import {
   RefineToolSurfaceLifecycleCoordinator,
   type RefineToolSurfaceLifecycle,
 } from "../../../src/application/refine/tools/refine-tool-surface-lifecycle.js";
-import {
-  createRefineRuntimeToolRegistry,
-  REFINE_RUNTIME_TOOL_ORDER,
-} from "../../../src/application/refine/tools/refine-runtime-tool-registry.js";
-import {
-  createRefineBrowserToolRegistry,
-  REFINE_BROWSER_TOOL_ORDER,
-} from "../../../src/application/refine/tools/refine-browser-tool-registry.js";
+import { createRefineRuntimeToolRegistry } from "../../../src/application/refine/tools/refine-runtime-tool-registry.js";
+import { createRefineBrowserToolRegistry } from "../../../src/application/refine/tools/refine-browser-tool-registry.js";
 import type { ToolCallHookContext } from "../../../src/domain/refinement-session.js";
 import {
   createRefineReactSession,
@@ -134,7 +128,7 @@ function findListedTool(tools: Array<{ name: string }>, name: string): { name: s
   return tool as { name: string; description?: string; inputSchema?: unknown };
 }
 
-test("registry rejects duplicate tool names and preserves explicit order", () => {
+test("registry rejects duplicate tool names and preserves definition insertion order", () => {
   const toolA = createStubTool("tool.a");
   const toolB = createStubTool("tool.b");
 
@@ -142,14 +136,12 @@ test("registry rejects duplicate tool names and preserves explicit order", () =>
     () =>
       new RefineToolRegistry({
         definitions: [toolA, createStubTool("tool.a")],
-        orderedToolNames: ["tool.a"],
       }),
     /duplicate refine tool definition: tool.a/
   );
 
   const registry = new RefineToolRegistry({
-    definitions: [toolA, toolB],
-    orderedToolNames: ["tool.b", "tool.a"],
+    definitions: [toolB, toolA],
   });
 
   assert.deepEqual(
@@ -158,11 +150,10 @@ test("registry rejects duplicate tool names and preserves explicit order", () =>
   );
 });
 
-test("tool surface exposes explicit tool order and uses the latest mutable context", async () => {
+test("tool surface exposes definition insertion order and uses the latest mutable context", async () => {
   const contextRef = createRefineToolContextRef<StubContext>({ runId: "run-1" });
   const registry = new RefineToolRegistry({
-    definitions: [createStubTool("tool.a"), createStubTool("tool.b")],
-    orderedToolNames: ["tool.b", "tool.a"],
+    definitions: [createStubTool("tool.b"), createStubTool("tool.a")],
   });
   const surface = new RefineToolSurface({ registry, contextRef });
 
@@ -202,7 +193,6 @@ test("tool surface delegates lifecycle and hook pipeline around tool calls", asy
   };
   const registry = new RefineToolRegistry({
     definitions: [createStubTool("tool.a")],
-    orderedToolNames: ["tool.a"],
   });
   const surface = new RefineToolSurface({
     registry,
@@ -405,7 +395,7 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   const listedTools = await surface.listTools();
   assert.deepEqual(
     registry.listDefinitions().map((definition) => definition.name),
-    REFINE_RUNTIME_TOOL_ORDER
+    ["hitl.request", "knowledge.record_candidate", "run.finish"]
   );
   const hitl = findListedTool(listedTools, "hitl.request");
   const recordCandidate = findListedTool(listedTools, "knowledge.record_candidate");
@@ -559,11 +549,31 @@ test("browser tool definitions preserve current core order and provider-backed b
   const listedTools = await surface.listTools();
   assert.deepEqual(
     registry.listDefinitions().map((definition) => definition.name),
-    REFINE_BROWSER_TOOL_ORDER
+    [
+      "observe.page",
+      "observe.query",
+      "act.click",
+      "act.type",
+      "act.press",
+      "act.navigate",
+      "act.select_tab",
+      "act.screenshot",
+      "act.file_upload",
+    ]
   );
   assert.deepEqual(
     listedTools.map((tool) => tool.name),
-    REFINE_BROWSER_TOOL_ORDER
+    [
+      "observe.page",
+      "observe.query",
+      "act.click",
+      "act.type",
+      "act.press",
+      "act.navigate",
+      "act.select_tab",
+      "act.screenshot",
+      "act.file_upload",
+    ]
   );
 
   const observed = await surface.callTool("observe.page", {});

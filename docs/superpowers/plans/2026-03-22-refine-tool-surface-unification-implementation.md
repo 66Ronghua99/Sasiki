@@ -52,10 +52,8 @@ related:
   Defines hook interfaces and the default no-op / composed pipeline behavior.
 - `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts`
   Adapts the refine-owned hook pipeline into the current `McpToolCallHookObserver` seam used by `AgentLoop`.
-- `apps/agent-runtime/src/application/refine/tools/refine-tool-order.ts`
-  Holds the explicit refine-owned ordered tool-name contract so it no longer lives in `domain/`.
 - `apps/agent-runtime/src/application/refine/tools/refine-tool-registry.ts`
-  Registers first-class tool definitions, enforces uniqueness, and exposes ordered lookup.
+  Registers first-class tool definitions, enforces uniqueness, and exposes insertion-order lookup.
 - `apps/agent-runtime/src/application/refine/tools/refine-tool-surface.ts`
   Owns the unified `list/call/connect/disconnect` entrypoint for refine.
 - `apps/agent-runtime/src/application/refine/tools/refine-tool-surface-lifecycle.ts`
@@ -217,7 +215,6 @@ git commit -m "test: freeze refine tool surface and bridge behavior"
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-definition.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-context.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-pipeline.ts`
-- Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-order.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-registry.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-surface.ts`
 - Create: `apps/agent-runtime/src/application/refine/tools/refine-tool-surface-lifecycle.ts`
@@ -228,16 +225,15 @@ git commit -m "test: freeze refine tool surface and bridge behavior"
 - [x] **Step 1: Write the failing registry/surface tests first**
 
 ```ts
-test("registry rejects duplicate tool names and preserves explicit order", async () => {
+test("registry rejects duplicate tool names and preserves definition insertion order", async () => {
   const registry = new RefineToolRegistry({
-    definitions: [toolA, toolB],
-    orderedToolNames: ["tool.b", "tool.a"],
+    definitions: [toolB, toolA],
   });
 
   assert.deepEqual(registry.listDefinitions().map((item) => item.name), ["tool.b", "tool.a"]);
 });
 
-test("tool surface lists definitions in explicit refine-owned order", async () => {
+test("tool surface lists definitions in definition insertion order", async () => {
   const surface = new RefineToolSurface({ registry, contextRef, lifecycle });
   assert.deepEqual(surface.listTools().map((item) => item.name), ["tool.b", "tool.a"]);
 });
@@ -248,7 +244,7 @@ test("tool surface lists definitions in explicit refine-owned order", async () =
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
 Expected: FAIL because the new contracts and surface do not exist yet.
 
-- [x] **Step 3: Add the minimal new contracts, explicit order contract, and no-op lifecycle implementation**
+- [x] **Step 3: Add the minimal new contracts and no-op lifecycle implementation**
 
 ```ts
 export interface RefineToolDefinition {
@@ -263,21 +259,17 @@ export interface RefineToolContextRef {
   set(next: RefineToolContext): void;
 }
 
-export const REFINE_TOOL_ORDER = [
-  "observe.page",
-  // ...
-  "run.finish",
-] as const;
 ```
 
-- [x] **Step 4: Implement the registry with duplicate protection and ordered lookup**
+- [x] **Step 4: Implement the registry with duplicate protection and insertion-order lookup**
 
 ```ts
-const byName = new Map(definitions.map((definition) => [definition.name, definition]));
-for (const name of orderedToolNames) {
-  if (!byName.has(name)) {
-    throw new Error(`missing refine tool definition: ${name}`);
+for (const definition of definitions) {
+  if (definitionByName.has(definition.name)) {
+    throw new Error(`duplicate refine tool definition: ${definition.name}`);
   }
+  definitionByName.set(definition.name, definition);
+  orderedDefinitions.push(definition);
 }
 ```
 
@@ -295,10 +287,10 @@ async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallRes
 }
 ```
 
-- [x] **Step 6: Move refine tool ordering out of `domain/refine-react.ts` and update contract tests**
+- [x] **Step 6: Remove domain-owned tool ordering and update contract tests around the refine-owned registry order**
 
 ```ts
-import { REFINE_TOOL_ORDER } from "../../src/application/refine/tools/refine-tool-order.js";
+assert.deepEqual((await client.listTools()).map((tool) => tool.name), expectedToolNames);
 ```
 
 - [x] **Step 7: Run the new surface/order tests and verify they pass**

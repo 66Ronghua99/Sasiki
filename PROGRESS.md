@@ -144,9 +144,9 @@ apps/agent-runtime/src/
   - 补强 `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
   - fresh verification：`npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/mcp-tool-bridge.test.ts`
 - 已完成 refine tool surface unification Task 2 core abstractions：
-  - 新增 `apps/agent-runtime/src/application/refine/tools/` 下的 core contracts / order / registry / surface / lifecycle
+  - 新增 `apps/agent-runtime/src/application/refine/tools/` 下的 core contracts / registry / surface / lifecycle
   - 新增 `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
-  - 将 tool order contract 从 `apps/agent-runtime/src/domain/refine-react.ts` 移至 `apps/agent-runtime/src/application/refine/tools/refine-tool-order.ts`
+  - refine tool list order 现在直接跟随 registry definition insertion order，不再维护独立 order 文件
   - fresh verification：`npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-contracts.test.ts`
 - 已完成 refine tool surface unification Task 3 provider / hook scaffolding：
   - 新增 `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts`

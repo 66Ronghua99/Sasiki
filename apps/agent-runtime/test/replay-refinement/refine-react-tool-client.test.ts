@@ -8,7 +8,6 @@ import {
   createBootstrapRefineReactToolClient,
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
-import { REFINE_BROWSER_TOOL_ORDER } from "../../src/application/refine/tools/refine-browser-tool-registry.js";
 import { createRefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
 
 interface StubRawToolClientOptions {
@@ -219,8 +218,18 @@ test("composite tool client exposes exactly twelve refine-agent facing tools", a
   await client.disconnect();
 
   assert.deepEqual(
-    tools.slice(0, REFINE_BROWSER_TOOL_ORDER.length).map((item) => item.name),
-    REFINE_BROWSER_TOOL_ORDER
+    tools.slice(0, 9).map((item) => item.name),
+    [
+      "observe.page",
+      "observe.query",
+      "act.click",
+      "act.type",
+      "act.press",
+      "act.navigate",
+      "act.select_tab",
+      "act.screenshot",
+      "act.file_upload",
+    ]
   );
   assert.deepEqual(
     tools.map((item) => item.name),
@@ -239,17 +248,6 @@ test("composite tool client exposes exactly twelve refine-agent facing tools", a
       "run.finish",
     ]
   );
-  assert.deepEqual(REFINE_BROWSER_TOOL_ORDER, [
-    "observe.page",
-    "observe.query",
-    "act.click",
-    "act.type",
-    "act.press",
-    "act.navigate",
-    "act.select_tab",
-    "act.screenshot",
-    "act.file_upload",
-  ]);
 });
 
 test("composite tool client emits frozen field-level input schemas for critical tools", async () => {

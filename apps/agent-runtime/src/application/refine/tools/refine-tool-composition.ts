@@ -3,7 +3,6 @@ import type { McpToolCallHookObserver, ToolCallHookCapture } from "../../../kern
 import { createRefineReactSession, type RefineReactSession } from "../refine-react-session.js";
 import { RefineBrowserTools } from "./runtime/refine-browser-tools.js";
 import { RefineRuntimeTools, type HitlAnswerProvider } from "./runtime/refine-runtime-tools.js";
-import { REFINE_TOOL_ORDER } from "./refine-tool-order.js";
 import { createRefineBrowserToolRegistry } from "./refine-browser-tool-registry.js";
 import { createRefineRuntimeToolRegistry } from "./refine-runtime-tool-registry.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
@@ -75,7 +74,6 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
       ...createRefineBrowserToolRegistry().listDefinitions(),
       ...createRefineRuntimeToolRegistry().listDefinitions(),
     ],
-    orderedToolNames: REFINE_TOOL_ORDER,
   });
   const hookPipeline = createNoOpHookPipeline();
   const surface = new RefineToolSurface({

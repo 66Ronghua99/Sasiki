@@ -9,18 +9,6 @@ import { observePageTool } from "./definitions/observe-page-tool.js";
 import { observeQueryTool } from "./definitions/observe-query-tool.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
 
-export const REFINE_BROWSER_TOOL_ORDER = [
-  "observe.page",
-  "observe.query",
-  "act.click",
-  "act.type",
-  "act.press",
-  "act.navigate",
-  "act.select_tab",
-  "act.screenshot",
-  "act.file_upload",
-] as const;
-
 export function createRefineBrowserToolRegistry(): RefineToolRegistry {
   return new RefineToolRegistry({
     definitions: [
@@ -34,6 +22,5 @@ export function createRefineBrowserToolRegistry(): RefineToolRegistry {
       actScreenshotTool,
       actFileUploadTool,
     ],
-    orderedToolNames: REFINE_BROWSER_TOOL_ORDER,
   });
 }
