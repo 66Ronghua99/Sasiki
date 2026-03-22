@@ -1,0 +1,33 @@
+import { actClickTool } from "./definitions/act-click-tool.js";
+import { actNavigateTool } from "./definitions/act-navigate-tool.js";
+import { actPressTool } from "./definitions/act-press-tool.js";
+import { actSelectTabTool } from "./definitions/act-select-tab-tool.js";
+import { actTypeTool } from "./definitions/act-type-tool.js";
+import { observePageTool } from "./definitions/observe-page-tool.js";
+import { observeQueryTool } from "./definitions/observe-query-tool.js";
+import { RefineToolRegistry } from "./refine-tool-registry.js";
+
+export const REFINE_BROWSER_TOOL_ORDER = [
+  "observe.page",
+  "observe.query",
+  "act.click",
+  "act.type",
+  "act.press",
+  "act.navigate",
+  "act.select_tab",
+] as const;
+
+export function createRefineBrowserToolRegistry(): RefineToolRegistry {
+  return new RefineToolRegistry({
+    definitions: [
+      observePageTool,
+      observeQueryTool,
+      actClickTool,
+      actTypeTool,
+      actPressTool,
+      actNavigateTool,
+      actSelectTabTool,
+    ],
+    orderedToolNames: REFINE_BROWSER_TOOL_ORDER,
+  });
+}

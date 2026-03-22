@@ -31,6 +31,10 @@ import {
   createRefineRuntimeToolRegistry,
   REFINE_RUNTIME_TOOL_ORDER,
 } from "../../../src/application/refine/tools/refine-runtime-tool-registry.js";
+import {
+  createRefineBrowserToolRegistry,
+  REFINE_BROWSER_TOOL_ORDER,
+} from "../../../src/application/refine/tools/refine-browser-tool-registry.js";
 import type { ToolCallHookContext } from "../../../src/domain/refinement-session.js";
 import {
   createRefineReactSession,
@@ -66,6 +70,23 @@ interface RuntimeDefinitionContext extends RefineToolContext {
       reason: "goal_achieved" | "hard_failure";
       summary: string;
     }): Promise<{ accepted: true; finalStatus: "completed" | "failed" }>;
+  };
+}
+
+interface BrowserDefinitionContext extends RefineToolContext {
+  readonly browser: {
+    capturePageObservation(): Promise<Record<string, unknown>>;
+    queryObservation(request: Record<string, unknown>): Promise<Record<string, unknown>>;
+    clickFromObservation(args: { elementRef: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
+    typeIntoElement(args: {
+      elementRef: string;
+      sourceObservationRef: string;
+      text: string;
+      submit?: boolean;
+    }): Promise<Record<string, unknown>>;
+    pressKey(args: { key: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
+    navigateFromObservation(args: { url: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
+    switchActiveTab(args: { tabIndex: number; sourceObservationRef: string }): Promise<Record<string, unknown>>;
   };
 }
 
@@ -431,6 +452,172 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     "hitl:Need confirmation:dialog is open",
     "knowledge:publish-flow:https://example.com/publish:keep:obs-3",
     "finish:goal_achieved:Publish flow completed",
+  ]);
+});
+
+test("browser tool definitions preserve current core order and provider-backed behavior", async () => {
+  const calls: string[] = [];
+  const registry = createRefineBrowserToolRegistry();
+  const surface = new RefineToolSurface({
+    registry,
+    contextRef: createRefineToolContextRef<BrowserDefinitionContext>({
+      browser: {
+        async capturePageObservation() {
+          calls.push("observe.page");
+          return {
+            observation: {
+              observationRef: "obs-browser-1",
+              page: {
+                url: "https://example.com/current",
+                origin: "https://example.com",
+                normalizedPath: "/current",
+                title: "Current",
+              },
+              tabs: [],
+              activeTabIndex: 0,
+              activeTabMatchesPage: true,
+              snapshot: "snapshot",
+              capturedAt: "2026-03-22T00:00:00.000Z",
+            },
+          };
+        },
+        async queryObservation(request) {
+          calls.push(`observe.query:${String(request.mode)}:${String(request.text ?? "")}:${String(request.limit ?? "")}`);
+          return {
+            observationRef: "obs-browser-1",
+            page: {
+              origin: "https://example.com",
+              normalizedPath: "/current",
+            },
+            matches: [
+              {
+                elementRef: "el-buy",
+                sourceObservationRef: "obs-browser-1",
+                role: "button",
+                rawText: "Buy now",
+                normalizedText: "buy now",
+              },
+            ],
+          };
+        },
+        async clickFromObservation(args) {
+          calls.push(`act.click:${args.elementRef}:${args.sourceObservationRef}`);
+          return { result: { action: "click", success: true, sourceObservationRef: args.sourceObservationRef } };
+        },
+        async typeIntoElement(args) {
+          calls.push(`act.type:${args.elementRef}:${args.text}:${args.submit === true ? "submit" : "no-submit"}`);
+          return { result: { action: "type", success: true, sourceObservationRef: args.sourceObservationRef } };
+        },
+        async pressKey(args) {
+          calls.push(`act.press:${args.key}:${args.sourceObservationRef}`);
+          return { result: { action: "press", success: true, sourceObservationRef: args.sourceObservationRef } };
+        },
+        async navigateFromObservation(args) {
+          calls.push(`act.navigate:${args.url}:${args.sourceObservationRef}`);
+          return { result: { action: "navigate", success: true, sourceObservationRef: args.sourceObservationRef } };
+        },
+        async switchActiveTab(args) {
+          calls.push(`act.select_tab:${args.tabIndex}:${args.sourceObservationRef}`);
+          return { result: { action: "select_tab", success: true, sourceObservationRef: args.sourceObservationRef } };
+        },
+      },
+    }),
+  });
+
+  const listedTools = await surface.listTools();
+  assert.deepEqual(
+    registry.listDefinitions().map((definition) => definition.name),
+    REFINE_BROWSER_TOOL_ORDER
+  );
+  assert.deepEqual(
+    listedTools.map((tool) => tool.name),
+    REFINE_BROWSER_TOOL_ORDER
+  );
+
+  const observed = await surface.callTool("observe.page", {});
+  const queried = await surface.callTool("observe.query", {
+    mode: "search",
+    text: "buy",
+    limit: 2,
+  });
+  const clicked = await surface.callTool("act.click", {
+    elementRef: "el-buy",
+    sourceObservationRef: "obs-browser-1",
+  });
+  const typed = await surface.callTool("act.type", {
+    elementRef: "el-input",
+    sourceObservationRef: "obs-browser-1",
+    text: "hello",
+    submit: true,
+  });
+  const pressed = await surface.callTool("act.press", {
+    key: "Enter",
+    sourceObservationRef: "obs-browser-1",
+  });
+  const navigated = await surface.callTool("act.navigate", {
+    url: "https://example.com/next",
+    sourceObservationRef: "obs-browser-1",
+  });
+  const selected = await surface.callTool("act.select_tab", {
+    tabIndex: 1,
+    sourceObservationRef: "obs-browser-1",
+  });
+
+  assert.deepEqual(observed, {
+    observation: {
+      observationRef: "obs-browser-1",
+      page: {
+        url: "https://example.com/current",
+        origin: "https://example.com",
+        normalizedPath: "/current",
+        title: "Current",
+      },
+      tabs: [],
+      activeTabIndex: 0,
+      activeTabMatchesPage: true,
+      snapshot: "snapshot",
+      capturedAt: "2026-03-22T00:00:00.000Z",
+    },
+  });
+  assert.deepEqual(queried, {
+    observationRef: "obs-browser-1",
+    page: {
+      origin: "https://example.com",
+      normalizedPath: "/current",
+    },
+    matches: [
+      {
+        elementRef: "el-buy",
+        sourceObservationRef: "obs-browser-1",
+        role: "button",
+        rawText: "Buy now",
+        normalizedText: "buy now",
+      },
+    ],
+  });
+  assert.deepEqual(clicked, {
+    result: { action: "click", success: true, sourceObservationRef: "obs-browser-1" },
+  });
+  assert.deepEqual(typed, {
+    result: { action: "type", success: true, sourceObservationRef: "obs-browser-1" },
+  });
+  assert.deepEqual(pressed, {
+    result: { action: "press", success: true, sourceObservationRef: "obs-browser-1" },
+  });
+  assert.deepEqual(navigated, {
+    result: { action: "navigate", success: true, sourceObservationRef: "obs-browser-1" },
+  });
+  assert.deepEqual(selected, {
+    result: { action: "select_tab", success: true, sourceObservationRef: "obs-browser-1" },
+  });
+  assert.deepEqual(calls, [
+    "observe.page",
+    "observe.query:search:buy:2",
+    "act.click:el-buy:obs-browser-1",
+    "act.type:el-input:hello:submit",
+    "act.press:Enter:obs-browser-1",
+    "act.navigate:https://example.com/next:obs-browser-1",
+    "act.select_tab:1:obs-browser-1",
   ]);
 });
 

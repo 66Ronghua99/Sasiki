@@ -8,6 +8,7 @@ import {
   createBootstrapRefineReactToolClient,
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
+import { REFINE_BROWSER_TOOL_ORDER } from "../../src/application/refine/tools/refine-browser-tool-registry.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
@@ -203,6 +204,10 @@ test("composite tool client exposes exactly twelve refine-agent facing tools", a
   const tools = await client.listTools();
   await client.disconnect();
 
+  assert.deepEqual(
+    tools.slice(0, REFINE_BROWSER_TOOL_ORDER.length).map((item) => item.name),
+    REFINE_BROWSER_TOOL_ORDER
+  );
   assert.deepEqual(
     tools.map((item) => item.name),
     [
@@ -523,6 +528,51 @@ test("act.select_tab routes to browser_tabs select action", async () => {
   const result = action.result as Record<string, unknown>;
   assert.equal(result.action, "select_tab");
   assert.equal(result.success, true);
+});
+
+test("act.type, act.press, and act.navigate keep legacy adapter behavior unchanged", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-core-actions", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  const typed = (await client.callTool("act.type", {
+    elementRef: "el-input",
+    sourceObservationRef: observationRef,
+    text: "hello world",
+    submit: true,
+  })) as Record<string, unknown>;
+  const pressed = (await client.callTool("act.press", {
+    key: "Enter",
+    sourceObservationRef: observationRef,
+  })) as Record<string, unknown>;
+  const navigated = (await client.callTool("act.navigate", {
+    url: "https://example.com/checkout",
+    sourceObservationRef: observationRef,
+  })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const typeCall = raw.calls.find((call) => call.name === "browser_type");
+  const pressCall = raw.calls.find((call) => call.name === "browser_press_key");
+  const navigateCall = raw.calls.find((call) => call.name === "browser_navigate");
+
+  assert.deepEqual(typeCall?.args, {
+    ref: "el-input",
+    text: "hello world",
+    submit: true,
+  });
+  assert.deepEqual(pressCall?.args, {
+    key: "Enter",
+  });
+  assert.deepEqual(navigateCall?.args, {
+    url: "https://example.com/checkout",
+  });
+  assert.equal((typed.result as Record<string, unknown>).action, "type");
+  assert.equal((pressed.result as Record<string, unknown>).action, "press");
+  assert.equal((navigated.result as Record<string, unknown>).action, "navigate");
 });
 
 test("act.file_upload routes to browser_file_upload with provided paths", async () => {

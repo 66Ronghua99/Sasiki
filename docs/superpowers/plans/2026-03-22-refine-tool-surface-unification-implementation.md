@@ -202,7 +202,7 @@ assert.equal(typeof input.toolClient.setHitlAnswerProvider, "function");
 Run: `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/mcp-tool-bridge.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts \
@@ -210,8 +210,6 @@ git add apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.
   apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
 git commit -m "test: freeze refine tool surface and bridge behavior"
 ```
-
-Commit intentionally remains pending in this session because the branch/worktree closure has not been requested yet.
 
 ## Task 2: Introduce Core Tool Contracts, Order Contract, Registry, And Surface
 
@@ -396,7 +394,7 @@ export class RefineBrowserProviderImpl implements RefineBrowserProvider {
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/providers \
@@ -469,7 +467,7 @@ const definitions = [
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/definitions \
@@ -491,7 +489,7 @@ git commit -m "refactor: move refine runtime tools to first-class definitions"
 - Modify: `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 
-- [ ] **Step 1: Write failing tests for browser-definition registration and behavior parity**
+- [x] **Step 1: Write failing tests for browser-definition registration and behavior parity**
 
 ```ts
 test("browser tool definitions preserve current tool order", async () => {
@@ -507,12 +505,12 @@ test("browser tool definitions preserve current tool order", async () => {
 });
 ```
 
-- [ ] **Step 2: Run targeted browser-surface tests and verify failure**
+- [x] **Step 2: Run targeted browser-surface tests and verify failure**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: FAIL because browser definitions are not registered yet.
 
-- [ ] **Step 3: Implement first-class definitions for observe/query/click/type/press/navigate/select_tab**
+- [x] **Step 3: Implement first-class definitions for observe/query/click/type/press/navigate/select_tab**
 
 ```ts
 export const actClickTool: RefineToolDefinition = {
@@ -531,7 +529,7 @@ export const actClickTool: RefineToolDefinition = {
 };
 ```
 
-- [ ] **Step 4: Register these definitions ahead of screenshot/file-upload to preserve current order**
+- [x] **Step 4: Register these definitions ahead of screenshot/file-upload to preserve current order**
 
 ```ts
 const orderedDefinitions = [
@@ -545,12 +543,12 @@ const orderedDefinitions = [
 ];
 ```
 
-- [ ] **Step 5: Re-run targeted tests and verify pass**
+- [x] **Step 5: Re-run targeted tests and verify pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/definitions \

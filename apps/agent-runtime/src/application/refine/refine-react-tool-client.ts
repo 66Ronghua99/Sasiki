@@ -10,6 +10,9 @@ import { RefineReactToolRegistry } from "./refine-react-tool-registry.js";
 import { RefineReactBrowserToolAdapter } from "./refine-react-browser-tool-adapter.js";
 import { RefineReactRuntimeToolAdapter } from "./refine-react-runtime-tool-adapter.js";
 import { REFINE_TOOL_ORDER } from "./tools/refine-tool-order.js";
+import { createRefineBrowserToolRegistry } from "./tools/refine-browser-tool-registry.js";
+import { createRefineRuntimeToolRegistry } from "./tools/refine-runtime-tool-registry.js";
+import { toToolDefinition } from "./tools/refine-tool-definition.js";
 
 export interface RefineReactToolClientOptions {
   rawClient: ToolClient;
@@ -19,6 +22,7 @@ export interface RefineReactToolClientOptions {
 
 export class RefineReactToolClient implements ToolClient {
   private readonly registry: RefineReactToolRegistry;
+  private readonly orderedToolDefinitions: ToolDefinition[];
   private session: RefineReactSession;
   private connected = false;
 
@@ -35,6 +39,10 @@ export class RefineReactToolClient implements ToolClient {
     this.registry = new RefineReactToolRegistry({
       adapters: [browserAdapter, runtimeAdapter],
       orderedToolNames: REFINE_TOOL_ORDER,
+    });
+    this.orderedToolDefinitions = buildOrderedToolDefinitions({
+      browserAdapter,
+      runtimeAdapter,
     });
   }
 
@@ -68,7 +76,7 @@ export class RefineReactToolClient implements ToolClient {
   }
 
   async listTools(): Promise<ToolDefinition[]> {
-    return this.registry.listTools();
+    return [...this.orderedToolDefinitions];
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
@@ -80,5 +88,26 @@ export function createBootstrapRefineReactToolClient(rawClient: ToolClient): Ref
   return new RefineReactToolClient({
     rawClient,
     session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+  });
+}
+
+function buildOrderedToolDefinitions(options: {
+  browserAdapter: RefineReactBrowserToolAdapter;
+  runtimeAdapter: RefineReactRuntimeToolAdapter;
+}): ToolDefinition[] {
+  const migratedDefinitions = [
+    ...createRefineBrowserToolRegistry().listDefinitions().map((definition) => toToolDefinition(definition)),
+    ...createRefineRuntimeToolRegistry().listDefinitions().map((definition) => toToolDefinition(definition)),
+  ];
+  const migratedDefinitionByName = new Map(migratedDefinitions.map((definition) => [definition.name, definition]));
+  const legacyDefinitions = [...options.browserAdapter.listTools(), ...options.runtimeAdapter.listTools()];
+  const legacyDefinitionByName = new Map(legacyDefinitions.map((definition) => [definition.name, definition]));
+
+  return REFINE_TOOL_ORDER.map((name) => {
+    const definition = migratedDefinitionByName.get(name) ?? legacyDefinitionByName.get(name);
+    if (!definition) {
+      throw new Error(`tool definition missing: ${name}`);
+    }
+    return definition;
   });
 }

@@ -8,7 +8,7 @@
 - The workflow-host boundary clarification pass is now the active front-door truth for the current baseline.
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
-- **Refine tool surface unification Tasks 1-4 are complete**: Task 1 froze the current bridge/bootstrap/facade regression behavior, Task 2 introduced refine-owned `tools/` core abstractions, Task 3 added provider/hook/lifecycle scaffolding, and Task 4 migrated the runtime-facing refine tools into first-class definitions registered through a production-side runtime registry seam. The live refine runtime path still runs through the existing adapter-centric client, which keeps the migration incremental.
+- **Refine tool surface unification Tasks 1-5 are complete**: Task 1 froze the current bridge/bootstrap/facade regression behavior, Task 2 introduced refine-owned `tools/` core abstractions, Task 3 added provider/hook/lifecycle scaffolding, Task 4 migrated the runtime-facing refine tools into first-class definitions registered through a production-side runtime registry seam, and Task 5 migrated the core browser-facing refine tools into first-class definitions registered through a production-side browser registry seam. The live refine runtime path still runs through the existing adapter-centric client, which keeps the migration incremental.
 - **Workflow Host Task 5 is complete**: `runtime/agent-execution-runtime.ts` has been removed, `application/shell/runtime-host.ts` is the only top-level lifecycle owner, and compact service construction now happens in `runtime-composition-root.ts` instead of `workflow-runtime.ts`.
 - **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
@@ -102,5 +102,5 @@ apps/agent-runtime/src/
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The workflow-host boundary clarification pass is now the current baseline.
-- The active next step is to execute Task 5 of the refine tool surface unification plan and migrate the core browser-facing refine tools into first-class definitions.
+- The active next step is to execute Task 6 of the refine tool surface unification plan and migrate screenshot/file-upload into first-class definitions without changing capability negotiation behavior.
 - See `NEXT_STEP.md` for the exact current task pointer.
