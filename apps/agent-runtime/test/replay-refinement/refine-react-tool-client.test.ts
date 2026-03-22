@@ -352,6 +352,25 @@ test("observe.page parses markdown page identity and tab metadata from snapshot"
   assert.equal(tabs[1].isActive, false);
 });
 
+test("observe.page returns a bootstrap-safe payload shape with string identity fields", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-page-shape", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  const page = observation.page as Record<string, unknown>;
+
+  assert.equal(typeof observation.observationRef, "string");
+  assert.equal(typeof observation.snapshot, "string");
+  assert.equal(typeof page.origin, "string");
+  assert.equal(typeof page.normalizedPath, "string");
+  assert.equal(typeof page.title, "string");
+});
+
 test("observe.page prefers the active tab identity when modal state leaves Page URL stale", async () => {
   const raw = new StubRawToolClient({
     snapshotText: [

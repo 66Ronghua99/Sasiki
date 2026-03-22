@@ -15,6 +15,7 @@
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
 - **Workflow registration cleanup 已完成**: `application/observe/observe-runtime.ts` 这个过渡 wrapper 已删除；`RuntimeHost` 只保留 `run(workflow)` 这条活跃宿主接口；未使用的 `createRefineWorkflowFactory` / `createCompactWorkflowFactory` 已移除，workflow 注册链路现在统一收敛为 `workflow-runtime -> runtime-host -> *-workflow`。
 - **Refine smoke e2e 已完成**: 真实任务 `打开百度搜索咖啡豆，点开第一条链接` 已在 `run_id=20260322_002735_676` 跑通，最终 `completed`，并产出新的 `artifacts/e2e/20260322_002735_676/run_summary.json` 与 `artifacts/e2e/20260322_002735_676/event_stream.jsonl` 证据；本轮暴露的问题已收敛为“首轮仍会尝试 `initial_navigation`”与“page-changing action 后仍偶发 stale observation 自恢复”。
+- **Refine tool surface unification Task 1 已完成**: 最新 refine 代码仍以 `refine-react-browser-tool-adapter.ts`、`refine-react-runtime-tool-adapter.ts` 与 `refine-react-tool-registry.ts` 为主边界；本轮已新增 `test/kernel/mcp-tool-bridge.test.ts`，并补强 `refine-react-tool-client.test.ts` 与 `refine-run-bootstrap-provider.test.ts`，冻结了 bridge hook mismatch、`observe.page` bootstrap payload shape、以及 bootstrap 对 `setSession` / `setHitlAnswerProvider` 的调用契约。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
@@ -65,6 +66,10 @@ apps/agent-runtime/src/
 - `docs/architecture/overview.md`
 - `docs/testing/strategy.md`
 
+## Active Spec / Plan
+- `docs/superpowers/specs/2026-03-22-refine-tool-surface-unification-design.md`
+- `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md`
+
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
 - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -82,7 +87,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 基于最新 refine smoke e2e 证据，优先优化工具面与端到端 refine 流程，重点压掉 `initial_navigation` / stale observation 这类可恢复但高噪声的首轮失步。
+- `P0` 执行 `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md` Task 2：引入 refine-local core tool contracts、order contract、registry 与 surface，并继续保持当前 12-tool contract 不变。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -133,3 +138,8 @@ apps/agent-runtime/src/
   - 关键证据：
     - `artifacts/e2e/20260322_002735_676/run_summary.json`
     - `artifacts/e2e/20260322_002735_676/event_stream.jsonl`
+- 已完成 refine tool surface unification Task 1 regression freeze：
+  - 新增 `apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts`
+  - 补强 `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
+  - 补强 `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
+  - fresh verification：`npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/mcp-tool-bridge.test.ts`

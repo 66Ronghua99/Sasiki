@@ -128,7 +128,7 @@ Delete only after the new surface fully replaces their behavior and all regressi
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 - Modify: `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
 
-- [ ] **Step 1: Write the failing bridge regression test**
+- [x] **Step 1: Write the failing bridge regression test**
 
 ```ts
 test("mcp tool bridge keeps current refine-name hook behavior unchanged", async () => {
@@ -165,12 +165,12 @@ test("mcp tool bridge keeps current refine-name hook behavior unchanged", async 
 });
 ```
 
-- [ ] **Step 2: Run targeted tests to verify the new bridge assertion fails first**
+- [x] **Step 2: Run targeted tests to verify the new bridge assertion fails first**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/kernel/mcp-tool-bridge.test.ts`
 Expected: FAIL because the test file does not exist yet or imports are incomplete.
 
-- [ ] **Step 3: Extend current tool-client contract tests with explicit result-shape locks**
+- [x] **Step 3: Extend current tool-client contract tests with explicit result-shape locks**
 
 ```ts
 test("observe.page keeps bootstrap-visible observation payload shape", async () => {
@@ -190,14 +190,14 @@ test("observe.page keeps bootstrap-visible observation payload shape", async () 
 });
 ```
 
-- [ ] **Step 4: Extend bootstrap tests to lock current `setSession` / `setHitlAnswerProvider` caller contract**
+- [x] **Step 4: Extend bootstrap tests to lock current `setSession` / `setHitlAnswerProvider` caller contract**
 
 ```ts
 assert.equal(typeof input.toolClient.setSession, "function");
 assert.equal(typeof input.toolClient.setHitlAnswerProvider, "function");
 ```
 
-- [ ] **Step 5: Run all targeted regression tests and verify they pass**
+- [x] **Step 5: Run all targeted regression tests and verify they pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/mcp-tool-bridge.test.ts`
 Expected: PASS
@@ -210,6 +210,8 @@ git add apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.
   apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
 git commit -m "test: freeze refine tool surface and bridge behavior"
 ```
+
+Commit intentionally remains pending in this session because the branch/worktree closure has not been requested yet.
 
 ## Task 2: Introduce Core Tool Contracts, Order Contract, Registry, And Surface
 

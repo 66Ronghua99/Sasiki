@@ -8,6 +8,7 @@
 - The workflow-host boundary clarification pass is now the active front-door truth for the current baseline.
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
+- **Refine tool surface unification Task 1 is complete**: the current branch baseline still exposes refine through `refine-react-browser-tool-adapter.ts`, `refine-react-runtime-tool-adapter.ts`, and `refine-react-tool-registry.ts`, and the first migration gate is now frozen by regression tests covering the current bridge hook mismatch, bootstrap-visible `observe.page` payload shape, and bootstrap wiring for `setSession` / `setHitlAnswerProvider`.
 - **Workflow Host Task 5 is complete**: `runtime/agent-execution-runtime.ts` has been removed, `application/shell/runtime-host.ts` is the only top-level lifecycle owner, and compact service construction now happens in `runtime-composition-root.ts` instead of `workflow-runtime.ts`.
 - **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
@@ -79,8 +80,8 @@ apps/agent-runtime/src/
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active spec / plan:
-  - `docs/superpowers/specs/2026-03-21-runtime-telemetry-event-stream-design.md`
-  - `docs/superpowers/plans/2026-03-21-runtime-telemetry-event-stream-implementation.md`
+  - `docs/superpowers/specs/2026-03-22-refine-tool-surface-unification-design.md`
+  - `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md`
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -90,6 +91,8 @@ apps/agent-runtime/src/
   - `docs/superpowers/plans/2026-03-20-harness-doc-truth-sync-implementation.md`
   - `docs/superpowers/specs/2026-03-21-agent-runtime-layer-taxonomy-reorg.md`
   - `docs/superpowers/plans/2026-03-21-agent-runtime-layer-taxonomy-reorg-implementation.md`
+  - `docs/superpowers/specs/2026-03-21-runtime-telemetry-event-stream-design.md`
+  - `docs/superpowers/plans/2026-03-21-runtime-telemetry-event-stream-implementation.md`
   - `docs/superpowers/specs/2026-03-21-workflow-host-boundary-clarification.md`
   - `docs/superpowers/plans/2026-03-21-workflow-host-boundary-clarification-implementation.md`
   - `docs/superpowers/specs/2026-03-21-backward-capability-cleanup-design.md`
@@ -99,5 +102,5 @@ apps/agent-runtime/src/
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The workflow-host boundary clarification pass is now the current baseline.
-- The active next step is to freeze a refine debug / repro harness spec on top of the runtime telemetry baseline.
+- The active next step is to execute Task 2 of the refine tool surface unification plan and introduce refine-owned tool contracts, order ownership, registry, and unified surface scaffolding.
 - See `NEXT_STEP.md` for the exact current task pointer.

@@ -116,6 +116,32 @@ test("refine bootstrap module owns persistence context wiring under artifacts", 
 test("refine bootstrap provider loads resume context, pre-observes the page, loads guidance, and assembles prompt through prompt provider", async () => {
   const promptCalls: Array<Record<string, unknown>> = [];
   const sessions: Array<{ runId: string; task: string; taskScope: string }> = [];
+  const hitlAnswerProviders: Array<unknown> = [];
+  const hitlAnswerProvider = () => "provided answer";
+  const toolClient = {
+    setSession(session) {
+      sessions.push({
+        runId: session.runId,
+        task: session.task,
+        taskScope: session.taskScope,
+      });
+    },
+    setHitlAnswerProvider(provider?: unknown) {
+      hitlAnswerProviders.push(provider);
+    },
+    async callTool(name: string): Promise<unknown> {
+      assert.equal(name, "observe.page");
+      return {
+        observation: {
+          page: {
+            origin: "https://creator.xiaohongshu.com",
+            normalizedPath: "/publish",
+          },
+        },
+      };
+    },
+  };
+
   const provider = new RefineRunBootstrapProvider({
     createRunId: () => "run_123",
     knowledgeTopN: 3,
@@ -159,27 +185,8 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
       task: "",
       resumeRunId: "paused_run_7",
     }),
-    toolClient: {
-      setSession(session) {
-        sessions.push({
-          runId: session.runId,
-          task: session.task,
-          taskScope: session.taskScope,
-        });
-      },
-      setHitlAnswerProvider() {},
-      async callTool(name: string): Promise<unknown> {
-        assert.equal(name, "observe.page");
-        return {
-          observation: {
-            page: {
-              origin: "https://creator.xiaohongshu.com",
-              normalizedPath: "/publish",
-            },
-          },
-        };
-      },
-    },
+    toolClient,
+    hitlAnswerProvider,
   });
 
   assert.equal(result.runId, "paused_run_7");
@@ -194,6 +201,7 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
       taskScope: "resume task from store",
     },
   ]);
+  assert.deepEqual(hitlAnswerProviders, [hitlAnswerProvider]);
   assert.deepEqual(promptCalls, [
     {
       task: "resume task from store",
@@ -205,6 +213,30 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
 
 test("refine bootstrap provider creates a new run id and still assembles prompt when there is no resume record", async () => {
   const sessions: Array<{ runId: string; task: string; taskScope: string }> = [];
+  const hitlAnswerProviders: Array<unknown> = [];
+  const toolClient = {
+    setSession(session) {
+      sessions.push({
+        runId: session.runId,
+        task: session.task,
+        taskScope: session.taskScope,
+      });
+    },
+    setHitlAnswerProvider(provider?: unknown) {
+      hitlAnswerProviders.push(provider);
+    },
+    async callTool(): Promise<unknown> {
+      return {
+        observation: {
+          page: {
+            origin: "https://www.xiaohongshu.com",
+            normalizedPath: "/explore",
+          },
+        },
+      };
+    },
+  };
+
   const provider = new RefineRunBootstrapProvider({
     createRunId: () => "fresh_run_1",
     guidanceLoader: {
@@ -231,26 +263,7 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
 
   const result = await provider.prepare({
     request: buildRequest(),
-    toolClient: {
-      setSession(session) {
-        sessions.push({
-          runId: session.runId,
-          task: session.task,
-          taskScope: session.taskScope,
-        });
-      },
-      setHitlAnswerProvider() {},
-      async callTool(): Promise<unknown> {
-        return {
-          observation: {
-            page: {
-              origin: "https://www.xiaohongshu.com",
-              normalizedPath: "/explore",
-            },
-          },
-        };
-      },
-    },
+    toolClient,
   });
 
   assert.equal(result.runId, "fresh_run_1");
@@ -265,4 +278,5 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
       taskScope: "buy coffee beans",
     },
   ]);
+  assert.deepEqual(hitlAnswerProviders, [undefined]);
 });
