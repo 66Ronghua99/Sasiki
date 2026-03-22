@@ -4,9 +4,9 @@ import test from "node:test";
 import {
   isObservePageResponse,
   isObserveQueryResponse,
-  REFINE_REACT_TOOL_NAMES,
   type ActionExecutionResult,
 } from "../../src/domain/refine-react.js";
+import { REFINE_TOOL_ORDER } from "../../src/application/refine/tools/refine-tool-order.js";
 import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../src/domain/attention-knowledge.js";
 import { isPausedHitlStatus, type AgentRunResult } from "../../src/domain/agent-types.js";
 
@@ -97,9 +97,9 @@ test("attention knowledge categories are frozen to v1 contract", () => {
 });
 
 test("refine-react tool surface includes screenshot, tab-select, and file-upload actions", () => {
-  assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.screenshot"));
-  assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.select_tab"));
-  assert.ok(REFINE_REACT_TOOL_NAMES.includes("act.file_upload"));
+  assert.ok(REFINE_TOOL_ORDER.includes("act.screenshot"));
+  assert.ok(REFINE_TOOL_ORDER.includes("act.select_tab"));
+  assert.ok(REFINE_TOOL_ORDER.includes("act.file_upload"));
 });
 
 test("action execution result action enum includes screenshot, tab-select, and file-upload", () => {

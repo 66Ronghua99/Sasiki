@@ -4,12 +4,12 @@
  * Last Updated: 2026-03-22
  */
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../contracts/tool-client.js";
-import { REFINE_REACT_TOOL_NAMES } from "../../domain/refine-react.js";
 import { createRefineReactSession, type RefineReactSession } from "./refine-react-session.js";
 import { type HitlAnswerProvider } from "./refine-runtime-tools.js";
 import { RefineReactToolRegistry } from "./refine-react-tool-registry.js";
 import { RefineReactBrowserToolAdapter } from "./refine-react-browser-tool-adapter.js";
 import { RefineReactRuntimeToolAdapter } from "./refine-react-runtime-tool-adapter.js";
+import { REFINE_TOOL_ORDER } from "./tools/refine-tool-order.js";
 
 export interface RefineReactToolClientOptions {
   rawClient: ToolClient;
@@ -34,7 +34,7 @@ export class RefineReactToolClient implements ToolClient {
     });
     this.registry = new RefineReactToolRegistry({
       adapters: [browserAdapter, runtimeAdapter],
-      orderedToolNames: REFINE_REACT_TOOL_NAMES,
+      orderedToolNames: REFINE_TOOL_ORDER,
     });
   }
 

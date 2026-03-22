@@ -5,21 +5,6 @@
  */
 import type { AttentionKnowledgeCategory } from "./attention-knowledge.js";
 
-export const REFINE_REACT_TOOL_NAMES = [
-  "observe.page",
-  "observe.query",
-  "act.click",
-  "act.type",
-  "act.press",
-  "act.navigate",
-  "act.select_tab",
-  "act.screenshot",
-  "act.file_upload",
-  "hitl.request",
-  "knowledge.record_candidate",
-  "run.finish",
-] as const;
-
 export const OBSERVE_QUERY_ALLOWED_NARROWING_FIELDS = ["mode", "text", "role", "elementRef", "limit"] as const;
 
 export type ObserveQueryMode = "search" | "inspect";

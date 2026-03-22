@@ -227,7 +227,7 @@ Commit intentionally remains pending in this session because the branch/worktree
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-contracts.test.ts`
 - Modify: `apps/agent-runtime/src/domain/refine-react.ts`
 
-- [ ] **Step 1: Write the failing registry/surface tests first**
+- [x] **Step 1: Write the failing registry/surface tests first**
 
 ```ts
 test("registry rejects duplicate tool names and preserves explicit order", async () => {
@@ -245,12 +245,12 @@ test("tool surface lists definitions in explicit refine-owned order", async () =
 });
 ```
 
-- [ ] **Step 2: Run the new test file and confirm it fails**
+- [x] **Step 2: Run the new test file and confirm it fails**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
 Expected: FAIL because the new contracts and surface do not exist yet.
 
-- [ ] **Step 3: Add the minimal new contracts, explicit order contract, and no-op lifecycle implementation**
+- [x] **Step 3: Add the minimal new contracts, explicit order contract, and no-op lifecycle implementation**
 
 ```ts
 export interface RefineToolDefinition {
@@ -272,7 +272,7 @@ export const REFINE_TOOL_ORDER = [
 ] as const;
 ```
 
-- [ ] **Step 4: Implement the registry with duplicate protection and ordered lookup**
+- [x] **Step 4: Implement the registry with duplicate protection and ordered lookup**
 
 ```ts
 const byName = new Map(definitions.map((definition) => [definition.name, definition]));
@@ -283,8 +283,8 @@ for (const name of orderedToolNames) {
 }
 ```
 
-- [ ] **Step 5: Implement the surface with `listTools()` / `callTool()` plus hook routing**
-- [ ] **Step 5: Implement the surface with `listTools()` / `callTool()` and explicit order consumption**
+- [x] **Step 5: Implement the surface with `listTools()` / `callTool()` plus hook routing**
+- [x] **Step 5: Implement the surface with `listTools()` / `callTool()` and explicit order consumption**
 
 ```ts
 async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
@@ -297,13 +297,13 @@ async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallRes
 }
 ```
 
-- [ ] **Step 6: Move refine tool ordering out of `domain/refine-react.ts` and update contract tests**
+- [x] **Step 6: Move refine tool ordering out of `domain/refine-react.ts` and update contract tests**
 
 ```ts
 import { REFINE_TOOL_ORDER } from "../../src/application/refine/tools/refine-tool-order.js";
 ```
 
-- [ ] **Step 7: Run the new surface/order tests and verify they pass**
+- [x] **Step 7: Run the new surface/order tests and verify they pass**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-contracts.test.ts`
 Expected: PASS
