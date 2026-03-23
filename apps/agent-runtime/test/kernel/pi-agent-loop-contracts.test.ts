@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test, { mock } from "node:test";
 
-import { PiAgentLoop } from "../../src/kernel/pi-agent-loop.js";
-import { createRuntimeTelemetryRegistry } from "../../src/application/shell/runtime-telemetry-registry.js";
+import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
+
+import type { Logger } from "../../src/contracts/logger.js";
 import type { PiAgentModel } from "../../src/contracts/pi-agent-model.js";
 import type { ToolClient } from "../../src/contracts/tool-client.js";
-import type { Logger } from "../../src/contracts/logger.js";
-import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
+import type { AgentRunResult, PiAgentLoopProgressSnapshot } from "../../src/contracts/agent-loop-records.js";
+import { PiAgentLoop } from "../../src/kernel/pi-agent-loop.js";
 
 class SilentLogger implements Logger {
   info(): void {}
@@ -32,27 +34,7 @@ const TEST_MODEL: PiAgentModel = {
   api: "responses",
 };
 
-test("PiAgentLoop emits runtime turn and tool events in order", async () => {
-  const seen: string[] = [];
-  const telemetryRegistry = createRuntimeTelemetryRegistry({
-    createSinks: () => [
-      {
-        emit(event) {
-          const payload = event.payload as Record<string, unknown>;
-          seen.push(
-            event.eventType === "agent.turn"
-              ? `agent.turn:${String(payload.turnIndex)}`
-              : `tool.call:${String(payload.phase)}:${String(payload.toolName)}`
-          );
-        },
-      },
-    ],
-  });
-  const telemetry = telemetryRegistry.createRunTelemetry({
-    workflow: "refine",
-    runId: "run-telemetry",
-    artifactsDir: "/tmp/run-telemetry",
-  });
+test("PiAgentLoop exposes contract-shaped progress snapshots and run results", async () => {
   const listeners = new WeakMap<object, (event: AgentEvent) => void>();
 
   mock.method(Agent.prototype, "setSystemPrompt", () => undefined);
@@ -71,7 +53,6 @@ test("PiAgentLoop emits runtime turn and tool events in order", async () => {
       message: {
         role: "assistant",
         content: [
-          { type: "thinking", thinking: "consider click" },
           { type: "text", text: "click the button" },
           { type: "toolCall", id: "call-1", name: "browser_click", arguments: { selector: "#buy" } },
         ],
@@ -108,16 +89,40 @@ test("PiAgentLoop emits runtime turn and tool events in order", async () => {
     new SilentLogger()
   );
 
+  const beforeRunSnapshot: PiAgentLoopProgressSnapshot = loop.snapshotProgress({ includeLastSnapshot: true });
+  assert.deepEqual(beforeRunSnapshot, {
+    steps: [],
+    mcpCalls: [],
+    assistantTurns: [],
+    highLevelLogs: [],
+  });
+
   await loop.initialize();
-  loop.setRuntimeTelemetry(telemetry);
-  await loop.run("do the thing");
-  loop.setRuntimeTelemetry(null);
-  await telemetry.dispose();
+  const result: AgentRunResult = await loop.run("do the thing");
   await loop.shutdown();
 
-  assert.deepEqual(seen, [
-    "agent.turn:1",
-    "tool.call:start:browser_click",
-    "tool.call:end:browser_click",
-  ]);
+  assert.equal(result.status, "completed");
+  assert.equal(result.finishReason, "agent loop completed");
+  assert.equal(result.steps.length, 1);
+  assert.equal(result.mcpCalls.length, 2);
+  assert.equal(result.assistantTurns.length, 1);
+
+  const lastSnapshot: PiAgentLoopProgressSnapshot = loop.snapshotProgress({ includeLastSnapshot: true });
+  assert.equal(lastSnapshot.steps.length, 1);
+  assert.equal(lastSnapshot.mcpCalls.length, 2);
+  assert.equal(lastSnapshot.assistantTurns.length, 1);
+  assert.equal(lastSnapshot.highLevelLogs.length, 4);
+});
+
+test("PiAgentLoop sources engine-facing run state contracts from src/contracts", async () => {
+  const source = await readFile(new URL("../../src/kernel/pi-agent-loop.ts", import.meta.url), "utf8");
+
+  assert.match(source, /\.\.\/contracts\/agent-loop-records\.js/);
+  assert.match(source, /\.\.\/contracts\/pi-agent-model\.js/);
+  assert.match(source, /\.\.\/contracts\/runtime-telemetry\.js/);
+  assert.doesNotMatch(source, /\.\.\/application\//);
+  assert.doesNotMatch(source, /\.\.\/domain\/agent-types\.js/);
+  assert.doesNotMatch(source, /\.\.\/domain\/high-level-log\.js/);
+  assert.doesNotMatch(source, /\.\.\/infrastructure\/llm\/model-resolver\.js/);
+  assert.match(source, /resolvedModel/);
 });

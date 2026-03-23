@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
 import type { CompactHumanLoopTool } from "../../contracts/compact-human-loop-tool.js";
 import type {
   RuntimeEvent,
@@ -12,13 +11,12 @@ import type {
 import type {
   CompactCapabilityOutput,
   CompactConvergenceStatus,
+  CompactHumanLoopEvent,
   CompactSessionState,
 } from "../../domain/compact-reasoning.js";
 import type { LlmThinkingLevel } from "../../domain/llm-thinking.js";
 import type { SopTrace } from "../../domain/sop-trace.js";
 import { validateSopTrace } from "../../domain/sop-trace.js";
-import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
-import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
 import type { RuntimeSemanticMode } from "../config/runtime-config.js";
 import { applyCompactSessionPatch, buildInitialCompactSessionState, type CompactTraceSummary } from "./compact-session-machine.js";
 import { normalizeCompactTurnOutput } from "./compact-turn-normalizer.js";
@@ -45,10 +43,31 @@ interface CompactSemanticOptions {
   thinkingLevel: LlmThinkingLevel;
 }
 
+export interface CompactModelClient {
+  completeText(systemPrompt: string, userPrompt: string): Promise<{ rawText: string; stopReason: string }>;
+  completeObject<T extends Record<string, unknown>>(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<{ payload: T; rawText: string; stopReason: string }>;
+}
+
+export interface CompactArtifactsWriter {
+  readonly runId: string;
+  readonly runDir: string;
+  ensureDir(): Promise<void>;
+  resetCompactSessionArtifacts(sessionId: string): Promise<void>;
+  writeCompactSessionState(state: CompactSessionState, sessionId?: string): Promise<void>;
+  appendCompactHumanLoop(event: CompactHumanLoopEvent, sessionId?: string): Promise<void>;
+  writeCompactCapabilityOutput(output: CompactCapabilityOutput, sessionId?: string): Promise<void>;
+  compactSessionDir(sessionId: string): string;
+}
+
 interface InteractiveSopCompactOptions {
   semantic: CompactSemanticOptions;
   hardLimit?: number;
-  humanLoopTool?: CompactHumanLoopTool;
+  humanLoopTool: CompactHumanLoopTool;
+  modelClient: CompactModelClient;
+  createArtifactsWriter: (runId: string) => CompactArtifactsWriter;
   telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
@@ -71,7 +90,8 @@ export class InteractiveSopCompactService {
   private readonly semanticOptions: CompactSemanticOptions;
   private readonly hardLimit: number;
   private readonly humanLoopTool: CompactHumanLoopTool;
-  private readonly modelClient: JsonModelClient;
+  private readonly modelClient: CompactModelClient;
+  private readonly createArtifactsWriter: (runId: string) => CompactArtifactsWriter;
   private readonly telemetryRegistry: RuntimeTelemetryRegistry;
   private readonly ruleBuilder = new SopRuleCompactBuilder();
 
@@ -79,15 +99,10 @@ export class InteractiveSopCompactService {
     this.artifactsDir = path.resolve(artifactsDir);
     this.semanticOptions = options.semantic;
     this.hardLimit = options.hardLimit ?? 6;
-    this.humanLoopTool = options.humanLoopTool ?? new TerminalCompactHumanLoopTool();
+    this.humanLoopTool = options.humanLoopTool;
+    this.modelClient = options.modelClient;
+    this.createArtifactsWriter = options.createArtifactsWriter;
     this.telemetryRegistry = options.telemetryRegistry;
-    this.modelClient = new JsonModelClient({
-      model: options.semantic.model,
-      apiKey: options.semantic.apiKey,
-      baseUrl: options.semantic.baseUrl,
-      timeoutMs: options.semantic.timeoutMs,
-      thinkingLevel: options.semantic.thinkingLevel,
-    });
   }
 
   async compact(runId: string): Promise<InteractiveSopCompactResult> {
@@ -98,7 +113,7 @@ export class InteractiveSopCompactService {
     const runDir = path.join(this.artifactsDir, runId);
     const sessionId = this.buildSessionId(runId);
     const sourceTracePath = path.join(runDir, "demonstration_trace.json");
-    const writer = new ArtifactsWriter(this.artifactsDir, runId);
+    const writer = this.createArtifactsWriter(runId);
     await writer.ensureDir();
     await writer.resetCompactSessionArtifacts(sessionId);
     const telemetry = this.createTelemetry({ workflow: "compact", runId, artifactsDir: runDir });

@@ -10,6 +10,7 @@ import { FileAgentCheckpointWriter } from "../../../src/infrastructure/persisten
 import { AttentionGuidanceLoader } from "../../../src/application/refine/attention-guidance-loader.js";
 import { PromptProvider } from "../../../src/application/refine/prompt-provider.js";
 import { RefineHitlResumeStore } from "../../../src/infrastructure/persistence/refine-hitl-resume-store.js";
+import { ArtifactsWriter } from "../../../src/infrastructure/persistence/artifacts-writer.js";
 import { RefineReactToolClient } from "../../../src/application/refine/refine-react-tool-client.js";
 import { RefineRunBootstrapProvider } from "../../../src/application/refine/refine-run-bootstrap-provider.js";
 import { ReactRefinementRunExecutor } from "../../../src/application/refine/react-refinement-run-executor.js";
@@ -218,7 +219,6 @@ test("refine telemetry artifacts write event stream and key-turn checkpoints", a
   const executor = new ReactRefinementRunExecutor({
     loop: new ScriptedTelemetryLoop(toolClient) as never,
     logger: new SilentLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
@@ -231,6 +231,7 @@ test("refine telemetry artifacts write event stream and key-turn checkpoints", a
       promptProvider: new PromptProvider(),
       knowledgeTopN: 8,
     }),
+    createArtifactsWriter: (runId: string) => new ArtifactsWriter(tmpRoot, runId),
   });
 
   const result = await executor.execute({
@@ -309,7 +310,6 @@ test("refine telemetry artifacts reject when event stream durability fails", asy
   const executor = new ReactRefinementRunExecutor({
     loop: new ScriptedTelemetryLoop(toolClient) as never,
     logger: new SilentLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
@@ -322,6 +322,7 @@ test("refine telemetry artifacts reject when event stream durability fails", asy
       promptProvider: new PromptProvider(),
       knowledgeTopN: 8,
     }),
+    createArtifactsWriter: (runId: string) => new ArtifactsWriter(tmpRoot, runId),
   });
 
   await assert.rejects(
@@ -364,7 +365,6 @@ test("refine telemetry artifacts reject when checkpoint durability fails", async
   const executor = new ReactRefinementRunExecutor({
     loop: new ScriptedTelemetryLoop(toolClient) as never,
     logger: new SilentLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
@@ -377,6 +377,7 @@ test("refine telemetry artifacts reject when checkpoint durability fails", async
       promptProvider: new PromptProvider(),
       knowledgeTopN: 8,
     }),
+    createArtifactsWriter: (runId: string) => new ArtifactsWriter(tmpRoot, runId),
   });
 
   await assert.rejects(

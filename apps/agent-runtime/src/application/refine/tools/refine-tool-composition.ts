@@ -1,8 +1,6 @@
 import type { ToolClient } from "../../../contracts/tool-client.js";
 import type { PiAgentToolHookRegistry } from "../../../kernel/pi-agent-tool-hooks.js";
 import { createRefineReactSession, type RefineReactSession } from "../refine-react-session.js";
-import { RefineBrowserTools } from "./runtime/refine-browser-tools.js";
-import { RefineRuntimeTools, type HitlAnswerProvider } from "./runtime/refine-runtime-tools.js";
 import { createRefineBrowserToolRegistry } from "./refine-browser-tool-registry.js";
 import { createRefineRuntimeToolRegistry } from "./refine-runtime-tool-registry.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
@@ -10,15 +8,20 @@ import { createRefineToolContextRef, type RefineToolContext, type RefineToolCont
 import { createRefinePiAgentToolHooks } from "./refine-pi-agent-tool-hooks.js";
 import { RefineToolSurface } from "./refine-tool-surface.js";
 import { RefineToolSurfaceLifecycleCoordinator } from "./refine-tool-surface-lifecycle.js";
-import { RefineBrowserProviderImpl, type RefineBrowserProvider } from "./providers/refine-browser-provider.js";
-import { RefineRuntimeProviderImpl, type RefineRuntimeProvider } from "./providers/refine-runtime-provider.js";
+import {
+  RefineBrowserServiceImpl,
+  type RefineBrowserService,
+} from "./services/refine-browser-service.js";
+import {
+  RefineRunServiceImpl,
+  type HitlAnswerProvider,
+  type RefineRunService,
+} from "./services/refine-run-service.js";
 import { createRefineToolHookPipeline, type RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
 
 export interface RefineToolCompositionContext extends RefineToolContext {
-  session: RefineReactSession;
-  hitlAnswerProvider?: HitlAnswerProvider;
-  browser?: RefineBrowserProvider;
-  runtime?: RefineRuntimeProvider;
+  browserService?: RefineBrowserService;
+  runService?: RefineRunService;
 }
 
 export interface RefineToolCompositionInput {
@@ -43,30 +46,18 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
   }
   const session =
     input.session ?? createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" });
-  const contextRef = createRefineToolContextRef<RefineToolCompositionContext>({
-    session,
-    hitlAnswerProvider: input.hitlAnswerProvider,
-  });
-  const browserTools = new RefineBrowserTools({
+  const contextRef = createRefineToolContextRef<RefineToolCompositionContext>({});
+  const browserService = new RefineBrowserServiceImpl({
     rawClient,
     session,
   });
-  const runtimeTools = new RefineRuntimeTools({
+  const runService = new RefineRunServiceImpl({
     session,
     hitlAnswerProvider: input.hitlAnswerProvider,
   });
-  const browser = new RefineBrowserProviderImpl({
-    tools: browserTools,
-    contextRef: contextRef as never,
-  });
-  const runtime = new RefineRuntimeProviderImpl({
-    tools: runtimeTools,
-    contextRef: contextRef as never,
-  });
   contextRef.set({
-    ...contextRef.get(),
-    browser,
-    runtime,
+    browserService,
+    runService,
   });
 
   const registry = new RefineToolRegistry({

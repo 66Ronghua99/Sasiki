@@ -469,6 +469,19 @@ Known mismatch categories include:
 
 These are migration facts, not reasons to relax the target model.
 
+### Current-to-target mapping
+
+| Current scope | Current code reality | Target role after migration | Phase 1 status |
+| --- | --- | --- | --- |
+| `src/kernel/pi-agent-loop.ts` | Shared loop entrypoint now consumes engine-facing run-state and model contracts, while shell-owned composition resolves the concrete refine model before loop construction. | Keep the loop inside the engine/kernel subset and prevent direct `domain` or `infrastructure` imports from regrowing. | Phase 2 direct-import leak removed; remaining work moves to Phase 3 assembly cleanup and Phase 4 gate ratcheting. |
+| `src/kernel/pi-agent-tool-adapter.ts` | Current closest match to durable engine code: pi-agent tool protocol adaptation plus hook dispatch. | Stay in the engine/kernel subset once Phase 2 narrows the loop boundary. | Transitional kernel file, but not a Phase 1 edge exception. |
+| `src/kernel/pi-agent-tool-hooks.ts` | Shared hook registry/types used by pi-agent execution. | Stay in the engine/kernel subset as a reusable hook protocol. | Transitional kernel file, but not a Phase 1 edge exception. |
+| `src/application/config/runtime-config-loader.ts` | Application-facing config entry still instantiates `infrastructure/config/runtime-bootstrap-provider.ts`. | Shell/bootstrap-owned source loading or a narrower port-owned bootstrap seam, with `application/config` owning only normalized config semantics. | Explicit exception in Phase 1; removal target is Phase 3. |
+| `src/application/observe/observe-workflow-factory.ts` and `src/application/observe/observe-executor.ts` | Observe-owned code still constructs recorder and persistence helpers directly. | Observe keeps workflow semantics, while shell-owned composition injects recorder/persistence adapters. | Explicit exception in Phase 1; removal target is Phase 3. |
+| `src/application/compact/interactive-sop-compact.ts` | Compact service still constructs model, HITL, and artifact-writing adapters inside the workflow-owned module. | Compact keeps session semantics, while shell-owned composition injects concrete model/HITL/persistence collaborators. | Explicit exception in Phase 1; removal target is Phase 3. |
+| `src/application/refine/refine-workflow.ts`, `src/application/refine/refine-run-bootstrap-provider.ts`, `src/application/refine/react-refinement-run-executor.ts`, and `src/application/refine/attention-guidance-loader.ts` | Refine-owned code still assembles loop/bootstrap/persistence seams and still touches persistence adapters directly. | Refine keeps workflow semantics, prompt/session policy, and tool orchestration, while shell-owned composition injects concrete persistence/bootstrap collaborators. | Explicit exception in Phase 1; removal target is Phase 3. |
+| `src/application/refine/tools/runtime/*.ts` and `src/application/refine/tools/providers/*.ts` | Tool runtime/provider seams still carry session-bound refine semantics and raw tool payload shaping; they are structurally transitional even though the directory roles are now explicit. | Either re-home these seams toward adapter/port boundaries or keep them as a narrower, explicitly governed application sublayer after later design approval. | Transitional role seam in Phase 1; role drift is gated now, final home is deferred to Phase 4. |
+
 ## Recommended Migration Phases
 
 ### Phase 1: Freeze Model And Baseline Hardgates
@@ -546,12 +559,13 @@ Each exception must include:
 - exit condition
 - target phase for removal
 
-Examples of likely phase-1 exceptions:
+### Phase 4 exception ledger
 
-- `kernel/pi-agent-loop.ts` remaining domain-shaped dependencies
-- `application/refine/refine-run-bootstrap-provider.ts` direct persistence dependencies
-- `application/observe/observe-workflow-factory.ts` direct concrete recorder construction
-- `application/compact/interactive-sop-compact.ts` direct infrastructure dependencies
+| Owner | Scope | Rule id / mismatch | Why it exists today | Exit condition | Target phase |
+| --- | --- | --- | --- | --- | --- |
+| `agent-runtime refine-tools` | `src/application/refine/tools/runtime/*.ts`, `src/application/refine/tools/providers/*.ts` | transitional refine-tools runtime/provider split | The current code still splits session-bound refine semantics across provider facades and low-level runtime payload shaping, so this seam remains intentionally transitional. | Collapse the provider/runtime split into a narrower adapter or port model, or re-home the files behind a single approved ownership boundary, then remove the allowance. | Phase 4 |
+
+Phase 4 lint and structural gates should tolerate only the named scope above. New violations must either be migrated immediately or added through a separate approved design change.
 
 ## Consequences
 

@@ -42,11 +42,31 @@ test("createObserveWorkflowFactory keeps observe assembly inside application/obs
         warn: () => undefined,
         error: () => undefined,
       } as never,
+      createRecorder: () => {
+        calls.push("createRecorder");
+        return {
+          start: async () => undefined,
+          stop: async () => [],
+        };
+      },
+      createArtifactsWriter: (runId: string) => ({
+        runId,
+        runDir: `/tmp/sasiki-observe/${runId}`,
+        ensureDir: async () => undefined,
+        writeDemonstrationRaw: async () => undefined,
+        writeDemonstrationTrace: async () => undefined,
+        writeSopDraft: async () => undefined,
+        writeSopAsset: async () => undefined,
+        demonstrationTracePath: () => `/tmp/sasiki-observe/${runId}/demonstration_trace.json`,
+        sopDraftPath: () => `/tmp/sasiki-observe/${runId}/sop_draft.md`,
+        sopAssetPath: () => `/tmp/sasiki-observe/${runId}/sop_asset.json`,
+      }),
+      sopAssetStore: {
+        upsert: async () => undefined,
+      },
       cdpEndpoint: "http://localhost:9222",
       observeTimeoutMs: 1234,
-      artifactsDir: "/tmp/sasiki-observe",
       createRunId: () => "run-1",
-      sopAssetRootDir: "/tmp/sasiki-sop",
       telemetryRegistry: {
         createRunTelemetry(scope: { workflow: string; runId: string; artifactsDir: string }) {
           telemetryScopes.push(scope);

@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 跑一轮新的真实 refine smoke e2e，验证 `PiAgentToolAdapter` 的 tool-name hook 路径、`RefineReactToolClient` / `RefineToolSurface` 的 direct-call hook-free boundary，以及 `artifacts/e2e/<run_id>/event_stream.jsonl` 与 `agent_checkpoints/` 的 telemetry 真相。
+- `P0` 修掉 refine smoke 首轮 `act.navigate` 携带 `sourceObservationRef=initial_navigation` 的噪声；以 `docs/testing/refine-e2e-baidu-search-runbook.md` 为回归基线，要求百度 smoke run 首轮直接走合法 bootstrap / observation 路径，不再依赖一次失败后的自恢复。

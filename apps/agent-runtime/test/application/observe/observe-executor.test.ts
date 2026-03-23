@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { ObserveExecutor } from "../../../src/application/observe/observe-executor.js";
 import type { DemonstrationRawEvent, SopTrace } from "../../../src/domain/sop-trace.js";
+import { ArtifactsWriter } from "../../../src/infrastructure/persistence/artifacts-writer.js";
 
 class TestLogger {
   readonly entries: string[] = [];
@@ -28,6 +29,8 @@ test("application observe executor creates run-scoped telemetry from the real ob
   const logger = new TestLogger();
   const telemetryScopes: Array<{ workflow: string; runId: string; artifactsDir: string }> = [];
   const emittedEvents: Array<{ eventType: string; runId: string; workflow: string; payload: Record<string, unknown> }> = [];
+  const artifactsWriterRuns: string[] = [];
+  const upsertedAssets: unknown[] = [];
   const rawEvents: DemonstrationRawEvent[] = [
     {
       eventId: "event-1",
@@ -101,10 +104,17 @@ test("application observe executor creates run-scoped telemetry from the real ob
     logger: logger as never,
     cdpEndpoint: "http://localhost:9222",
     observeTimeoutMs: 0,
-    artifactsDir: path.join(tmpRoot, "artifacts"),
     createRunId: () => "run-1",
     sopRecorder: sopRecorder as never,
-    sopAssetRootDir: path.join(tmpRoot, "sop-assets"),
+    createArtifactsWriter: (runId: string) => {
+      artifactsWriterRuns.push(runId);
+      return new ArtifactsWriter(path.join(tmpRoot, "artifacts"), runId);
+    },
+    sopAssetStore: {
+      upsert: async (asset: unknown) => {
+        upsertedAssets.push(asset);
+      },
+    },
     createRecorder: () => recorder as never,
     telemetryRegistry: telemetryRegistry as never,
   });
@@ -120,10 +130,8 @@ test("application observe executor creates run-scoped telemetry from the real ob
   assert.equal(result.assetPath, path.join(tmpRoot, "artifacts", "run-1", "sop_asset.json"));
   assert.equal(await readFile(result.tracePath ?? "", "utf-8").then((value) => value.includes("run-1")), true);
   assert.equal(await readFile(result.draftPath ?? "", "utf-8"), "# draft\n");
-  assert.equal(
-    await readFile(path.join(tmpRoot, "sop-assets", "index.json"), "utf-8").then((value) => value.includes("sop_run-1")),
-    true
-  );
+  assert.deepEqual(artifactsWriterRuns, ["run-1"]);
+  assert.equal(upsertedAssets.length, 1);
   assert.deepEqual(telemetryScopes, [
     {
       workflow: "observe",

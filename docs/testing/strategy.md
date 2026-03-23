@@ -41,8 +41,8 @@ For the approved global taxonomy refactor, the following are blocking acceptance
 
 ## Recommended Runbook
 
-- For the repeatable Xiaohongshu long-note draft flow (including proxy-safe command and acceptance checks), use:
-  - `docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`
+- For the default repeatable refine smoke e2e flow (百度搜索咖啡豆并点击第一条结果，含 proxy-safe command 与验收检查), use:
+  - `docs/testing/refine-e2e-baidu-search-runbook.md`
 
 ## Current E2E Status
 

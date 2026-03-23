@@ -1,5 +1,9 @@
+import type { RefineBrowserService } from "./services/refine-browser-service.js";
+import type { RefineRunService } from "./services/refine-run-service.js";
+
 export interface RefineToolContext {
-  readonly [key: string]: unknown;
+  readonly browserService?: RefineBrowserService;
+  readonly runService?: RefineRunService;
 }
 
 export interface RefineToolContextRef<TContext extends RefineToolContext = RefineToolContext> {

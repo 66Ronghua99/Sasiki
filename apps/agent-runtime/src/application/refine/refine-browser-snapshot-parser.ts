@@ -1,6 +1,6 @@
 /**
  * Deps: domain/refine-react.ts
- * Used By: application/refine/tools/runtime/refine-browser-tools.ts
+ * Used By: application/refine/tools/services/refine-browser-service.ts
  * Last Updated: 2026-03-21
  */
 import { URL } from "node:url";

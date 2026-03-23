@@ -66,6 +66,20 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
   };
   const loop = { kind: "loop" } as unknown as PiAgentLoop;
   const runExecutor = { kind: "run-executor" };
+  const persistenceContext = {
+    knowledgeStore: persistence.knowledgeStore,
+    guidanceLoader: persistence.guidanceLoader,
+    hitlResumeStore: persistence.hitlResumeStore,
+  };
+  const createArtifactsWriter = (runId: string) => ({
+    runId,
+    runDir: `/tmp/artifacts/${runId}`,
+    async ensureDir(): Promise<void> {},
+    finalScreenshotPath(): string {
+      return `/tmp/artifacts/${runId}/final.png`;
+    },
+    async writeRunSummary(): Promise<void> {},
+  });
   const agentRuntime = {
     start: async () => {
       events.push("agent.start");
@@ -108,6 +122,13 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       },
       rawToolClient,
       createRunId: () => "run-1",
+      resolvedModel: {
+        id: "gpt-4o-mini",
+        name: "gpt-4o-mini",
+        provider: "openai",
+        api: "responses",
+      },
+      createArtifactsWriter,
       config: {
         apiKey: "test-key",
         artifactsDir: "/tmp/artifacts",
@@ -119,6 +140,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       },
       telemetryRegistry,
       refineSystemPrompt: "refine prompt",
+      persistenceContext,
     },
     {
       createToolComposition(input) {
@@ -130,14 +152,9 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         events.push("assemble.prompt-provider");
         return promptProvider as never;
       },
-      createPersistenceContext(input) {
-        assert.equal(input.artifactsDir, "/tmp/artifacts");
-        events.push("assemble.persistence");
-        return persistence as never;
-      },
       createBootstrapProvider(input) {
-        assert.equal(input.guidanceLoader, persistence.guidanceLoader);
-        assert.equal(input.hitlResumeStore, persistence.hitlResumeStore);
+        assert.equal(input.guidanceLoader, persistenceContext.guidanceLoader);
+        assert.equal(input.hitlResumeStore, persistenceContext.hitlResumeStore);
         assert.equal(input.promptProvider, promptProvider);
         events.push("assemble.bootstrap-provider");
         return new RefineRunBootstrapProvider(input);
@@ -146,6 +163,10 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         assert.equal(input.toolClient instanceof RefineReactToolClient, true);
         assert.equal(input.toolClient.getSession().task, "bootstrap");
         assert.equal(input.systemPrompt, "refine prompt");
+        assert.equal("resolvedModel" in input, true);
+        assert.equal("model" in input, false);
+        assert.equal(input.resolvedModel.id, "gpt-4o-mini");
+        assert.equal(input.resolvedModel.provider, "openai");
         events.push("assemble.loop");
         Object.assign(loop, {
           setToolHooks(hooks: unknown) {
@@ -158,9 +179,10 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
       createRunExecutor(input) {
         assert.equal(input.loop, loop);
         assert.equal(input.toolClient instanceof RefineReactToolClient, true);
-        assert.equal(input.knowledgeStore, persistence.knowledgeStore);
+        assert.equal(input.knowledgeStore, persistenceContext.knowledgeStore);
         assert.equal(input.bootstrapProvider instanceof RefineRunBootstrapProvider, true);
         assert.equal(input.telemetryRegistry, telemetryRegistry);
+        assert.equal(typeof input.createArtifactsWriter, "function");
         assert.equal(typeof input.toolClient.setSession, "function");
         assert.equal(typeof input.toolClient.getSession, "function");
         assert.equal(typeof input.toolClient.setHitlAnswerProvider, "function");
@@ -184,7 +206,6 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
   assert.deepEqual(events, [
     "assemble.tool-composition",
     "assemble.prompt-provider",
-    "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
     "assemble.loop-tool-hooks",
@@ -202,7 +223,6 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
   assert.deepEqual(events, [
     "assemble.tool-composition",
     "assemble.prompt-provider",
-    "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
     "assemble.loop-tool-hooks",

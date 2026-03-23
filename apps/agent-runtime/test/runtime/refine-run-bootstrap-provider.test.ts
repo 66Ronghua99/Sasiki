@@ -7,16 +7,10 @@ import test from "node:test";
 import type { RuntimeConfig } from "../../src/application/config/runtime-config.js";
 import type { AgentRunRequest } from "../../src/domain/agent-types.js";
 import type { AttentionKnowledge } from "../../src/domain/attention-knowledge.js";
-import {
-  createRefinePersistenceContext,
-  RefineRunBootstrapProvider,
-} from "../../src/application/refine/refine-run-bootstrap-provider.js";
-import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
-import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
-import { createRefineToolContextRef } from "../../src/application/refine/tools/refine-tool-context.js";
-import type { RefineToolDefinition } from "../../src/application/refine/tools/refine-tool-definition.js";
-import { RefineToolRegistry } from "../../src/application/refine/tools/refine-tool-registry.js";
-import { RefineToolSurface } from "../../src/application/refine/tools/refine-tool-surface.js";
+import { AttentionGuidanceLoader } from "../../src/application/refine/attention-guidance-loader.js";
+import { RefineRunBootstrapProvider } from "../../src/application/refine/refine-run-bootstrap-provider.js";
+import { AttentionKnowledgeStore } from "../../src/infrastructure/persistence/attention-knowledge-store.js";
+import { RefineHitlResumeStore } from "../../src/infrastructure/persistence/refine-hitl-resume-store.js";
 
 interface ResumeRecord {
   runId: string;
@@ -75,37 +69,23 @@ function buildRuntimeConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConf
   };
 }
 
-function createHookAwareObservePageDefinition(): RefineToolDefinition<{ session: ReturnType<typeof createRefineReactSession> }> {
+function buildRefinePersistenceContext(artifactsDir: string) {
+  const knowledgeStore = new AttentionKnowledgeStore({
+    filePath: path.join(artifactsDir, "refinement", "attention-knowledge-store.json"),
+  });
+
   return {
-    name: "observe.page",
-    description: "observe.page description",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {},
-    },
-    async invoke(_args, context) {
-      return {
-        observation: {
-          page: {
-            origin: "https://creator.xiaohongshu.com",
-            normalizedPath: "/publish",
-          },
-          observationRef: `obs-${context.session.runId}`,
-        },
-      };
-    },
+    knowledgeStore,
+    guidanceLoader: new AttentionGuidanceLoader(knowledgeStore),
+    hitlResumeStore: new RefineHitlResumeStore({
+      baseDir: artifactsDir,
+    }),
   };
 }
 
 test("refine bootstrap module owns persistence context wiring under artifacts", async () => {
   const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "sasiki-refine-bootstrap-context-"));
-  const context = createRefinePersistenceContext(
-    buildRuntimeConfig({
-      artifactsDir: path.join(tmpRoot, "artifacts"),
-      sopAssetRootDir: path.join(tmpRoot, "sop-assets"),
-    })
-  );
+  const context = buildRefinePersistenceContext(path.join(tmpRoot, "artifacts"));
 
   const knowledge: AttentionKnowledge = {
     id: "knowledge-1",
@@ -147,7 +127,11 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
   const sessions: Array<{ runId: string; task: string; taskScope: string }> = [];
   const hitlAnswerProviders: Array<unknown> = [];
   const hitlAnswerProvider = () => "provided answer";
-  const toolClient = {
+  const toolClient: {
+    setSession(session: { runId: string; task: string; taskScope: string }): void;
+    setHitlAnswerProvider(provider?: unknown): void;
+    callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  } = {
     setSession(session) {
       sessions.push({
         runId: session.runId,
@@ -308,44 +292,4 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
     },
   ]);
   assert.deepEqual(hitlAnswerProviders, [undefined]);
-});
-
-test("future boundary freeze: refine bootstrap direct observation calls bypass adapter-only pi-agent hooks", async () => {
-  const session = createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" });
-  const contextRef = createRefineToolContextRef<{ session: ReturnType<typeof createRefineReactSession> }>({
-    session,
-  });
-  const surface = new RefineToolSurface({
-    registry: new RefineToolRegistry({
-      definitions: [createHookAwareObservePageDefinition()],
-    }),
-    contextRef,
-  });
-  const toolClient = new RefineReactToolClient(surface, contextRef);
-  const provider = new RefineRunBootstrapProvider({
-    createRunId: () => "run-bootstrap",
-    guidanceLoader: {
-      load: async () => ({ guidance: "", records: [] }),
-    },
-    hitlResumeStore: {
-      load: async () => undefined,
-      save: async () => "saved",
-    },
-    promptProvider: {
-      buildRefineStartPrompt() {
-        return "prompt";
-      },
-    },
-  });
-
-  const result = await provider.prepare({
-    request: buildRequest(),
-    toolClient,
-  });
-
-  assert.equal(result.runId, "run-bootstrap");
-  assert.equal(result.task, "buy coffee beans");
-  assert.equal(result.taskScope, "buy coffee beans");
-  assert.equal(result.prompt, "prompt");
-  assert.equal(result.loadedGuidanceCount, 0);
 });

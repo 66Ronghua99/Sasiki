@@ -26,10 +26,11 @@ There is no legacy `runtime` command surface anymore.
 - `apps/agent-runtime/src/application/refine/`
   - refine bootstrap
   - prompts
-  - tool surface
+  - tool surface and service-owned refine tool services
   - orchestration and executor
 - `apps/agent-runtime/src/kernel/`
-  - reusable execution kernel
+  - reusable execution kernel home
+  - Phase 2 direct-import cleanup is complete
   - `pi-agent-loop.ts`
   - `pi-agent-tool-adapter.ts`
 - `apps/agent-runtime/src/infrastructure/`
@@ -48,19 +49,24 @@ There is no legacy `runtime` command surface anymore.
 - pi-agent hook execution runs only through `kernel/pi-agent-tool-adapter.ts`; direct refine tool calls stay hook-free.
 - Runtime telemetry is assembled once in `application/shell/runtime-composition-root.ts`, then injected into each workflow as run-scoped telemetry.
 - `refine` persists canonical run truth as append-only `event_stream.jsonl`, plus a run summary artifact and optional `agent_checkpoints/`.
+- `application/shell/runtime-config-bootstrap.ts` is the shell-owned bootstrap seam for config loading: infrastructure discovers raw env/fs sources, and `application/config/runtime-config-loader.ts` normalizes them into the runtime policy contract.
 
 ## Stable Boundaries
 
-- Only `application/shell/runtime-composition-root.ts` may assemble concrete MCP/browser infrastructure and shell-owned workflow factories.
-- Only `application/shell/runtime-composition-root.ts` may assemble telemetry sinks and artifact checkpoint writers.
 - Only `application/shell/runtime-host.ts` owns the top-level workflow lifecycle and interrupt forwarding.
+- `application/shell/runtime-composition-root.ts` is the current front-door composition owner and the intended singleton concrete assembly owner in the end state.
+- Phase 3 centralized observe/compact concrete assembly, refine bootstrap persistence assembly, refine run artifact assembly, and config bootstrap orchestration back into shell-owned seams.
+- Phase 4 ratcheted lint and structural proofs to the post-migration truth.
+- `application/refine/tools/services/*` is now the durable home for refine tool behavior and rebinding.
+- `application/refine/tools/providers/*` and the active `runtime/*` tool path have been removed from the active codebase.
 - Workflow modules own their own semantics:
   - `observe` owns demonstration recording setup/execution
   - `refine` owns loop bootstrap, execution, interrupt, and shutdown semantics
   - `sop-compact` owns offline compact execution semantics
 - Application code imports canonical owners directly; migration-era `core/*` and `runtime/*` re-export shells have been removed.
 - `workflow-runtime.ts` does not own lifecycle fallback logic or compact service construction; it only resolves the selected workflow and hands it to the host.
-- The execution kernel stays reusable and does not own CLI grammar, config loading, or flow-specific orchestration.
+- `kernel/` remains the active execution-kernel home, and Phase 4 hard gates now reject any regrowth of direct `domain/*` or `infrastructure/*` imports there.
+- `application/refine/tools/services/*` now owns the service-backed refine tool seam; the retired `providers/*` and active `runtime/*` paths are no longer part of the active architecture.
 - Runtime success claims still require fresh artifacts under `artifacts/e2e/<run_id>/`.
 
 ## Related Docs

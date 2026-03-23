@@ -9,10 +9,6 @@ import {
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
 import { createRefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
-import { createRefineToolContextRef } from "../../src/application/refine/tools/refine-tool-context.js";
-import type { RefineToolDefinition } from "../../src/application/refine/tools/refine-tool-definition.js";
-import { RefineToolRegistry } from "../../src/application/refine/tools/refine-tool-registry.js";
-import { RefineToolSurface } from "../../src/application/refine/tools/refine-tool-surface.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
@@ -154,21 +150,6 @@ function findTool(tools: ToolDefinition[], name: string): ToolDefinition {
   return tool;
 }
 
-function createHookAwareToolDefinition(name: string): RefineToolDefinition<{ session: ReturnType<typeof createRefineReactSession> }> {
-  return {
-    name,
-    description: `${name} description`,
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {},
-    },
-    async invoke(_args, context) {
-      return { content: [{ type: "text", text: `${name}:${context.session.runId}` }] };
-    },
-  };
-}
-
 function readSchema(tool: ToolDefinition): Record<string, unknown> {
   assert.ok(tool.inputSchema && typeof tool.inputSchema === "object", `expected ${tool.name} to expose inputSchema`);
   return tool.inputSchema as Record<string, unknown>;
@@ -214,36 +195,49 @@ test("refine tool client module owns bootstrap tool-surface construction", () =>
   assert.equal(session.taskScope, "bootstrap");
 });
 
-test("refine tool client can wrap an explicit tool surface and mutable context", () => {
+test("refine tool client keeps service refs visible after composed rebinding", async () => {
   const composition = createRefineToolComposition({
     rawToolClient: new StubRawToolClient(),
-    session: createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" }),
+    session: createRefineReactSession("run-1", "task-1", { taskScope: "search-product" }),
   });
-  const client = new RefineReactToolClient(composition.surface, composition.contextRef);
+  const client = new RefineReactToolClient(composition);
 
-  assert.equal(client.getSession().runId, "bootstrap");
-  client.setSession(createRefineReactSession("run-2", "task", { taskScope: "task" }));
-  assert.equal(client.getSession().runId, "run-2");
-  client.setHitlAnswerProvider(async () => "answer");
+  await client.connect();
+  client.setSession(createRefineReactSession("run-2", "task-2", { taskScope: "search-product" }));
+  client.setHitlAnswerProvider(async () => "inline-answer");
+
+  const reboundContext = composition.contextRef.get();
+  assert.ok(reboundContext.browserService);
+  assert.ok(reboundContext.runService);
+  assert.equal("session" in reboundContext, false);
+  assert.equal("hitlAnswerProvider" in reboundContext, false);
+
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const answered = (await client.callTool("hitl.request", { prompt: "Need help" })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  assert.equal(observation.observationRef, "obs_run-2_1");
+  assert.equal(answered.status, "answered");
 });
 
-test("future boundary freeze: direct refine tool client calls bypass adapter-only pi-agent hooks", async () => {
-  const contextRef = createRefineToolContextRef<{ session: ReturnType<typeof createRefineReactSession> }>({
-    session: createRefineReactSession("run-direct", "task", { taskScope: "search-product" }),
+test("refine tool client rebinding keeps browser observations on the latest session", async () => {
+  const raw = new StubRawToolClient();
+  const client = new RefineReactToolClient({
+    rawClient: raw,
+    session: createRefineReactSession("run-1", "task-1", { taskScope: "search-product" }),
   });
-  const surface = new RefineToolSurface({
-    registry: new RefineToolRegistry({
-      definitions: [createHookAwareToolDefinition("observe.page")],
-    }),
-    contextRef,
-  });
-  const client = new RefineReactToolClient(surface, contextRef);
 
-  const result = await client.callTool("observe.page", {});
+  assert.equal(client.getSession().runId, "run-1");
+  client.setSession(createRefineReactSession("run-2", "task-2", { taskScope: "search-product" }));
+  assert.equal(client.getSession().runId, "run-2");
 
-  assert.deepEqual(result, {
-    content: [{ type: "text", text: "observe.page:run-direct" }],
-  });
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  assert.equal(observation.observationRef, "obs_run-2_1");
 });
 
 test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {
@@ -403,6 +397,37 @@ test("runtime tool facade keeps existing behavior contracts on the legacy client
     reason: "goal_achieved",
     summary: "done",
     finalStatus: "completed",
+  });
+});
+
+test("runtime tool facade rebinds the latest HITL provider before answered requests", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-runtime-provider", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({
+    rawClient: raw,
+    session,
+    hitlAnswerProvider: async () => "Human confirmed",
+  });
+
+  await client.connect();
+  const first = await client.callTool("hitl.request", {
+    prompt: "Need human confirmation",
+    context: "modal is blocking progress",
+  });
+  client.setHitlAnswerProvider(async () => "Updated answer");
+  const second = await client.callTool("hitl.request", {
+    prompt: "Need human confirmation",
+    context: "modal is blocking progress",
+  });
+  await client.disconnect();
+
+  assert.deepEqual(first, {
+    status: "answered",
+    answer: "Human confirmed",
+  });
+  assert.deepEqual(second, {
+    status: "answered",
+    answer: "Updated answer",
   });
 });
 

@@ -2,7 +2,7 @@ import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { ObserveQueryMode, ObserveQueryRequest } from "../../../../domain/refine-react.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const OBSERVE_QUERY_MODES: readonly ObserveQueryMode[] = ["search", "inspect"] as const;
 const OBSERVE_QUERY_DESCRIPTION = "Find elements in the latest snapshot by deterministic structural filters.";
@@ -28,7 +28,7 @@ export const observeQueryTool: RefineToolDefinition = {
   description: OBSERVE_QUERY_DESCRIPTION,
   inputSchema: OBSERVE_QUERY_SCHEMA,
   async invoke(args, context) {
-    return (await readBrowserProvider(context).queryObservation({
+    return (await readBrowserService(context).queryObservation({
       mode: readEnumArg(args, "mode", OBSERVE_QUERY_MODES),
       intent: readOptionalStringArg(args, "intent"),
       text: readOptionalStringArg(args, "text"),
@@ -39,12 +39,16 @@ export const observeQueryTool: RefineToolDefinition = {
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).queryObservation !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).queryObservation !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

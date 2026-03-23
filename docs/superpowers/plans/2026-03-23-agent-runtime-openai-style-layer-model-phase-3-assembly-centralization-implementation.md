@@ -55,11 +55,11 @@
 
 ## Phase 3 Acceptance
 
-- [ ] shell is the only top-level concrete assembly owner
-- [ ] non-shell application modules stop instantiating concrete adapters directly, except approved transitional seams
-- [ ] config source loading remains outside application policy modules
-- [ ] structural tests prove the new assembly ownership
-- [ ] repo-wide verification is green
+- [x] shell is the only top-level concrete assembly owner
+- [x] non-shell application modules stop instantiating concrete adapters directly, except approved transitional seams
+- [x] config source loading remains outside application policy modules
+- [x] structural tests prove the new assembly ownership
+- [x] repo-wide verification is green
 
 ## Task 1: Inventory Non-Shell Concrete Assembly
 
@@ -67,9 +67,9 @@
 - Modify: `docs/project/current-state.md`
 - Modify: `PROGRESS.md`
 
-- [ ] **Step 1: Record each non-shell concrete adapter instantiation**
-- [ ] **Step 2: Group them into observe, compact, refine, and config ownership buckets**
-- [ ] **Step 3: Decide which ones move now versus remain temporary exceptions in the canonical exception ledger**
+- [x] **Step 1: Record each non-shell concrete adapter instantiation**
+- [x] **Step 2: Group them into observe, compact, refine, and config ownership buckets**
+- [x] **Step 3: Decide which ones move now versus remain temporary exceptions in the canonical exception ledger**
 - [ ] **Step 4: Commit**
 
 ## Task 2: Centralize Observe And Compact Assembly
@@ -81,10 +81,10 @@
 - Test: `apps/agent-runtime/test/application/observe/**`
 - Test: `apps/agent-runtime/test/application/compact/**`
 
-- [ ] **Step 1: Write failing tests that require shell-owned collaborator injection**
-- [ ] **Step 2: Move concrete recorder and related adapter creation behind shell-provided collaborators**
-- [ ] **Step 3: Keep workflow semantics inside application while removing direct adapter ownership**
-- [ ] **Step 4: Run focused observe/compact tests**
+- [x] **Step 1: Write failing tests that require shell-owned collaborator injection**
+- [x] **Step 2: Move concrete recorder and related adapter creation behind shell-provided collaborators**
+- [x] **Step 3: Keep workflow semantics inside application while removing direct adapter ownership**
+- [x] **Step 4: Run focused observe/compact tests**
 - [ ] **Step 5: Commit**
 
 ## Task 3: Centralize Refine Bootstrap Assembly
@@ -95,10 +95,10 @@
 - Test: `apps/agent-runtime/test/application/refine/**`
 - Test: `apps/agent-runtime/test/runtime/*.test.ts`
 
-- [ ] **Step 1: Write failing tests for prepared refine collaborators**
-- [ ] **Step 2: Move persistence-backed bootstrap collaborator creation into shell-owned composition**
-- [ ] **Step 3: Leave refine workflow consuming prepared seams instead of constructing concrete stores**
-- [ ] **Step 4: Run focused refine/runtime tests**
+- [x] **Step 1: Write failing tests for prepared refine collaborators**
+- [x] **Step 2: Move persistence-backed bootstrap collaborator creation into shell-owned composition**
+- [x] **Step 3: Leave refine workflow consuming prepared seams instead of constructing concrete stores**
+- [x] **Step 4: Run focused refine/runtime tests**
 - [ ] **Step 5: Commit**
 
 ## Task 4: Clean Up Config Ownership
@@ -109,10 +109,10 @@
 - Test: `apps/agent-runtime/test/runtime/runtime-config-loader.test.ts`
 - Test: `apps/agent-runtime/test/runtime/runtime-bootstrap-provider.test.ts`
 
-- [ ] **Step 1: Write failing config-boundary tests**
-- [ ] **Step 2: Keep normalized config policy in application and raw source discovery in infrastructure**
-- [ ] **Step 3: Update lint/structural assertions for config ownership**
-- [ ] **Step 4: Run focused config/runtime tests**
+- [x] **Step 1: Write failing config-boundary tests**
+- [x] **Step 2: Keep normalized config policy in application and raw source discovery in infrastructure**
+- [x] **Step 3: Update lint/structural assertions for config ownership**
+- [x] **Step 4: Run focused config/runtime tests**
 - [ ] **Step 5: Commit**
 
 ## Task 5: Sync Docs And Verify
@@ -124,7 +124,7 @@
 - Modify: `NEXT_STEP.md`
 - Modify: `MEMORY.md`
 
-- [ ] **Step 1: Update docs to reflect shell-owned assembly**
-- [ ] **Step 2: Point `NEXT_STEP.md` at Phase 4 hardgate ratchet**
-- [ ] **Step 3: Run full verification**
+- [x] **Step 1: Update docs to reflect shell-owned assembly**
+- [x] **Step 2: Point `NEXT_STEP.md` at Phase 4 hardgate ratchet**
+- [x] **Step 3: Run full verification**
 - [ ] **Step 4: Commit**

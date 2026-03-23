@@ -5,6 +5,7 @@
  */
 import type { HitlController } from "../../contracts/hitl-controller.js";
 import type { Logger } from "../../contracts/logger.js";
+import type { PiAgentModel } from "../../contracts/pi-agent-model.js";
 import type { RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
 import type { ToolClient } from "../../contracts/tool-client.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
@@ -14,11 +15,12 @@ import type { HostedWorkflow } from "../shell/workflow-contract.js";
 import { PromptProvider } from "./prompt-provider.js";
 import {
   createReactRefinementRunExecutor,
+  type RefinementArtifactsWriter,
   type ReactRefinementRunExecutor,
   type ReactRefinementRunExecutorOptions,
 } from "./react-refinement-run-executor.js";
 import { RefineReactToolClient } from "./refine-react-tool-client.js";
-import { createRefinePersistenceContext, RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
+import { type RefinePersistenceContext, RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
 import { createBootstrapRefineToolComposition, type RefineToolComposition } from "./tools/refine-tool-composition.js";
 
 export interface RefineWorkflowBrowserLifecycle {
@@ -49,6 +51,9 @@ export interface CreateRefineWorkflowFactoryOptions {
   rawToolClient: ToolClient;
   hitlController?: HitlController;
   createRunId: () => string;
+  resolvedModel: PiAgentModel;
+  persistenceContext: RefinePersistenceContext;
+  createArtifactsWriter: (runId: string) => RefinementArtifactsWriter;
   config: Pick<
     RuntimeConfig,
     "apiKey" | "artifactsDir" | "baseUrl" | "model" | "refinementKnowledgeTopN" | "refinementMaxRounds" | "thinkingLevel"
@@ -62,9 +67,10 @@ export interface RefineWorkflowAssembly {
 }
 
 export interface RefineWorkflowLoopInput {
-  model: string;
+  resolvedModel: PiAgentModel;
   apiKey: string;
-  baseUrl?: string;
+  configuredModel: string;
+  configuredBaseUrl?: string;
   thinkingLevel: RuntimeConfig["thinkingLevel"];
   systemPrompt: string;
   toolClient: RefineReactToolClient;
@@ -74,9 +80,6 @@ export interface RefineWorkflowLoopInput {
 export interface RefineWorkflowAssemblyOverrides {
   createToolComposition?: (rawClient: ToolClient) => RefineToolComposition;
   createPromptProvider?: () => Pick<PromptProvider, "buildRefineStartPrompt">;
-  createPersistenceContext?: (
-    config: Pick<RuntimeConfig, "artifactsDir">
-  ) => ReturnType<typeof createRefinePersistenceContext>;
   createBootstrapProvider?: (
     options: ConstructorParameters<typeof RefineRunBootstrapProvider>[0]
   ) => RefineRunBootstrapProvider;
@@ -175,7 +178,6 @@ export function createRefineWorkflowAssembly(
 ): RefineWorkflowAssembly {
   const createToolComposition = overrides.createToolComposition ?? createBootstrapRefineToolComposition;
   const createPromptProvider = overrides.createPromptProvider ?? (() => new PromptProvider());
-  const createPersistenceContext = overrides.createPersistenceContext ?? ((config) => createRefinePersistenceContext(config));
   const createBootstrapProvider =
     overrides.createBootstrapProvider ?? ((input) => new RefineRunBootstrapProvider(input));
   const createLoop =
@@ -183,9 +185,10 @@ export function createRefineWorkflowAssembly(
     ((input) =>
       new PiAgentLoop(
         {
-          model: input.model,
+          resolvedModel: input.resolvedModel,
           apiKey: input.apiKey,
-          baseUrl: input.baseUrl,
+          configuredModel: input.configuredModel,
+          configuredBaseUrl: input.configuredBaseUrl,
           thinkingLevel: input.thinkingLevel,
           systemPrompt: input.systemPrompt,
         },
@@ -197,20 +200,20 @@ export function createRefineWorkflowAssembly(
     overrides.createAgentRuntime ?? ((input) => new RefineWorkflowRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
 
   const toolComposition = createToolComposition(options.rawToolClient);
-  const toolClient = new RefineReactToolClient(toolComposition.surface, toolComposition.contextRef);
+  const toolClient = new RefineReactToolClient(toolComposition);
   const promptProvider = createPromptProvider();
-  const persistence = createPersistenceContext(options.config);
   const bootstrapProvider = createBootstrapProvider({
     createRunId: options.createRunId,
-    guidanceLoader: persistence.guidanceLoader,
-    hitlResumeStore: persistence.hitlResumeStore,
+    guidanceLoader: options.persistenceContext.guidanceLoader,
+    hitlResumeStore: options.persistenceContext.hitlResumeStore,
     promptProvider,
     knowledgeTopN: options.config.refinementKnowledgeTopN,
   });
   const loop = createLoop({
-    model: options.config.model,
+    resolvedModel: options.resolvedModel,
     apiKey: options.config.apiKey,
-    baseUrl: options.config.baseUrl,
+    configuredModel: options.config.model,
+    configuredBaseUrl: options.config.baseUrl,
     thinkingLevel: options.config.thinkingLevel,
     systemPrompt: options.refineSystemPrompt,
     toolClient,
@@ -222,13 +225,13 @@ export function createRefineWorkflowAssembly(
   const runExecutor = createRunExecutor({
     loop,
     logger: options.logger,
-    artifactsDir: options.config.artifactsDir,
     maxTurns: options.config.refinementMaxRounds,
     telemetryRegistry: options.telemetryRegistry,
     toolClient,
     hitlController: options.hitlController,
-    knowledgeStore: persistence.knowledgeStore,
+    knowledgeStore: options.persistenceContext.knowledgeStore,
     bootstrapProvider,
+    createArtifactsWriter: options.createArtifactsWriter,
   });
   const agentRuntime = createAgentRuntime({
     loop,
