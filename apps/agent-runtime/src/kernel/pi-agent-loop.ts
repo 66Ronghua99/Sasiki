@@ -16,12 +16,16 @@ import type {
   AgentStepRecord,
   AssistantToolCallRecord,
   AssistantTurnRecord,
+  HighLevelLogEntry,
+  HighLevelLogStatus,
   McpCallRecord,
-} from "../domain/agent-types.js";
-import type { HighLevelLogEntry, HighLevelLogStatus } from "../domain/high-level-log.js";
+  PiAgentLoopProgressSnapshot,
+} from "../contracts/agent-loop-records.js";
 import { ModelResolver } from "../infrastructure/llm/model-resolver.js";
 import { PiAgentToolAdapter, type PiAgentToolAdapterHookContext } from "./pi-agent-tool-adapter.js";
 import type { PiAgentToolHookRegistry } from "./pi-agent-tool-hooks.js";
+
+export type { PiAgentLoopProgressSnapshot } from "../contracts/agent-loop-records.js";
 
 export interface PiAgentLoopConfig {
   model: string;
@@ -42,13 +46,6 @@ export interface PiAgentLoopAgent {
   state: {
     error?: unknown;
   };
-}
-
-export interface PiAgentLoopProgressSnapshot {
-  steps: AgentStepRecord[];
-  mcpCalls: McpCallRecord[];
-  assistantTurns: AssistantTurnRecord[];
-  highLevelLogs: HighLevelLogEntry[];
 }
 
 export interface PiAgentLoopSnapshotOptions {
