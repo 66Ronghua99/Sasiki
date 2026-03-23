@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs/promises, node:path, domain/attention-knowledge.ts
- * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
+ * Used By: application/refine/attention-guidance-loader.ts, application/refine/refine-run-bootstrap-provider.ts
  * Last Updated: 2026-03-21
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";

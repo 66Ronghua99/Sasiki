@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs, node:path
- * Used By: runtime/runtime-config.ts
+ * Used By: application/config/runtime-config-loader.ts
  * Last Updated: 2026-03-21
  */
 import { existsSync, readFileSync } from "node:fs";

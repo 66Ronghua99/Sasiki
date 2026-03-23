@@ -5,7 +5,7 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
-- The workflow-host boundary clarification pass is now the active front-door truth for the current baseline.
+- The current front-door truth is the post-pi-agent-hook-adapter baseline, with workflow-host clarification and telemetry/event-stream changes already absorbed.
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
 - **Refine tool surface unification Tasks 1-8 are complete**: Task 1 froze the current bridge/bootstrap/facade regression behavior, Task 2 introduced refine-owned `tools/` core abstractions, Task 3 added provider/hook/lifecycle scaffolding, Task 4 migrated the runtime-facing refine tools into first-class definitions registered through a production-side runtime registry seam, Task 5 migrated the core browser-facing refine tools into first-class definitions registered through a production-side browser registry seam, Task 6 migrated screenshot/file-upload into first-class browser definitions while preserving capability negotiation behavior, Task 7 rebuilt `RefineReactToolClient` into a compatibility facade over explicit refine tool composition and removed the old adapter-centric registry path, and Task 8 completed refine-focused verification plus full project gates. Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-22T14-24-10-690Z/report.json`.
@@ -58,8 +58,6 @@ apps/agent-runtime/src/
     mcp/            - mcp-stdio-client.ts
     browser/        - cdp-browser-launcher.ts, cookie-loader.ts
     hitl/           - terminal-hitl-controller.ts
-  utils/            - Pure helper functions
-
 ```
 
 ## Project Verification Notes
@@ -80,7 +78,9 @@ apps/agent-runtime/src/
   - `.harness/bootstrap.toml`
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
-- Active spec / plan:
+- Active execution pointer:
+  - `NEXT_STEP.md`
+- No open implementation spec / plan is currently active in docs. Latest completed implementation chain:
   - `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
   - `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
 - Historical background docs:
@@ -102,6 +102,6 @@ apps/agent-runtime/src/
 
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
-- The workflow-host boundary clarification pass is now the current baseline.
+- The current baseline is the post-pi-agent-hook-adapter front door.
 - The active next step is to run one fresh real-browser refine smoke e2e against the new pi-agent hook boundary and inspect telemetry artifacts for any remaining runtime drift.
 - See `NEXT_STEP.md` for the exact current task pointer.

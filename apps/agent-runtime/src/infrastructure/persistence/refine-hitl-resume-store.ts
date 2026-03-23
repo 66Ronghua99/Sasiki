@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs/promises, node:path
- * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
+ * Used By: application/refine/refine-run-bootstrap-provider.ts
  * Last Updated: 2026-03-21
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";

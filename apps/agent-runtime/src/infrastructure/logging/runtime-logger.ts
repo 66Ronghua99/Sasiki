@@ -1,6 +1,6 @@
 /**
  * Deps: contracts/logger.ts
- * Used By: runtime/agent-runtime.ts
+ * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-04
  */
 import type { Logger } from "../../contracts/logger.js";

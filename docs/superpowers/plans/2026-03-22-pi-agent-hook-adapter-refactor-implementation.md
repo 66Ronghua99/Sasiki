@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: draft
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md
 verified_by:
@@ -14,17 +14,18 @@ supersedes: []
 related:
   - docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md
   - apps/agent-runtime/src/contracts/tool-client.ts
-  - apps/agent-runtime/src/kernel/agent-loop.ts
-  - apps/agent-runtime/src/kernel/mcp-tool-bridge.ts
+  - apps/agent-runtime/src/kernel/pi-agent-loop.ts
+  - apps/agent-runtime/src/kernel/pi-agent-tool-adapter.ts
+  - apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts
   - apps/agent-runtime/src/application/refine/refine-workflow.ts
   - apps/agent-runtime/src/application/refine/react-refinement-run-executor.ts
   - apps/agent-runtime/src/application/refine/refine-react-tool-client.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-composition.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-surface.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-hook-pipeline.ts
-  - apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts
-  - apps/agent-runtime/test/kernel/agent-loop-telemetry.test.ts
-  - apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
+  - apps/agent-runtime/src/application/refine/tools/refine-pi-agent-tool-hooks.ts
+  - apps/agent-runtime/test/kernel/pi-agent-loop-telemetry.test.ts
+  - apps/agent-runtime/test/kernel/pi-agent-tool-adapter.test.ts
   - apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts
   - apps/agent-runtime/test/application/refine/refine-workflow.test.ts
   - apps/agent-runtime/test/replay-refinement/refine-react-run-executor.test.ts
@@ -114,7 +115,7 @@ Delete only after the renamed files and replacement tests are green and all impo
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 - Modify: `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
 
-- [ ] **Step 1: Write the failing adapter hook-registration tests**
+- [x] **Step 1: Write the failing adapter hook-registration tests**
 
 ```ts
 test("registered tool-name hooks run before and after adapter execution", async () => {
@@ -150,7 +151,7 @@ test("registered tool-name hooks run before and after adapter execution", async 
 });
 ```
 
-- [ ] **Step 2: Write the failing direct-call bypass tests**
+- [x] **Step 2: Write the failing direct-call bypass tests**
 
 ```ts
 test("refine direct tool surface calls do not execute pi-agent hooks", async () => {
@@ -163,12 +164,12 @@ test("refine direct tool surface calls do not execute pi-agent hooks", async () 
 });
 ```
 
-- [ ] **Step 3: Run the targeted tests to verify they fail first**
+- [x] **Step 3: Run the targeted tests to verify they fail first**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/kernel/pi-agent-tool-adapter.test.ts test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts`
 Expected: FAIL because the renamed adapter and new hook boundary do not exist yet.
 
-- [ ] **Step 4: Commit the failing-test checkpoint**
+- [x] **Step 4: Commit the failing-test checkpoint**
 
 ```bash
 git add apps/agent-runtime/test/kernel/pi-agent-tool-adapter.test.ts \
@@ -189,7 +190,7 @@ git commit -m "test: define pi-agent hook adapter boundary"
 - Create: `apps/agent-runtime/test/kernel/pi-agent-loop-telemetry.test.ts`
 - Modify: `apps/agent-runtime/test/runtime/runtime-composition-root.test.ts`
 
-- [ ] **Step 1: Copy the existing kernel files into renamed canonical homes**
+- [x] **Step 1: Copy the existing kernel files into renamed canonical homes**
 
 ```ts
 export class PiAgentLoop { /* existing AgentLoop implementation, unchanged except rename */ }
@@ -197,18 +198,18 @@ export class PiAgentLoop { /* existing AgentLoop implementation, unchanged excep
 export class PiAgentToolAdapter { /* existing McpToolBridge implementation, temporary carry-over */ }
 ```
 
-- [ ] **Step 2: Update imports and symbol names without changing behavior yet**
+- [x] **Step 2: Update imports and symbol names without changing behavior yet**
 
 ```ts
 import { PiAgentLoop } from "../../kernel/pi-agent-loop.js";
 ```
 
-- [ ] **Step 3: Create the renamed loop telemetry test file and point it at `PiAgentLoop`**
+- [x] **Step 3: Create the renamed loop telemetry test file and point it at `PiAgentLoop`**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/kernel/pi-agent-loop-telemetry.test.ts test/application/refine/refine-workflow.test.ts test/runtime/runtime-composition-root.test.ts`
 Expected: PASS after all imports are updated.
 
-- [ ] **Step 4: Delete the old kernel entrypoint imports only after renamed coverage passes**
+- [x] **Step 4: Delete the old kernel entrypoint imports only after renamed coverage passes**
 
 ```bash
 git add apps/agent-runtime/src/kernel/pi-agent-loop.ts \
@@ -230,7 +231,7 @@ git commit -m "refactor: rename pi-agent kernel entrypoints"
 - Modify: `apps/agent-runtime/test/kernel/pi-agent-tool-adapter.test.ts`
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-run-executor.test.ts`
 
-- [ ] **Step 1: Write the failing tests for exact tool-name registration and result replacement**
+- [x] **Step 1: Write the failing tests for exact tool-name registration and result replacement**
 
 ```ts
 test("unregistered tools bypass hooks and preserve raw tool text", async () => {
@@ -245,7 +246,7 @@ test("unregistered tools bypass hooks and preserve raw tool text", async () => {
 });
 ```
 
-- [ ] **Step 2: Introduce the new kernel hook types**
+- [x] **Step 2: Introduce the new kernel hook types**
 
 ```ts
 export interface PiAgentToolExecutionContext {
@@ -265,7 +266,7 @@ export interface PiAgentToolHook {
 }
 ```
 
-- [ ] **Step 3: Replace `setToolHookObserver(...)` with hook-registry injection on `PiAgentLoop`**
+- [x] **Step 3: Replace `setToolHookObserver(...)` with hook-registry injection on `PiAgentLoop`**
 
 ```ts
 setToolHooks(hooks: PiAgentToolHookRegistry): void {
@@ -273,7 +274,7 @@ setToolHooks(hooks: PiAgentToolHookRegistry): void {
 }
 ```
 
-- [ ] **Step 4: Replace adapter observer execution with per-tool hook lookup**
+- [x] **Step 4: Replace adapter observer execution with per-tool hook lookup**
 
 ```ts
 const hooks = this.hooks.get(name) ?? [];
@@ -284,12 +285,12 @@ for (const [index, hook] of hooks.entries()) {
 }
 ```
 
-- [ ] **Step 5: Run the targeted kernel and executor tests**
+- [x] **Step 5: Run the targeted kernel and executor tests**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/kernel/pi-agent-tool-adapter.test.ts test/kernel/pi-agent-loop-telemetry.test.ts test/replay-refinement/refine-react-run-executor.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts \
@@ -310,7 +311,7 @@ git commit -m "refactor: add pi-agent tool-name hook registry"
 - Modify: `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
 - Modify: `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
 
-- [ ] **Step 1: Write the failing tests that assert direct `callTool(...)` stays hook-free**
+- [x] **Step 1: Write the failing tests that assert direct `callTool(...)` stays hook-free**
 
 ```ts
 test("bootstrap observe.page remains a plain direct call", async () => {
@@ -321,7 +322,7 @@ test("bootstrap observe.page remains a plain direct call", async () => {
 });
 ```
 
-- [ ] **Step 2: Remove hook execution from `RefineToolSurface.callTool(...)`**
+- [x] **Step 2: Remove hook execution from `RefineToolSurface.callTool(...)`**
 
 ```ts
 async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
@@ -330,12 +331,12 @@ async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallRes
 }
 ```
 
-- [ ] **Step 3: Remove no-op compatibility hook placeholders from `RefineReactToolClient` composition shims**
+- [x] **Step 3: Remove no-op compatibility hook placeholders from `RefineReactToolClient` composition shims**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/refine-tool-surface.ts \
@@ -356,14 +357,14 @@ git commit -m "refactor: remove direct-call refine hook execution"
 - Modify: `apps/agent-runtime/test/application/refine/refine-workflow.test.ts`
 - Modify: `apps/agent-runtime/test/kernel/pi-agent-tool-adapter.test.ts`
 
-- [ ] **Step 1: Write the failing workflow assembly test for hook registration handoff**
+- [x] **Step 1: Write the failing workflow assembly test for hook registration handoff**
 
 ```ts
 assert.equal(typeof loop.setToolHooks, "function");
 assert.equal(receivedHooks instanceof Map, true);
 ```
 
-- [ ] **Step 2: Replace `hookObserver` exports with adapter hook registrations**
+- [x] **Step 2: Replace `hookObserver` exports with adapter hook registrations**
 
 ```ts
 const toolHooks = createRefinePiAgentToolHooks({
@@ -372,12 +373,12 @@ const toolHooks = createRefinePiAgentToolHooks({
 });
 ```
 
-- [ ] **Step 3: Wire `RefineWorkflow` to call `loop.setToolHooks(toolComposition.toolHooks)`**
+- [x] **Step 3: Wire `RefineWorkflow` to call `loop.setToolHooks(toolComposition.toolHooks)`**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-workflow.test.ts test/kernel/pi-agent-tool-adapter.test.ts`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/agent-runtime/src/application/refine/tools/refine-pi-agent-tool-hooks.ts \
@@ -402,7 +403,7 @@ git commit -m "refactor: wire refine hooks through pi-agent adapter"
 - Modify: `MEMORY.md`
 - Modify: `NEXT_STEP.md`
 
-- [ ] **Step 1: Delete the obsolete observer seam and old kernel filenames**
+- [x] **Step 1: Delete the obsolete observer seam and old kernel filenames**
 
 ```bash
 rm apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts
@@ -412,7 +413,7 @@ rm apps/agent-runtime/test/kernel/agent-loop-telemetry.test.ts
 rm apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
 ```
 
-- [ ] **Step 2: Update architecture docs and project truth files**
+- [x] **Step 2: Update architecture docs and project truth files**
 
 ```md
 - kernel canonical files are now `pi-agent-loop.ts` and `pi-agent-tool-adapter.ts`
@@ -420,7 +421,7 @@ rm apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts
 - direct `ToolClient.callTool(...)` stays hook-free
 ```
 
-- [ ] **Step 3: Run full project gates**
+- [x] **Step 3: Run full project gates**
 
 Run: `npm --prefix apps/agent-runtime run lint`
 Expected: PASS
@@ -440,7 +441,7 @@ Expected: PASS
 Run: `git diff --check`
 Expected: no output
 
-- [ ] **Step 4: Commit the completed refactor**
+- [x] **Step 4: Commit the completed refactor**
 
 ```bash
 git add docs/architecture/overview.md \

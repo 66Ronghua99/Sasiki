@@ -1,6 +1,6 @@
 /**
  * Deps: node:process, node:readline/promises, contracts/hitl-controller.ts, domain/intervention-learning.ts
- * Used By: runtime/workflow-runtime.ts
+ * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-20
  */
 import process from "node:process";

@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs/promises, node:os, node:path, domain/sop-asset.ts, domain/runtime-errors.ts
- * Used By: runtime/agent-runtime.ts
+ * Used By: application/observe/observe-executor.ts
  * Last Updated: 2026-03-21
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";

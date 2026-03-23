@@ -1,6 +1,6 @@
 /**
  * Deps: node:fs/promises, node:path, domain/agent-types.ts, domain/intervention-learning.ts, domain/sop-trace.ts, domain/sop-asset.ts, domain/sop-consumption.ts, domain/refinement-knowledge.ts
- * Used By: runtime/observe-executor.ts, runtime/replay-refinement/react-refinement-run-executor.ts, runtime/interactive-sop-compact.ts
+ * Used By: application/observe/observe-executor.ts, application/refine/react-refinement-run-executor.ts, application/compact/interactive-sop-compact.ts
  * Last Updated: 2026-03-21
  */
 import { appendFile, mkdir, writeFile } from "node:fs/promises";

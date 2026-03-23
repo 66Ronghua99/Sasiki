@@ -1,19 +1,20 @@
 ---
 doc_type: spec
-status: draft
+status: completed
 supersedes: []
 related:
   - docs/architecture/overview.md
   - docs/project/current-state.md
   - apps/agent-runtime/src/contracts/tool-client.ts
-  - apps/agent-runtime/src/kernel/agent-loop.ts
-  - apps/agent-runtime/src/kernel/mcp-tool-bridge.ts
+  - apps/agent-runtime/src/kernel/pi-agent-loop.ts
+  - apps/agent-runtime/src/kernel/pi-agent-tool-adapter.ts
+  - apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts
   - apps/agent-runtime/src/application/refine/refine-workflow.ts
   - apps/agent-runtime/src/application/refine/refine-react-tool-client.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-composition.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-surface.ts
   - apps/agent-runtime/src/application/refine/tools/refine-tool-hook-pipeline.ts
-  - apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts
+  - apps/agent-runtime/src/application/refine/tools/refine-pi-agent-tool-hooks.ts
 ---
 
 # Pi-Agent Hook Adapter Refactor Design

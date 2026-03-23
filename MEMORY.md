@@ -10,16 +10,16 @@
 - 浏览器任务“看起来完成”不等于业务完成；任何完成声明都要有 `artifacts/e2e/<run_id>/` 里的新鲜证据支撑。
 - shared execution kernel 仍是当前代码的核心边界：
   - canonical home: `apps/agent-runtime/src/kernel/pi-agent-loop.ts` + `pi-agent-tool-adapter.ts`
-  - old `core/` paths are migration shims only
+  - old `core/*` / `runtime/*` compatibility shells for this boundary have been removed
 - `application/shell/runtime-host.ts` 是当前唯一顶层 workflow lifecycle owner；不要再把 prepare/execute/dispose fallback 逻辑散落回 `workflow-runtime.ts` 或其他 wrapper。
 - workflow 注册主链路当前固定为 `workflow-runtime -> runtime-host -> *-workflow`；不要再恢复 `application/observe/observe-runtime.ts` 这类单 workflow wrapper，也不要把 `RuntimeHost` 扩回“先绑定 workflow 再 start/execute”的双形态 API。
 - `application/shell/workflow-runtime.ts` 当前只负责 CLI command -> workflow 选择与交给 host 执行；不要再把 compact service 构造或 interrupt fallback 塞回去。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
 - `interactive-sop-compact` 已经是多轮 session 形态；旧 `sop-compact-hitl` / `sop-compact-clarify` 是 archived path。
-- SOP recorder / trace builder 的 canonical home: `src/application/observe/support/`；`src/core/` 和 `src/runtime/observe-support/` 中同名文件是迁移期 shim。
-- persistence adapters 的 canonical home: `src/infrastructure/persistence/`；旧 runtime 路径保留为薄 shim。
-- LLM adapters 的 canonical home: `src/infrastructure/llm/`；旧 `core/` 路径是迁移期 shim。
-- config loading 的 canonical home: `src/infrastructure/config/`。
+- SOP recorder / trace builder 的 canonical home: `src/application/observe/support/`。
+- persistence adapters 的 canonical home: `src/infrastructure/persistence/`。
+- LLM adapters 的 canonical home: `src/infrastructure/llm/`。
+- runtime config bootstrap adapter 的 canonical home: `src/infrastructure/config/`；application-facing loader/types 的 canonical home 是 `src/application/config/`。
 - application shell / command-router / composition-root 的 canonical home: `src/application/shell/`。
 - refine 全部代码（bootstrap, prompts, tooling, orchestration, executor）的 canonical home: `src/application/refine/`。
 - observe 全部代码（orchestration, recording support）的 canonical home: `src/application/observe/`。
