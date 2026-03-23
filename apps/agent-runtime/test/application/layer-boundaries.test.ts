@@ -64,6 +64,82 @@ test("application boundaries use canonical application and infrastructure module
   assert.equal(existsSync(path.join(srcRoot, "application/observe/observe-runtime.ts")), false);
 });
 
+test("shell remains the phase 1 singleton owner for lifecycle and front-door handoff", async () => {
+  const runtimeCompositionRootSource = await readSource("application/shell/runtime-composition-root.ts");
+  const workflowRuntimeSource = await readSource("application/shell/workflow-runtime.ts");
+  const runtimeHostSource = await readSource("application/shell/runtime-host.ts");
+
+  assert.match(runtimeHostSource, /import type \{ HostedWorkflow \} from "\.\/workflow-contract\.js";/);
+  assert.match(runtimeHostSource, /private activeWorkflow: HostedWorkflow<unknown> \| null = null;/);
+  assert.match(runtimeHostSource, /throw new Error\("runtime host already owns an active workflow"\);/);
+  assert.match(runtimeHostSource, /await this\.startActiveWorkflow\(\);/);
+  assert.match(runtimeHostSource, /return await workflow\.execute\(\);/);
+  assert.match(runtimeHostSource, /await this\.disposeActiveWorkflow\(workflow\);/);
+  assert.doesNotMatch(runtimeHostSource, /\.\.\/observe\//);
+  assert.doesNotMatch(runtimeHostSource, /\.\.\/refine\//);
+  assert.doesNotMatch(runtimeHostSource, /\.\.\/compact\//);
+  assert.doesNotMatch(runtimeHostSource, /\.\.\/\.\.\/infrastructure\//);
+
+  assert.match(workflowRuntimeSource, /from "\.\/runtime-composition-root\.js"/);
+  assert.match(workflowRuntimeSource, /from "\.\/runtime-host\.js"/);
+  assert.match(workflowRuntimeSource, /const factory = registry\.resolve\(request\.command\);/);
+  assert.match(workflowRuntimeSource, /return this\.runtimeHost\.run\(workflowFactory\(\)\);/);
+  assert.doesNotMatch(workflowRuntimeSource, /new InteractiveSopCompactService/);
+  assert.doesNotMatch(workflowRuntimeSource, /new CdpBrowserLauncher/);
+  assert.doesNotMatch(workflowRuntimeSource, /new McpStdioClient/);
+  assert.doesNotMatch(workflowRuntimeSource, /workflow\.prepare\(\)/);
+  assert.doesNotMatch(workflowRuntimeSource, /workflow\.execute\(\)/);
+  assert.doesNotMatch(workflowRuntimeSource, /workflow\.dispose\(\)/);
+
+  assert.match(runtimeCompositionRootSource, /new RuntimeLogger\(\)/);
+  assert.match(runtimeCompositionRootSource, /new CdpBrowserLauncher\(/);
+  assert.match(runtimeCompositionRootSource, /new McpStdioClient\(/);
+  assert.match(runtimeCompositionRootSource, /createObserveWorkflowFactory\(/);
+  assert.match(runtimeCompositionRootSource, /createRefineWorkflowAssembly\(/);
+  assert.match(runtimeCompositionRootSource, /new InteractiveSopCompactService\(/);
+  assert.doesNotMatch(runtimeCompositionRootSource, /new RuntimeHost\(/);
+});
+
+test("workflow modules stay isolated while named phase 1 transition seams remain explicit", async () => {
+  const observeWorkflowSource = await readSource("application/observe/observe-workflow.ts");
+  const observeWorkflowFactorySource = await readSource("application/observe/observe-workflow-factory.ts");
+  const observeExecutorSource = await readSource("application/observe/observe-executor.ts");
+  const compactWorkflowSource = await readSource("application/compact/compact-workflow.ts");
+  const compactSource = await readSource("application/compact/interactive-sop-compact.ts");
+  const refineWorkflowSource = await readSource("application/refine/refine-workflow.ts");
+  const refineBootstrapSource = await readSource("application/refine/refine-run-bootstrap-provider.ts");
+  const reactRefinementRunExecutorSource = await readSource("application/refine/react-refinement-run-executor.ts");
+  const runtimeConfigLoaderSource = await readSource("application/config/runtime-config-loader.ts");
+
+  assert.match(observeWorkflowSource, /from "\.\.\/shell\/workflow-contract\.js"/);
+  assert.doesNotMatch(observeWorkflowSource, /\.\.\/refine\//);
+  assert.doesNotMatch(observeWorkflowSource, /\.\.\/compact\//);
+  assert.doesNotMatch(observeWorkflowSource, /\.\.\/\.\.\/infrastructure\//);
+
+  assert.match(refineWorkflowSource, /from "\.\.\/shell\/workflow-contract\.js"/);
+  assert.doesNotMatch(refineWorkflowSource, /\.\.\/observe\//);
+  assert.doesNotMatch(refineWorkflowSource, /\.\.\/compact\//);
+  assert.doesNotMatch(refineWorkflowSource, /\.\.\/\.\.\/infrastructure\//);
+
+  assert.match(compactWorkflowSource, /from "\.\.\/shell\/workflow-contract\.js"/);
+  assert.doesNotMatch(compactWorkflowSource, /\.\.\/observe\//);
+  assert.doesNotMatch(compactWorkflowSource, /\.\.\/refine\//);
+  assert.doesNotMatch(compactWorkflowSource, /\.\.\/\.\.\/infrastructure\//);
+
+  assert.match(observeWorkflowFactorySource, /from "\.\.\/\.\.\/infrastructure\/browser\/playwright-demonstration-recorder\.js"/);
+  assert.match(observeExecutorSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/artifacts-writer\.js"/);
+  assert.match(observeExecutorSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/sop-asset-store\.js"/);
+
+  assert.match(compactSource, /from "\.\.\/\.\.\/infrastructure\/llm\/json-model-client\.js"/);
+  assert.match(compactSource, /from "\.\.\/\.\.\/infrastructure\/hitl\/terminal-compact-human-loop-tool\.js"/);
+  assert.match(compactSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/artifacts-writer\.js"/);
+
+  assert.match(refineBootstrapSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/attention-knowledge-store\.js"/);
+  assert.match(refineBootstrapSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/refine-hitl-resume-store\.js"/);
+  assert.match(reactRefinementRunExecutorSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/artifacts-writer\.js"/);
+  assert.match(runtimeConfigLoaderSource, /from "\.\.\/\.\.\/infrastructure\/config\/runtime-bootstrap-provider\.js"/);
+});
+
 test("compatibility source shells have been removed from core and runtime", () => {
   const removedPaths = [
     "core/agent-loop.ts",
