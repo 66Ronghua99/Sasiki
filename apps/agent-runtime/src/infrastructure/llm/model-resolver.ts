@@ -1,7 +1,7 @@
 /**
  * Deps: @mariozechner/pi-ai
- * Used By: core/agent-loop.ts, runtime/interactive-sop-compact.ts
- * Last Updated: 2026-03-21
+ * Used By: kernel/pi-agent-loop.ts, application/compact/*
+ * Last Updated: 2026-03-23
  */
 import { getModel, getModels, getProviders, type KnownProvider, type Model } from "@mariozechner/pi-ai";
 

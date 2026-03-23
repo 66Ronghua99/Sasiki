@@ -19,9 +19,8 @@ import type {
   McpCallRecord,
 } from "../domain/agent-types.js";
 import type { HighLevelLogEntry, HighLevelLogStatus } from "../domain/high-level-log.js";
-import type { ToolCallHookContext } from "../domain/refinement-session.js";
 import { ModelResolver } from "../infrastructure/llm/model-resolver.js";
-import { PiAgentToolAdapter } from "./pi-agent-tool-adapter.js";
+import { PiAgentToolAdapter, type PiAgentToolAdapterHookContext } from "./pi-agent-tool-adapter.js";
 import type { PiAgentToolHookRegistry } from "./pi-agent-tool-hooks.js";
 
 export interface PiAgentLoopConfig {
@@ -133,7 +132,7 @@ export class PiAgentLoop {
     this.toolAdapter.setHooks(hooks);
   }
 
-  setToolHookContext(context: Partial<ToolCallHookContext>): void {
+  setToolHookContext(context: PiAgentToolAdapterHookContext): void {
     this.toolAdapter.setHookContext(context);
   }
 

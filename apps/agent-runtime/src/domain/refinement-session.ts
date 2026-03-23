@@ -1,7 +1,7 @@
 /**
  * Deps: none
- * Used By: core/mcp-tool-bridge.ts, runtime/replay-refinement/*
- * Last Updated: 2026-03-12
+ * Used By: application/refine/*, kernel/pi-agent-tool-adapter.ts
+ * Last Updated: 2026-03-23
  */
 export type ToolCallRecordUnit = "tool_call";
 export type ToolCallHookOrigin = "tool_call" | "hook_internal";

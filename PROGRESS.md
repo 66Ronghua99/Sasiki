@@ -10,12 +10,14 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
-- **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`AgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
+- **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`PiAgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
 - **Workflow registration cleanup 已完成**: `application/observe/observe-runtime.ts` 这个过渡 wrapper 已删除；`RuntimeHost` 只保留 `run(workflow)` 这条活跃宿主接口；未使用的 `createRefineWorkflowFactory` / `createCompactWorkflowFactory` 已移除，workflow 注册链路现在统一收敛为 `workflow-runtime -> runtime-host -> *-workflow`。
 - **Refine smoke e2e 已完成**: 真实任务 `打开百度搜索咖啡豆，点开第一条链接` 已在 `run_id=20260322_002735_676` 跑通，最终 `completed`，并产出新的 `artifacts/e2e/20260322_002735_676/run_summary.json` 与 `artifacts/e2e/20260322_002735_676/event_stream.jsonl` 证据；本轮暴露的问题已收敛为“首轮仍会尝试 `initial_navigation`”与“page-changing action 后仍偶发 stale observation 自恢复”。
 - **Refine tool surface unification Task 1-8 已完成**: Task 1 已冻结 bridge / bootstrap / facade regression；Task 2 已新增 refine-local `tools/` core abstractions；Task 3 已补上 hook/provider/lifecycle scaffolding；Task 4 已把 `hitl.request`、`knowledge.record_candidate`、`run.finish` 迁成 first-class definitions，并通过 production-side runtime registry seam 把它们注册到新 surface 侧；Task 5 已把 `observe.page`、`observe.query`、`act.click`、`act.type`、`act.press`、`act.navigate`、`act.select_tab` 迁成 first-class browser definitions；Task 6 已把 `act.screenshot`、`act.file_upload` 迁成 first-class browser definitions，同时保持 screenshot capability negotiation 与 file-upload compatibility 行为不变；Task 7 已把 `RefineReactToolClient` 重建为基于 `refine-tool-composition.ts` 的 compatibility facade，并删除旧 adapter-centric registry/files；Task 8 已完成 refine-focused slice 与全项目门禁，并把前门文档同步到新架构真源。
+- **Pi-agent hook adapter refactor Task 1-6 已完成**: `kernel/` 的 canonical execution entrypoints 已重命名为 `pi-agent-loop.ts` 和 `pi-agent-tool-adapter.ts`；tool hooks 现在按精确 `toolName` 注册，并且只在 pi-agent tool execution path 上运行；`RefineToolComposition` 改为导出 adapter-compatible `toolHooks`；`RefineToolSurface.callTool(...)` / `RefineReactToolClient.callTool(...)` / bootstrap direct calls 已不再触发 hook；旧 `agent-loop.ts`、`mcp-tool-bridge.ts`、`refine-tool-hook-observer.ts` seam 已删除。
+- **Pi-agent hook adapter refactor fresh gates 已完成**: `lint`、`test`、`typecheck`、`build`、`hardgate` 与 `git diff --check` 已通过；fresh hardgate report 为 `artifacts/code-gate/2026-03-23T01-06-37-424Z/report.json`。
 - backward capability cleanup 已完成；仓库当前基线只保留最新架构代码与当前产品面。
 - **Cleanup Task 2 已完成**: `src/core/**` 与 `src/runtime/**` 下的一行兼容源码壳已经删除；当前连最后的 runtime lifecycle wrapper 也已去掉，对应边界测试与 `lint:arch` 断言已同步切到“禁止回生”。
 - **Cleanup Task 3 已完成**: legacy CLI compatibility surface 已移除；CLI 现在只保留 `observe` / `refine` / `sop-compact` 的显式解析语义，bare task / unknown command / archived alias 都走明确失败，不再保留迁移升级提示。
@@ -26,7 +28,7 @@
 - **Task 7 已完成**: `application/refine/` 现在是 refine bootstrap、prompts、tooling、orchestration 和 executor 的 canonical home；旧 `runtime/replay-refinement/*` 已被移除，不再作为活跃目录语义存在。
 - **Task 6 已完成**: `application/observe/` 与 `application/compact/` 现在是 observe orchestration/recording support 和 SOP compact 的 canonical home；旧 runtime-era 路径不再作为活跃目录语义存在。
 - **Task 5 已完成**: `application/shell/` 与 `application/config/` 现在是 shell/composition 和 runtime-config loader/types 的 canonical home；旧 provider 层已经退场，不再作为长期目录边界保留。
-- **Task 4 已完成**: `kernel/` 现在是 true execution kernel 的 canonical home（`agent-loop.ts`, `mcp-tool-bridge.ts`）；`core/` 仅保留为迁移期 shim。
+- **Task 4 已完成**: `kernel/` 现在是 true execution kernel 的 canonical home（`pi-agent-loop.ts`, `pi-agent-tool-adapter.ts`）；`core/` 仅保留为迁移期 shim。
 - **Task 3 已完成**: LLM adapters (`infrastructure/llm/`), config loading (`infrastructure/config/`), persistence adapters (`infrastructure/persistence/`) 已迁移到 infrastructure 层。
 - **Task 2 已完成**: legacy direct run 作为活跃产品面已移除；CLI 外部契约冻结为 `observe` / `refine` / `sop-compact`；legacy `runtime` / `--mode run|observe` 只保留为显式 upgrade error。
 - **Task 1 已完成**: 活跃架构文档已冻结为全局 taxonomy spec 和 implementation plan。
@@ -39,7 +41,7 @@
 apps/agent-runtime/src/
   domain/           - 产品概念、状态schema、跨层契约
   contracts/        - 能力接口（logger, tool-client, HITL等）
-  kernel/           - 可复用执行内核（agent-loop, mcp-tool-bridge）
+  kernel/           - 可复用执行内核（pi-agent-loop, pi-agent-tool-adapter）
   application/      - 用例编排层
     shell/          - CLI shell, command-router, runtime-host, composition-root
     config/         - runtime-config loader/types
@@ -67,8 +69,8 @@ apps/agent-runtime/src/
 - `docs/testing/strategy.md`
 
 ## Active Spec / Plan
-- `docs/superpowers/specs/2026-03-22-refine-tool-surface-unification-design.md`
-- `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md`
+- `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
+- `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -87,7 +89,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 跑一轮新的真实 refine smoke e2e，验证 tool-surface facade + hook context wiring 在浏览器实流中稳定，并检查 `event_stream.jsonl` / `agent_checkpoints/` 里的 hook telemetry 是否符合预期。
+- `P0` 跑一轮新的真实 refine smoke e2e，验证 `PiAgentToolAdapter` tool-name hook 路径与 direct-call hook-free boundary 在浏览器实流中稳定，并检查 `event_stream.jsonl` / `agent_checkpoints/`。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -122,7 +124,7 @@ apps/agent-runtime/src/
   - fresh hardgate report：`artifacts/code-gate/2026-03-21T06-09-17-280Z/report.json`
 - 已完成 runtime telemetry event stream pass：
   - 新增 `telemetry` config contract 与 run-scoped telemetry registry
-  - `AgentLoop`、observe、compact 都接入统一 telemetry 注入
+  - `PiAgentLoop`、observe、compact 都接入统一 telemetry 注入
   - refine canonical artifacts 收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/`
   - 旧 steps / assistant turns / `refine_*` 平行 artifacts 不再作为 refine 主真源
   - fresh hardgate report：`artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`
@@ -139,24 +141,22 @@ apps/agent-runtime/src/
     - `artifacts/e2e/20260322_002735_676/run_summary.json`
     - `artifacts/e2e/20260322_002735_676/event_stream.jsonl`
 - 已完成 refine tool surface unification Task 1 regression freeze：
-  - 新增 `apps/agent-runtime/test/kernel/mcp-tool-bridge.test.ts`
+  - 新增 refine bootstrap / facade / adapter regression freeze coverage（后续已由 `apps/agent-runtime/test/kernel/pi-agent-tool-adapter.test.ts` 取代）
   - 补强 `apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts`
   - 补强 `apps/agent-runtime/test/runtime/refine-run-bootstrap-provider.test.ts`
-  - fresh verification：`npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/kernel/mcp-tool-bridge.test.ts`
+  - fresh verification：`npm --prefix apps/agent-runtime run test -- test/replay-refinement/refine-react-tool-client.test.ts test/runtime/refine-run-bootstrap-provider.test.ts`
 - 已完成 refine tool surface unification Task 2 core abstractions：
   - 新增 `apps/agent-runtime/src/application/refine/tools/` 下的 core contracts / registry / surface / lifecycle
   - 新增 `apps/agent-runtime/test/application/refine/refine-tool-surface.test.ts`
   - refine tool list order 现在直接跟随 registry definition insertion order，不再维护独立 order 文件
   - fresh verification：`npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-contracts.test.ts`
 - 已完成 refine tool surface unification Task 3 provider / hook scaffolding：
-  - 新增 `apps/agent-runtime/src/application/refine/tools/refine-tool-hook-observer.ts`
   - 新增 `apps/agent-runtime/src/application/refine/tools/providers/refine-browser-provider.ts`
   - 新增 `apps/agent-runtime/src/application/refine/tools/providers/refine-runtime-provider.ts`
   - `RefineBrowserTools` / `RefineRuntimeTools` 已显式暴露 `setProviderContext(...)` seam
-  - 新增 bridge observer adapter regression 与 monotonic observation regression
+  - 新增 bridge-era hook adapter regression 与 monotonic observation regression（后续 observer seam 已在 pi-agent hook refactor 中删除）
   - fresh verification：
     - `npm --prefix apps/agent-runtime run test -- test/application/refine/refine-tool-surface.test.ts`
-    - `npm --prefix apps/agent-runtime run test -- test/kernel/mcp-tool-bridge.test.ts`
 - 已完成 refine tool surface unification Task 4 runtime definitions：
   - 新增 `apps/agent-runtime/src/application/refine/tools/definitions/hitl-request-tool.ts`
   - 新增 `apps/agent-runtime/src/application/refine/tools/definitions/knowledge-record-candidate-tool.ts`
@@ -181,12 +181,20 @@ apps/agent-runtime/src/
 - 已完成 refine tool surface unification Task 7 compatibility facade migration：
   - 新增 `apps/agent-runtime/src/application/refine/tools/refine-tool-composition.ts`
   - `RefineReactToolClient` 现在通过 explicit composition/surface/context facade 驱动
-  - `createRefineWorkflowAssembly(...)` 现在在 workflow 侧拥有 composition，并把 hook observer 注入 loop
+  - `createRefineWorkflowAssembly(...)` 现在在 workflow 侧拥有 composition，并把 tool hook registry 注入 loop
   - `ReactRefinementRunExecutor` 现在会在 bootstrap 后回写 loop hook context
   - 已删除 `apps/agent-runtime/src/application/refine/refine-react-tool-registry.ts`
   - 已删除 `apps/agent-runtime/src/application/refine/refine-react-browser-tool-adapter.ts`
   - 已删除 `apps/agent-runtime/src/application/refine/refine-react-runtime-tool-adapter.ts`
   - fresh verification：`npm --prefix apps/agent-runtime run test -- test/application/refine/refine-workflow.test.ts test/runtime/refine-run-bootstrap-provider.test.ts test/replay-refinement/refine-react-tool-client.test.ts test/replay-refinement/refine-react-run-executor.test.ts test/application/refine/refine-telemetry-artifacts.test.ts`
+- 已完成 pi-agent hook adapter refactor：
+  - 新增 `apps/agent-runtime/src/kernel/pi-agent-loop.ts`
+  - 新增 `apps/agent-runtime/src/kernel/pi-agent-tool-adapter.ts`
+  - 新增 `apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts`
+  - 新增 `apps/agent-runtime/src/application/refine/tools/refine-pi-agent-tool-hooks.ts`
+  - direct `RefineToolSurface.callTool(...)` / `RefineReactToolClient.callTool(...)` / bootstrap observe 已改为 hook-free
+  - 已删除 legacy `agent-loop.ts` / `mcp-tool-bridge.ts` / `refine-tool-hook-observer.ts` seam
+  - fresh hardgate report：`artifacts/code-gate/2026-03-23T01-06-37-424Z/report.json`
 - 已完成 refine tool surface unification Task 8 final verification / doc sync：
   - refine-focused slice：`npm --prefix apps/agent-runtime run test -- 'test/application/refine/*.test.ts' 'test/replay-refinement/*.test.ts' test/runtime/refine-run-bootstrap-provider.test.ts 'test/kernel/*.test.ts'`
   - full gates：`npm --prefix apps/agent-runtime run lint`

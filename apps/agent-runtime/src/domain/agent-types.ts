@@ -1,7 +1,7 @@
 /**
  * Deps: none
- * Used By: core/agent-loop.ts, runtime/agent-runtime.ts, runtime/artifacts-writer.ts
- * Last Updated: 2026-03-06
+ * Used By: kernel/pi-agent-loop.ts, application/*, infrastructure/persistence/*
+ * Last Updated: 2026-03-23
  */
 export type RuntimeCliCommand = "observe" | "refine" | "sop-compact";
 export type RuntimeMode = "observe" | "refine";

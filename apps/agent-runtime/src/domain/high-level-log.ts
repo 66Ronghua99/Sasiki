@@ -1,7 +1,7 @@
 /**
  * Deps: none
- * Used By: core/agent-loop.ts, runtime/run-executor.ts, runtime/artifacts-writer.ts
- * Last Updated: 2026-03-06
+ * Used By: kernel/pi-agent-loop.ts, application/refine/*, infrastructure/persistence/*
+ * Last Updated: 2026-03-23
  */
 export type HighLevelLogStage = "read" | "judge" | "action" | "result" | "intervention";
 export type HighLevelLogStatus = "info" | "warning" | "error";

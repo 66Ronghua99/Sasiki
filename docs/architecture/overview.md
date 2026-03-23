@@ -30,8 +30,8 @@ There is no legacy `runtime` command surface anymore.
   - orchestration and executor
 - `apps/agent-runtime/src/kernel/`
   - reusable execution kernel
-  - `agent-loop.ts`
-  - `mcp-tool-bridge.ts`
+  - `pi-agent-loop.ts`
+  - `pi-agent-tool-adapter.ts`
 - `apps/agent-runtime/src/infrastructure/`
   - browser
   - MCP
@@ -45,6 +45,7 @@ There is no legacy `runtime` command surface anymore.
 - `observe` records a browser demonstration and emits trace/artifact inputs.
 - `sop-compact` turns a recorded run into reusable compact workflow knowledge.
 - `refine` runs the active browser agent loop, pauses for HITL when needed, and writes reusable refinement knowledge.
+- pi-agent hook execution runs only through `kernel/pi-agent-tool-adapter.ts`; direct refine tool calls stay hook-free.
 - Runtime telemetry is assembled once in `application/shell/runtime-composition-root.ts`, then injected into each workflow as run-scoped telemetry.
 - `refine` persists canonical run truth as append-only `event_stream.jsonl`, plus a run summary artifact and optional `agent_checkpoints/`.
 

@@ -9,6 +9,7 @@
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
 - **Refine tool surface unification Tasks 1-8 are complete**: Task 1 froze the current bridge/bootstrap/facade regression behavior, Task 2 introduced refine-owned `tools/` core abstractions, Task 3 added provider/hook/lifecycle scaffolding, Task 4 migrated the runtime-facing refine tools into first-class definitions registered through a production-side runtime registry seam, Task 5 migrated the core browser-facing refine tools into first-class definitions registered through a production-side browser registry seam, Task 6 migrated screenshot/file-upload into first-class browser definitions while preserving capability negotiation behavior, Task 7 rebuilt `RefineReactToolClient` into a compatibility facade over explicit refine tool composition and removed the old adapter-centric registry path, and Task 8 completed refine-focused verification plus full project gates. Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-22T14-24-10-690Z/report.json`.
+- **Pi-agent hook adapter refactor Tasks 1-6 are complete**: canonical kernel entrypoints are now `pi-agent-loop.ts` and `pi-agent-tool-adapter.ts`; tool hooks run only through exact `toolName` registrations on the pi-agent execution path; direct `RefineToolSurface` / `RefineReactToolClient` / bootstrap calls are hook-free; legacy `agent-loop.ts` / `mcp-tool-bridge.ts` / `refine-tool-hook-observer.ts` seam has been removed. Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-23T01-06-37-424Z/report.json`.
 - **Workflow Host Task 5 is complete**: `runtime/agent-execution-runtime.ts` has been removed, `application/shell/runtime-host.ts` is the only top-level lifecycle owner, and compact service construction now happens in `runtime-composition-root.ts` instead of `workflow-runtime.ts`.
 - **Cleanup Task 2 remains complete**: compatibility-only source shells under `src/core/**` and `src/runtime/**` have been deleted, and the final runtime wrapper has now been removed as well.
 - **Cleanup Task 3 is complete**: legacy CLI compatibility behavior has been removed; only explicit `observe`, `refine`, and `sop-compact` commands remain, and unsupported grammar now fails without migration-era upgrade messaging.
@@ -41,8 +42,8 @@ apps/agent-runtime/src/
   domain/           - Product concepts, state schemas, cross-layer contracts
   contracts/        - Capability interfaces plus shared runtime config / telemetry contracts
   kernel/           - Reusable execution kernel (CANONICAL)
-    - agent-loop.ts
-    - mcp-tool-bridge.ts
+    - pi-agent-loop.ts
+    - pi-agent-tool-adapter.ts
   application/      - Use-case orchestration layer
     shell/          - CLI shell, command-router, runtime-host, composition-root
     config/         - Application-facing config loader entry
@@ -80,8 +81,8 @@ apps/agent-runtime/src/
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active spec / plan:
-  - `docs/superpowers/specs/2026-03-22-refine-tool-surface-unification-design.md`
-  - `docs/superpowers/plans/2026-03-22-refine-tool-surface-unification-implementation.md`
+  - `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
+  - `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
 - Historical background docs:
   - `.plan/20260310_interactive_reasoning_sop_compact.md`
   - `.plan/20260312_replay_refinement_requirement_v0.md`
@@ -102,5 +103,5 @@ apps/agent-runtime/src/
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The workflow-host boundary clarification pass is now the current baseline.
-- The active next step is to run one fresh real-browser refine smoke e2e against the new tool-surface facade and inspect hook/context telemetry artifacts for any remaining runtime drift.
+- The active next step is to run one fresh real-browser refine smoke e2e against the new pi-agent hook boundary and inspect telemetry artifacts for any remaining runtime drift.
 - See `NEXT_STEP.md` for the exact current task pointer.

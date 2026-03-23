@@ -9,7 +9,7 @@
 - 这个仓库的真实可执行命令在 `apps/agent-runtime/package.json`，不是仓库根目录。
 - 浏览器任务“看起来完成”不等于业务完成；任何完成声明都要有 `artifacts/e2e/<run_id>/` 里的新鲜证据支撑。
 - shared execution kernel 仍是当前代码的核心边界：
-  - canonical home: `apps/agent-runtime/src/kernel/agent-loop.ts` + `mcp-tool-bridge.ts`
+  - canonical home: `apps/agent-runtime/src/kernel/pi-agent-loop.ts` + `pi-agent-tool-adapter.ts`
   - old `core/` paths are migration shims only
 - `application/shell/runtime-host.ts` 是当前唯一顶层 workflow lifecycle owner；不要再把 prepare/execute/dispose fallback 逻辑散落回 `workflow-runtime.ts` 或其他 wrapper。
 - workflow 注册主链路当前固定为 `workflow-runtime -> runtime-host -> *-workflow`；不要再恢复 `application/observe/observe-runtime.ts` 这类单 workflow wrapper，也不要把 `RuntimeHost` 扩回“先绑定 workflow 再 start/execute”的双形态 API。
@@ -54,7 +54,7 @@
 - observe 侧的 workflow 构造要留在 `application/observe/`，并让 observe-owned 代码自己构造 `SopAssetStore`，这样 shell/composition 只保留通用 host 组装。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
-- refinement 模式下，模型可见的工具与 schema 来自 `RefineReactToolClient.listTools()`，并经 `McpToolBridge` 注入到 pi-agent；不是直接暴露 raw MCP 工具集。
+- refinement 模式下，模型可见的工具与 schema 来自 `RefineReactToolClient.listTools()`，并经 `PiAgentToolAdapter` 注入到 pi-agent；不是直接暴露 raw MCP 工具集。
 - raw MCP 即使已有某个能力（例如 `browser_take_screenshot`），若 refine adapter 不显式暴露，对 refine agent 仍然不可用。
 - 弱 schema（仅 `type: object`）会显著提高参数漂移概率（漏必填、字段名错误、枚举值漂移），并直接恶化 E2E 稳定性。
 - `run.finish` 在当前实现中只有 `reason=goal_achieved` 会映射为 completed；其他 reason 会映射 failed。
@@ -78,8 +78,8 @@
 - `sourceObservationRef` 现在不仅要“存在”，还要与 live active tab 一致；不一致时应显式失败并要求先 `act.select_tab` / `observe.page` 重新对齐上下文。
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
-- `RefineReactToolClient` 现在是 compatibility facade，不再拥有 registry/adapter 装配；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
-- `RefineToolComposition` 内的 `surface` 与 `hookObserver` 必须共享同一条 hook pipeline；即使当前是 no-op，也不要再各建一份独立 pipeline，否则未来 direct surface call 与 bridge observer 会悄悄分叉。
+- `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
+- pi-agent hooks 现在只通过 `PiAgentToolAdapter` 的按 `toolName` registry 执行；`RefineToolSurface.callTool(...)`、`RefineReactToolClient.callTool(...)` 和 bootstrap direct observe 都必须保持 hook-free。
 
 ## Environment Requirements
 - Node `>=20`

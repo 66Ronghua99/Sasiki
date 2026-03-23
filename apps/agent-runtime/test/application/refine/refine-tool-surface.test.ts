@@ -7,7 +7,6 @@ import {
   createRefineToolContextRef,
   type RefineToolContext,
 } from "../../../src/application/refine/tools/refine-tool-context.js";
-import { createRefineToolHookObserver } from "../../../src/application/refine/tools/refine-tool-hook-observer.js";
 import {
   RefineBrowserProviderImpl,
   type RefineBrowserProviderContext,
@@ -20,15 +19,11 @@ import { RefineToolRegistry } from "../../../src/application/refine/tools/refine
 import { RefineToolSurface } from "../../../src/application/refine/tools/refine-tool-surface.js";
 import type { RefineToolDefinition } from "../../../src/application/refine/tools/refine-tool-definition.js";
 import {
-  createRefineToolHookPipeline,
-} from "../../../src/application/refine/tools/refine-tool-hook-pipeline.js";
-import {
   RefineToolSurfaceLifecycleCoordinator,
   type RefineToolSurfaceLifecycle,
 } from "../../../src/application/refine/tools/refine-tool-surface-lifecycle.js";
 import { createRefineRuntimeToolRegistry } from "../../../src/application/refine/tools/refine-runtime-tool-registry.js";
 import { createRefineBrowserToolRegistry } from "../../../src/application/refine/tools/refine-browser-tool-registry.js";
-import type { ToolCallHookContext } from "../../../src/domain/refinement-session.js";
 import {
   createRefineReactSession,
   type RefineReactSession,
@@ -38,10 +33,6 @@ import { RefineBrowserTools } from "../../../src/application/refine/tools/runtim
 
 interface StubContext extends RefineToolContext {
   readonly runId: string;
-}
-
-interface HookAwareContext extends StubContext {
-  readonly hookContext: ToolCallHookContext;
 }
 
 interface RuntimeDefinitionContext extends RefineToolContext {
@@ -104,20 +95,6 @@ function createStubTool(name: string, behavior?: (context: StubContext) => ToolC
     async invoke(_args, context) {
       return behavior?.(context) ?? { content: [{ type: "text", text: `${name}:${context.runId}` }] };
     },
-  };
-}
-
-function createHookContext(): ToolCallHookContext {
-  return {
-    runId: "run-hook",
-    sessionId: "session-hook",
-    toolCallId: "tool-call-hook",
-    toolName: "browser_click",
-    toolArgs: { ref: "button-1" },
-    pageId: "page-hook",
-    stepIndex: 3,
-    toolClass: "mutation",
-    hookOrigin: "tool_call",
   };
 }
 
@@ -241,57 +218,6 @@ test("surface lifecycle rolls back partial connect failures", async () => {
 
   await assert.rejects(() => lifecycle.connect(), /boom/);
   assert.deepEqual(events, ["a.connect", "b.connect", "a.disconnect"]);
-});
-
-test("hook pipeline adapts into the current bridge observer seam", async () => {
-  const events: string[] = [];
-  const pipeline = createRefineToolHookPipeline<HookAwareContext>({
-    async beforeToolCall({ definition, context }) {
-      events.push(`before:${definition.name}:${context.runId}:${context.hookContext.toolCallId}`);
-      return {
-        captureStatus: "skipped",
-        observationText: "before observation",
-      };
-    },
-    async afterToolCall({ definition, context, result }, beforeCapture) {
-      const firstBlock = Array.isArray(result.content) ? result.content[0] : undefined;
-      const text =
-        firstBlock && typeof firstBlock === "object" && firstBlock && "text" in firstBlock
-          ? String(firstBlock.text)
-          : "unknown";
-      events.push(
-        `after:${definition.name}:${context.runId}:${text}:${beforeCapture?.captureStatus ?? "none"}`
-      );
-      return {
-        captureStatus: "captured",
-        observationText: "after observation",
-      };
-    },
-  });
-  const observer = createRefineToolHookObserver({
-    pipeline,
-    resolveContext(hookContext) {
-      return {
-        runId: hookContext.runId,
-        hookContext,
-      };
-    },
-  });
-  const hookContext = createHookContext();
-
-  const beforeCapture = await observer.beforeToolCall(hookContext);
-  const afterCapture = await observer.afterToolCall(
-    hookContext,
-    { content: [{ type: "text", text: "clicked" }] },
-    beforeCapture
-  );
-
-  assert.equal(beforeCapture?.captureStatus, "skipped");
-  assert.equal(afterCapture?.captureStatus, "captured");
-  assert.deepEqual(events, [
-    "before:browser_click:run-hook:tool-call-hook",
-    "after:browser_click:run-hook:clicked:skipped",
-  ]);
 });
 
 test("browser provider syncs run-scoped context through the browser tool provider seam", async () => {
