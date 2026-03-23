@@ -86,7 +86,6 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
   const surface = new RefineToolSurface({
     registry,
     contextRef,
-    hookPipeline,
     lifecycle: new RefineToolSurfaceLifecycleCoordinator({
       participants: [rawClient],
     }),

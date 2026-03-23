@@ -21,7 +21,6 @@ import { RefineToolSurface } from "../../../src/application/refine/tools/refine-
 import type { RefineToolDefinition } from "../../../src/application/refine/tools/refine-tool-definition.js";
 import {
   createRefineToolHookPipeline,
-  type RefineToolHookPipeline,
 } from "../../../src/application/refine/tools/refine-tool-hook-pipeline.js";
 import {
   RefineToolSurfaceLifecycleCoordinator,
@@ -170,7 +169,7 @@ test("tool surface exposes definition insertion order and uses the latest mutabl
   });
 });
 
-test("tool surface delegates lifecycle and hook pipeline around tool calls", async () => {
+test("tool surface delegates lifecycle around tool calls", async () => {
   const events: string[] = [];
   const lifecycle: RefineToolSurfaceLifecycle = {
     async connect() {
@@ -180,17 +179,6 @@ test("tool surface delegates lifecycle and hook pipeline around tool calls", asy
       events.push("disconnect");
     },
   };
-  const hookPipeline: RefineToolHookPipeline<StubContext> = {
-    async beforeToolCall({ definition, context }) {
-      events.push(`before:${definition.name}:${context.runId}`);
-    },
-    async afterToolCall({ definition, context, result }) {
-      const firstItem = Array.isArray(result.content) ? result.content[0] : undefined;
-      const text =
-        firstItem && typeof firstItem === "object" && firstItem && "text" in firstItem ? String(firstItem.text) : "unknown";
-      events.push(`after:${definition.name}:${context.runId}:${text}`);
-    },
-  };
   const registry = new RefineToolRegistry({
     definitions: [createStubTool("tool.a")],
   });
@@ -198,7 +186,6 @@ test("tool surface delegates lifecycle and hook pipeline around tool calls", asy
     registry,
     contextRef: createRefineToolContextRef<StubContext>({ runId: "run-hooks" }),
     lifecycle,
-    hookPipeline,
   });
 
   await surface.connect();
@@ -207,8 +194,6 @@ test("tool surface delegates lifecycle and hook pipeline around tool calls", asy
 
   assert.deepEqual(events, [
     "connect",
-    "before:tool.a:run-hooks",
-    "after:tool.a:run-hooks:tool.a:run-hooks",
     "disconnect",
   ]);
 });
@@ -220,14 +205,6 @@ test("future boundary freeze: direct tool surface calls bypass adapter-only pi-a
       definitions: [createStubTool("tool.a")],
     }),
     contextRef: createRefineToolContextRef<StubContext>({ runId: "run-direct" }),
-    hookPipeline: {
-      async beforeToolCall({ definition, context }) {
-        events.push(`before:${definition.name}:${context.runId}`);
-      },
-      async afterToolCall({ definition, context }) {
-        events.push(`after:${definition.name}:${context.runId}`);
-      },
-    },
   });
 
   const result = await surface.callTool("tool.a", {});

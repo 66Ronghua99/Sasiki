@@ -1,7 +1,6 @@
 import type { ToolCallResult, ToolDefinition } from "../../../contracts/tool-client.js";
 import type { RefineToolContext, RefineToolContextRef } from "./refine-tool-context.js";
 import { toToolDefinition, type RefineToolDefinition } from "./refine-tool-definition.js";
-import { NO_OP_REFINE_TOOL_HOOK_PIPELINE, type RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
 import {
   NO_OP_REFINE_TOOL_SURFACE_LIFECYCLE,
@@ -11,31 +10,23 @@ import {
 export interface RefineToolSurfaceOptions<
   TContext extends RefineToolContext = RefineToolContext,
   TDefinition extends RefineToolDefinition<TContext> = RefineToolDefinition<TContext>,
-  THookCapture = unknown,
 > {
   registry: RefineToolRegistry<TDefinition>;
   contextRef: RefineToolContextRef<TContext>;
-  hookPipeline?: RefineToolHookPipeline<TContext, THookCapture>;
   lifecycle?: RefineToolSurfaceLifecycle;
 }
 
 export class RefineToolSurface<
   TContext extends RefineToolContext = RefineToolContext,
   TDefinition extends RefineToolDefinition<TContext> = RefineToolDefinition<TContext>,
-  THookCapture = unknown,
 > {
   private readonly registry: RefineToolRegistry<TDefinition>;
   private readonly contextRef: RefineToolContextRef<TContext>;
-  private readonly hookPipeline: RefineToolHookPipeline<TContext, THookCapture>;
   private readonly lifecycle: RefineToolSurfaceLifecycle;
 
-  constructor(options: RefineToolSurfaceOptions<TContext, TDefinition, THookCapture>) {
+  constructor(options: RefineToolSurfaceOptions<TContext, TDefinition>) {
     this.registry = options.registry;
     this.contextRef = options.contextRef;
-    this.hookPipeline = (options.hookPipeline ?? NO_OP_REFINE_TOOL_HOOK_PIPELINE) as RefineToolHookPipeline<
-      TContext,
-      THookCapture
-    >;
     this.lifecycle = options.lifecycle ?? NO_OP_REFINE_TOOL_SURFACE_LIFECYCLE;
   }
 
@@ -53,10 +44,6 @@ export class RefineToolSurface<
 
   async callTool(name: string, args: Record<string, unknown>): Promise<ToolCallResult> {
     const definition = this.registry.getDefinition(name);
-    const context = this.contextRef.get();
-    const beforeCapture = await this.hookPipeline.beforeToolCall?.({ definition, args, context });
-    const result = await definition.invoke(args, context);
-    await this.hookPipeline.afterToolCall?.({ definition, args, context, result }, beforeCapture as THookCapture);
-    return result;
+    return definition.invoke(args, this.contextRef.get());
   }
 }

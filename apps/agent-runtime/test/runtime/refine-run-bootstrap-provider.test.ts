@@ -311,7 +311,6 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
 });
 
 test("future boundary freeze: refine bootstrap direct observation calls bypass adapter-only pi-agent hooks", async () => {
-  const events: string[] = [];
   const session = createRefineReactSession("bootstrap", "bootstrap", { taskScope: "bootstrap" });
   const contextRef = createRefineToolContextRef<{ session: ReturnType<typeof createRefineReactSession> }>({
     session,
@@ -321,14 +320,6 @@ test("future boundary freeze: refine bootstrap direct observation calls bypass a
       definitions: [createHookAwareObservePageDefinition()],
     }),
     contextRef,
-    hookPipeline: {
-      async beforeToolCall({ definition, context }) {
-        events.push(`before:${definition.name}:${context.session.runId}`);
-      },
-      async afterToolCall({ definition, context }) {
-        events.push(`after:${definition.name}:${context.session.runId}`);
-      },
-    },
   });
   const toolClient = new RefineReactToolClient(surface, contextRef);
   const provider = new RefineRunBootstrapProvider({
@@ -357,5 +348,4 @@ test("future boundary freeze: refine bootstrap direct observation calls bypass a
   assert.equal(result.taskScope, "buy coffee beans");
   assert.equal(result.prompt, "prompt");
   assert.equal(result.loadedGuidanceCount, 0);
-  assert.deepEqual(events, []);
 });

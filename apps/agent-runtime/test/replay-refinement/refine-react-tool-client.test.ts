@@ -228,7 +228,6 @@ test("refine tool client can wrap an explicit tool surface and mutable context",
 });
 
 test("future boundary freeze: direct refine tool client calls bypass adapter-only pi-agent hooks", async () => {
-  const events: string[] = [];
   const contextRef = createRefineToolContextRef<{ session: ReturnType<typeof createRefineReactSession> }>({
     session: createRefineReactSession("run-direct", "task", { taskScope: "search-product" }),
   });
@@ -237,20 +236,11 @@ test("future boundary freeze: direct refine tool client calls bypass adapter-onl
       definitions: [createHookAwareToolDefinition("observe.page")],
     }),
     contextRef,
-    hookPipeline: {
-      async beforeToolCall({ definition, context }) {
-        events.push(`before:${definition.name}:${context.session.runId}`);
-      },
-      async afterToolCall({ definition, context }) {
-        events.push(`after:${definition.name}:${context.session.runId}`);
-      },
-    },
   });
   const client = new RefineReactToolClient(surface, contextRef);
 
   const result = await client.callTool("observe.page", {});
 
-  assert.deepEqual(events, []);
   assert.deepEqual(result, {
     content: [{ type: "text", text: "observe.page:run-direct" }],
   });
