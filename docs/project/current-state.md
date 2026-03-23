@@ -5,6 +5,9 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
+- **Active governance slice (2026-03-23) is Phase 1 of the OpenAI-style layer-model program**: this is a docs-and-hardgate pass that freezes a narrower end-state `src/` model, adds an explicit exception-ledger story for current mismatches, and aligns front-door docs before any larger refactor is attempted.
+- **What Phase 1 changes**: `lint:arch` is being tightened around approved top-level roots, blanket bans for new `src/runtime/*` and `src/core/*`, workflow horizontal isolation, non-shell `application/* -> infrastructure/*` imports unless they are on the explicit Phase 1 ledger, and refine-tools role edges. `lint:docs` is part of the verification set for this governance slice.
+- **What Phase 1 does not promise**: `kernel/` is still transitional, current non-shell assembly seams are still present as named exceptions, `application/refine/tools/runtime/*` keeps its transitional role for now, and neither the `contracts/` rename nor the full shell-centralization refactor is part of this phase.
 - The current front-door truth is the post-pi-agent-hook-adapter baseline, with workflow-host clarification and telemetry/event-stream changes already absorbed.
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
@@ -41,15 +44,15 @@
 apps/agent-runtime/src/
   domain/           - Product concepts, state schemas, cross-layer contracts
   contracts/        - Capability interfaces plus shared runtime config / telemetry contracts
-  kernel/           - Reusable execution kernel (CANONICAL)
+  kernel/           - Reusable execution kernel candidate (TRANSITIONAL in Phase 1)
     - pi-agent-loop.ts
     - pi-agent-tool-adapter.ts
   application/      - Use-case orchestration layer
-    shell/          - CLI shell, command-router, runtime-host, composition-root
-    config/         - Application-facing config loader entry
-    observe/        - Observe orchestration + recording support
-    compact/        - SOP compact workflow
-    refine/         - Refine bootstrap, prompts, tooling, orchestration, executor
+    shell/          - CLI shell, command-router, runtime-host, top-level composition owner
+    config/         - Application-facing config semantics plus current bootstrap bridge seam
+    observe/        - Observe orchestration + recording support, with current recorder/persistence exceptions
+    compact/        - SOP compact workflow, with current model/HITL/artifact exceptions
+    refine/         - Refine bootstrap, prompts, tooling, orchestration, executor, with current persistence/loop exceptions
   infrastructure/   - External adapters
     llm/            - model-resolver.ts, json-model-client.ts
     config/         - runtime-bootstrap-provider.ts
@@ -61,7 +64,7 @@ apps/agent-runtime/src/
 ```
 
 ## Project Verification Notes
-- `npm --prefix apps/agent-runtime run lint:docs` remains a project-local doc alignment check where needed, but it is not a latest-Harness requirement.
+- `npm --prefix apps/agent-runtime run lint:docs` is required for the active Phase 1 governance/doc-sync slice.
 - `npm --prefix apps/agent-runtime run lint:arch`, `lint`, `test`, `typecheck`, `build`, and `hardgate` remain the current project verification commands.
 - Current local refine e2e baseline is:
   - system Chrome binary
@@ -80,7 +83,10 @@ apps/agent-runtime/src/
   - `docs/architecture/overview.md`
 - Active execution pointer:
   - `NEXT_STEP.md`
-- No open implementation spec / plan is currently active in docs. Latest completed implementation chain:
+- Active governance spec / plan for the current worktree slice:
+  - `docs/superpowers/specs/2026-03-23-agent-runtime-openai-style-layer-model-design.md`
+  - `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-1-implementation.md`
+- Latest completed implementation chain before this governance slice:
   - `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
   - `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
 - Historical background docs:
@@ -103,5 +109,6 @@ apps/agent-runtime/src/
 ## Follow-Up
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The current baseline is the post-pi-agent-hook-adapter front door.
-- The active next step is to run one fresh real-browser refine smoke e2e against the new pi-agent hook boundary and inspect telemetry artifacts for any remaining runtime drift.
+- The active repo-wide product next step remains a fresh real-browser refine smoke e2e against the new pi-agent hook boundary and telemetry artifacts.
+- The active governance next step in this worktree is to finish Phase 1 hardgate encoding after the docs/ledger truth is frozen.
 - See `NEXT_STEP.md` for the exact current task pointer.
