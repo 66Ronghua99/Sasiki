@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const ACT_CLICK_DESCRIPTION = "Click a UI element from a specific source observation.";
 const ACT_CLICK_SCHEMA = {
@@ -19,19 +19,23 @@ export const actClickTool: RefineToolDefinition = {
   description: ACT_CLICK_DESCRIPTION,
   inputSchema: ACT_CLICK_SCHEMA,
   async invoke(args, context) {
-    return (await readBrowserProvider(context).clickFromObservation({
+    return (await readBrowserService(context).clickFromObservation({
       elementRef: readStringArg(args, "elementRef"),
       sourceObservationRef: readStringArg(args, "sourceObservationRef"),
     })) as unknown as ToolCallResult;
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).clickFromObservation !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).clickFromObservation !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

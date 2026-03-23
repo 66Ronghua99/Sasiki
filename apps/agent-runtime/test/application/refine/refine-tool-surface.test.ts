@@ -7,14 +7,6 @@ import {
   createRefineToolContextRef,
   type RefineToolContext,
 } from "../../../src/application/refine/tools/refine-tool-context.js";
-import {
-  RefineBrowserProviderImpl,
-  type RefineBrowserProviderContext,
-} from "../../../src/application/refine/tools/providers/refine-browser-provider.js";
-import {
-  RefineRuntimeProviderImpl,
-  type RefineRuntimeProviderContext,
-} from "../../../src/application/refine/tools/providers/refine-runtime-provider.js";
 import { RefineToolRegistry } from "../../../src/application/refine/tools/refine-tool-registry.js";
 import { RefineToolSurface } from "../../../src/application/refine/tools/refine-tool-surface.js";
 import type { RefineToolDefinition } from "../../../src/application/refine/tools/refine-tool-definition.js";
@@ -28,15 +20,17 @@ import {
   createRefineReactSession,
   type RefineReactSession,
 } from "../../../src/application/refine/refine-react-session.js";
-import type { HitlAnswerProvider } from "../../../src/application/refine/tools/runtime/refine-runtime-tools.js";
-import { RefineBrowserTools } from "../../../src/application/refine/tools/runtime/refine-browser-tools.js";
+import type { HitlAnswerProvider } from "../../../src/application/refine/tools/services/refine-run-service.js";
+import {
+  RefineBrowserServiceImpl,
+} from "../../../src/application/refine/tools/services/refine-browser-service.js";
 
 interface StubContext extends RefineToolContext {
   readonly runId: string;
 }
 
 interface RuntimeDefinitionContext extends RefineToolContext {
-  readonly runtime: {
+  readonly runService: {
     requestHumanInput(request: {
       prompt: string;
       context?: string;
@@ -58,7 +52,7 @@ interface RuntimeDefinitionContext extends RefineToolContext {
 }
 
 interface BrowserDefinitionContext extends RefineToolContext {
-  readonly browser: {
+  readonly browserService: {
     capturePageObservation(): Promise<Record<string, unknown>>;
     queryObservation(request: Record<string, unknown>): Promise<Record<string, unknown>>;
     clickFromObservation(args: { elementRef: string; sourceObservationRef: string }): Promise<Record<string, unknown>>;
@@ -220,79 +214,13 @@ test("surface lifecycle rolls back partial connect failures", async () => {
   assert.deepEqual(events, ["a.connect", "b.connect", "a.disconnect"]);
 });
 
-test("browser provider syncs run-scoped context through the browser tool provider seam", async () => {
-  const events: string[] = [];
-  const session = { runId: "provider-browser-run" } as RefineReactSession;
-  const tools = {
-    setProviderContext(context: { session: RefineReactSession }) {
-      events.push(`context:${context.session.runId}`);
-    },
-    async observePage() {
-      events.push("observe");
-      return {
-        observation: {
-          observationRef: "obs-1",
-          page: {
-            origin: "https://example.com",
-            normalizedPath: "/",
-            title: "Example",
-          },
-          snapshot: "snapshot",
-          capturedAt: "2026-03-22T00:00:00.000Z",
-          tabs: [],
-          activeTabIndex: 0,
-          activeTabMatchesPage: true,
-        },
-      };
-    },
-  } as unknown as import("../../../src/application/refine/tools/runtime/refine-browser-tools.js").RefineBrowserTools;
-  const contextRef = createRefineToolContextRef<RefineBrowserProviderContext>({ session });
-  const provider = new RefineBrowserProviderImpl({ tools, contextRef });
-
-  const result = await provider.capturePageObservation();
-
-  assert.equal(result.observation.observationRef, "obs-1");
-  assert.deepEqual(events, ["context:provider-browser-run", "observe"]);
-});
-
-test("runtime provider syncs run-scoped context through the runtime tool provider seam", async () => {
-  const events: string[] = [];
-  const session = { runId: "provider-runtime-run" } as RefineReactSession;
-  const hitlAnswerProvider: HitlAnswerProvider = async () => "answer";
-  const tools = {
-    setProviderContext(context: { session: RefineReactSession; hitlAnswerProvider?: HitlAnswerProvider }) {
-      events.push(
-        `context:${context.session.runId}:${context.hitlAnswerProvider === hitlAnswerProvider ? "same-provider" : "different-provider"}`
-      );
-    },
-    async requestHitl() {
-      events.push("hitl");
-      return {
-        status: "answered" as const,
-        answer: "answer",
-      };
-    },
-  } as unknown as import("../../../src/application/refine/tools/runtime/refine-runtime-tools.js").RefineRuntimeTools;
-  const contextRef = createRefineToolContextRef<RefineRuntimeProviderContext>({ session, hitlAnswerProvider });
-  const provider = new RefineRuntimeProviderImpl({ tools, contextRef });
-
-  const result = await provider.requestHumanInput({
-    reason: "uncertain_state",
-    prompt: "Need help",
-    context: {},
-  });
-
-  assert.equal(result.status, "answered");
-  assert.deepEqual(events, ["context:provider-runtime-run:same-provider", "hitl"]);
-});
-
 test("runtime tool definitions expose frozen schemas and invoke provider behavior", async () => {
   const calls: string[] = [];
   const registry = createRefineRuntimeToolRegistry();
   const surface = new RefineToolSurface({
     registry,
     contextRef: createRefineToolContextRef<RuntimeDefinitionContext>({
-      runtime: {
+      runService: {
         async requestHumanInput(request) {
           calls.push(`hitl:${request.prompt}:${request.context ?? ""}`);
           return {
@@ -388,7 +316,7 @@ test("browser tool definitions preserve current core order and provider-backed b
   const surface = new RefineToolSurface({
     registry,
     contextRef: createRefineToolContextRef<BrowserDefinitionContext>({
-      browser: {
+      browserService: {
         async capturePageObservation() {
           calls.push("observe.page");
           return {
@@ -613,7 +541,7 @@ test("browser tool definitions preserve current core order and provider-backed b
   ]);
 });
 
-test("browser provider keeps observation refs monotonic across repeated observations in one run", async () => {
+test("browser service keeps observation refs monotonic across repeated observations in one run", async () => {
   const session = createRefineReactSession("run-dup", "observe twice", { taskScope: "provider-monotonic" });
   const rawClient = {
     async connect() {},
@@ -638,15 +566,13 @@ test("browser provider keeps observation refs monotonic across repeated observat
       };
     },
   };
-  const tools = new RefineBrowserTools({
+  const service = new RefineBrowserServiceImpl({
     rawClient,
     session,
   });
-  const contextRef = createRefineToolContextRef<RefineBrowserProviderContext>({ session });
-  const provider = new RefineBrowserProviderImpl({ tools, contextRef });
 
-  const first = await provider.capturePageObservation();
-  const second = await provider.capturePageObservation();
+  const first = await service.capturePageObservation();
+  const second = await service.capturePageObservation();
 
   assert.equal(first.observation.observationRef, "obs_run-dup_1");
   assert.equal(second.observation.observationRef, "obs_run-dup_2");

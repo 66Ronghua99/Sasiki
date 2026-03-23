@@ -1,7 +1,7 @@
 /**
- * Deps: application/observe/support/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts, infrastructure/browser/playwright-demonstration-recorder.ts, infrastructure/persistence/*
+ * Deps: application/observe/support/sop-demonstration-recorder.ts, domain/*, contracts/logger.ts
  * Used By: application/shell/runtime-composition-root.ts
- * Last Updated: 2026-03-21
+ * Last Updated: 2026-03-23
  */
 import type { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
 import type { Logger } from "../../contracts/logger.js";
@@ -16,13 +16,37 @@ import { RuntimeError } from "../../domain/runtime-errors.js";
 import type { SopAsset, WebElementHint } from "../../domain/sop-asset.js";
 import { SOP_ASSET_VERSION } from "../../domain/sop-asset.js";
 import type { DemonstrationRawEvent, SopTrace } from "../../domain/sop-trace.js";
-import type { ObserveCaptureOptions, PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
-import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
-import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
+
+export interface ObserveCaptureOptions {
+  cdpEndpoint: string;
+  timeoutMs: number;
+}
+
+export interface ObserveRecorder {
+  start(options: ObserveCaptureOptions): Promise<void>;
+  stop(): Promise<DemonstrationRawEvent[]>;
+}
+
+export interface ObserveArtifactsWriter {
+  readonly runId: string;
+  readonly runDir: string;
+  ensureDir(): Promise<void>;
+  writeDemonstrationRaw(events: DemonstrationRawEvent[]): Promise<void>;
+  writeDemonstrationTrace(trace: SopTrace): Promise<void>;
+  writeSopDraft(markdown: string): Promise<void>;
+  writeSopAsset(asset: SopAsset): Promise<void>;
+  demonstrationTracePath(): string;
+  sopDraftPath(): string;
+  sopAssetPath(): string;
+}
+
+export interface ObserveAssetStore {
+  upsert(asset: SopAsset): Promise<void>;
+}
 
 interface ActiveObserveState {
   runId: string;
-  artifacts: ArtifactsWriter;
+  artifacts: ObserveArtifactsWriter;
   controller: AbortController;
   telemetry: RuntimeRunTelemetry | null;
 }
@@ -31,22 +55,22 @@ export interface ObserveExecutorOptions {
   logger: Logger;
   cdpEndpoint: string;
   observeTimeoutMs: number;
-  artifactsDir: string;
   createRunId: () => string;
   sopRecorder: SopDemonstrationRecorder;
-  sopAssetRootDir: string;
-  createRecorder: () => PlaywrightDemonstrationRecorder;
+  createArtifactsWriter: (runId: string) => ObserveArtifactsWriter;
+  sopAssetStore: ObserveAssetStore;
+  createRecorder: () => ObserveRecorder;
   telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
 export class ObserveExecutor {
   private readonly logger: Logger;
   private readonly observeOptions: ObserveCaptureOptions;
-  private readonly artifactsDir: string;
   private readonly createRunId: () => string;
   private readonly sopRecorder: SopDemonstrationRecorder;
-  private readonly sopAssetStore: SopAssetStore;
-  private readonly createRecorder: () => PlaywrightDemonstrationRecorder;
+  private readonly createArtifactsWriter: (runId: string) => ObserveArtifactsWriter;
+  private readonly sopAssetStore: ObserveAssetStore;
+  private readonly createRecorder: () => ObserveRecorder;
   private readonly telemetryRegistry: RuntimeTelemetryRegistry;
   private activeObserve: ActiveObserveState | null = null;
 
@@ -56,17 +80,17 @@ export class ObserveExecutor {
       cdpEndpoint: options.cdpEndpoint,
       timeoutMs: options.observeTimeoutMs,
     };
-    this.artifactsDir = options.artifactsDir;
     this.createRunId = options.createRunId;
     this.sopRecorder = options.sopRecorder;
-    this.sopAssetStore = new SopAssetStore(options.sopAssetRootDir);
+    this.createArtifactsWriter = options.createArtifactsWriter;
+    this.sopAssetStore = options.sopAssetStore;
     this.createRecorder = options.createRecorder;
     this.telemetryRegistry = options.telemetryRegistry;
   }
 
   async execute(taskHint: string): Promise<ObserveRunResult> {
     const runId = this.createRunId();
-    const artifacts = new ArtifactsWriter(this.artifactsDir, runId);
+    const artifacts = this.createArtifactsWriter(runId);
     await artifacts.ensureDir();
     const recorder = this.createRecorder();
     const controller = new AbortController();
@@ -242,7 +266,7 @@ export class ObserveExecutor {
     runId: string,
     trace: SopTrace,
     webElementHints: WebElementHint[],
-    artifacts: ArtifactsWriter
+    artifacts: ObserveArtifactsWriter
   ): SopAsset {
     const tags = this.sopRecorder.buildTags(trace);
     return {

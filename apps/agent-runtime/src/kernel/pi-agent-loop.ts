@@ -1,13 +1,14 @@
 /**
- * Deps: infrastructure/llm/model-resolver.ts, kernel/pi-agent-tool-adapter.ts, contracts/*
+ * Deps: kernel/pi-agent-tool-adapter.ts, contracts/*
  * Used By: application/refine/refine-workflow.ts, application/refine/react-refinement-run-executor.ts
- * Last Updated: 2026-03-21
+ * Last Updated: 2026-03-23
  */
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { stat } from "node:fs/promises";
 import { inspect } from "node:util";
 
 import type { Logger } from "../contracts/logger.js";
+import type { PiAgentModel } from "../contracts/pi-agent-model.js";
 import type { RuntimeEvent, RuntimeRunTelemetry } from "../contracts/runtime-telemetry.js";
 import type { ToolClient } from "../contracts/tool-client.js";
 import type {
@@ -21,16 +22,16 @@ import type {
   McpCallRecord,
   PiAgentLoopProgressSnapshot,
 } from "../contracts/agent-loop-records.js";
-import { ModelResolver } from "../infrastructure/llm/model-resolver.js";
 import { PiAgentToolAdapter, type PiAgentToolAdapterHookContext } from "./pi-agent-tool-adapter.js";
 import type { PiAgentToolHookRegistry } from "./pi-agent-tool-hooks.js";
 
 export type { PiAgentLoopProgressSnapshot } from "../contracts/agent-loop-records.js";
 
 export interface PiAgentLoopConfig {
-  model: string;
+  resolvedModel: PiAgentModel;
   apiKey: string;
-  baseUrl?: string;
+  configuredModel?: string;
+  configuredBaseUrl?: string;
   thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   systemPrompt?: string;
 }
@@ -92,11 +93,11 @@ export class PiAgentLoop {
 
     this.logPotentialModelEndpointMismatch();
     this.logger.info("model_resolution_start", {
-      configuredModel: this.config.model,
-      configuredBaseUrl: this.config.baseUrl,
+      configuredModel: this.config.configuredModel ?? this.config.resolvedModel.id,
+      configuredBaseUrl: this.config.configuredBaseUrl ?? this.config.resolvedModel.baseUrl,
       apiKeyPresent: Boolean(this.config.apiKey),
     });
-    const model = ModelResolver.resolve({ model: this.config.model, baseUrl: this.config.baseUrl });
+    const model = this.config.resolvedModel;
     const agentTools = await this.toolAdapter.buildAgentTools();
     const agent: PiAgentLoopAgent = new Agent({
       initialState: {
@@ -246,8 +247,8 @@ export class PiAgentLoop {
       if (status === "failed" && mcpCalls.length === 0) {
         this.logger.warn("llm_failed_before_mcp", {
           finishReason,
-          configuredModel: this.config.model,
-          configuredBaseUrl: this.config.baseUrl,
+          configuredModel: this.config.configuredModel ?? this.config.resolvedModel.id,
+          configuredBaseUrl: this.config.configuredBaseUrl ?? this.config.resolvedModel.baseUrl,
         });
       }
 
@@ -348,15 +349,15 @@ export class PiAgentLoop {
   }
 
   private logPotentialModelEndpointMismatch(): void {
-    const baseUrl = this.config.baseUrl?.trim().toLowerCase();
-    const model = this.config.model.trim().toLowerCase();
+    const baseUrl = this.config.configuredBaseUrl?.trim().toLowerCase();
+    const model = this.config.configuredModel?.trim().toLowerCase();
     if (!baseUrl || !model) {
       return;
     }
     if (baseUrl.includes("dashscope.aliyuncs.com") && model.includes("minimax")) {
       this.logger.warn("model_baseurl_mismatch_possible", {
-        configuredModel: this.config.model,
-        configuredBaseUrl: this.config.baseUrl,
+        configuredModel: this.config.configuredModel ?? this.config.resolvedModel.id,
+        configuredBaseUrl: this.config.configuredBaseUrl ?? this.config.resolvedModel.baseUrl,
         hint: "dashscope usually expects qwen models for OpenAI-compatible endpoints",
       });
     }

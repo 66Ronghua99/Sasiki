@@ -3,7 +3,7 @@
   "artifact_dir": "artifacts/code-gate",
   "commands": {
     "lint": "npm --prefix apps/agent-runtime run lint",
-    "test": "npm --prefix apps/agent-runtime run build"
+    "test": "cd apps/agent-runtime && node --test scripts/tests/*.test.mjs && npm run test"
   },
   "flaky_policy": {
     "max_retries": 0,

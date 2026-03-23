@@ -1,23 +1,23 @@
 /**
- * Deps: application/observe/observe-executor.ts, application/observe/observe-workflow.ts, application/observe/support/sop-demonstration-recorder.ts, infrastructure/browser/playwright-demonstration-recorder.ts
+ * Deps: application/observe/observe-executor.ts, application/observe/observe-workflow.ts, application/observe/support/sop-demonstration-recorder.ts
  * Used By: application/shell/runtime-composition-root.ts
- * Last Updated: 2026-03-21
+ * Last Updated: 2026-03-23
  */
-import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
-import type { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
+import type { Logger } from "../../contracts/logger.js";
 import type { RuntimeTelemetryRegistry } from "../../contracts/runtime-telemetry.js";
-import { ObserveExecutor } from "./observe-executor.js";
+import { ObserveExecutor, type ObserveArtifactsWriter, type ObserveAssetStore, type ObserveRecorder } from "./observe-executor.js";
 import { createObserveWorkflow, type ObserveWorkflow, type ObserveWorkflowBrowserLifecycle } from "./observe-workflow.js";
 import { SopDemonstrationRecorder } from "./support/sop-demonstration-recorder.js";
 
 export interface ObserveWorkflowFactoryOptions {
   browserLifecycle: ObserveWorkflowBrowserLifecycle;
-  logger: RuntimeLogger;
+  logger: Logger;
   cdpEndpoint: string;
   observeTimeoutMs: number;
-  artifactsDir: string;
   createRunId: () => string;
-  sopAssetRootDir: string;
+  createArtifactsWriter: (runId: string) => ObserveArtifactsWriter;
+  sopAssetStore: ObserveAssetStore;
+  createRecorder: () => ObserveRecorder;
   telemetryRegistry: RuntimeTelemetryRegistry;
 }
 
@@ -29,11 +29,11 @@ export function createObserveWorkflowFactory(
       logger: options.logger,
       cdpEndpoint: options.cdpEndpoint,
       observeTimeoutMs: options.observeTimeoutMs,
-      artifactsDir: options.artifactsDir,
       createRunId: options.createRunId,
       sopRecorder: new SopDemonstrationRecorder(),
-      sopAssetRootDir: options.sopAssetRootDir,
-      createRecorder: () => new PlaywrightDemonstrationRecorder(),
+      createArtifactsWriter: options.createArtifactsWriter,
+      sopAssetStore: options.sopAssetStore,
+      createRecorder: options.createRecorder,
       telemetryRegistry: options.telemetryRegistry,
     });
 

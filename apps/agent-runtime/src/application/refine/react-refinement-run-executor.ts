@@ -1,5 +1,5 @@
 /**
- * Deps: kernel/pi-agent-loop.ts, application/refine/*, infrastructure/persistence/*
+ * Deps: kernel/pi-agent-loop.ts, application/refine/*
  * Used By: application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
@@ -10,7 +10,6 @@ import type { PiAgentLoop } from "../../kernel/pi-agent-loop.js";
 import type { AgentRunRequest, AgentRunResult } from "../../domain/agent-types.js";
 import type { HitlInterventionRequest } from "../../domain/intervention-learning.js";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
-import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
 import type { RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
 
@@ -18,46 +17,54 @@ interface RefinementKnowledgeSink {
   append(records: AttentionKnowledge[]): Promise<void>;
 }
 
+export interface RefinementArtifactsWriter {
+  runId: string;
+  runDir: string;
+  ensureDir(): Promise<void>;
+  finalScreenshotPath(): string;
+  writeRunSummary(summary: unknown): Promise<void>;
+}
+
 export interface ReactRefinementRunExecutorOptions {
   loop: PiAgentLoop;
   logger: Logger;
-  artifactsDir: string;
   maxTurns: number;
   telemetryRegistry: RuntimeTelemetryRegistry;
   toolClient: RefineReactToolClient;
   hitlController?: HitlController;
   knowledgeStore: RefinementKnowledgeSink;
   bootstrapProvider: RefineRunBootstrapProvider;
+  createArtifactsWriter: (runId: string) => RefinementArtifactsWriter;
 }
 
 interface ActiveRunState {
   runId: string;
-  artifacts: ArtifactsWriter;
+  artifacts: RefinementArtifactsWriter;
   telemetry: RuntimeRunTelemetry;
 }
 
 export class ReactRefinementRunExecutor {
   private readonly loop: PiAgentLoop;
   private readonly logger: Logger;
-  private readonly artifactsDir: string;
   private readonly maxTurns: number;
   private readonly telemetryRegistry: RuntimeTelemetryRegistry;
   private readonly toolClient: RefineReactToolClient;
   private readonly hitlController?: HitlController;
   private readonly knowledgeStore: RefinementKnowledgeSink;
   private readonly bootstrapProvider: RefineRunBootstrapProvider;
+  private readonly createArtifactsWriter: (runId: string) => RefinementArtifactsWriter;
   private activeRun: ActiveRunState | null = null;
 
   constructor(options: ReactRefinementRunExecutorOptions) {
     this.loop = options.loop;
     this.logger = options.logger;
-    this.artifactsDir = options.artifactsDir;
     this.maxTurns = Math.max(1, options.maxTurns);
     this.telemetryRegistry = options.telemetryRegistry;
     this.toolClient = options.toolClient;
     this.hitlController = options.hitlController;
     this.knowledgeStore = options.knowledgeStore;
     this.bootstrapProvider = options.bootstrapProvider;
+    this.createArtifactsWriter = options.createArtifactsWriter;
   }
 
   async execute(request: AgentRunRequest): Promise<AgentRunResult> {
@@ -75,7 +82,7 @@ export class ReactRefinementRunExecutor {
         stepIndex: session.actionHistory().length,
       });
     }
-    const artifacts = new ArtifactsWriter(this.artifactsDir, runId);
+    const artifacts = this.createArtifactsWriter(runId);
     await artifacts.ensureDir();
     const telemetry = this.telemetryRegistry.createRunTelemetry({
       workflow: "refine",
@@ -211,7 +218,7 @@ export class ReactRefinementRunExecutor {
   }
 
   private async persistArtifacts(input: {
-    artifacts: ArtifactsWriter;
+    artifacts: RefinementArtifactsWriter;
     runId: string;
     loopResult: AgentRunResult;
     loadedKnowledgeCount: number;

@@ -1,0 +1,3 @@
+import type { Model } from "@mariozechner/pi-ai";
+
+export type PiAgentModel = Model<any>;

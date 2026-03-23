@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const ACT_SCREENSHOT_DESCRIPTION = "Capture a screenshot and optionally write it to a file path.";
 const ACT_SCREENSHOT_SCHEMA = {
@@ -22,7 +22,7 @@ export const actScreenshotTool: RefineToolDefinition = {
   description: ACT_SCREENSHOT_DESCRIPTION,
   inputSchema: ACT_SCREENSHOT_SCHEMA,
   async invoke(args, context) {
-    return (await readBrowserProvider(context).captureScreenshot({
+    return (await readBrowserService(context).captureScreenshot({
       sourceObservationRef: readStringArg(args, "sourceObservationRef"),
       fullPage: readBooleanArg(args, "fullPage"),
       filename: readScreenshotOutputArg(args),
@@ -30,12 +30,16 @@ export const actScreenshotTool: RefineToolDefinition = {
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).captureScreenshot !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).captureScreenshot !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

@@ -114,3 +114,10 @@ export interface RuntimeConfig {
 export interface RuntimeConfigSourceOptions {
   configPath?: string;
 }
+
+export interface RuntimeBootstrapSources {
+  configPath?: string;
+  projectRoot: string;
+  file?: RuntimeConfigFile;
+  env: NodeJS.ProcessEnv;
+}

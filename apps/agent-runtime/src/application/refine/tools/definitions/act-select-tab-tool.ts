@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const ACT_SELECT_TAB_DESCRIPTION = "Switch active browser tab using a source observation for provenance.";
 const ACT_SELECT_TAB_SCHEMA = {
@@ -19,19 +19,23 @@ export const actSelectTabTool: RefineToolDefinition = {
   description: ACT_SELECT_TAB_DESCRIPTION,
   inputSchema: ACT_SELECT_TAB_SCHEMA,
   async invoke(args, context) {
-    return (await readBrowserProvider(context).switchActiveTab({
+    return (await readBrowserService(context).switchActiveTab({
       tabIndex: readRequiredNonNegativeIntegerArg(args, "tabIndex"),
       sourceObservationRef: readStringArg(args, "sourceObservationRef"),
     })) as unknown as ToolCallResult;
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).switchActiveTab !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).switchActiveTab !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

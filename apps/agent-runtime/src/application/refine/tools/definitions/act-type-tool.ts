@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const ACT_TYPE_DESCRIPTION = "Type text into a UI element from a specific source observation.";
 const ACT_TYPE_SCHEMA = {
@@ -21,7 +21,7 @@ export const actTypeTool: RefineToolDefinition = {
   description: ACT_TYPE_DESCRIPTION,
   inputSchema: ACT_TYPE_SCHEMA,
   async invoke(args, context) {
-    return (await readBrowserProvider(context).typeIntoElement({
+    return (await readBrowserService(context).typeIntoElement({
       elementRef: readStringArg(args, "elementRef"),
       sourceObservationRef: readStringArg(args, "sourceObservationRef"),
       text: readStringArg(args, "text"),
@@ -30,12 +30,16 @@ export const actTypeTool: RefineToolDefinition = {
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).typeIntoElement !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).typeIntoElement !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

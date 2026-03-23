@@ -14,6 +14,7 @@ import { AttentionGuidanceLoader } from "../../src/application/refine/attention-
 import { AttentionKnowledgeStore } from "../../src/infrastructure/persistence/attention-knowledge-store.js";
 import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
 import { RefineHitlResumeStore } from "../../src/infrastructure/persistence/refine-hitl-resume-store.js";
+import { ArtifactsWriter } from "../../src/infrastructure/persistence/artifacts-writer.js";
 import { ReactRefinementRunExecutor } from "../../src/application/refine/react-refinement-run-executor.js";
 import { RefineReactToolClient } from "../../src/application/refine/refine-react-tool-client.js";
 import type { RuntimeTelemetryRegistry } from "../../src/contracts/runtime-telemetry.js";
@@ -187,11 +188,7 @@ function createRefinementStores(tmpRoot: string): {
 function createRefinementDependencies(
   tmpRoot: string,
   createRunId: () => string
-): {
-  knowledgeStore: AttentionKnowledgeStore;
-  bootstrapProvider: RefineRunBootstrapProvider;
-  telemetryRegistry: RuntimeTelemetryRegistry;
-} {
+) {
   const stores = createRefinementStores(tmpRoot);
   const checkpoints = {
     async append(): Promise<void> {},
@@ -199,6 +196,7 @@ function createRefinementDependencies(
   };
   return {
     knowledgeStore: stores.knowledgeStore,
+    createArtifactsWriter: (runId: string) => new ArtifactsWriter(tmpRoot, runId),
     bootstrapProvider: new RefineRunBootstrapProvider({
       createRunId,
       guidanceLoader: stores.guidanceLoader,
@@ -282,16 +280,19 @@ test("executor creates run-scoped telemetry before loop execution", async () => 
     return buildBaseLoopResult(task, "completed");
   });
 
-  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-telemetry");
+  const { knowledgeStore, bootstrapProvider, createArtifactsWriter } = createRefinementDependencies(
+    tmpRoot,
+    () => "run-telemetry"
+  );
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
     knowledgeStore,
     bootstrapProvider,
+    createArtifactsWriter,
   });
 
   const result = await executor.execute({
@@ -325,19 +326,19 @@ test("executor updates loop hook context from the active refine session after bo
     });
     return buildBaseLoopResult(task);
   });
-  const { knowledgeStore, bootstrapProvider, telemetryRegistry } = createRefinementDependencies(
+  const { knowledgeStore, bootstrapProvider, telemetryRegistry, createArtifactsWriter } = createRefinementDependencies(
     tmpRoot,
     () => "run-hook-context",
   );
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
     knowledgeStore,
     bootstrapProvider,
+    createArtifactsWriter,
   });
 
   await executor.execute({
@@ -398,16 +399,19 @@ test("executor rejects when lifecycle telemetry emit fails", async () => {
     });
     return buildBaseLoopResult(task, "completed");
   });
-  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-telemetry-fail");
+  const { knowledgeStore, bootstrapProvider, createArtifactsWriter } = createRefinementDependencies(
+    tmpRoot,
+    () => "run-telemetry-fail"
+  );
   const executor = new ReactRefinementRunExecutor({
     loop: finishingLoop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
     knowledgeStore,
     bootstrapProvider,
+    createArtifactsWriter,
   });
 
   await assert.rejects(
@@ -464,16 +468,19 @@ test("executor clears active telemetry before waiting on dispose so interrupt be
     });
     return buildBaseLoopResult(task, "completed");
   });
-  const { knowledgeStore, bootstrapProvider } = createRefinementDependencies(tmpRoot, () => "run-teardown");
+  const { knowledgeStore, bootstrapProvider, createArtifactsWriter } = createRefinementDependencies(
+    tmpRoot,
+    () => "run-teardown"
+  );
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     telemetryRegistry,
     toolClient,
     knowledgeStore,
     bootstrapProvider,
+    createArtifactsWriter,
   });
 
   const executePromise = executor.execute({
@@ -550,7 +557,6 @@ test("executor runs browser observe/action through composite tools and persists 
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     toolClient,
     ...createRefinementDependencies(tmpRoot, createRunId),
@@ -576,7 +582,6 @@ test("executor runs browser observe/action through composite tools and persists 
   const secondExecutor = new ReactRefinementRunExecutor({
     loop: secondLoop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     toolClient,
     ...createRefinementDependencies(tmpRoot, createRunId),
@@ -612,7 +617,6 @@ test("executor returns paused_hitl and persists resume payload when HITL cannot 
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     toolClient,
     ...createRefinementDependencies(tmpRoot, () => "paused_run"),
@@ -650,7 +654,6 @@ test("executor resumes the same run id after human input and requires run.finish
   const pausedExecutor = new ReactRefinementRunExecutor({
     loop: pausedLoop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     toolClient,
     ...createRefinementDependencies(tmpRoot, () => "run_resume_target"),
@@ -674,7 +677,6 @@ test("executor resumes the same run id after human input and requires run.finish
   const resumedExecutor = new ReactRefinementRunExecutor({
     loop: resumedLoop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 8,
     toolClient,
     hitlController: new StubHitlController(),
@@ -716,7 +718,6 @@ test("executor returns budget_exhausted when turn budget safety fuse is reached"
   const executor = new ReactRefinementRunExecutor({
     loop: loop as never,
     logger: new StubLogger(),
-    artifactsDir: tmpRoot,
     maxTurns: 2,
     toolClient,
     ...createRefinementDependencies(tmpRoot, () => "budget_run"),

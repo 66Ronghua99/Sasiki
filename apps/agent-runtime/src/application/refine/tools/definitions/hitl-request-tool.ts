@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineRuntimeProvider } from "../providers/refine-runtime-provider.js";
+import type { RefineRunService } from "../services/refine-run-service.js";
 
 const HITL_REQUEST_DESCRIPTION = "Ask for human intervention when safe progress requires explicit human input.";
 const HITL_REQUEST_SCHEMA = {
@@ -19,19 +19,19 @@ export const hitlRequestTool: RefineToolDefinition = {
   description: HITL_REQUEST_DESCRIPTION,
   inputSchema: HITL_REQUEST_SCHEMA,
   async invoke(args, context) {
-    return (await readRuntimeProvider(context).requestHumanInput({
+    return (await readRunService(context).requestHumanInput({
       prompt: readStringArg(args, "prompt"),
       context: readOptionalStringArg(args, "context"),
     })) as unknown as ToolCallResult;
   },
 };
 
-function readRuntimeProvider(context: RefineToolContext): RefineRuntimeProvider {
-  const runtime = context.runtime;
-  if (!runtime || typeof runtime !== "object" || typeof (runtime as RefineRuntimeProvider).requestHumanInput !== "function") {
-    throw new Error("refine runtime provider is required");
+function readRunService(context: RefineToolContext): RefineRunService {
+  const runService = context.runService;
+  if (!runService || typeof runService !== "object" || typeof (runService as RefineRunService).requestHumanInput !== "function") {
+    throw new Error("refine run service is required");
   }
-  return runtime as RefineRuntimeProvider;
+  return runService as RefineRunService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

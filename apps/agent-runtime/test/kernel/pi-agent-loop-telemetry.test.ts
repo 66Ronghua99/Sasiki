@@ -3,6 +3,7 @@ import test, { mock } from "node:test";
 
 import { PiAgentLoop } from "../../src/kernel/pi-agent-loop.js";
 import { createRuntimeTelemetryRegistry } from "../../src/application/shell/runtime-telemetry-registry.js";
+import type { PiAgentModel } from "../../src/contracts/pi-agent-model.js";
 import type { ToolClient } from "../../src/contracts/tool-client.js";
 import type { Logger } from "../../src/contracts/logger.js";
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
@@ -23,6 +24,13 @@ class FakeToolClient implements ToolClient {
     return { content: [] };
   }
 }
+
+const TEST_MODEL: PiAgentModel = {
+  id: "gpt-4o-mini",
+  name: "gpt-4o-mini",
+  provider: "openai",
+  api: "responses",
+};
 
 test("PiAgentLoop emits runtime turn and tool events in order", async () => {
   const seen: string[] = [];
@@ -89,12 +97,13 @@ test("PiAgentLoop emits runtime turn and tool events in order", async () => {
   mock.method(Agent.prototype, "abort", () => undefined);
 
   const loop = new PiAgentLoop(
-    ({
-      model: "openai/gpt-4o-mini",
+    {
+      resolvedModel: TEST_MODEL,
       apiKey: "test-key",
+      configuredModel: "openai/gpt-4o-mini",
       thinkingLevel: "minimal",
       systemPrompt: "custom prompt",
-    } as never),
+    },
     new FakeToolClient(),
     new SilentLogger()
   );

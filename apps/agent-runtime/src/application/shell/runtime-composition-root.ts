@@ -3,24 +3,36 @@
  * Used By: application/shell/workflow-runtime.ts
  * Last Updated: 2026-03-21
  */
+import path from "node:path";
+
 import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-launcher.js";
+import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
+import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
+import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
+import { ModelResolver } from "../../infrastructure/llm/model-resolver.js";
 import { FileAgentCheckpointWriter, createNoopAgentCheckpointWriter } from "../../infrastructure/persistence/agent-checkpoint-writer.js";
 import { RuntimeLogger } from "../../infrastructure/logging/runtime-logger.js";
 import { TerminalTelemetrySink } from "../../infrastructure/logging/terminal-telemetry-sink.js";
 import { McpStdioClient } from "../../infrastructure/mcp/mcp-stdio-client.js";
 import { RuntimeEventStreamWriter } from "../../infrastructure/persistence/runtime-event-stream-writer.js";
+import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writer.js";
+import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
+import { RefineHitlResumeStore } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
+import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
 import { createCompactWorkflow } from "../compact/compact-workflow.js";
 import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
 import type { RuntimeSemanticMode } from "../config/runtime-config.js";
 import type { ObserveWorkflow } from "../observe/observe-workflow.js";
 import { createObserveWorkflowFactory } from "../observe/observe-workflow-factory.js";
 import { PromptProvider, type RuntimePromptBundle } from "../refine/prompt-provider.js";
+import { AttentionGuidanceLoader } from "../refine/attention-guidance-loader.js";
 import {
   createRefineWorkflowAssembly,
   type RefineWorkflow,
   type RefineWorkflowRequest,
 } from "../refine/refine-workflow.js";
+import { type RefinePersistenceContext } from "../refine/refine-run-bootstrap-provider.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import { createRuntimeTelemetryRegistry } from "./runtime-telemetry-registry.js";
 import type {
@@ -128,22 +140,43 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
 
   const hitlController = config.hitlEnabled ? new TerminalHitlController() : undefined;
   const createRunId = createRunIdFactory();
+  const resolvedRefineModel = ModelResolver.resolve({
+    model: config.model,
+    baseUrl: config.baseUrl,
+  });
+  const createObserveArtifactsWriter = (runId: string) => new ArtifactsWriter(config.artifactsDir, runId);
+  const createCompactArtifactsWriter = (runId: string) => new ArtifactsWriter(config.artifactsDir, runId);
+  const createRefineArtifactsWriter = (runId: string) => new ArtifactsWriter(config.artifactsDir, runId);
+  const observeSopAssetStore = new SopAssetStore(config.sopAssetRootDir);
+  const compactModelClient = new JsonModelClient({
+    model: config.model,
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    timeoutMs: config.semanticTimeoutMs,
+    thinkingLevel: config.thinkingLevel,
+  });
+  const compactHumanLoopTool = new TerminalCompactHumanLoopTool();
   const observeWorkflowFactory = createObserveWorkflowFactory({
     browserLifecycle,
     logger,
     cdpEndpoint: config.cdpEndpoint,
     observeTimeoutMs: config.observeTimeoutMs,
-    artifactsDir: config.artifactsDir,
     createRunId,
-    sopAssetRootDir: config.sopAssetRootDir,
+    createArtifactsWriter: createObserveArtifactsWriter,
+    sopAssetStore: observeSopAssetStore,
+    createRecorder: () => new PlaywrightDemonstrationRecorder(),
     telemetryRegistry,
   });
+  const refinePersistenceContext = createRefinePersistenceContext(config);
   const refineAssembly = createRefineWorkflowAssembly({
     browserLifecycle,
     logger,
     rawToolClient,
     hitlController,
     createRunId,
+    resolvedModel: resolvedRefineModel,
+    persistenceContext: refinePersistenceContext,
+    createArtifactsWriter: createRefineArtifactsWriter,
     config,
     telemetryRegistry,
     refineSystemPrompt: plan.prompts.refineSystemPrompt,
@@ -165,6 +198,9 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
           baseUrl: config.baseUrl,
           thinkingLevel: config.thinkingLevel,
         },
+        createArtifactsWriter: createCompactArtifactsWriter,
+        modelClient: compactModelClient,
+        humanLoopTool: compactHumanLoopTool,
         telemetryRegistry,
       });
 
@@ -173,6 +209,20 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
         runId: request.runId,
       });
     },
+  };
+}
+
+function createRefinePersistenceContext(config: Pick<RuntimeConfig, "artifactsDir">): RefinePersistenceContext {
+  const knowledgeStore = new AttentionKnowledgeStore({
+    filePath: path.join(config.artifactsDir, "refinement", "attention-knowledge-store.json"),
+  });
+
+  return {
+    knowledgeStore,
+    guidanceLoader: new AttentionGuidanceLoader(knowledgeStore),
+    hitlResumeStore: new RefineHitlResumeStore({
+      baseDir: config.artifactsDir,
+    }),
   };
 }
 

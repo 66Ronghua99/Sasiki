@@ -5,6 +5,7 @@ import test, { mock } from "node:test";
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 
 import type { Logger } from "../../src/contracts/logger.js";
+import type { PiAgentModel } from "../../src/contracts/pi-agent-model.js";
 import type { ToolClient } from "../../src/contracts/tool-client.js";
 import type { AgentRunResult, PiAgentLoopProgressSnapshot } from "../../src/contracts/agent-loop-records.js";
 import { PiAgentLoop } from "../../src/kernel/pi-agent-loop.js";
@@ -25,6 +26,13 @@ class FakeToolClient implements ToolClient {
     return { content: [] };
   }
 }
+
+const TEST_MODEL: PiAgentModel = {
+  id: "gpt-4o-mini",
+  name: "gpt-4o-mini",
+  provider: "openai",
+  api: "responses",
+};
 
 test("PiAgentLoop exposes contract-shaped progress snapshots and run results", async () => {
   const listeners = new WeakMap<object, (event: AgentEvent) => void>();
@@ -71,8 +79,9 @@ test("PiAgentLoop exposes contract-shaped progress snapshots and run results", a
 
   const loop = new PiAgentLoop(
     {
-      model: "openai/gpt-4o-mini",
+      resolvedModel: TEST_MODEL,
       apiKey: "test-key",
+      configuredModel: "openai/gpt-4o-mini",
       thinkingLevel: "minimal",
       systemPrompt: "custom prompt",
     },
@@ -109,6 +118,11 @@ test("PiAgentLoop sources engine-facing run state contracts from src/contracts",
   const source = await readFile(new URL("../../src/kernel/pi-agent-loop.ts", import.meta.url), "utf8");
 
   assert.match(source, /\.\.\/contracts\/agent-loop-records\.js/);
+  assert.match(source, /\.\.\/contracts\/pi-agent-model\.js/);
+  assert.match(source, /\.\.\/contracts\/runtime-telemetry\.js/);
+  assert.doesNotMatch(source, /\.\.\/application\//);
   assert.doesNotMatch(source, /\.\.\/domain\/agent-types\.js/);
   assert.doesNotMatch(source, /\.\.\/domain\/high-level-log\.js/);
+  assert.doesNotMatch(source, /\.\.\/infrastructure\/llm\/model-resolver\.js/);
+  assert.match(source, /resolvedModel/);
 });

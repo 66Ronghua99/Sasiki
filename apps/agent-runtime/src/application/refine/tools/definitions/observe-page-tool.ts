@@ -1,7 +1,7 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineBrowserProvider } from "../providers/refine-browser-provider.js";
+import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const OBSERVE_PAGE_DESCRIPTION = "Capture the latest page snapshot with page identity and tab metadata.";
 const OBSERVE_PAGE_SCHEMA = {
@@ -16,14 +16,18 @@ export const observePageTool: RefineToolDefinition = {
   description: OBSERVE_PAGE_DESCRIPTION,
   inputSchema: OBSERVE_PAGE_SCHEMA,
   async invoke(_args, context) {
-    return (await readBrowserProvider(context).capturePageObservation()) as unknown as ToolCallResult;
+    return (await readBrowserService(context).capturePageObservation()) as unknown as ToolCallResult;
   },
 };
 
-function readBrowserProvider(context: RefineToolContext): RefineBrowserProvider {
-  const browser = context.browser;
-  if (!browser || typeof browser !== "object" || typeof (browser as RefineBrowserProvider).capturePageObservation !== "function") {
-    throw new Error("refine browser provider is required");
+function readBrowserService(context: RefineToolContext): RefineBrowserService {
+  const browserService = context.browserService;
+  if (
+    !browserService ||
+    typeof browserService !== "object" ||
+    typeof (browserService as RefineBrowserService).capturePageObservation !== "function"
+  ) {
+    throw new Error("refine browser service is required");
   }
-  return browser as RefineBrowserProvider;
+  return browserService as RefineBrowserService;
 }

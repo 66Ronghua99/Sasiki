@@ -35,6 +35,7 @@ export function createRuntimeTelemetryRegistry(options: RuntimeTelemetryRegistry
 
       const eventBus: RuntimeEventBus = {
         emit: async (event: RuntimeEvent): Promise<void> => {
+          assertEventScope(scope, event);
           const next = queue.then(async () => {
             for (const sink of sinks) {
               await sink.emit(event);
@@ -66,4 +67,12 @@ export function createRuntimeTelemetryRegistry(options: RuntimeTelemetryRegistry
       };
     },
   };
+}
+
+function assertEventScope(scope: RuntimeRunTelemetryScope, event: RuntimeEvent): void {
+  if (event.workflow !== scope.workflow || event.runId !== scope.runId) {
+    throw new Error(
+      `runtime telemetry event scope mismatch: expected ${scope.workflow}/${scope.runId}, got ${event.workflow}/${event.runId}`
+    );
+  }
 }

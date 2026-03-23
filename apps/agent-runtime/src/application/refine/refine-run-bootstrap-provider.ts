@@ -1,24 +1,33 @@
 /**
- * Deps: application/refine/prompt-provider.ts, infrastructure/persistence/*, application/refine/*
+ * Deps: application/refine/prompt-provider.ts, application/refine/*
  * Used By: application/refine/react-refinement-run-executor.ts, application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-21
  */
-import path from "node:path";
-
 import type { AgentRunRequest } from "../../domain/agent-types.js";
-import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
-import type { HitlAnswerProvider } from "./tools/runtime/refine-runtime-tools.js";
+import type { HitlAnswerProvider } from "./tools/services/refine-run-service.js";
 import { createRefineReactSession } from "./refine-react-session.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
 import { AttentionGuidanceLoader, type AttentionGuidanceLoader as AttentionGuidanceLoaderContract } from "./attention-guidance-loader.js";
-import { RefineHitlResumeStore, type RefineHitlResumeRecord } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
-import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { PromptProvider } from "./prompt-provider.js";
+
+export interface RefineHitlResumeRecord {
+  runId: string;
+  task: string;
+  prompt: string;
+  context?: unknown;
+  resumeToken: string;
+  createdAt: string;
+}
+
+export interface RefineHitlResumeStorePort {
+  load(runId: string): Promise<RefineHitlResumeRecord | undefined>;
+  save(record: RefineHitlResumeRecord): Promise<string>;
+}
 
 export interface RefineRunBootstrapProviderOptions {
   createRunId: () => string;
   guidanceLoader: Pick<AttentionGuidanceLoaderContract, "load">;
-  hitlResumeStore: Pick<RefineHitlResumeStore, "load" | "save">;
+  hitlResumeStore: RefineHitlResumeStorePort;
   promptProvider: Pick<PromptProvider, "buildRefineStartPrompt">;
   knowledgeTopN?: number;
 }
@@ -38,15 +47,17 @@ export interface RefineRunBootstrapResult {
 }
 
 export interface RefinePersistenceContext {
-  knowledgeStore: AttentionKnowledgeStore;
+  knowledgeStore: {
+    append(records: import("../../domain/attention-knowledge.js").AttentionKnowledge[]): Promise<void>;
+  };
   guidanceLoader: AttentionGuidanceLoader;
-  hitlResumeStore: RefineHitlResumeStore;
+  hitlResumeStore: RefineHitlResumeStorePort;
 }
 
 export class RefineRunBootstrapProvider {
   private readonly createRunId: () => string;
   private readonly guidanceLoader: Pick<AttentionGuidanceLoader, "load">;
-  private readonly hitlResumeStore: Pick<RefineHitlResumeStore, "load" | "save">;
+  private readonly hitlResumeStore: RefineHitlResumeStorePort;
   private readonly promptProvider: Pick<PromptProvider, "buildRefineStartPrompt">;
   private readonly knowledgeTopN: number;
 
@@ -121,20 +132,4 @@ export class RefineRunBootstrapProvider {
       typeof page?.normalizedPath === "string" && page.normalizedPath.trim() ? page.normalizedPath.trim() : "/";
     return { origin, normalizedPath };
   }
-}
-
-export function createRefinePersistenceContext(
-  config: Pick<RuntimeConfig, "artifactsDir">
-): RefinePersistenceContext {
-  const knowledgeStore = new AttentionKnowledgeStore({
-    filePath: path.join(config.artifactsDir, "refinement", "attention-knowledge-store.json"),
-  });
-
-  return {
-    knowledgeStore,
-    guidanceLoader: new AttentionGuidanceLoader(knowledgeStore),
-    hitlResumeStore: new RefineHitlResumeStore({
-      baseDir: config.artifactsDir,
-    }),
-  };
 }

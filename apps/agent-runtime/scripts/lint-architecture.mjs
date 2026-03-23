@@ -63,165 +63,6 @@ const ALLOWED_DEPENDENCIES = {
 const APPLICATION_SUBLAYERS = new Set(["shell", "config", "observe", "compact", "refine"]);
 const WORKFLOW_SUBLAYERS = new Set(["observe", "compact", "refine"]);
 const REFINE_TOOLS_ROLE_PREFIX = "application/refine/tools/";
-const PHASE1_EXCEPTION_LEDGER = [
-  {
-    fileRel: "kernel/pi-agent-loop.ts",
-    ruleId: "dep.kernel.no-domain",
-    reason: "The current kernel loop still materializes product-facing run and log record types in Phase 1.",
-    toRel: "domain/agent-types.ts",
-  },
-  {
-    fileRel: "kernel/pi-agent-loop.ts",
-    ruleId: "dep.kernel.no-domain",
-    reason: "The current kernel loop still materializes product-facing run and log record types in Phase 1.",
-    toRel: "domain/high-level-log.ts",
-  },
-  {
-    fileRel: "kernel/pi-agent-loop.ts",
-    ruleId: "dep.kernel.no-infrastructure",
-    reason: "The current kernel loop still resolves models through the infrastructure-backed model resolver in Phase 1.",
-    toRel: "infrastructure/llm/model-resolver.ts",
-  },
-  {
-    fileRel: "application/config/runtime-config-loader.ts",
-    ruleId: "dep.application.config.no-infra-source-loader",
-    reason: "Phase 1 keeps the application-facing config loader while bootstrap source loading is still transitional.",
-    toRel: "infrastructure/config/runtime-bootstrap-provider.ts",
-  },
-  {
-    fileRel: "application/observe/observe-workflow-factory.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Observe workflow factory still constructs the recorder directly in the current Phase 1 baseline.",
-    toRel: "infrastructure/browser/playwright-demonstration-recorder.ts",
-  },
-  {
-    fileRel: "application/observe/observe-workflow-factory.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Observe workflow factory still consumes the concrete runtime logger in the current Phase 1 baseline.",
-    toRel: "infrastructure/logging/runtime-logger.ts",
-  },
-  {
-    fileRel: "application/observe/observe-executor.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Observe executor still owns recorder and persistence collaborators in Phase 1.",
-    toRel: "infrastructure/browser/playwright-demonstration-recorder.ts",
-  },
-  {
-    fileRel: "application/observe/observe-executor.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Observe executor still owns recorder and persistence collaborators in Phase 1.",
-    toRel: "infrastructure/persistence/artifacts-writer.ts",
-  },
-  {
-    fileRel: "application/observe/observe-executor.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Observe executor still owns recorder and persistence collaborators in Phase 1.",
-    toRel: "infrastructure/persistence/sop-asset-store.ts",
-  },
-  {
-    fileRel: "application/compact/interactive-sop-compact.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Compact still assembles concrete model, HITL, and artifact collaborators inside the workflow service.",
-    toRel: "infrastructure/llm/json-model-client.ts",
-  },
-  {
-    fileRel: "application/compact/interactive-sop-compact.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Compact still assembles concrete model, HITL, and artifact collaborators inside the workflow service.",
-    toRel: "infrastructure/hitl/terminal-compact-human-loop-tool.ts",
-  },
-  {
-    fileRel: "application/compact/interactive-sop-compact.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Compact still assembles concrete model, HITL, and artifact collaborators inside the workflow service.",
-    toRel: "infrastructure/persistence/artifacts-writer.ts",
-  },
-  {
-    fileRel: "application/refine/refine-run-bootstrap-provider.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Refine bootstrap still touches persistence adapters directly during the Phase 1 transition.",
-    toRel: "infrastructure/persistence/attention-knowledge-store.ts",
-  },
-  {
-    fileRel: "application/refine/refine-run-bootstrap-provider.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Refine bootstrap still touches persistence adapters directly during the Phase 1 transition.",
-    toRel: "infrastructure/persistence/refine-hitl-resume-store.ts",
-  },
-  {
-    fileRel: "application/refine/attention-guidance-loader.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Refine attention loading still reads concrete persistence in the current Phase 1 baseline.",
-    toRel: "infrastructure/persistence/attention-knowledge-store.ts",
-  },
-  {
-    fileRel: "application/refine/react-refinement-run-executor.ts",
-    ruleId: "dep.application.non-shell.no-infrastructure",
-    reason: "Refine executor still writes artifacts directly in the current Phase 1 baseline.",
-    toRel: "infrastructure/persistence/artifacts-writer.ts",
-  },
-  {
-    fileRel: "application/refine/tools/providers/refine-browser-provider.ts",
-    ruleId: "dep.refine-tools.providers.no-runtime",
-    reason: "Provider/runtime bridging remains a named transitional seam in Phase 1.",
-    toRel: "application/refine/tools/runtime/refine-browser-tools.ts",
-  },
-  {
-    fileRel: "application/refine/tools/providers/refine-browser-provider.ts",
-    ruleId: "dep.refine-tools.providers.no-refine-module",
-    reason: "Provider/runtime bridging still carries session-bound refine semantics in Phase 1.",
-    toRel: "application/refine/refine-react-session.ts",
-  },
-  {
-    fileRel: "application/refine/tools/providers/refine-runtime-provider.ts",
-    ruleId: "dep.refine-tools.providers.no-runtime",
-    reason: "Provider/runtime bridging remains a named transitional seam in Phase 1.",
-    toRel: "application/refine/tools/runtime/refine-runtime-tools.ts",
-  },
-  {
-    fileRel: "application/refine/tools/providers/refine-runtime-provider.ts",
-    ruleId: "dep.refine-tools.providers.no-refine-module",
-    reason: "Provider/runtime bridging still carries session-bound refine semantics in Phase 1.",
-    toRel: "application/refine/refine-react-session.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-browser-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-domain",
-    reason: "Runtime/browser tool payload shaping still depends on refine domain records in Phase 1.",
-    toRel: "domain/refine-react.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-browser-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-refine-module",
-    reason: "Runtime/browser tool payload shaping still depends on refine-owned session/parser seams in Phase 1.",
-    toRel: "application/refine/refine-browser-snapshot-parser.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-browser-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-refine-module",
-    reason: "Runtime/browser tool payload shaping still depends on refine-owned session/parser seams in Phase 1.",
-    toRel: "application/refine/refine-react-session.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-runtime-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-domain",
-    reason: "Runtime/tool payload shaping still depends on refine domain records in Phase 1.",
-    toRel: "domain/attention-knowledge.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-runtime-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-domain",
-    reason: "Runtime/tool payload shaping still depends on refine domain records in Phase 1.",
-    toRel: "domain/refine-react.ts",
-  },
-  {
-    fileRel: "application/refine/tools/runtime/refine-runtime-tools.ts",
-    ruleId: "dep.refine-tools.runtime.no-refine-module",
-    reason: "Runtime/tool payload shaping still depends on refine-owned session seams in Phase 1.",
-    toRel: "application/refine/refine-react-session.ts",
-  },
-];
-
 function listTsFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files = [];
@@ -277,19 +118,22 @@ function inferRefineToolsRole(relPath) {
   return "composition-core";
 }
 
-function isPhase1Exception({ ruleId, fileRel, toRel }) {
-  return PHASE1_EXCEPTION_LEDGER.some((entry) => (
-    entry.ruleId === ruleId
-    && entry.fileRel === fileRel
-    && (entry.toRel ? entry.toRel === toRel : true)
-  ));
-}
+function collectModuleSpecifiers(sourceText) {
+  const specifiers = [];
+  const patterns = [
+    /^\s*import\s+(?:type\s+)?[\s\S]*?\sfrom\s+["']([^"']+)["'];?/gm,
+    /^\s*import\s+(?:type\s+)?["']([^"']+)["'];?/gm,
+    /^\s*export\s+(?:type\s+)?[\s\S]*?\sfrom\s+["']([^"']+)["'];?/gm,
+  ];
 
-function maybeAddPhase1Error(errors, { ruleId, fileRel, toRel, message }) {
-  if (isPhase1Exception({ ruleId, fileRel, toRel })) {
-    return;
+  for (const regex of patterns) {
+    let match;
+    while ((match = regex.exec(sourceText))) {
+      specifiers.push(match[1]);
+    }
   }
-  errors.push(addError(ruleId, fileRel, message));
+
+  return specifiers;
 }
 
 function resolveImportPath(fileAbs, spec) {
@@ -394,12 +238,11 @@ function checkApplicationImportRules({ fromRel, toRel, fromLayer, toLayer, error
   }
 
   if (fromAppLayer === "config" && toAppLayer === "shell") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.application.config.no-shell",
-      fileRel: fromRel,
-      toRel,
-      message: `application/config must not depend on application/shell (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.application.config.no-shell",
+      fromRel,
+      `application/config must not depend on application/shell (${toRel}).`,
+    ));
   }
 
   if (
@@ -408,31 +251,28 @@ function checkApplicationImportRules({ fromRel, toRel, fromLayer, toLayer, error
     && WORKFLOW_SUBLAYERS.has(toAppLayer)
     && fromAppLayer !== toAppLayer
   ) {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.application.workflow.horizontal",
-      fileRel: fromRel,
-      toRel,
-      message: `Workflow sublayer ${fromAppLayer} must not depend on sibling workflow sublayer ${toAppLayer} (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.application.workflow.horizontal",
+      fromRel,
+      `Workflow sublayer ${fromAppLayer} must not depend on sibling workflow sublayer ${toAppLayer} (${toRel}).`,
+    ));
   }
 
   if (fromAppLayer === "config" && toRel.startsWith("infrastructure/config/")) {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.application.config.no-infra-source-loader",
-      fileRel: fromRel,
-      toRel,
-      message: `application/config must not import infrastructure config source loaders directly (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.application.config.no-infra-source-loader",
+      fromRel,
+      `application/config must not import infrastructure config source loaders directly (${toRel}).`,
+    ));
     return;
   }
 
   if (fromAppLayer !== "shell" && toLayer === "infrastructure") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.application.non-shell.no-infrastructure",
-      fileRel: fromRel,
-      toRel,
-      message: `Only application/shell may import infrastructure directly in Phase 1 (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.application.non-shell.no-infrastructure",
+      fromRel,
+      `Only application/shell may import infrastructure directly in Phase 1 (${toRel}).`,
+    ));
   }
 }
 
@@ -442,22 +282,20 @@ function checkKernelImportRules({ fromRel, toRel, fromLayer, toLayer, errors }) 
   }
 
   if (toLayer === "domain") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.kernel.no-domain",
-      fileRel: fromRel,
-      toRel,
-      message: `kernel must not depend on domain directly in Phase 1 unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.kernel.no-domain",
+      fromRel,
+      `kernel must not depend on domain directly (${toRel}).`,
+    ));
     return true;
   }
 
   if (toLayer === "infrastructure") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.kernel.no-infrastructure",
-      fileRel: fromRel,
-      toRel,
-      message: `kernel must not depend on infrastructure directly in Phase 1 unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.kernel.no-infrastructure",
+      fromRel,
+      `kernel must not depend on infrastructure directly (${toRel}).`,
+    ));
     return true;
   }
 
@@ -473,87 +311,84 @@ function checkRefineToolImportRules({ fromRel, toRel, toLayer, errors }) {
   const toRole = inferRefineToolsRole(toRel);
 
   if (fromRole === "definitions" && toRole === "runtime") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.definitions.no-runtime",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool definitions must not depend on refine tool runtime (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.definitions.no-runtime",
+      fromRel,
+      `Refine tool definitions must not depend on refine tool runtime (${toRel}).`,
+    ));
   }
 
   if (fromRole === "definitions" && toLayer === "infrastructure") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.definitions.no-infrastructure",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool definitions must not import infrastructure directly (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.definitions.no-infrastructure",
+      fromRel,
+      `Refine tool definitions must not import infrastructure directly (${toRel}).`,
+    ));
   }
 
   if (fromRole === "runtime" && toRole === "definitions") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.runtime.no-definitions",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool runtime must not depend on tool definitions (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.runtime.no-definitions",
+      fromRel,
+      `Refine tool runtime must not depend on tool definitions (${toRel}).`,
+    ));
+  }
+
+  if (fromRole === "runtime" && toRole === "providers") {
+    errors.push(addError(
+      "dep.refine-tools.runtime.no-providers",
+      fromRel,
+      `Refine tool runtime must not depend on refine tool providers (${toRel}).`,
+    ));
   }
 
   if (fromRole === "providers" && toRole === "runtime") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.providers.no-runtime",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool providers must not depend on refine tool runtime unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.providers.no-runtime",
+      fromRel,
+      `Refine tool providers must not depend on refine tool runtime (${toRel}).`,
+    ));
   }
 
   if (fromRole === "providers" && toLayer === "infrastructure") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.providers.no-infrastructure",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool providers must not import infrastructure directly (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.providers.no-infrastructure",
+      fromRel,
+      `Refine tool providers must not import infrastructure directly (${toRel}).`,
+    ));
   }
 
   if (fromRole === "providers" && toRel.startsWith("application/refine/") && !toRel.startsWith(REFINE_TOOLS_ROLE_PREFIX)) {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.providers.no-refine-module",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool providers must not depend on non-tools refine modules unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.providers.no-refine-module",
+      fromRel,
+      `Refine tool providers must not depend on non-tools refine modules (${toRel}).`,
+    ));
   }
 
   if (fromRole === "runtime" && toLayer === "domain") {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.runtime.no-domain",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool runtime must not depend on domain types unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.runtime.no-domain",
+      fromRel,
+      `Refine tool runtime must not depend on domain types (${toRel}).`,
+    ));
   }
 
   if (fromRole === "runtime" && toRel.startsWith("application/refine/") && !toRel.startsWith(REFINE_TOOLS_ROLE_PREFIX)) {
-    maybeAddPhase1Error(errors, {
-      ruleId: "dep.refine-tools.runtime.no-refine-module",
-      fileRel: fromRel,
-      toRel,
-      message: `Refine tool runtime must not depend on non-tools refine modules unless explicitly ledgered (${toRel}).`,
-    });
+    errors.push(addError(
+      "dep.refine-tools.runtime.no-refine-module",
+      fromRel,
+      `Refine tool runtime must not depend on non-tools refine modules (${toRel}).`,
+    ));
   }
 }
 
 function checkImports(absPath, sourceText, errors, srcRoot) {
   const fromRel = relFromSrc(absPath, srcRoot);
   const fromLayer = inferLayer(absPath, srcRoot);
-  const importRegex = /^import\s+[\s\S]*?\sfrom\s+["']([^"']+)["'];?/gm;
   const localDependencies = new Set();
 
-  let match;
-  while ((match = importRegex.exec(sourceText))) {
-    const spec = match[1];
+  for (const spec of collectModuleSpecifiers(sourceText)) {
 
     if (spec === "@modelcontextprotocol/sdk") {
       if (!fromRel.startsWith("infrastructure/mcp/")) {
@@ -649,9 +484,23 @@ function checkImports(absPath, sourceText, errors, srcRoot) {
 }
 
 function checkForbiddenCompatFiles(absPath, errors, srcRoot) {
-  void absPath;
-  void errors;
-  void srcRoot;
+  const rel = relFromSrc(absPath, srcRoot);
+
+  if (rel.startsWith("application/refine/tools/providers/")) {
+    errors.push(addError(
+      "dep.refine-tools.providers.no-file",
+      rel,
+      "Refine tool providers are retired; do not add files under application/refine/tools/providers/."
+    ));
+  }
+
+  if (rel.startsWith("application/refine/tools/runtime/")) {
+    errors.push(addError(
+      "dep.refine-tools.runtime.no-file",
+      rel,
+      "Refine tool runtime is retired; do not add files under application/refine/tools/runtime/."
+    ));
+  }
 }
 
 function canonicalizeCycle(cyclePath) {

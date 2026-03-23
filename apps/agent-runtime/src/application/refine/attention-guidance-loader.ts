@@ -1,10 +1,22 @@
 /**
- * Deps: domain/attention-knowledge.ts, infrastructure/persistence/attention-knowledge-store.ts
- * Used By: runtime/replay-refinement/react-refinement-run-executor.ts
+ * Deps: domain/attention-knowledge.ts
+ * Used By: application/refine/refine-run-bootstrap-provider.ts, application/shell/runtime-composition-root.ts
  * Last Updated: 2026-03-20
  */
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
-import { AttentionKnowledgeStore, type AttentionKnowledgeQuery } from "../../infrastructure/persistence/attention-knowledge-store.js";
+
+export interface AttentionGuidanceQuery {
+  taskScope: string;
+  page: {
+    origin: string;
+    normalizedPath: string;
+  };
+  limit?: number;
+}
+
+export interface AttentionGuidanceStore {
+  query(request: AttentionGuidanceQuery): Promise<AttentionKnowledge[]>;
+}
 
 export interface LoadedAttentionGuidance {
   records: AttentionKnowledge[];
@@ -12,13 +24,13 @@ export interface LoadedAttentionGuidance {
 }
 
 export class AttentionGuidanceLoader {
-  private readonly store: AttentionKnowledgeStore;
+  private readonly store: AttentionGuidanceStore;
 
-  constructor(store: AttentionKnowledgeStore) {
+  constructor(store: AttentionGuidanceStore) {
     this.store = store;
   }
 
-  async load(query: AttentionKnowledgeQuery): Promise<LoadedAttentionGuidance> {
+  async load(query: AttentionGuidanceQuery): Promise<LoadedAttentionGuidance> {
     const records = await this.store.query(query);
     if (records.length === 0) {
       return {

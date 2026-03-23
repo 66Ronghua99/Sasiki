@@ -5,7 +5,7 @@ import {
 } from "../../../../domain/attention-knowledge.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
-import type { RefineRuntimeProvider } from "../providers/refine-runtime-provider.js";
+import type { RefineRunService } from "../services/refine-run-service.js";
 
 const KNOWLEDGE_RECORD_CANDIDATE_DESCRIPTION =
   "Record reusable attention knowledge candidate with provenance references.";
@@ -40,7 +40,7 @@ export const knowledgeRecordCandidateTool: RefineToolDefinition = {
   description: KNOWLEDGE_RECORD_CANDIDATE_DESCRIPTION,
   inputSchema: KNOWLEDGE_RECORD_CANDIDATE_SCHEMA,
   async invoke(args, context) {
-    return (await readRuntimeProvider(context).recordKnowledgeCandidate({
+    return (await readRunService(context).recordKnowledgeCandidate({
       taskScope: readStringArg(args, "taskScope"),
       page: readPageArg(args),
       category: readEnumArg(args, "category", ATTENTION_KNOWLEDGE_CATEGORIES),
@@ -52,16 +52,16 @@ export const knowledgeRecordCandidateTool: RefineToolDefinition = {
   },
 };
 
-function readRuntimeProvider(context: RefineToolContext): RefineRuntimeProvider {
-  const runtime = context.runtime;
+function readRunService(context: RefineToolContext): RefineRunService {
+  const runService = context.runService;
   if (
-    !runtime ||
-    typeof runtime !== "object" ||
-    typeof (runtime as RefineRuntimeProvider).recordKnowledgeCandidate !== "function"
+    !runService ||
+    typeof runService !== "object" ||
+    typeof (runService as RefineRunService).recordKnowledgeCandidate !== "function"
   ) {
-    throw new Error("refine runtime provider is required");
+    throw new Error("refine run service is required");
   }
-  return runtime as RefineRuntimeProvider;
+  return runService as RefineRunService;
 }
 
 function readStringArg(args: Record<string, unknown>, key: string): string {

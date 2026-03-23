@@ -15,6 +15,8 @@
 - 2026-03-23 的 OpenAI-style layer model Phase 1 是 governance / hardgate baseline，不是“当前代码已经完全到达 end state”的声明；目标层级模型比现状更窄，后续 Phase 2+ 仍要继续把过渡 seam 收回来。
 - Phase 1 允许存在的架构偏差必须全部写进显式 exception ledger；不能通过放宽 lint 规则、补隐式 allowlist、或默认接受新的 non-shell assembly / kernel coupling 来静默扩张例外面。
 - `application/shell/runtime-composition-root.ts` 仍是当前 front-door composition owner，也是唯一批准的顶层 concrete assembly owner；任何留在 observe / compact / refine / config 下的 concrete assembly 都只能作为带退出计划的过渡例外，而不是长期常态。
+- type-only import 也算真实边界耦合；如果 `application/*` 只需要 adapter 的 shape，优先在 application/contracts 侧声明窄接口或本地 port，再让 shell 把 infrastructure 实例按结构注入，不要直接 import infrastructure types 来“只读借型”。
+- Phase 2 之后，`kernel/*` 已不再允许 direct `domain/*` 或 `infrastructure/*` imports；像 `ModelResolver` 这类 concrete resolution 必须留在 `application/shell/runtime-composition-root.ts`，再通过 `contracts/*` 定义的窄协议（例如 `PiAgentModel`）注入 kernel。
 - workflow 注册主链路当前固定为 `workflow-runtime -> runtime-host -> *-workflow`；不要再恢复 `application/observe/observe-runtime.ts` 这类单 workflow wrapper，也不要把 `RuntimeHost` 扩回“先绑定 workflow 再 start/execute”的双形态 API。
 - `application/shell/workflow-runtime.ts` 当前只负责 CLI command -> workflow 选择与交给 host 执行；不要再把 compact service 构造或 interrupt fallback 塞回去。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
@@ -23,6 +25,7 @@
 - persistence adapters 的 canonical home: `src/infrastructure/persistence/`。
 - LLM adapters 的 canonical home: `src/infrastructure/llm/`。
 - runtime config bootstrap adapter 的 canonical home: `src/infrastructure/config/`；application-facing loader/types 的 canonical home 是 `src/application/config/`。
+- config bootstrap 的活跃前门现在是 `src/application/shell/runtime-config-bootstrap.ts`：shell 负责调用 infrastructure source loader，再把 `RuntimeBootstrapSources` 交给 `application/config/runtime-config-loader.ts` 做 normalized policy；不要再把 raw env/fs discovery 放回 `application/config/*`。
 - application shell / command-router / composition-root 的 canonical home: `src/application/shell/`。
 - refine 全部代码（bootstrap, prompts, tooling, orchestration, executor）的 canonical home: `src/application/refine/`。
 - observe 全部代码（orchestration, recording support）的 canonical home: `src/application/observe/`。
@@ -66,7 +69,7 @@
 - 终端 HITL 当前已改为自然语言 incident brief + 单个可选自然语言恢复说明输入；结构化字段仍保留在内部 request/response 契约中用于记录与兼容，不再直接暴露为终端固定标签。
 - 当页面出现系统级 `file chooser dialog` 时，refine agent 会持续触发 `hitl.request`（uncertain_state）；若人类侧未真实关闭弹窗，流程会重复同类 HITL，难以前进到工具执行阶段。
 - runtime telemetry 重构后，refine run 的 canonical 工件应优先看 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 和 attention knowledge store；旧的步骤快照与 `refine_*` 平行投影不应再作为主排查入口。
-- 2026-03-22 的百度 smoke refine run（`20260322_002735_676`）说明两类噪声还在：模型首轮仍可能错误调用 `act.navigate` with `initial_navigation`，以及 page-changing action 后仍会短暂拿旧 observation 继续动作；虽然当前能自恢复，但这正是下一轮工具面和 e2e 流程优化的优先目标。
+- 2026-03-23 的百度 smoke refine run（`20260323_211349_564`）再次确认：模型首轮仍可能错误调用 `act.navigate` with `initial_navigation`；这条轻量路径里 bridge / hook telemetry 已完整闭环，点击首条结果后的 tab 切换也正常，但首轮 bootstrap 噪声仍是当前 refine smoke 的首要后续项。
 - 若 refine run 在 modal / file chooser 场景里反复 `navigate`，先检查两件事：
   - `observe.page` 的页面身份是否仍然指向 stale 底层页面，而不是当前 active tab
   - 工具面是否真实暴露了文件选择相关动作，而不是让模型只能猜 URL 或重试导航
@@ -82,7 +85,9 @@
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 - `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
+- refine tool context 现在以 `browserService` / `runService` 作为活跃路径的 service-owned refs；definitions 应直接读取这些服务引用，`providers/*` 与 `runtime/*` 已退场，不应再作为活跃路径回流。
 - pi-agent hooks 现在只通过 `PiAgentToolAdapter` 的按 `toolName` registry 执行；`RefineToolSurface.callTool(...)`、`RefineReactToolClient.callTool(...)` 和 bootstrap direct observe 都必须保持 hook-free。
+- Phase 4 之后，`application/refine/tools/services/*` 是 refine tool behavior 的 canonical home；若 `providers/*` 或活跃 `runtime/*` 重新出现，应优先视为架构回退而不是正常扩展。
 
 ## Environment Requirements
 - Node `>=20`
