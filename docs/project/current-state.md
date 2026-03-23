@@ -5,9 +5,10 @@
 - Harness migration bootstrap is complete.
 - Latest Harness guidance treats `.harness/bootstrap.toml` as governance-only bootstrap metadata, while `harness:doc-health` is the audit standard for checking doc truth.
 - Active project truth has been reset to the current codebase plus the Harness entry docs.
-- **Active governance slice (2026-03-23) is Phase 1 of the OpenAI-style layer-model program**: this is a docs-and-hardgate pass that freezes a narrower end-state `src/` model, adds an explicit exception-ledger story for current mismatches, and aligns front-door docs before any larger refactor is attempted.
-- **What Phase 1 changes**: `lint:arch` is being tightened around approved top-level roots, blanket bans for new `src/runtime/*` and `src/core/*`, workflow horizontal isolation, non-shell `application/* -> infrastructure/*` imports unless they are on the explicit Phase 1 ledger, and refine-tools role edges. `lint:docs` is part of the verification set for this governance slice.
-- **What Phase 1 does not promise**: `kernel/` is still transitional, current non-shell assembly seams are still present as named exceptions, `application/refine/tools/runtime/*` keeps its transitional role for now, and neither the `contracts/` rename nor the full shell-centralization refactor is part of this phase.
+- **Phase 1 of the OpenAI-style layer-model program is complete**: the docs-and-hardgate pass froze the narrower end-state `src/` model, recorded the initial exception ledger, and aligned the front-door docs before source refactors.
+- **Active governance slice (2026-03-23) is Phase 2 kernel narrowing**: this is the first source-refactor pass after the Phase 1 baseline, and it starts by inventorying the remaining `kernel/*` leakage before replacing those imports with narrower engine-facing contracts.
+- **What Phase 2 changes**: Phase 2 narrows `kernel/` toward a pure engine-style layer by removing direct `kernel -> domain` and `kernel -> infrastructure` imports, pushing product-facing record shaping back into application-owned seams, and leaving only injected protocols inside the shared loop/tool path.
+- **What Phase 2 does not promise**: this phase does not include the Phase 3 shell-centralization cleanup, does not rename `contracts/` to `ports/`, and does not claim that the existing non-shell `application/* -> infrastructure/*` seams or `application/refine/tools/runtime/*` transitional role are already gone.
 - The current front-door truth is the post-pi-agent-hook-adapter baseline, with workflow-host clarification and telemetry/event-stream changes already absorbed.
 - **Runtime telemetry event stream pass is complete in the current branch baseline**: telemetry policy now resolves from canonical config, shell composition injects run-scoped telemetry up front, refine writes canonical `event_stream.jsonl` plus a run summary artifact and `agent_checkpoints/`, and observe / compact no longer maintain separate runtime-log style write paths.
 - Fresh hardgate evidence for this pass: `artifacts/code-gate/2026-03-21T14-38-44-019Z/report.json`.
@@ -44,7 +45,7 @@
 apps/agent-runtime/src/
   domain/           - Product concepts, state schemas, cross-layer contracts
   contracts/        - Capability interfaces plus shared runtime config / telemetry contracts
-  kernel/           - Reusable execution kernel candidate (TRANSITIONAL in Phase 1)
+  kernel/           - Reusable execution kernel candidate (TRANSITIONAL; active narrowing target in Phase 2)
     - pi-agent-loop.ts
     - pi-agent-tool-adapter.ts
   application/      - Use-case orchestration layer
@@ -63,9 +64,21 @@ apps/agent-runtime/src/
     hitl/           - terminal-hitl-controller.ts
 ```
 
+## Current Kernel Leakage Inventory
+
+Only `apps/agent-runtime/src/kernel/pi-agent-loop.ts` currently imports outside the approved end-state `engine -> contracts|kernel|utils` surface. `pi-agent-tool-adapter.ts` and `pi-agent-tool-hooks.ts` currently stay inside contracts/kernel plus platform/library dependencies.
+
+| Kernel file | Current import | Leakage class | Why it is still a leak today | Phase 2 removal target |
+| --- | --- | --- | --- | --- |
+| `src/kernel/pi-agent-loop.ts` | `../domain/agent-types.js` (`AgentRunResult`, `AgentRunStatus`, `AgentStepRecord`, `AssistantToolCallRecord`, `AssistantTurnRecord`, `McpCallRecord`) | product-domain | The shared loop still materializes refine-facing run result and progress record shapes directly, so the kernel owns product/session reporting semantics instead of a narrow engine protocol. | Replace these with engine-facing execution/progress/result contracts under `src/contracts/**`, then let `application/refine/*` map engine output into product-domain records and persistence-facing artifacts. |
+| `src/kernel/pi-agent-loop.ts` | `../domain/high-level-log.js` (`HighLevelLogEntry`, `HighLevelLogStatus`) | product-domain | The loop still accumulates high-level log entries with refine-facing stage/status semantics, so product logging meaning remains embedded inside the kernel. | Move high-level log shaping to `application/refine/*` or an application-owned mapper that derives these records from narrower engine events. |
+| `src/kernel/pi-agent-loop.ts` | `../infrastructure/llm/model-resolver.js` (`ModelResolver`) | infrastructure | `initialize()` still resolves provider/model/baseUrl behavior through a concrete infra helper, so the kernel owns model-resolution policy instead of consuming an injected model/agent protocol. | Resolve models in shell/application-owned assembly and inject the resolved model or an agent-factory/model-provider contract into the kernel. |
+| `src/kernel/pi-agent-tool-adapter.ts` | none outside `contracts/*`, `kernel/*`, Node, and pi-agent libraries | none | The adapter currently only translates `ToolClient` definitions into pi-agent tool protocol plus hook dispatch. | Keep in the narrowed kernel/engine subset; no Phase 2 leak removal required here. |
+| `src/kernel/pi-agent-tool-hooks.ts` | none outside `contracts/*` | none | The hook registry/types are already a narrow shared protocol. | Keep in the narrowed kernel/engine subset; no Phase 2 leak removal required here. |
+
 ## Project Verification Notes
-- `npm --prefix apps/agent-runtime run lint:docs` is required for the active Phase 1 governance/doc-sync slice.
-- `npm --prefix apps/agent-runtime run lint:arch`, `lint`, `test`, `typecheck`, `build`, and `hardgate` remain the current project verification commands.
+- `npm --prefix apps/agent-runtime run lint:docs` belonged to the completed Phase 1 docs-and-hardgate slice; it is not part of the active Phase 2 kernel-narrowing plan.
+- `npm --prefix apps/agent-runtime run lint:arch`, `lint`, `test`, `typecheck`, `build`, and `hardgate` remain the current project verification commands for implementation work.
 - Current local refine e2e baseline is:
   - system Chrome binary
   - `~/.sasiki/chrome_profile`
@@ -85,8 +98,9 @@ apps/agent-runtime/src/
   - `NEXT_STEP.md`
 - Active governance spec / plan for the current worktree slice:
   - `docs/superpowers/specs/2026-03-23-agent-runtime-openai-style-layer-model-design.md`
-  - `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-1-implementation.md`
+  - `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-2-kernel-narrowing-implementation.md`
 - Latest completed implementation chain before this governance slice:
+  - `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-1-implementation.md`
   - `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
   - `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
 - Historical background docs:
@@ -110,5 +124,5 @@ apps/agent-runtime/src/
 - The taxonomy reorganization plan is complete and now serves as migration background.
 - The current baseline is the post-pi-agent-hook-adapter front door.
 - The active repo-wide product next step remains a fresh real-browser refine smoke e2e against the new pi-agent hook boundary and telemetry artifacts.
-- The active governance next step in this worktree is to finish Phase 1 hardgate encoding after the docs/ledger truth is frozen.
+- The active governance next step in this worktree is to remove the documented `pi-agent-loop.ts` domain/infrastructure leaks by extracting engine-facing contracts and application-owned mapping.
 - See `NEXT_STEP.md` for the exact current task pointer.

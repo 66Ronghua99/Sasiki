@@ -11,6 +11,7 @@
 
 ## Current Code Status
 - **Phase 1 layer-model hardgate baseline 已完成**: `apps/agent-runtime/src` 的 OpenAI-style layer model 已冻结到当前前门文档与架构门禁；`lint:arch` 现在显式拒绝未知 top-level root、任何新 `src/runtime/*` / `src/core/*`、workflow horizontal edges、以及 refine-tools role drift；当前仍未收窄完的 `kernel/*` / non-shell `application/* -> infrastructure/*` / `application/refine/tools/runtime|providers/*` 只允许通过显式 exception ledger 留存，不能静默扩张；本轮 fresh hardgate report 为 `artifacts/code-gate/2026-03-23T04-23-38-903Z/report.json`。
+- **Phase 2 kernel narrowing Task 1 文档盘点已完成**: 当前 `kernel/*` 的 import leakage 已按代码真相登记到前门文档；今天只有 `src/kernel/pi-agent-loop.ts` 仍带 Phase 2 removal target，其中 `../domain/agent-types.js` 和 `../domain/high-level-log.js` 属于 product-domain leakage，`../infrastructure/llm/model-resolver.js` 属于 infrastructure leakage；`pi-agent-tool-adapter.ts` 与 `pi-agent-tool-hooks.ts` 当前只依赖 `contracts/*` / `kernel/*` / 外部库，不带额外 domain 或 infrastructure import。
 - **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`PiAgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
@@ -60,6 +61,18 @@ apps/agent-runtime/src/
   utils/            - 纯工具函数
 ```
 
+- Phase 2 当前 kernel leakage inventory：
+  - `apps/agent-runtime/src/kernel/pi-agent-loop.ts -> ../domain/agent-types.js`
+    removal target: 把 run/progress/result record 收窄成 engine-facing contracts，并由 `application/refine/*` 负责映射到产品域记录与持久化输出。
+  - `apps/agent-runtime/src/kernel/pi-agent-loop.ts -> ../domain/high-level-log.js`
+    removal target: 把 high-level log 语义从 kernel 拿回 `application/refine/*` 或 application-owned mapper，由更窄 engine events 派生。
+  - `apps/agent-runtime/src/kernel/pi-agent-loop.ts -> ../infrastructure/llm/model-resolver.js`
+    removal target: 把 model resolution 挪回 shell/application-owned assembly，通过注入的 model/agent protocol 供 kernel 消费。
+  - `apps/agent-runtime/src/kernel/pi-agent-tool-adapter.ts`
+    current state: 无 product-domain / infrastructure import，预期保留在 narrowed kernel subset。
+  - `apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts`
+    current state: 无 product-domain / infrastructure import，预期保留在 narrowed kernel subset。
+
 ## Active References (L0)
 - `PROGRESS.md`
 - `NEXT_STEP.md`
@@ -72,7 +85,7 @@ apps/agent-runtime/src/
 
 ## Active Spec / Plan
 - `docs/superpowers/specs/2026-03-23-agent-runtime-openai-style-layer-model-design.md`
-- `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-1-implementation.md`
+- `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-2-kernel-narrowing-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -91,9 +104,13 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 开始 Phase 2 kernel narrowing：先把 `apps/agent-runtime/src/kernel/pi-agent-loop.ts` 从 `domain` / `infrastructure` 依赖里收窄出来，改成仅消费注入协议的更窄 engine seam。
+- `P0` 继续 Phase 2 kernel narrowing：先把 `apps/agent-runtime/src/kernel/pi-agent-loop.ts` 的 `domain` / `infrastructure` imports 替换成更窄的 engine-facing contracts 与注入协议。
 
 ## DONE
+- 已完成 Phase 2 Task 1（kernel leakage inventory docs sync）：
+  - 记录了今天 `kernel/*` 的实际泄漏清单
+  - 区分了 product-domain 与 infrastructure imports
+  - 为每个 leak 标记了对应 removal target
 - 已完成代码基线回滚到 `3c97346`。
 - 已完成 Harness migration bootstrap，并补齐仓库级入口文档与模板。
 - 已完成第一轮“重启同步”。
