@@ -10,6 +10,7 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- **Phase 1 layer-model hardgate baseline 已完成**: `apps/agent-runtime/src` 的 OpenAI-style layer model 已冻结到当前前门文档与架构门禁；`lint:arch` 现在显式拒绝未知 top-level root、任何新 `src/runtime/*` / `src/core/*`、workflow horizontal edges、以及 refine-tools role drift；当前仍未收窄完的 `kernel/*` / non-shell `application/* -> infrastructure/*` / `application/refine/tools/runtime|providers/*` 只允许通过显式 exception ledger 留存，不能静默扩张；本轮 fresh hardgate report 为 `artifacts/code-gate/2026-03-23T04-23-38-903Z/report.json`。
 - **Runtime Telemetry Event Stream 任务已完成**: `telemetry` config 已成为显式 contract，composition root 统一注入 run-scoped telemetry，`PiAgentLoop` / observe / compact 都会发 runtime events，refine 的 canonical artifacts 已收敛为 `event_stream.jsonl`、run summary artifact、`agent_checkpoints/` 与 attention knowledge store。
 - **Workflow Host Task 2 已完成**: observe 侧的 workflow 构造已迁入 `src/application/observe/observe-workflow.ts`，`ObserveExecutor` 现在在 observe-owned 代码里自行构造 `SopAssetStore`，`ExecutionContextProvider` 也已收窄为 refine-only。
 - **Workflow Host Task 5 已完成**: `src/runtime/agent-execution-runtime.ts` 已删除；`application/shell/runtime-host.ts` 现在是唯一顶层 lifecycle owner；`workflow-runtime.ts` 已收窄为命令到 workflow 的薄协调层；compact service 构造已迁回 `runtime-composition-root.ts`。
@@ -70,8 +71,8 @@ apps/agent-runtime/src/
 - `docs/testing/strategy.md`
 
 ## Active Spec / Plan
-- `docs/superpowers/specs/2026-03-22-pi-agent-hook-adapter-refactor-design.md`
-- `docs/superpowers/plans/2026-03-22-pi-agent-hook-adapter-refactor-implementation.md`
+- `docs/superpowers/specs/2026-03-23-agent-runtime-openai-style-layer-model-design.md`
+- `docs/superpowers/plans/2026-03-23-agent-runtime-openai-style-layer-model-phase-1-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -90,7 +91,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 跑一轮新的真实 refine smoke e2e，验证 `PiAgentToolAdapter` tool-name hook 路径与 direct-call hook-free boundary 在浏览器实流中稳定，并检查 `event_stream.jsonl` / `agent_checkpoints/`。
+- `P0` 开始 Phase 2 kernel narrowing：先把 `apps/agent-runtime/src/kernel/pi-agent-loop.ts` 从 `domain` / `infrastructure` 依赖里收窄出来，改成仅消费注入协议的更窄 engine seam。
 
 ## DONE
 - 已完成代码基线回滚到 `3c97346`。
@@ -204,3 +205,12 @@ apps/agent-runtime/src/
   - full gates：`npm --prefix apps/agent-runtime run build`
   - full gates：`npm --prefix apps/agent-runtime run hardgate`
   - fresh hardgate report：`artifacts/code-gate/2026-03-22T14-24-10-690Z/report.json`
+- 已完成 Phase 1 layer-model hardgate baseline：
+  - 前门文档与 handoff docs 已统一收口到 2026-03-23 layer-model spec / phase-1 implementation plan
+  - `lint:arch` 现已把 exception ledger 作为当前过渡偏差的唯一合法登记面，不再允许 silent widening
+  - full gates：`npm --prefix apps/agent-runtime run lint`
+  - full gates：`npm --prefix apps/agent-runtime run test`
+  - full gates：`npm --prefix apps/agent-runtime run typecheck`
+  - full gates：`npm --prefix apps/agent-runtime run build`
+  - full gates：`npm --prefix apps/agent-runtime run hardgate`
+  - fresh hardgate report：`artifacts/code-gate/2026-03-23T04-23-38-903Z/report.json`

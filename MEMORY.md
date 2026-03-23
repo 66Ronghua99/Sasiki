@@ -12,6 +12,9 @@
   - canonical home: `apps/agent-runtime/src/kernel/pi-agent-loop.ts` + `pi-agent-tool-adapter.ts`
   - old `core/*` / `runtime/*` compatibility shells for this boundary have been removed
 - `application/shell/runtime-host.ts` 是当前唯一顶层 workflow lifecycle owner；不要再把 prepare/execute/dispose fallback 逻辑散落回 `workflow-runtime.ts` 或其他 wrapper。
+- 2026-03-23 的 OpenAI-style layer model Phase 1 是 governance / hardgate baseline，不是“当前代码已经完全到达 end state”的声明；目标层级模型比现状更窄，后续 Phase 2+ 仍要继续把过渡 seam 收回来。
+- Phase 1 允许存在的架构偏差必须全部写进显式 exception ledger；不能通过放宽 lint 规则、补隐式 allowlist、或默认接受新的 non-shell assembly / kernel coupling 来静默扩张例外面。
+- `application/shell/runtime-composition-root.ts` 仍是当前 front-door composition owner，也是唯一批准的顶层 concrete assembly owner；任何留在 observe / compact / refine / config 下的 concrete assembly 都只能作为带退出计划的过渡例外，而不是长期常态。
 - workflow 注册主链路当前固定为 `workflow-runtime -> runtime-host -> *-workflow`；不要再恢复 `application/observe/observe-runtime.ts` 这类单 workflow wrapper，也不要把 `RuntimeHost` 扩回“先绑定 workflow 再 start/execute”的双形态 API。
 - `application/shell/workflow-runtime.ts` 当前只负责 CLI command -> workflow 选择与交给 host 执行；不要再把 compact service 构造或 interrupt fallback 塞回去。
 - `refinementMode` 现在仅保留配置兼容，new refine path 里是显式 no-op（日志说明 ignored）。
