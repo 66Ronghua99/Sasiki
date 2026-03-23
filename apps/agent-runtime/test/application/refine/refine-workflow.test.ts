@@ -148,9 +148,9 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
         assert.equal(input.systemPrompt, "refine prompt");
         events.push("assemble.loop");
         Object.assign(loop, {
-          setToolHookObserver(observer: unknown) {
-            assert.equal(typeof observer, "object");
-            events.push("assemble.loop-hook-observer");
+          setToolHooks(hooks: unknown) {
+            assert.equal(hooks, composition.toolHooks);
+            events.push("assemble.loop-tool-hooks");
           },
         });
         return loop as never;
@@ -187,7 +187,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
     "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
-    "assemble.loop-hook-observer",
+    "assemble.loop-tool-hooks",
     "assemble.run-executor",
     "assemble.agent-runtime",
   ]);
@@ -205,7 +205,7 @@ test("refine workflow assembly owns refine tool surface, bootstrap, and executor
     "assemble.persistence",
     "assemble.bootstrap-provider",
     "assemble.loop",
-    "assemble.loop-hook-observer",
+    "assemble.loop-tool-hooks",
     "assemble.run-executor",
     "assemble.agent-runtime",
     "browser.start",
@@ -226,5 +226,5 @@ test("refine workflow composition builds a surface and mutable context outside t
   assert.equal(typeof composition.surface.callTool, "function");
   assert.equal(typeof composition.surface.listTools, "function");
   assert.equal(typeof composition.contextRef.set, "function");
-  assert.equal(typeof composition.hookObserver, "object");
+  assert.equal(composition.toolHooks instanceof Map, true);
 });

@@ -1,6 +1,6 @@
 import type { RefineToolContext } from "./refine-tool-context.js";
 import type { RefineToolDefinition } from "./refine-tool-definition.js";
-import type { RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
+import { readRefineToolAfterCapture, type RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
 import type { ToolCallHookContext } from "../../../domain/refinement-session.js";
 import type {
   McpToolCallHookObserver,
@@ -39,17 +39,16 @@ class RefineToolHookObserverAdapter<TContext extends RefineToolContext> implemen
     rawResult: import("../../../contracts/tool-client.js").ToolCallResult,
     beforeCapture: ToolCallHookCapture | null,
   ): Promise<ToolCallHookCapture | null> {
-    return (
-      (await this.pipeline.afterToolCall?.(
-        {
-          definition: this.resolveDefinition(context),
-          args: context.toolArgs,
-          context: this.resolveContext(context),
-          result: rawResult,
-        },
-        beforeCapture,
-      )) ?? null
+    const output = await this.pipeline.afterToolCall?.(
+      {
+        definition: this.resolveDefinition(context),
+        args: context.toolArgs,
+        context: this.resolveContext(context),
+        result: rawResult,
+      },
+      beforeCapture,
     );
+    return output === undefined ? null : readRefineToolAfterCapture(output);
   }
 }
 

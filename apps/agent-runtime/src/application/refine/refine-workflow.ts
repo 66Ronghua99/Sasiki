@@ -216,8 +216,8 @@ export function createRefineWorkflowAssembly(
     toolClient,
     logger: options.logger,
   });
-  if ("setToolHookObserver" in loop && typeof loop.setToolHookObserver === "function") {
-    loop.setToolHookObserver(toolComposition.hookObserver);
+  if ("setToolHooks" in loop && typeof loop.setToolHooks === "function") {
+    loop.setToolHooks(toolComposition.toolHooks);
   }
   const runExecutor = createRunExecutor({
     loop,

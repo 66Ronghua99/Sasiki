@@ -21,7 +21,8 @@ import type {
 import type { HighLevelLogEntry, HighLevelLogStatus } from "../domain/high-level-log.js";
 import type { ToolCallHookContext } from "../domain/refinement-session.js";
 import { ModelResolver } from "../infrastructure/llm/model-resolver.js";
-import { PiAgentToolAdapter, type PiAgentToolCallHookObserver } from "./pi-agent-tool-adapter.js";
+import { PiAgentToolAdapter } from "./pi-agent-tool-adapter.js";
+import type { PiAgentToolHookRegistry } from "./pi-agent-tool-hooks.js";
 
 export interface PiAgentLoopConfig {
   model: string;
@@ -128,8 +129,8 @@ export class PiAgentLoop {
     this.agent = null;
   }
 
-  setToolHookObserver(observer: PiAgentToolCallHookObserver | null): void {
-    this.toolAdapter.setHookObserver(observer);
+  setToolHooks(hooks: PiAgentToolHookRegistry): void {
+    this.toolAdapter.setHooks(hooks);
   }
 
   setToolHookContext(context: Partial<ToolCallHookContext>): void {

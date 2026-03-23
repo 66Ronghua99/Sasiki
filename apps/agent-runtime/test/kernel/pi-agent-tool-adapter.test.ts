@@ -24,27 +24,34 @@ test("registered exact tool-name hooks run before and after adapter execution", 
   const raw = new StubToolClient();
   const calls: string[] = [];
 
-  // Future boundary freeze: the adapter should honor exact tool-name hooks and mutate the final result.
-  // Today the kernel owner still routes through classification, so act.click remains unhooked.
   const adapter = new PiAgentToolAdapter(raw, {
-    hookObserver: {
-      async beforeToolCall(context) {
-        calls.push(`before:${context.toolName}`);
-        return { captureStatus: "skipped" };
-      },
-      async afterToolCall(context, result) {
-        calls.push(`after:${context.toolName}`);
-        return {
-          captureStatus: "captured",
-          observationText: "hooked click",
-        };
-      },
-    },
+    hooks: new Map([
+      [
+        "act.click",
+        [
+          {
+            async before(context) {
+              calls.push(`before:${context.toolName}`);
+              return { note: "capture" };
+            },
+            async after(context, result) {
+              calls.push(`after:${context.toolName}`);
+              return {
+                ...result,
+                content: [{ type: "text", text: "hooked click" }],
+              };
+            },
+          },
+        ],
+      ],
+    ]),
     hookContext: {
-      runId: "run-hook",
-      sessionId: "session-hook",
-      pageId: "page-hook",
-      stepIndex: 1,
+      runtimeContext: {
+        runId: "run-hook",
+        sessionId: "session-hook",
+        pageId: "page-hook",
+        stepIndex: 1,
+      },
     },
   });
 
@@ -54,4 +61,37 @@ test("registered exact tool-name hooks run before and after adapter execution", 
   assert.deepEqual(raw.calls, [{ name: "act.click", args: { ref: "el-like" } }]);
   assert.deepEqual(calls, ["before:act.click", "after:act.click"]);
   assert.equal(result.content[0]?.text, "hooked click");
+});
+
+test("unregistered tools bypass hooks and preserve raw tool text", async () => {
+  const raw = new StubToolClient();
+  const calls: string[] = [];
+  const adapter = new PiAgentToolAdapter(raw, {
+    hooks: new Map([
+      [
+        "observe.page",
+        [
+          {
+            async before(context) {
+              calls.push(`before:${context.toolName}`);
+              return undefined;
+            },
+            async after(context) {
+              calls.push(`after:${context.toolName}`);
+              return {
+                content: [{ type: "text", text: `hooked:${context.toolName}` }],
+              };
+            },
+          },
+        ],
+      ],
+    ]),
+  });
+
+  const [tool] = await adapter.buildAgentTools();
+  const result = await tool.execute("call-2", { ref: "el-like" });
+
+  assert.deepEqual(raw.calls, [{ name: "act.click", args: { ref: "el-like" } }]);
+  assert.deepEqual(calls, []);
+  assert.equal(result.content[0]?.text, "clicked");
 });

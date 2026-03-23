@@ -59,20 +59,13 @@ export class RefineReactToolClient implements ToolClient {
         } as unknown as RefineToolComposition["registry"],
         hookPipeline: {
           async beforeToolCall() {
-            return null;
+            return undefined;
           },
           async afterToolCall(_call, beforeCapture) {
             return beforeCapture;
           },
         },
-        hookObserver: {
-          async beforeToolCall() {
-            return null;
-          },
-          async afterToolCall() {
-            return null;
-          },
-        },
+        toolHooks: new Map(),
       };
       return;
     }

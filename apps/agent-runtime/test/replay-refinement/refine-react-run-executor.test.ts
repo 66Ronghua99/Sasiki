@@ -112,6 +112,7 @@ class FakeLoop {
   runtimeTelemetry: unknown = null;
   readonly calls: string[] = [];
   readonly hookContexts: Array<Record<string, unknown>> = [];
+  readonly hookRegistries: unknown[] = [];
 
   constructor(script: (task: string) => Promise<AgentRunResult>) {
     this.script = script;
@@ -126,6 +127,10 @@ class FakeLoop {
 
   setToolHookContext(context: Record<string, unknown>): void {
     this.hookContexts.push(context);
+  }
+
+  setToolHooks(hooks: unknown): void {
+    this.hookRegistries.push(hooks);
   }
 
   async run(task: string): Promise<AgentRunResult> {
@@ -346,6 +351,7 @@ test("executor updates loop hook context from the active refine session after bo
       stepIndex: 0,
     },
   ]);
+  assert.deepEqual(loop.hookRegistries, []);
 });
 
 test("executor rejects when lifecycle telemetry emit fails", async () => {

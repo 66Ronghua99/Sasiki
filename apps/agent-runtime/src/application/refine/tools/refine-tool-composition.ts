@@ -1,5 +1,5 @@
 import type { ToolClient } from "../../../contracts/tool-client.js";
-import type { McpToolCallHookObserver, ToolCallHookCapture } from "../../../kernel/mcp-tool-bridge.js";
+import type { PiAgentToolHookRegistry } from "../../../kernel/pi-agent-tool-hooks.js";
 import { createRefineReactSession, type RefineReactSession } from "../refine-react-session.js";
 import { RefineBrowserTools } from "./runtime/refine-browser-tools.js";
 import { RefineRuntimeTools, type HitlAnswerProvider } from "./runtime/refine-runtime-tools.js";
@@ -7,11 +7,11 @@ import { createRefineBrowserToolRegistry } from "./refine-browser-tool-registry.
 import { createRefineRuntimeToolRegistry } from "./refine-runtime-tool-registry.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
 import { createRefineToolContextRef, type RefineToolContext, type RefineToolContextRef } from "./refine-tool-context.js";
+import { createRefinePiAgentToolHooks } from "./refine-pi-agent-tool-hooks.js";
 import { RefineToolSurface } from "./refine-tool-surface.js";
 import { RefineToolSurfaceLifecycleCoordinator } from "./refine-tool-surface-lifecycle.js";
 import { RefineBrowserProviderImpl, type RefineBrowserProvider } from "./providers/refine-browser-provider.js";
 import { RefineRuntimeProviderImpl, type RefineRuntimeProvider } from "./providers/refine-runtime-provider.js";
-import { createRefineToolHookObserver } from "./refine-tool-hook-observer.js";
 import { createRefineToolHookPipeline, type RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
 
 export interface RefineToolCompositionContext extends RefineToolContext {
@@ -32,8 +32,8 @@ export interface RefineToolComposition {
   contextRef: RefineToolContextRef<RefineToolCompositionContext>;
   registry: RefineToolRegistry;
   surface: RefineToolSurface<RefineToolCompositionContext>;
-  hookPipeline: RefineToolHookPipeline<RefineToolCompositionContext, ToolCallHookCapture | null>;
-  hookObserver: McpToolCallHookObserver;
+  hookPipeline: RefineToolHookPipeline<RefineToolCompositionContext, undefined>;
+  toolHooks: PiAgentToolHookRegistry;
 }
 
 export function createRefineToolComposition(input: RefineToolCompositionInput): RefineToolComposition {
@@ -76,6 +76,13 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
     ],
   });
   const hookPipeline = createNoOpHookPipeline();
+  const toolHooks = createRefinePiAgentToolHooks({
+    registry,
+    pipeline: hookPipeline,
+    resolveContext() {
+      return contextRef.get();
+    },
+  });
   const surface = new RefineToolSurface({
     registry,
     contextRef,
@@ -84,19 +91,13 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
       participants: [rawClient],
     }),
   });
-  const hookObserver = createRefineToolHookObserver({
-    pipeline: hookPipeline,
-    resolveContext() {
-      return contextRef.get();
-    },
-  });
 
   return {
     contextRef,
     registry,
     surface,
     hookPipeline,
-    hookObserver,
+    toolHooks,
   };
 }
 
@@ -106,10 +107,10 @@ export function createBootstrapRefineToolComposition(rawClient: ToolClient): Ref
   });
 }
 
-function createNoOpHookPipeline(): RefineToolHookPipeline<RefineToolCompositionContext, ToolCallHookCapture | null> {
-  return createRefineToolHookPipeline<RefineToolCompositionContext, ToolCallHookCapture | null>({
+function createNoOpHookPipeline(): RefineToolHookPipeline<RefineToolCompositionContext, undefined> {
+  return createRefineToolHookPipeline<RefineToolCompositionContext, undefined>({
     async beforeToolCall() {
-      return null;
+      return undefined;
     },
     async afterToolCall(_call, beforeCapture) {
       return beforeCapture;
