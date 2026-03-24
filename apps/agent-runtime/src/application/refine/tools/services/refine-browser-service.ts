@@ -1,21 +1,33 @@
 /**
  * Deps: contracts/tool-client.ts, domain/refine-react.ts, application/refine/refine-react-session.ts, application/refine/refine-browser-snapshot-parser.ts
  * Used By: application/refine/tools/refine-tool-composition.ts, application/refine/refine-react-tool-client.ts
- * Last Updated: 2026-03-23
+ * Last Updated: 2026-03-24
  */
 import type { ToolCallResult, ToolClient } from "../../../../contracts/tool-client.js";
 import type {
   ActionExecutionResult,
-  BrowserTabIdentity,
   ObservePageResponse,
   ObserveQueryRequest,
   ObserveQueryResponse,
-  PageIdentity,
   PageObservation,
 } from "../../../../domain/refine-react.js";
 import type { RefineReactSession } from "../../refine-react-session.js";
 import { RefineBrowserSnapshotParser } from "../../refine-browser-snapshot-parser.js";
-import { readScreenshotEvidenceRef } from "./refine-browser-service-helpers.js";
+import {
+  assertActionSourceContext,
+  buildScreenshotArgs,
+  filterSnapshotLines,
+  isScreenshotFailure,
+  readScreenshotEvidenceRef,
+  readToolText,
+  requireSourceObservation,
+  resolveActionSuccess,
+  toActionResult,
+} from "./refine-browser-service-helpers.js";
+import {
+  captureStabilizedObservation,
+  type ObservationStabilizerSettings,
+} from "./refine-browser-observation-stabilizer.js";
 
 export interface RefineBrowserService {
   getSession(): RefineReactSession;
@@ -41,16 +53,20 @@ export interface RefineBrowserService {
 export interface RefineBrowserServiceOptions {
   rawClient: ToolClient;
   session: RefineReactSession;
+  stabilizationSettings?: Partial<ObservationStabilizerSettings>;
 }
 
 export class RefineBrowserServiceImpl implements RefineBrowserService {
   private readonly rawClient: ToolClient;
   private readonly parser = new RefineBrowserSnapshotParser();
+  private readonly stabilizationSettings: Partial<ObservationStabilizerSettings>;
   private currentSession: RefineReactSession;
   private observationCounter = 0;
+  private rawToolNamesPromise: Promise<Set<string>> | null = null;
 
   constructor(options: RefineBrowserServiceOptions) {
     this.rawClient = options.rawClient;
+    this.stabilizationSettings = options.stabilizationSettings ?? {};
     this.currentSession = options.session;
   }
 
@@ -64,16 +80,22 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
   }
 
   async capturePageObservation(): Promise<ObservePageResponse> {
-    const snapshotResult = await this.rawClient.callTool("browser_snapshot", {});
-    const snapshotText = this.readToolText(snapshotResult);
-    const metadata = this.parser.parseObservationMetadata(snapshotText);
+    await this.alignObservationTargetBeforeSnapshot();
+    const stabilizedObservation = await captureStabilizedObservation(
+      this.rawClient,
+      this.parser,
+      this.stabilizationSettings,
+    );
     const observation: PageObservation = {
       observationRef: this.createObservationRef(),
-      page: metadata.page ?? this.parser.pageIdentityFromUrl("about:blank", "Unknown"),
-      tabs: metadata.tabs,
-      activeTabIndex: metadata.activeTabIndex,
-      activeTabMatchesPage: metadata.activeTabMatchesPage,
-      snapshot: snapshotText,
+      page: stabilizedObservation.metadata.page ?? this.parser.pageIdentityFromUrl("about:blank", "Unknown"),
+      tabs: stabilizedObservation.metadata.tabs,
+      activeTabIndex: stabilizedObservation.metadata.activeTabIndex,
+      activeTabMatchesPage: stabilizedObservation.metadata.activeTabMatchesPage,
+      observationReadiness: stabilizedObservation.readiness,
+      pageTab: stabilizedObservation.metadata.pageTab,
+      taskRelevantTabs: stabilizedObservation.metadata.taskRelevantTabs,
+      snapshot: stabilizedObservation.snapshot,
       capturedAt: new Date().toISOString(),
     };
     this.currentSession.recordObservation(observation);
@@ -81,8 +103,11 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
   }
 
   async queryObservation(request: ObserveQueryRequest): Promise<ObserveQueryResponse> {
-    const observation = this.currentSession.latestObservation() ?? (await this.capturePageObservation()).observation;
-    const matches = this.filterSnapshotLines(observation, request);
+    const observation = this.currentSession.latestObservation();
+    if (!observation) {
+      throw new Error("observe.query requires an existing observation; call observe.page first");
+    }
+    const matches = filterSnapshotLines(this.parser, observation, request);
     return {
       observationRef: observation.observationRef,
       page: {
@@ -97,18 +122,23 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     elementRef: string;
     sourceObservationRef: string;
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const raw = await this.rawClient.callTool("browser_click", { ref: args.elementRef });
-    const message = this.readToolText(raw);
+    const message = readToolText(raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("click", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "click", args.sourceObservationRef, {
       targetElementRef: args.elementRef,
       fallbackPage: sourceObservation.page,
       page: metadata.page,
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
@@ -120,41 +150,51 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     text: string;
     submit?: boolean;
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const raw = await this.rawClient.callTool("browser_type", {
       ref: args.elementRef,
       text: args.text,
       submit: args.submit ?? false,
     });
-    const message = this.readToolText(raw);
+    const message = readToolText(raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("type", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "type", args.sourceObservationRef, {
       targetElementRef: args.elementRef,
       fallbackPage: sourceObservation.page,
       page: metadata.page,
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
   }
 
   async pressKey(args: { key: string; sourceObservationRef: string }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const raw = await this.rawClient.callTool("browser_press_key", {
       key: args.key,
     });
-    const message = this.readToolText(raw);
+    const message = readToolText(raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("press", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "press", args.sourceObservationRef, {
       fallbackPage: sourceObservation.page,
       page: metadata.page,
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
@@ -164,19 +204,25 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     url: string;
     sourceObservationRef: string;
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const raw = await this.rawClient.callTool("browser_navigate", {
       url: args.url,
     });
-    const message = this.readToolText(raw);
+    const alignedRaw = await this.realignVisibleTabAfterNavigate(raw);
+    const message = readToolText(alignedRaw ?? raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("navigate", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "navigate", args.sourceObservationRef, {
       fallbackPage: sourceObservation.page,
       page: metadata.page ?? this.parser.pageIdentityFromUrl(args.url, "navigated"),
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(alignedRaw ?? raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
@@ -186,20 +232,20 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     tabIndex: number;
     sourceObservationRef: string;
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = this.requireSourceObservation(args.sourceObservationRef);
+    const sourceObservation = requireSourceObservation(this.currentSession, args.sourceObservationRef);
     const raw = await this.rawClient.callTool("browser_tabs", {
       action: "select",
       index: args.tabIndex,
     });
-    const message = this.readToolText(raw);
+    const message = readToolText(raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("select_tab", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "select_tab", args.sourceObservationRef, {
       fallbackPage: sourceObservation.page,
       page: metadata.page,
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
@@ -210,7 +256,12 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     fullPage?: boolean;
     filename?: string;
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const rawTools = await this.rawClient.listTools();
     const names = new Set(rawTools.map((tool) => tool.name));
     const candidates: Array<{
@@ -219,13 +270,13 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     }> = [
       {
         name: "browser_take_screenshot",
-        args: this.buildScreenshotArgs(args, {
+        args: buildScreenshotArgs(args, {
           includeTypeMode: "always",
         }),
       },
       {
         name: "browser_screenshot",
-        args: this.buildScreenshotArgs(args, {
+        args: buildScreenshotArgs(args, {
           includeTypeMode: "optional",
         }),
       },
@@ -239,16 +290,20 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
       for (const candidateArgs of candidate.args) {
         try {
           const raw = await this.rawClient.callTool(candidate.name, candidateArgs);
-          const message = this.readToolText(raw);
+          const message = readToolText(raw);
+          if (isScreenshotFailure(raw, message)) {
+            lastError = new Error(`browser screenshot returned an error: ${message}`);
+            continue;
+          }
           const metadata = this.parser.parseObservationMetadata(message);
-          const result = this.toActionResult("screenshot", args.sourceObservationRef, {
+          const result = toActionResult(this.currentSession.latestObservation(), this.parser, "screenshot", args.sourceObservationRef, {
             fallbackPage: sourceObservation.page,
             page: metadata.page,
             tabs: metadata.tabs,
             activeTabIndex: metadata.activeTabIndex,
             message,
-          evidenceRef: readScreenshotEvidenceRef(candidateArgs),
-            success: this.resolveActionSuccess(raw, message),
+            evidenceRef: readScreenshotEvidenceRef(candidateArgs),
+            success: resolveActionSuccess(raw, message),
           });
           this.currentSession.recordAction(result);
           return { result };
@@ -268,20 +323,25 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     sourceObservationRef: string;
     paths?: string[];
   }): Promise<{ result: ActionExecutionResult }> {
-    const sourceObservation = await this.assertActionSourceContext(args.sourceObservationRef);
+    const sourceObservation = await assertActionSourceContext(
+      this.rawClient,
+      this.parser,
+      this.currentSession,
+      args.sourceObservationRef,
+    );
     const raw = await this.rawClient.callTool(
       "browser_file_upload",
       Array.isArray(args.paths) && args.paths.length > 0 ? { paths: args.paths } : {},
     );
-    const message = this.readToolText(raw);
+    const message = readToolText(raw);
     const metadata = this.parser.parseObservationMetadata(message);
-    const result = this.toActionResult("file_upload", args.sourceObservationRef, {
+    const result = toActionResult(this.currentSession.latestObservation(), this.parser, "file_upload", args.sourceObservationRef, {
       fallbackPage: sourceObservation.page,
       page: metadata.page,
       tabs: metadata.tabs,
       activeTabIndex: metadata.activeTabIndex,
       message,
-      success: this.resolveActionSuccess(raw, message),
+      success: resolveActionSuccess(raw, message),
     });
     this.currentSession.recordAction(result);
     return { result };
@@ -292,205 +352,62 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
     return `obs_${this.currentSession.runId}_${this.observationCounter}`;
   }
 
-  private filterSnapshotLines(observation: PageObservation, request: ObserveQueryRequest): Array<{
-    elementRef: string;
-    sourceObservationRef: string;
-    role: string;
-    rawText: string;
-    normalizedText: string;
-  }> {
-    const candidates = this.parser.parseSnapshotElements(observation.snapshot).map((item) => ({
-      elementRef: item.elementRef,
-      sourceObservationRef: observation.observationRef,
-      role: item.role,
-      rawText: item.rawText,
-      normalizedText: item.normalizedText,
-    }));
-
-    const filtered = candidates.filter((candidate) => this.matchesQueryFilter(candidate, request));
-    const limited = Number.isFinite(request.limit) && (request.limit ?? 0) > 0 ? filtered.slice(0, request.limit) : filtered;
-    return limited;
+  private async alignObservationTargetBeforeSnapshot(): Promise<void> {
+    if (!(await this.supportsRawTool("browser_tabs"))) {
+      return;
+    }
+    const rawList = await this.rawClient.callTool("browser_tabs", { action: "list" });
+    const metadata = this.parser.parseObservationMetadata(readToolText(rawList));
+    const activeTab = metadata.tabs.find((tab) => tab.isActive);
+    if (!activeTab || this.isObservationReadyTab(activeTab.url)) {
+      return;
+    }
+    const candidate =
+      metadata.tabs.find((tab) => this.isBusinessTab(tab.url)) ??
+      metadata.tabs.find((tab) => this.isBootstrapBlankTab(tab.url));
+    if (!candidate || candidate.index === activeTab.index) {
+      return;
+    }
+    await this.rawClient.callTool("browser_tabs", {
+      action: "select",
+      index: candidate.index,
+    });
   }
 
-  private matchesQueryFilter(
-    match: { elementRef: string; role: string; normalizedText: string },
-    request: ObserveQueryRequest,
-  ): boolean {
-    if (request.mode === "inspect") {
-      if (!request.elementRef?.trim()) {
-        return false;
-      }
-      return match.elementRef === request.elementRef.trim();
-    }
-    if (request.role?.trim()) {
-      if (match.role !== request.role.trim().toLowerCase()) {
-        return false;
-      }
-    }
-    if (request.text?.trim()) {
-      const text = request.text.trim().toLowerCase();
-      if (!match.normalizedText.includes(text)) {
-        return false;
-      }
-    }
-    return true;
+  private isObservationReadyTab(url: string): boolean {
+    return this.isBusinessTab(url) || this.isBootstrapBlankTab(url);
   }
 
-  private readToolText(result: ToolCallResult): string {
-    if (typeof result === "string") {
-      return result;
-    }
-    if (Array.isArray(result.content)) {
-      for (const block of result.content) {
-        if (!block || typeof block !== "object") {
-          continue;
-        }
-        const text = (block as Record<string, unknown>).text;
-        if (typeof text === "string" && text.trim()) {
-          return text;
-        }
-      }
-    }
-    try {
-      return JSON.stringify(result);
-    } catch {
-      return String(result);
-    }
+  private isBusinessTab(url: string): boolean {
+    const normalized = url.trim().toLowerCase();
+    return normalized.startsWith("http://") || normalized.startsWith("https://");
   }
 
-  private resolveActionSuccess(raw: ToolCallResult, message: string): boolean {
-    if (raw.isError === true) {
-      return false;
-    }
-    if (/\"isError\"\s*:\s*true/.test(message)) {
-      return false;
-    }
-    if (/###\s*Error\b/i.test(message)) {
-      return false;
-    }
-    return true;
+  private isBootstrapBlankTab(url: string): boolean {
+    return url.trim().toLowerCase() === "about:blank";
   }
 
-  private toActionResult(
-    action: ActionExecutionResult["action"],
-    sourceObservationRef: string,
-    options: {
-      targetElementRef?: string;
-      page?: PageIdentity;
-      fallbackPage?: PageIdentity;
-      tabs?: BrowserTabIdentity[];
-      activeTabIndex?: number;
-      success?: boolean;
-      message?: string;
-      evidenceRef?: string;
-    },
-  ): ActionExecutionResult {
-    const latestObservation = this.currentSession.latestObservation();
-    return {
-      action,
-      success: options.success ?? true,
-      sourceObservationRef,
-      targetElementRef: options.targetElementRef,
-      page:
-        options.page ?? latestObservation?.page ?? options.fallbackPage ?? this.parser.pageIdentityFromUrl("about:blank", "Unknown"),
-      tabs: options.tabs && options.tabs.length > 0 ? options.tabs : latestObservation?.tabs,
-      activeTabIndex:
-        typeof options.activeTabIndex === "number" ? options.activeTabIndex : latestObservation?.activeTabIndex,
-      evidenceRef: options.evidenceRef,
-      message: options.message,
-    };
+  private async realignVisibleTabAfterNavigate(rawNavigateResult: ToolCallResult): Promise<ToolCallResult | null> {
+    const message = readToolText(rawNavigateResult);
+    const metadata = this.parser.parseObservationMetadata(message);
+    if (typeof metadata.activeTabIndex !== "number") {
+      return null;
+    }
+    if (!(await this.supportsRawTool("browser_tabs"))) {
+      return null;
+    }
+    return this.rawClient.callTool("browser_tabs", {
+      action: "select",
+      index: metadata.activeTabIndex,
+    });
   }
 
-  private requireSourceObservation(sourceObservationRef: string): PageObservation {
-    const observation = this.currentSession.findObservation(sourceObservationRef);
-    if (!observation) {
-      throw new Error(`unknown sourceObservationRef: ${sourceObservationRef}`);
+  private async supportsRawTool(name: string): Promise<boolean> {
+    if (!this.rawToolNamesPromise) {
+      this.rawToolNamesPromise = this.rawClient
+        .listTools()
+        .then((tools) => new Set(tools.map((tool) => tool.name)));
     }
-    return observation;
+    return (await this.rawToolNamesPromise).has(name);
   }
-
-  private async assertActionSourceContext(sourceObservationRef: string): Promise<PageObservation> {
-    const sourceObservation = this.requireSourceObservation(sourceObservationRef);
-    const sourceActiveTabIndex = sourceObservation.activeTabIndex;
-    if (typeof sourceActiveTabIndex !== "number") {
-      return sourceObservation;
-    }
-    const liveTabs = await this.readLiveTabs();
-    const liveActiveTab = liveTabs.find((tab) => tab.isActive);
-    if (!liveActiveTab) {
-      return sourceObservation;
-    }
-    if (liveActiveTab.index !== sourceActiveTabIndex) {
-      throw new Error(
-        `sourceObservationRef ${sourceObservationRef} tab mismatch: observed active tab ${sourceActiveTabIndex}, current active tab ${liveActiveTab.index}. call act.select_tab or observe.page before acting`,
-      );
-    }
-    return sourceObservation;
-  }
-
-  private async readLiveTabs(): Promise<BrowserTabIdentity[]> {
-    try {
-      const tools = await this.rawClient.listTools();
-      const names = new Set(tools.map((tool) => tool.name));
-      if (!names.has("browser_tabs")) {
-        return [];
-      }
-      const result = await this.rawClient.callTool("browser_tabs", { action: "list" });
-      const metadata = this.parser.parseObservationMetadata(this.readToolText(result));
-      return metadata.tabs;
-    } catch {
-      return [];
-    }
-  }
-
-  private buildScreenshotArgs(
-    args: {
-      fullPage?: boolean;
-      filename?: string;
-    },
-    options: {
-      includeTypeMode: "always" | "optional" | "never";
-    },
-  ): Record<string, unknown>[] {
-    const base: Record<string, unknown> = {};
-    if (typeof args.fullPage === "boolean") {
-      base.fullPage = args.fullPage;
-    }
-
-    const filename = args.filename?.trim();
-    const pathVariants: Array<Record<string, unknown>> =
-      typeof filename === "string" && filename.length > 0
-        ? [
-            { ...base, filename },
-            { ...base, path: filename },
-            { ...base, filePath: filename },
-          ]
-        : [{ ...base }];
-
-    const variants: Record<string, unknown>[] = [];
-    for (const variant of pathVariants) {
-      if (options.includeTypeMode === "always" || options.includeTypeMode === "optional") {
-        variants.push({ ...variant, type: "png" });
-      }
-      if (options.includeTypeMode === "optional" || options.includeTypeMode === "never") {
-        variants.push(variant);
-      }
-    }
-    return this.uniqueArgs(variants);
-  }
-
-  private uniqueArgs(items: Record<string, unknown>[]): Record<string, unknown>[] {
-    const seen = new Set<string>();
-    const output: Record<string, unknown>[] = [];
-    for (const item of items) {
-      const key = JSON.stringify(item);
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      output.push(item);
-    }
-    return output;
-  }
-
 }
