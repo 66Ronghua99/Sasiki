@@ -5,7 +5,8 @@ import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const OBSERVE_QUERY_MODES: readonly ObserveQueryMode[] = ["search", "inspect"] as const;
-const OBSERVE_QUERY_DESCRIPTION = "Find elements in the latest snapshot by deterministic structural filters.";
+const OBSERVE_QUERY_DESCRIPTION =
+  "Find elements inside the latest captured snapshot by deterministic structural filters. This does not refresh the page and does not mint a new observationRef.";
 const OBSERVE_QUERY_SCHEMA = {
   type: "object",
   properties: {

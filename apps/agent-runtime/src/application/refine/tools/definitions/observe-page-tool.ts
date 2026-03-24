@@ -3,7 +3,8 @@ import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
-const OBSERVE_PAGE_DESCRIPTION = "Capture the latest page snapshot with page identity and tab metadata.";
+const OBSERVE_PAGE_DESCRIPTION =
+  "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning.";
 const OBSERVE_PAGE_SCHEMA = {
   type: "object",
   properties: {},

@@ -86,7 +86,11 @@ export class RefineRunBootstrapProvider {
     input.toolClient.setHitlAnswerProvider(input.hitlAnswerProvider);
 
     const preObservation = await input.toolClient.callTool("observe.page", {});
-    const page = this.extractObservationPage(preObservation);
+    const initialObservation = this.extractInitialObservation(preObservation);
+    const page = {
+      origin: initialObservation.page.origin,
+      normalizedPath: initialObservation.page.normalizedPath,
+    };
     const loadedGuidance = await this.guidanceLoader.load({
       taskScope,
       page,
@@ -105,6 +109,7 @@ export class RefineRunBootstrapProvider {
         task,
         guidance: loadedGuidance.guidance,
         resumeInstruction,
+        initialObservation,
       }),
       loadedGuidanceCount: loadedGuidance.records.length,
     };
@@ -123,13 +128,35 @@ export class RefineRunBootstrapProvider {
     return collapsed.length > 80 ? collapsed.slice(0, 80) : collapsed || "unknown-task";
   }
 
-  private extractObservationPage(value: unknown): { origin: string; normalizedPath: string } {
+  private extractInitialObservation(value: unknown): {
+    observationRef: string;
+    page: {
+      url: string;
+      origin: string;
+      normalizedPath: string;
+      title: string;
+    };
+    activeTabIndex?: number;
+    openTabCount?: number;
+  } {
     const record = value as Record<string, unknown>;
     const observation = record.observation as Record<string, unknown>;
     const page = observation?.page as Record<string, unknown>;
-    const origin = typeof page?.origin === "string" && page.origin.trim() ? page.origin.trim() : "unknown";
-    const normalizedPath =
-      typeof page?.normalizedPath === "string" && page.normalizedPath.trim() ? page.normalizedPath.trim() : "/";
-    return { origin, normalizedPath };
+    const tabs = Array.isArray(observation?.tabs) ? observation.tabs : [];
+    return {
+      observationRef:
+        typeof observation?.observationRef === "string" && observation.observationRef.trim()
+          ? observation.observationRef.trim()
+          : "unknown-observation",
+      page: {
+        url: typeof page?.url === "string" && page.url.trim() ? page.url.trim() : "unknown",
+        origin: typeof page?.origin === "string" && page.origin.trim() ? page.origin.trim() : "unknown",
+        normalizedPath:
+          typeof page?.normalizedPath === "string" && page.normalizedPath.trim() ? page.normalizedPath.trim() : "/",
+        title: typeof page?.title === "string" && page.title.trim() ? page.title.trim() : "Unknown",
+      },
+      activeTabIndex: typeof observation?.activeTabIndex === "number" ? observation.activeTabIndex : undefined,
+      openTabCount: tabs.length > 0 ? tabs.length : undefined,
+    };
   }
 }

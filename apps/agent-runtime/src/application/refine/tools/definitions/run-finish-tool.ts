@@ -5,7 +5,8 @@ import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineRunService } from "../services/refine-run-service.js";
 
 const RUN_FINISH_REASONS: readonly RefineFinishReason[] = ["goal_achieved", "hard_failure"] as const;
-const RUN_FINISH_DESCRIPTION = "Explicitly mark refine run completion or hard failure with a summary.";
+const RUN_FINISH_DESCRIPTION =
+  "Explicitly mark refine run completion or hard failure with a concise evidence-backed summary. Use this once the task goal or a verified empty-state conclusion is confirmed.";
 const RUN_FINISH_SCHEMA = {
   type: "object",
   properties: {
