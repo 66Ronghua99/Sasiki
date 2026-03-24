@@ -57,8 +57,12 @@
 - backward capability cleanup Task 4 之后，`docs/architecture/overview.md` 是唯一前台架构入口；`docs/architecture/layers.md` 和 taxonomy migration docs 只作为 supporting / archived background，不再并列充当前门真源。
 - backward capability cleanup 完成后，`core/*` 与迁移期 `runtime/*` 兼容壳、legacy CLI upgrade-error 面、以及 migration-era README grammar 都已经删净；后续若再引入类似兼容层，应视为新需求而不是默认回归。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
-- observe 侧的 workflow 构造要留在 `application/observe/`，并让 observe-owned 代码自己构造 `SopAssetStore`，这样 shell/composition 只保留通用 host 组装。
+- `observe.page` 当前仍是 MVP 形态：runtime 基本只保留 raw `browser_snapshot` 文本，并额外解析 `page` / `tabs` / `activeTabIndex` / `activeTabMatchesPage`；它还没有做 settle、retry、multi-pass capture、section tree、completeness scoring 或 screenshot/DOM 融合。
+- `observationReadiness = ready` should be treated as the only agent-visible cue that the current observation is safe to reason over; `incomplete` means the agent should stay conservative and not over-trust the current observation.
+- 后续如果增强 observation，不应拿派生摘要替换 raw snapshot；更稳的方向是保留 raw `snapshot` + raw `tabs` 作为 provenance，再叠加 `observation health`、`region summaries`、`task-facing summaries`、以及 execution-oriented `taskRelevantTabs`。
+- observe / compact / refine 的 concrete collaborator 构造都应留在 shell-owned composition（当前是 `application/shell/runtime-composition-root.ts`）；workflow-owned 代码只消费 injected seams，不应重新把 `SopAssetStore`、artifacts writer 或其他 concrete adapter new 回 application 内部。
 - `observe.query` 只允许结构化字段驱动的确定性筛选；`intent` 只用于记录上下文，不参与 include/exclude/rerank。
+- raw snapshot 可见内容不等于 `observe.query` 可搜索内容：当前 query 层只索引带 `[ref=...]` 的元素行，不会直接搜索 `Open tabs`、`Page URL`、`Events`、console，或无 `ref` 的 `text:` 子行。
 - `act.*` 第一版保持薄封装：执行动作、记录证据，不承载“是否推进任务”的语义判断。
 - refinement 模式下，模型可见的工具与 schema 来自 `RefineReactToolClient.listTools()`，并经 `PiAgentToolAdapter` 注入到 pi-agent；不是直接暴露 raw MCP 工具集。
 - raw MCP 即使已有某个能力（例如 `browser_take_screenshot`），若 refine adapter 不显式暴露，对 refine agent 仍然不可用。
@@ -76,6 +80,11 @@
 - 系统 Chrome 的首轮 observation 可能从 `about:blank`、空白 tab 或 omnibox tab 开始；first-turn bootstrap 不能假设一开始就有稳定的业务页 observation，也不能在无有效 observation 时伪造 `sourceObservationRef`。
 - 当 refine bootstrap 已经预先做过 `observe.page` 时，prompt 必须把初始 `observationRef` 明确暴露给模型；否则模型很容易在首轮或下一轮 page-changing action 后编造新的 `sourceObservationRef`。
 - 需要反复强调给模型：只有 `observe.page` / `observe.query` 会产出新的 observation ref；`act.navigate` / `act.select_tab` / 其他 page-changing action 不会自动 mint 新 ref，后续动作前要重新 `observe.page`。
+- `observe.query` 只搜索“最近一次已捕获”的 snapshot；它不会刷新页面，也不会帮模型自动切到新 tab 或新页面。
+- 对 inbox / queue 类任务，若已检查关键 tab / filter 且页面给出明确空状态，这个“空结果”本身就是有效完成态；不要继续做低价值搜索或为了“留痕”堆过多 knowledge candidate。
+- TikTok Global Shop 客服当前真实路径：卖家首页 banner 的 `客户消息` 入口会新开 tab 到 `/chat/inbox/current`；空 inbox 时列表里可能只剩 `快速设置` 引导，不代表存在客户会话。
+- TikTok customer-service refine e2e 里存在一个高频但未解决的 URL literal fidelity 问题：模型在复述首页 URL 时会经常把 `&register_libra=` 污染成 `®ister_libra=`。这不是 `observe.page` stabilization 主链的 blocker，但会降低 `act.navigate` 的可预测性；后续若再看首页导航异常，需要先区分“target/tab ownership”问题和“URL 被模型改写”问题，不要混在一起排查。
+- 对 refine 这类跨页任务，start prompt 里显式暴露 bootstrap `observationRef` + page identity + tab metadata 是高价值收敛项；没有这块信息时，模型更容易在 page-changing action 后拿 stale snapshot 继续 `observe.query`，并拖出多余回合和低价值 knowledge。
 - paused refinement 的恢复入口是 `--resume-run-id <run_id>`；恢复必须复用同一个 run id，而不是新开分支控制流。
 - old stitched refinement 子树已在确认零活跃入口引用后移除；后续若再做 legacy cleanup，先验证 runtime 主路径和测试引用图，再删文件。
 - refine-runtime 当前已暴露 `act.select_tab`；当点击触发新 tab 后，应优先显式切 tab，再继续动作。

@@ -10,6 +10,11 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- **URL literal fidelity 问题已登记为未解决项**: TikTok customer-service refine e2e 中，模型在复述首页 URL 时会高频把 `&register_libra=` 误写成 `®ister_libra=`，导致 `act.navigate` 实际收到被污染的 query string。这不是 `observe.page` stabilization 主链的问题，也不是当前 P0，因为 fresh stabilized-observe success run `20260324_225753_579` 仍然可以完成 empty inbox 检查；但它会降低导航可预测性，后续需要单独收一个 literal-fidelity 修复 slice。已知样本里 2026-03-24 当天带 `act.navigate` 的 TikTok run 中，broken 13 次、correct 3 次。
+- **Refine observation enhancement decision matrix 已完成**: 已新增 [docs/project/refine-observation-enhancement-decision-matrix.md](docs/project/refine-observation-enhancement-decision-matrix.md)，把后续优化按 browser capture、adapter structure、query surface、prompt semantics 四层拆开，并明确 raw `tabs` 应继续保留为 provenance，而 `taskRelevantTabs` / `pageTab` 这类 execution-oriented 视图应作为派生层补充。这份矩阵现在作为 stabilization 落地后的下一轮 query-surface / inbox-summary 设计基线。
+- **Refine `observe.page` surface analysis 已完成**: 已新增 [docs/project/refine-observe-page-surface-analysis.md](docs/project/refine-observe-page-surface-analysis.md)，把 refine 真实观测链路拆成 raw `browser_snapshot`、adapter metadata parsing、stored observation contract、`observe.query` searchable surface、以及 agent reasoning surface 五层，并用 TikTok 成功/失败 run 对照说明“页面真实存在”不等于“snapshot 当下已经把该区域暴露出来”。这份分析记录的是 stabilization 之前的 observation baseline，现在作为后续 query-surface 扩面设计的基线证据。
+- **Refine TikTok customer-service e2e baseline + prompt/tool semantics pass 已完成**: 已把 TikTok Global Shop 客服检查写成新的 active runbook（`docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`），`PromptProvider` 现在会把 bootstrap 初始 observationRef / page identity / tab metadata 显式注入 start prompt，并补上 page-changing action 后必须 `observe.page`、`observe.query` 只查 latest snapshot、以及 verified empty inbox 可直接 finish 的硬规则；关键 refine tool descriptions（`observe.page` / `observe.query` / `act.click` / `act.navigate` / `act.select_tab` / `run.finish`）也已同步强化。该 slice 的业务证据仍是 TikTok improved run `20260324_090514_720`（`artifacts/e2e/20260324_090514_720/`），assistant turns 从基线 run `20260324_085500_941` 的 17 降到 10，promoted knowledge 从 3 收敛到 1；repo 最新 green gate evidence 会在本次 closeout 后同步到下方 active truth。
+- **Refine observation stabilization 已完成**: observation slice 现在已经完成 real snapshot corpus freeze、parser-safe baseline、最小 agent-visible observation contract、以及 adapter-level Hybrid gate 落地。`observe.page` 会先做 bounded pre-gate + settle loop，再返回带 `observationReadiness` / `pageTab` / `taskRelevantTabs` 的 fresh observation；`observe.query` 也改为必须消费已有 observation，而不是在无 observation 时偷偷刷新页面。prompt 侧只最小化补上 `observationReadiness = ready` / `incomplete` 的处理提示，其余 settle / diff / density diagnostics 均保留在 adapter 内部。fresh closeout verification：`npm --prefix apps/agent-runtime run lint` 与 `npm --prefix apps/agent-runtime run hardgate` 已重新跑绿，最新 hardgate report 为 `artifacts/code-gate/2026-03-24T07-16-04-402Z/report.json`。
 - **Phase 1 layer-model hardgate baseline 已完成**: `apps/agent-runtime/src` 的 OpenAI-style layer model 已冻结到当前前门文档与架构门禁；`lint:arch` 现在显式拒绝未知 top-level root、任何新 `src/runtime/*` / `src/core/*`、workflow horizontal edges、以及 refine-tools role drift；当前仍未收窄完的 `kernel/*` / non-shell `application/* -> infrastructure/*` / `application/refine/tools/runtime|providers/*` 只允许通过显式 exception ledger 留存，不能静默扩张；本轮 fresh hardgate report 为 `artifacts/code-gate/2026-03-23T04-23-38-903Z/report.json`。
 - **Phase 2 kernel narrowing Task 1 文档盘点已完成**: 当前 `kernel/*` 的 import leakage 已按代码真相登记到前门文档；今天只有 `src/kernel/pi-agent-loop.ts` 仍带 Phase 2 removal target，其中 `../domain/agent-types.js` 和 `../domain/high-level-log.js` 属于 product-domain leakage，`../infrastructure/llm/model-resolver.js` 属于 infrastructure leakage；`pi-agent-tool-adapter.ts` 与 `pi-agent-tool-hooks.ts` 当前只依赖 `contracts/*` / `kernel/*` / 外部库，不带额外 domain 或 infrastructure import。
 - **Phase 2 kernel narrowing contract/injection slice 已完成**: `src/contracts/agent-loop-records.ts` 已成为 `PiAgentLoop` 的 run-state truth，新增 `src/contracts/pi-agent-model.ts` 作为 engine-facing model contract；`application/shell/runtime-composition-root.ts` 现在先解析 refine model 再注入 loop，`src/kernel/**` 已无 direct `domain/*` 或 `infrastructure/*` imports。fresh verification: `npm --prefix apps/agent-runtime run lint`, `test`, `typecheck`, `build`, `hardgate` 均通过；fresh hardgate report 为 `artifacts/code-gate/2026-03-23T05-08-12-656Z/report.json`。
@@ -87,9 +92,13 @@ apps/agent-runtime/src/
 - `docs/testing/strategy.md`
 
 ## Active Spec / Plan
-- `docs/superpowers/specs/2026-03-23-refine-tools-service-consolidation-design.md`
-- `docs/superpowers/plans/2026-03-23-refine-tools-service-consolidation-implementation.md`
-- `docs/testing/refine-e2e-baidu-search-runbook.md`
+- `docs/superpowers/specs/2026-03-24-refine-tiktok-customer-service-e2e-design.md`
+- `docs/superpowers/plans/2026-03-24-refine-tiktok-customer-service-e2e-implementation.md`
+- `docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`
+- `docs/project/refine-observe-page-surface-analysis.md`
+- `docs/project/refine-observation-enhancement-decision-matrix.md`
+- `docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md`
+- `docs/superpowers/plans/2026-03-24-refine-observation-stabilization-implementation.md`
 
 ## Historical Background (Load On Demand)
 - `.plan/20260310_interactive_reasoning_sop_compact.md`
@@ -108,7 +117,7 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 修掉 refine smoke 首轮 `act.navigate` 携带 `sourceObservationRef=initial_navigation` 的噪声，让百度 smoke run 在第一步就走合法 bootstrap / observation 路径，而不是依赖一次失败后的自恢复。
+- `P0` 基于 `observationReadiness` 已落地的 TikTok baseline，跑一轮新的 customer-service refine e2e，记录 empty inbox / new tab / partial page 场景下 readiness 的真实表现，并冻结下一版 query-surface + task-facing inbox summary spec，明确哪些 deterministic text buckets 应进入 `observe.query`，哪些摘要仍应留在 adapter 层。
 
 ## DONE
 - 已完成 Phase 2 Task 1（kernel leakage inventory docs sync）：

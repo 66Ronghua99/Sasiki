@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 修掉 refine smoke 首轮 `act.navigate` 携带 `sourceObservationRef=initial_navigation` 的噪声；以 `docs/testing/refine-e2e-baidu-search-runbook.md` 为回归基线，要求百度 smoke run 首轮直接走合法 bootstrap / observation 路径，不再依赖一次失败后的自恢复。
+- `P0` 基于 [docs/project/refine-observe-page-surface-analysis.md](docs/project/refine-observe-page-surface-analysis.md)、[docs/project/refine-observation-enhancement-decision-matrix.md](docs/project/refine-observation-enhancement-decision-matrix.md) 和 [docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md](docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md)，跑一轮新的 TikTok customer-service refine e2e，记录 `observationReadiness` 在 empty inbox / new tab / partial page 场景下的真实表现，并冻结下一版 query-surface + task-facing inbox summary spec，明确哪些 deterministic text buckets 应进入 `observe.query`，哪些摘要仍应留在 adapter 层。

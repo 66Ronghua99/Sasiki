@@ -203,6 +203,28 @@ function buildSnapshotText(input: {
   ].join("\n");
 }
 
+function buildStaleHeaderSnapshot(input: {
+  activeTabUrl: string;
+  activeTabTitle: string;
+  stalePageUrl: string;
+  stalePageTitle: string;
+  bodyLines: string[];
+}): string {
+  return [
+    "### Open tabs",
+    "- 0: [Omnibox Popup](chrome://omnibox-popup.top-chrome/)",
+    `- 1: (current) [${input.activeTabTitle}](${input.activeTabUrl})`,
+    "- 2: [Omnibox Popup](chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html)",
+    "### Page",
+    `- Page URL: ${input.stalePageUrl}`,
+    `- Page Title: ${input.stalePageTitle}`,
+    "### Snapshot",
+    "```yaml",
+    ...input.bodyLines,
+    "```",
+  ].join("\n");
+}
+
 function countSnapshotCalls(rawClient: StubRawToolClient): number {
   return rawClient.calls.filter((call) => call.name === "browser_snapshot").length;
 }
@@ -705,4 +727,44 @@ test("browser service never settles with more than three fast snapshots", async 
     "browser_snapshot",
     "browser_snapshot",
   ]);
+});
+
+test("browser service keeps repaired stale page headers incomplete even after samples converge", async () => {
+  const staleHeaderSnapshot = buildStaleHeaderSnapshot({
+    activeTabUrl: "https://seller.tiktokshopglobalselling.com/homepage?shop_region=VN",
+    activeTabTitle: "Untitled",
+    stalePageUrl: "chrome://omnibox-popup.top-chrome/",
+    stalePageTitle: "Omnibox Popup",
+    bodyLines: [
+      "- generic [ref=e2]:",
+      "  - banner [ref=e7]:",
+      "    - generic [ref=e481] [cursor=pointer]:",
+      "      - generic [ref=e486]: 客户消息",
+    ],
+  });
+  const rawClient = new StubRawToolClient({
+    waitResponses: [{ kind: "ok" }],
+    snapshotResponses: [
+      { kind: "snapshot", text: staleHeaderSnapshot },
+      { kind: "snapshot", text: staleHeaderSnapshot },
+      { kind: "snapshot", text: staleHeaderSnapshot },
+    ],
+  });
+  const service = new RefineBrowserServiceImpl({
+    rawClient,
+    session: createRefineReactSession("run-stale-page-header", "task-stale-page-header", {
+      taskScope: "scope-stale-page-header",
+    }),
+  });
+
+  const result = await service.capturePageObservation();
+
+  assert.equal(result.observation.page.url, "https://seller.tiktokshopglobalselling.com/homepage?shop_region=VN");
+  assert.equal(result.observation.page.title, "Untitled");
+  assert.equal(result.observation.activeTabIndex, 1);
+  assert.equal(result.observation.activeTabMatchesPage, true);
+  assert.equal(result.observation.pageTab?.index, 1);
+  assert.equal(result.observation.observationReadiness, "incomplete");
+  assert.match(result.observation.snapshot, /Page URL: chrome:\/\/omnibox-popup\.top-chrome\//);
+  assert.equal(countSnapshotCalls(rawClient), 3);
 });
