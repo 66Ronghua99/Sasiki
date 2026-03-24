@@ -38,18 +38,33 @@ interface ResolvedExecutable {
   source: "configured" | "system" | "playwright" | "playwright-core";
 }
 
-export function shouldClosePageDuringReset(url: string | undefined, blankPageUrl: string): boolean {
+const RESET_PAGE_CLOSE_TIMEOUT_MS = 1000;
+
+export function shouldClosePageDuringReset(url: string | undefined): boolean {
   const normalized = url?.trim() ?? "";
   if (!normalized) {
     return true;
   }
-  if (normalized === blankPageUrl) {
+  if (normalized.startsWith("chrome://omnibox-popup.top-chrome/")) {
     return false;
   }
   if (normalized.startsWith("chrome://")) {
     return false;
   }
   return true;
+}
+
+export async function closePageDuringReset(
+  page: { url?: () => string; close: (options: { runBeforeUnload: boolean }) => Promise<unknown> },
+  timeoutMs: number = RESET_PAGE_CLOSE_TIMEOUT_MS,
+): Promise<"closed" | "timed_out"> {
+  const result = await Promise.race([
+    page.close({ runBeforeUnload: false }).then(() => "closed" as const),
+    new Promise<"timed_out">((resolve) => {
+      setTimeout(() => resolve("timed_out"), timeoutMs);
+    }),
+  ]);
+  return result;
 }
 
 export class CdpBrowserLauncher {
@@ -74,6 +89,7 @@ export class CdpBrowserLauncher {
     if (await this.isEndpointReady()) {
       this.logger.info("cdp_launch_skipped", { reason: "endpoint_already_ready", endpoint: this.config.cdpEndpoint });
       const cookies = await this.injectCookiesIfNeeded();
+      await this.resetPagesOnLaunchIfNeeded();
       return {
         launched: false,
         endpoint: this.config.cdpEndpoint,
@@ -366,16 +382,25 @@ export class CdpBrowserLauncher {
       browser = await playwright.chromium.connectOverCDP(this.config.cdpEndpoint);
       const existingContexts = browser.contexts();
       const primaryContext = existingContexts[0] ?? (await browser.newContext());
-      const blankPage = await primaryContext.newPage();
-      const blankPageUrl = blankPage.url();
+      const blankPage =
+        primaryContext
+          .pages()
+          .find((page: any) => typeof page.url === "function" && page.url().trim() === "about:blank") ??
+        (await primaryContext.newPage());
       const pagesToClose = browser
         .contexts()
         .flatMap((context: any) => context.pages())
         .filter((page: any) => page !== blankPage)
-        .filter((page: any) => shouldClosePageDuringReset(page.url?.(), blankPageUrl));
+        .filter((page: any) => shouldClosePageDuringReset(page.url?.()));
 
       for (const page of pagesToClose) {
-        await page.close({ runBeforeUnload: false });
+        const closeResult = await closePageDuringReset(page);
+        if (closeResult === "timed_out") {
+          this.logger.warn("cdp_page_reset_close_timed_out", {
+            endpoint: this.config.cdpEndpoint,
+            pageUrl: typeof page.url === "function" ? page.url() : undefined,
+          });
+        }
       }
 
       await blankPage.bringToFront().catch(() => {});

@@ -146,10 +146,15 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
       assert.equal(name, "observe.page");
       return {
         observation: {
+          observationRef: "obs_resume_1",
           page: {
+            url: "https://creator.xiaohongshu.com/publish",
             origin: "https://creator.xiaohongshu.com",
             normalizedPath: "/publish",
+            title: "Publish",
           },
+          activeTabIndex: 0,
+          tabs: [{ index: 0 }],
         },
       };
     },
@@ -220,6 +225,17 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
       task: "resume task from store",
       guidance: "reuse the saved title flow",
       resumeInstruction: "Resumed from paused run paused_run_7. Human prompt context: human noted a blocker",
+      initialObservation: {
+        observationRef: "obs_resume_1",
+        page: {
+          url: "https://creator.xiaohongshu.com/publish",
+          origin: "https://creator.xiaohongshu.com",
+          normalizedPath: "/publish",
+          title: "Publish",
+        },
+        activeTabIndex: 0,
+        openTabCount: 1,
+      },
     },
   ]);
 });
@@ -241,10 +257,15 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
     async callTool(): Promise<unknown> {
       return {
         observation: {
+          observationRef: "obs_fresh_1",
           page: {
+            url: "https://www.xiaohongshu.com/explore",
             origin: "https://www.xiaohongshu.com",
             normalizedPath: "/explore",
+            title: "Explore",
           },
+          activeTabIndex: 0,
+          tabs: [{ index: 0 }, { index: 1 }],
         },
       };
     },
@@ -268,6 +289,17 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
           task: "buy coffee beans",
           guidance: "",
           resumeInstruction: "",
+          initialObservation: {
+            observationRef: "obs_fresh_1",
+            page: {
+              url: "https://www.xiaohongshu.com/explore",
+              origin: "https://www.xiaohongshu.com",
+              normalizedPath: "/explore",
+              title: "Explore",
+            },
+            activeTabIndex: 0,
+            openTabCount: 2,
+          },
         });
         return "fresh prompt";
       },

@@ -262,7 +262,10 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     recordCandidate.description,
     "Record reusable attention knowledge candidate with provenance references."
   );
-  assert.equal(runFinish.description, "Explicitly mark refine run completion or hard failure with a summary.");
+  assert.equal(
+    runFinish.description,
+    "Explicitly mark refine run completion or hard failure with a concise evidence-backed summary. Use this once the task goal or a verified empty-state conclusion is confirmed."
+  );
   assert.deepEqual((runFinish.inputSchema as { required?: unknown }).required, ["reason", "summary"]);
   assert.deepEqual(
     (((recordCandidate.inputSchema as { properties?: Record<string, unknown> }).properties?.category as {
@@ -310,7 +313,7 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   ]);
 });
 
-test("browser tool definitions preserve current core order and provider-backed behavior", async () => {
+test("browser tool definitions preserve current core order and service-backed behavior", async () => {
   const calls: string[] = [];
   const registry = createRefineBrowserToolRegistry();
   const surface = new RefineToolSurface({
@@ -430,6 +433,26 @@ test("browser tool definitions preserve current core order and provider-backed b
       "act.screenshot",
       "act.file_upload",
     ]
+  );
+  assert.equal(
+    findListedTool(listedTools, "observe.page").description,
+    "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning."
+  );
+  assert.equal(
+    findListedTool(listedTools, "observe.query").description,
+    "Find elements inside the latest captured snapshot by deterministic structural filters. This does not refresh the page and does not mint a new observationRef."
+  );
+  assert.equal(
+    findListedTool(listedTools, "act.click").description,
+    "Click a UI element from a specific source observation. If the click changes page state or opens a new tab, re-observe (and switch tabs if needed) before the next structural step."
+  );
+  assert.equal(
+    findListedTool(listedTools, "act.navigate").description,
+    "Navigate the active tab to a URL from a specific source observation for provenance. This changes page state but does not create a new observationRef, so call observe.page before the next query or action on the new page."
+  );
+  assert.equal(
+    findListedTool(listedTools, "act.select_tab").description,
+    "Switch the active browser tab using a source observation for provenance. This does not mint a new observationRef, so call observe.page after switching before the next structural query or action."
   );
 
   const observed = await surface.callTool("observe.page", {});

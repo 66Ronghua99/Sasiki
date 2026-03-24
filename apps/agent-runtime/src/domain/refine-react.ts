@@ -10,6 +10,7 @@ export const OBSERVE_QUERY_ALLOWED_NARROWING_FIELDS = ["mode", "text", "role", "
 export type ObserveQueryMode = "search" | "inspect";
 export type RefineActionName = "click" | "type" | "press" | "navigate" | "select_tab" | "screenshot" | "file_upload";
 export type RefineFinishReason = "goal_achieved" | "hard_failure";
+export type ObservationReadiness = "ready" | "incomplete";
 
 export interface BrowserTabIdentity {
   index: number;
@@ -31,6 +32,9 @@ export interface PageObservation {
   tabs: BrowserTabIdentity[];
   activeTabIndex?: number;
   activeTabMatchesPage?: boolean;
+  observationReadiness?: ObservationReadiness;
+  pageTab?: BrowserTabIdentity;
+  taskRelevantTabs?: BrowserTabIdentity[];
   snapshot: string;
   capturedAt: string;
 }
@@ -129,12 +133,44 @@ function isPageIdentity(value: unknown): value is PageIdentity {
   if (!isRecord(value)) {
     return false;
   }
+  const allowedKeys = new Set(["url", "origin", "normalizedPath", "title"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
   return (
     hasNonEmptyString(value.url) &&
     hasNonEmptyString(value.origin) &&
     hasNonEmptyString(value.normalizedPath) &&
     hasNonEmptyString(value.title)
   );
+}
+
+function isBrowserTabIdentity(value: unknown): value is BrowserTabIdentity {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const allowedKeys = new Set(["index", "url", "title", "isActive"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
+  const index = value.index;
+  const isActive = value.isActive;
+  return (
+    typeof index === "number" &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    hasNonEmptyString(value.url) &&
+    hasNonEmptyString(value.title) &&
+    typeof isActive === "boolean"
+  );
+}
+
+function isBrowserTabIdentityArray(value: unknown): value is BrowserTabIdentity[] {
+  return Array.isArray(value) && value.every((entry) => isBrowserTabIdentity(entry));
+}
+
+function isObservationReadiness(value: unknown): value is ObservationReadiness {
+  return value === "ready" || value === "incomplete";
 }
 
 function isObserveQueryMatch(value: unknown): value is ObserveQueryMatch {
@@ -154,12 +190,37 @@ export function isObservePageResponse(value: unknown): value is ObservePageRespo
   if (!isRecord(value) || !isRecord(value.observation)) {
     return false;
   }
+  const allowedKeys = new Set(["observation"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
   const observation = value.observation;
+  const observationAllowedKeys = new Set([
+    "observationRef",
+    "page",
+    "tabs",
+    "activeTabIndex",
+    "activeTabMatchesPage",
+    "observationReadiness",
+    "pageTab",
+    "taskRelevantTabs",
+    "snapshot",
+    "capturedAt",
+  ]);
+  if (Object.keys(observation).some((key) => !observationAllowedKeys.has(key))) {
+    return false;
+  }
   return (
     hasNonEmptyString(observation.observationRef) &&
     hasNonEmptyString(observation.capturedAt) &&
     hasNonEmptyString(observation.snapshot) &&
-    isPageIdentity(observation.page)
+    isPageIdentity(observation.page) &&
+    isBrowserTabIdentityArray(observation.tabs) &&
+    (observation.activeTabIndex === undefined || Number.isInteger(observation.activeTabIndex)) &&
+    (observation.activeTabMatchesPage === undefined || typeof observation.activeTabMatchesPage === "boolean") &&
+    (observation.observationReadiness === undefined || isObservationReadiness(observation.observationReadiness)) &&
+    (observation.pageTab === undefined || isBrowserTabIdentity(observation.pageTab)) &&
+    (observation.taskRelevantTabs === undefined || isBrowserTabIdentityArray(observation.taskRelevantTabs))
   );
 }
 

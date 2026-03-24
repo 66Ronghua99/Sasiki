@@ -8,12 +8,17 @@ import {
   createBootstrapRefineReactToolClient,
   RefineReactToolClient,
 } from "../../src/application/refine/refine-react-tool-client.js";
-import { createRefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
+import { createRefineToolComposition, type RefineToolComposition } from "../../src/application/refine/tools/refine-tool-composition.js";
 
 interface StubRawToolClientOptions {
   screenshotToolName?: "browser_take_screenshot" | "browser_screenshot";
+  screenshotToolNames?: Array<"browser_take_screenshot" | "browser_screenshot">;
+  screenshotResponses?: Partial<
+    Record<"browser_take_screenshot" | "browser_screenshot", SnapshotResponse>
+  >;
   snapshotText?: string;
   clickText?: string;
+  navigateText?: string;
   tabsListText?: string;
   tabSelectText?: string;
   includeBrowserTabsTool?: boolean;
@@ -24,15 +29,23 @@ class StubRawToolClient implements ToolClient {
   private readonly tools: ToolDefinition[];
   private readonly snapshotText: string;
   private readonly clickText: string;
+  private readonly navigateText: string;
   private readonly tabsListText: string;
   private readonly tabSelectText: string;
+  private readonly screenshotResponses: Partial<
+    Record<"browser_take_screenshot" | "browser_screenshot", SnapshotResponse>
+  >;
 
   constructor(options?: StubRawToolClientOptions) {
-    const screenshotToolName = options?.screenshotToolName ?? "browser_take_screenshot";
+    const screenshotToolNames = options?.screenshotToolNames ?? [
+      options?.screenshotToolName ?? "browser_take_screenshot",
+    ];
     const includeBrowserTabsTool = options?.includeBrowserTabsTool ?? true;
     this.snapshotText = options?.snapshotText ?? defaultSnapshotText();
     this.clickText = options?.clickText ?? "clicked";
+    this.navigateText = options?.navigateText ?? "";
     this.tabsListText = options?.tabsListText ?? defaultTabsListText();
+    this.screenshotResponses = options?.screenshotResponses ?? {};
     this.tabSelectText =
       options?.tabSelectText ??
       [
@@ -50,8 +63,10 @@ class StubRawToolClient implements ToolClient {
       { name: "browser_press_key" },
       { name: "browser_navigate" },
       { name: "browser_file_upload" },
-      { name: screenshotToolName },
     ];
+    for (const screenshotToolName of screenshotToolNames) {
+      this.tools.push({ name: screenshotToolName });
+    }
     if (includeBrowserTabsTool) {
       this.tools.push({ name: "browser_tabs" });
     }
@@ -86,7 +101,14 @@ class StubRawToolClient implements ToolClient {
       return { content: [{ type: "text", text: `pressed ${String(args.key ?? "")}` }] };
     }
     if (name === "browser_navigate") {
-      return { content: [{ type: "text", text: `navigated ${String(args.url ?? "")}` }] };
+      return {
+        content: [
+          {
+            type: "text",
+            text: this.navigateText || `navigated ${String(args.url ?? "")}`,
+          },
+        ],
+      };
     }
     if (name === "browser_file_upload") {
       const paths = Array.isArray(args.paths) ? args.paths : undefined;
@@ -110,10 +132,45 @@ class StubRawToolClient implements ToolClient {
       throw new Error(`unexpected browser_tabs action: ${action}`);
     }
     if (name === "browser_take_screenshot" || name === "browser_screenshot") {
+      const response = this.screenshotResponses[name];
+      if (response?.kind === "error") {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: response.text,
+            },
+          ],
+        };
+      }
+      if (response?.kind === "timeout") {
+        throw new Error(response.message);
+      }
+      if (response?.kind === "snapshot") {
+        await this.delay(response.delayMs);
+        return {
+          content: [
+            {
+              type: "text",
+              text: response.text,
+            },
+          ],
+        };
+      }
       const outputArg = readScreenshotOutputArg(args);
       return { content: [{ type: "text", text: `screenshot ${outputArg ?? "captured"}` }] };
     }
     throw new Error(`unexpected raw tool: ${name}`);
+  }
+
+  private async delay(delayMs?: number): Promise<void> {
+    if (!delayMs || delayMs <= 0) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
   }
 }
 
@@ -183,6 +240,35 @@ function readScreenshotOutputArg(args: Record<string, unknown>): string | undefi
     }
   }
   return undefined;
+}
+
+function createObservationPassthroughComposition(
+  observation: Record<string, unknown>,
+): RefineToolComposition {
+  const surface = {
+    async connect(): Promise<void> {},
+    async disconnect(): Promise<void> {},
+    async listTools(): Promise<Array<{ name: string }>> {
+      return [{ name: "observe.page" }];
+    },
+    async callTool(name: string, _args: Record<string, unknown>): Promise<Record<string, unknown>> {
+      assert.equal(name, "observe.page");
+      return observation;
+    },
+  };
+
+  return {
+    contextRef: {
+      get() {
+        return {};
+      },
+      set() {},
+    },
+    registry: {} as RefineToolComposition["registry"],
+    surface: surface as RefineToolComposition["surface"],
+    hookPipeline: {} as RefineToolComposition["hookPipeline"],
+    toolHooks: {} as RefineToolComposition["toolHooks"],
+  };
 }
 
 test("refine tool client module owns bootstrap tool-surface construction", () => {
@@ -469,7 +555,7 @@ test("observe.query uses only deterministic structural narrowing and ignores int
   assert.equal(matches[0].normalizedText, "buy now");
 });
 
-test("observe.page parses markdown page identity and tab metadata from snapshot", async () => {
+test("observe.page parses markdown page identity, stabilization readiness, and tab views from snapshot", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-page", "task", { taskScope: "search-product" });
   const client = new RefineReactToolClient({ rawClient: raw, session });
@@ -484,6 +570,12 @@ test("observe.page parses markdown page identity and tab metadata from snapshot"
   assert.equal(page.origin, "https://www.xiaohongshu.com");
   assert.equal(page.normalizedPath, "/explore");
   assert.equal(page.title, "Explore");
+  assert.equal(observation.observationReadiness, "ready");
+  assert.equal(observation.pageTab?.title, "Explore");
+  assert.deepEqual(
+    (observation.taskRelevantTabs as Array<Record<string, unknown>>).map((tab) => tab.title),
+    ["Explore", "Creator"]
+  );
   assert.equal(observation.activeTabIndex, 0);
   assert.equal(observation.activeTabMatchesPage, true);
   const tabs = observation.tabs as Array<Record<string, unknown>>;
@@ -510,6 +602,71 @@ test("observe.page returns a bootstrap-safe payload shape with string identity f
   assert.equal(typeof page.origin, "string");
   assert.equal(typeof page.normalizedPath, "string");
   assert.equal(typeof page.title, "string");
+});
+
+test("observe.page response keeps the approved readiness and derived tab views alongside raw tabs", async () => {
+  const observed = {
+    observation: {
+      observationRef: "obs-1",
+      capturedAt: "2026-03-24T10:00:00.000Z",
+      observationReadiness: "ready",
+      page: {
+        url: "https://www.xiaohongshu.com/explore",
+        origin: "https://www.xiaohongshu.com",
+        normalizedPath: "/explore",
+        title: "Explore",
+      },
+      pageTab: {
+        index: 0,
+        url: "https://www.xiaohongshu.com/explore",
+        title: "Explore",
+        isActive: true,
+      },
+      taskRelevantTabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+      ],
+      tabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+        {
+          index: 1,
+          url: "about:blank",
+          title: "New Tab",
+          isActive: false,
+        },
+      ],
+      snapshot: "<page snapshot>",
+    },
+  };
+
+  const client = new RefineReactToolClient(createObservationPassthroughComposition(observed));
+
+  await client.connect();
+  const result = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = result.observation as Record<string, unknown>;
+  const tabs = observation.tabs as Array<Record<string, unknown>>;
+  const taskRelevantTabs = observation.taskRelevantTabs as Array<Record<string, unknown>>;
+
+  assert.deepEqual(result, observed);
+  assert.equal(observation.snapshot, "<page snapshot>");
+  assert.equal(observation.observationReadiness, "ready");
+  assert.equal(observation.pageTab?.url, "https://www.xiaohongshu.com/explore");
+  assert.equal(observation.pageTab?.isActive, true);
+  assert.equal(tabs.length, 2);
+  assert.equal(tabs[1].url, "about:blank");
+  assert.equal(taskRelevantTabs.length, 1);
+  assert.equal(taskRelevantTabs[0].url, "https://www.xiaohongshu.com/explore");
 });
 
 test("observe.page prefers the active tab identity when modal state leaves Page URL stale", async () => {
@@ -593,6 +750,77 @@ test("act.screenshot falls back to browser_screenshot when take_screenshot is un
   assert.ok(!raw.calls.some((call) => call.name === "browser_take_screenshot"));
 });
 
+test("act.screenshot keeps falling back when a screenshot tool returns an MCP error result", async () => {
+  const raw = new StubRawToolClient({
+    screenshotToolNames: ["browser_take_screenshot", "browser_screenshot"],
+    screenshotResponses: {
+      browser_take_screenshot: {
+        kind: "error",
+        text: defaultSnapshotText(),
+      },
+      browser_screenshot: {
+        kind: "snapshot",
+        text: defaultSnapshotText(),
+      },
+    },
+  });
+  const session = createRefineReactSession("run-shot-error-result", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await client.callTool("act.screenshot", {
+    sourceObservationRef: observationRef,
+    filename: "artifacts/error-result-screenshot.png",
+    fullPage: true,
+  });
+  await client.disconnect();
+
+  const fallbackCall = raw.calls.find((call) => call.name === "browser_screenshot");
+  assert.ok(fallbackCall, "expected act.screenshot to continue to browser_screenshot after an error result");
+  assert.ok(raw.calls.some((call) => call.name === "browser_take_screenshot"));
+  assert.equal(readScreenshotOutputArg(fallbackCall.args), "artifacts/error-result-screenshot.png");
+});
+
+test("act.screenshot keeps falling back when a screenshot tool returns a textual MCP error result", async () => {
+  const raw = new StubRawToolClient({
+    screenshotToolNames: ["browser_take_screenshot", "browser_screenshot"],
+    screenshotResponses: {
+      browser_take_screenshot: {
+        kind: "error",
+        text: [
+          "### Error",
+          "browser_take_screenshot returned an MCP error result",
+        ].join("\n"),
+      },
+      browser_screenshot: {
+        kind: "snapshot",
+        text: defaultSnapshotText(),
+      },
+    },
+  });
+  const session = createRefineReactSession("run-shot-text-error", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await client.callTool("act.screenshot", {
+    sourceObservationRef: observationRef,
+    path: "artifacts/text-error-result-screenshot.png",
+    fullPage: false,
+  });
+  await client.disconnect();
+
+  const fallbackCall = raw.calls.find((call) => call.name === "browser_screenshot");
+  assert.ok(fallbackCall, "expected act.screenshot to continue to browser_screenshot after textual error output");
+  assert.ok(raw.calls.some((call) => call.name === "browser_take_screenshot"));
+  assert.equal(readScreenshotOutputArg(fallbackCall.args), "artifacts/text-error-result-screenshot.png");
+});
+
 test("act.select_tab routes to browser_tabs select action", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-tab", "task", { taskScope: "search-product" });
@@ -659,6 +887,44 @@ test("act.type, act.press, and act.navigate keep legacy adapter behavior unchang
   assert.equal((typed.result as Record<string, unknown>).action, "type");
   assert.equal((pressed.result as Record<string, unknown>).action, "press");
   assert.equal((navigated.result as Record<string, unknown>).action, "navigate");
+});
+
+test("act.navigate aligns the visible page by selecting the parsed active tab after navigation", async () => {
+  const raw = new StubRawToolClient({
+    navigateText: [
+      "### Open tabs",
+      "- 0: (current) [Seller](https://seller.tiktokshopglobalselling.com/homepage?shop_region=VN)",
+      "- 1: [](about:blank)",
+      "- 2: [Omnibox Popup](chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html)",
+      "### Page",
+      "- Page URL: https://seller.tiktokshopglobalselling.com/homepage?shop_region=VN",
+      "- Page Title: Seller",
+      "### Snapshot",
+      "```yaml",
+      "- generic [ref=e2]:",
+      "  - button \"客户消息\" [ref=el-messages] [cursor=pointer]",
+      "```",
+    ].join("\n"),
+  });
+  const session = createRefineReactSession("run-navigate-align", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", {})) as Record<string, unknown>;
+  const observation = observed.observation as Record<string, unknown>;
+  const observationRef = observation.observationRef as string;
+  await client.callTool("act.navigate", {
+    url: "https://seller.tiktokshopglobalselling.com/homepage?shop_region=VN",
+    sourceObservationRef: observationRef,
+  });
+  await client.disconnect();
+
+  const navigateCall = raw.calls.find((call) => call.name === "browser_navigate");
+  const selectCall = raw.calls.find((call) => call.name === "browser_tabs" && call.args.action === "select");
+
+  assert.ok(navigateCall, "expected act.navigate to call browser_navigate");
+  assert.ok(selectCall, "expected act.navigate to realign the visible tab after navigation");
+  assert.equal(selectCall.args.index, 0);
 });
 
 test("act.file_upload routes to browser_file_upload with provided paths", async () => {

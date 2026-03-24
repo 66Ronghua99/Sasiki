@@ -3,7 +3,8 @@ import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
-const ACT_NAVIGATE_DESCRIPTION = "Navigate the active tab to a URL from a specific source observation.";
+const ACT_NAVIGATE_DESCRIPTION =
+  "Navigate the active tab to a URL from a specific source observation for provenance. This changes page state but does not create a new observationRef, so call observe.page before the next query or action on the new page.";
 const ACT_NAVIGATE_SCHEMA = {
   type: "object",
   properties: {

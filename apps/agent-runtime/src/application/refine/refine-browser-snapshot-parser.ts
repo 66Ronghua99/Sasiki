@@ -14,11 +14,24 @@ export interface SnapshotLineElement {
   normalizedText: string;
 }
 
+export interface SnapshotMetrics {
+  snapshotLineCount: number;
+  refBearingElementCount: number;
+  textBearingLineCount: number;
+  changedMarkerCount: number;
+  tabCount: number;
+}
+
 export interface ParsedObservationMetadata {
+  rawPage?: PageIdentity;
   page?: PageIdentity;
   tabs: BrowserTabIdentity[];
+  pageTab?: BrowserTabIdentity;
+  taskRelevantTabs: BrowserTabIdentity[];
   activeTabIndex?: number;
   activeTabMatchesPage?: boolean;
+  pageIdentityWasRepaired: boolean;
+  snapshotMetrics: SnapshotMetrics;
 }
 
 export class RefineBrowserSnapshotParser {
@@ -33,6 +46,7 @@ export class RefineBrowserSnapshotParser {
       : activeTab
         ? this.pageIdentityFromUrl(activeTab.url, activeTab.title)
         : undefined;
+    const rawPage = parsedPage;
     const page =
       parsedPage && activeTab && !this.urlsEquivalent(activeTab.url, parsedPage.url)
         ? this.pageIdentityFromUrl(activeTab.url, activeTab.title)
@@ -40,11 +54,19 @@ export class RefineBrowserSnapshotParser {
     const activeTabIndex = activeTab?.index;
     const activeTabMatchesPage =
       page && activeTab ? this.urlsEquivalent(activeTab.url, page.url) : undefined;
+    const pageTab = this.selectPageTab(page, tabs, activeTab);
+    const taskRelevantTabs = tabs.filter((tab) => this.isTaskRelevantTab(tab));
+    const snapshotMetrics = this.buildSnapshotMetrics(lines, tabs);
     return {
+      rawPage,
       page,
       tabs,
+      pageTab,
+      taskRelevantTabs,
       activeTabIndex,
       activeTabMatchesPage,
+      pageIdentityWasRepaired: Boolean(rawPage && page && !this.urlsEquivalent(rawPage.url, page.url)),
+      snapshotMetrics,
     };
   }
 
@@ -96,7 +118,10 @@ export class RefineBrowserSnapshotParser {
         continue;
       }
       const rest = entry.groups.rest.trim();
-      const link = rest.match(/\[(?<title>[^\]]*)\]\((?<url>[^)]+)\)/);
+      const link =
+        rest.match(/^\(current\)\s+\[(?<title>[^\]]*)\]\((?<url>.*)\)$/) ??
+        rest.match(/^\[(?<title>[^\]]*)\]\((?<url>.*)\)\s+\(current\)$/) ??
+        rest.match(/^\[(?<title>[^\]]*)\]\((?<url>.*)\)$/);
       if (!link?.groups) {
         continue;
       }
@@ -113,6 +138,82 @@ export class RefineBrowserSnapshotParser {
       });
     }
     return tabs;
+  }
+
+  private selectPageTab(
+    page: PageIdentity | undefined,
+    tabs: BrowserTabIdentity[],
+    activeTab: BrowserTabIdentity | undefined,
+  ): BrowserTabIdentity | undefined {
+    if (activeTab) {
+      return activeTab;
+    }
+    if (!page) {
+      return tabs[0];
+    }
+    return tabs.find((tab) => this.urlsEquivalent(tab.url, page.url)) ?? tabs[0];
+  }
+
+  private isTaskRelevantTab(tab: BrowserTabIdentity): boolean {
+    const title = tab.title.trim().toLowerCase();
+    const url = tab.url.trim().toLowerCase();
+    if (!url || url === "about:blank") {
+      return false;
+    }
+    if (title === "untitled" || title === "new tab" || title === "omnibox popup") {
+      return false;
+    }
+    return true;
+  }
+
+  private buildSnapshotMetrics(lines: string[], tabs: BrowserTabIdentity[]): SnapshotMetrics {
+    const snapshotBody = this.extractSnapshotBody(lines);
+    const elements = this.parseSnapshotElements(snapshotBody.join("\n"));
+    const structuralLineCount = snapshotBody.filter((line) => line.trim().length > 0).length;
+    const textBearingLineCount = elements.filter((element) => element.rawText.trim().length > 0).length;
+    const changedMarkerCount = snapshotBody.filter((line) => line.includes("<changed>")).length;
+    return {
+      snapshotLineCount: structuralLineCount,
+      refBearingElementCount: elements.length,
+      textBearingLineCount,
+      changedMarkerCount,
+      tabCount: tabs.length,
+    };
+  }
+
+  private extractSnapshotBody(lines: string[]): string[] {
+    const body: string[] = [];
+    let inSnapshotSection = false;
+    let inFence = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!inSnapshotSection) {
+        if (/^###\s+Snapshot\b/i.test(trimmed)) {
+          inSnapshotSection = true;
+        }
+        continue;
+      }
+      if (!inFence) {
+        if (trimmed.startsWith("```")) {
+          inFence = true;
+        }
+        continue;
+      }
+      if (trimmed.startsWith("```")) {
+        break;
+      }
+      body.push(line);
+    }
+
+    if (body.length > 0) {
+      return body;
+    }
+
+    return lines.filter((line) => {
+      const trimmed = line.trim();
+      return this.parseLegacySnapshotElement(trimmed) !== null || this.parseYamlSnapshotElement(trimmed) !== null;
+    });
   }
 
   private extractLineValue(lines: string[], labels: string[]): string | undefined {

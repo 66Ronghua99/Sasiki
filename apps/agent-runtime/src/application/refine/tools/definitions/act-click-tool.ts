@@ -3,7 +3,8 @@ import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
-const ACT_CLICK_DESCRIPTION = "Click a UI element from a specific source observation.";
+const ACT_CLICK_DESCRIPTION =
+  "Click a UI element from a specific source observation. If the click changes page state or opens a new tab, re-observe (and switch tabs if needed) before the next structural step.";
 const ACT_CLICK_SCHEMA = {
   type: "object",
   properties: {

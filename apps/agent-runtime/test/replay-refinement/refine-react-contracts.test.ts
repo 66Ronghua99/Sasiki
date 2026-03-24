@@ -20,6 +20,14 @@ test("observe.page contract includes required page identity and snapshot fields"
         normalizedPath: "/explore",
         title: "Explore",
       },
+      tabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+      ],
       snapshot: "<page snapshot>",
     },
   };
@@ -37,6 +45,112 @@ test("observe.page contract includes required page identity and snapshot fields"
     }),
     false,
     "title is required by frozen observe.page contract"
+  );
+});
+
+test("observe.page contract accepts only the approved observation extensions", () => {
+  const response = {
+    observation: {
+      observationRef: "obs-1",
+      capturedAt: "2026-03-20T10:00:00.000Z",
+      observationReadiness: "ready",
+      page: {
+        url: "https://www.xiaohongshu.com/explore",
+        origin: "https://www.xiaohongshu.com",
+        normalizedPath: "/explore",
+        title: "Explore",
+      },
+      pageTab: {
+        index: 0,
+        url: "https://www.xiaohongshu.com/explore",
+        title: "Explore",
+        isActive: true,
+      },
+      taskRelevantTabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+      ],
+      tabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+        {
+          index: 1,
+          url: "about:blank",
+          title: "New Tab",
+          isActive: false,
+        },
+      ],
+      snapshot: "<page snapshot>",
+    },
+  };
+
+  assert.equal(isObservePageResponse(response), true);
+  assert.equal(
+    isObservePageResponse({
+      observation: {
+        ...response.observation,
+        observationReadiness: "almost_ready",
+      },
+    }),
+    false,
+    "observationReadiness is frozen to ready or incomplete"
+  );
+  assert.equal(
+    isObservePageResponse({
+      ...response,
+      extraTopLevelSibling: "nope",
+    }),
+    false,
+    "extra top-level siblings must be rejected"
+  );
+  assert.equal(
+    isObservePageResponse({
+      observation: {
+        ...response.observation,
+        page: {
+          ...response.observation.page,
+          extraPageField: "nope",
+        },
+      },
+    }),
+    false,
+    "extra nested fields inside page must be rejected"
+  );
+  assert.equal(
+    isObservePageResponse({
+      observation: {
+        ...response.observation,
+        pageTab: {
+          ...response.observation.pageTab,
+          extraPageTabField: "nope",
+        },
+      },
+    }),
+    false,
+    "extra nested fields inside pageTab must be rejected"
+  );
+  assert.equal(
+    isObservePageResponse({
+      observation: {
+        ...response.observation,
+        taskRelevantTabs: [
+          {
+            ...response.observation.taskRelevantTabs[0],
+            extraTaskRelevantTabField: "nope",
+          },
+        ],
+      },
+    }),
+    false,
+    "extra nested fields inside taskRelevantTabs must be rejected"
   );
 });
 

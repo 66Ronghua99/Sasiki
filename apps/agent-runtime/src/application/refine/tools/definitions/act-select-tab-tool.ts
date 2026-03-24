@@ -3,7 +3,8 @@ import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
-const ACT_SELECT_TAB_DESCRIPTION = "Switch active browser tab using a source observation for provenance.";
+const ACT_SELECT_TAB_DESCRIPTION =
+  "Switch the active browser tab using a source observation for provenance. This does not mint a new observationRef, so call observe.page after switching before the next structural query or action.";
 const ACT_SELECT_TAB_SCHEMA = {
   type: "object",
   properties: {
