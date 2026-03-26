@@ -392,6 +392,12 @@ test("composite tool client emits frozen field-level input schemas for critical 
   assert.equal(readObjectPropertySchema(actClick, "elementRef").type, "string");
   assert.equal(readObjectPropertySchema(actClick, "sourceObservationRef").type, "string");
 
+  const observePage = readSchema(findTool(tools, "observe.page"));
+  assert.equal(observePage.type, "object");
+  assert.equal(observePage.additionalProperties, false);
+  assert.deepEqual(readRequired(observePage), []);
+  assert.equal(readObjectPropertySchema(observePage, "includeSnapshot").type, "boolean");
+
   const selectTab = readSchema(findTool(tools, "act.select_tab"));
   assert.equal(selectTab.type, "object");
   assert.equal(selectTab.additionalProperties, false);
@@ -602,6 +608,30 @@ test("observe.page returns a bootstrap-safe payload shape with string identity f
   assert.equal(typeof page.origin, "string");
   assert.equal(typeof page.normalizedPath, "string");
   assert.equal(typeof page.title, "string");
+});
+
+test("observe.page can omit snapshot in response while preserving latest observation for observe.query", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-page-no-snapshot", "task", { taskScope: "search-product" });
+  const client = new RefineReactToolClient({ rawClient: raw, session });
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", { includeSnapshot: false })) as Record<string, unknown>;
+  const queried = (await client.callTool("observe.query", {
+    mode: "search",
+    role: "button",
+    text: "buy",
+    limit: 5,
+  })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  assert.equal("snapshot" in observation, false);
+
+  const matches = queried.matches as Array<Record<string, unknown>>;
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].elementRef, "el-buy");
+  assert.equal(matches[0].normalizedText, "buy now");
 });
 
 test("observe.page response keeps the approved readiness and derived tab views alongside raw tabs", async () => {

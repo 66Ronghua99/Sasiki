@@ -436,7 +436,7 @@ test("browser tool definitions preserve current core order and service-backed be
   );
   assert.equal(
     findListedTool(listedTools, "observe.page").description,
-    "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning."
+    "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning. Set includeSnapshot=false to keep the latest snapshot for observe.query without returning full snapshot text to the agent."
   );
   assert.equal(
     findListedTool(listedTools, "observe.query").description,
