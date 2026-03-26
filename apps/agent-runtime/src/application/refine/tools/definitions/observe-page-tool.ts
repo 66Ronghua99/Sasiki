@@ -54,11 +54,13 @@ function readOptionalBooleanArg(args: Record<string, unknown>, key: string): boo
 
 type ObservePageToolResponse = {
   observation: Omit<PageObservation, "snapshot"> & { snapshot?: string };
+  pageKnowledge?: ObservePageResponse["pageKnowledge"];
 };
 
 function omitSnapshotFromResponse(response: ObservePageResponse): ObservePageToolResponse {
   return {
     observation: omitObservationSnapshot(response.observation),
+    pageKnowledge: response.pageKnowledge,
   };
 }
 

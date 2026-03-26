@@ -3,7 +3,6 @@
  * Used By: application/refine/tools/refine-tool-composition.ts, application/refine/refine-react-tool-client.ts
  * Last Updated: 2026-03-23
  */
-import { isAttentionKnowledgeCategory } from "../../../../domain/attention-knowledge.js";
 import type {
   HitlRequest,
   HitlRequestResponse,
@@ -76,16 +75,30 @@ export class RefineRunServiceImpl implements RefineRunService {
   async recordKnowledgeCandidate(
     request: KnowledgeRecordCandidateRequest,
   ): Promise<KnowledgeRecordCandidateResponse> {
-    if (!isAttentionKnowledgeCategory(request.category)) {
-      throw new Error(`knowledge.record_candidate.category is invalid: ${String(request.category)}`);
-    }
     if (!request.sourceObservationRef.trim()) {
       throw new Error("knowledge.record_candidate.sourceObservationRef is required");
     }
+    const sourceObservation = this.currentSession.findObservation(request.sourceObservationRef);
+    if (!sourceObservation) {
+      throw new Error(`knowledge.record_candidate.sourceObservationRef is unknown: ${request.sourceObservationRef}`);
+    }
+    if (
+      sourceObservation.page.origin !== request.page.origin ||
+      sourceObservation.page.normalizedPath !== request.page.normalizedPath
+    ) {
+      throw new Error(
+        `knowledge.record_candidate.page must match sourceObservationRef ${request.sourceObservationRef} page ${sourceObservation.page.origin}${sourceObservation.page.normalizedPath}`,
+      );
+    }
+    const guide = request.guide.trim();
+    if (!guide) {
+      throw new Error("knowledge.record_candidate.guide is required");
+    }
+    const keywords = normalizeKeywords(request.keywords);
     const candidateId = this.currentSession.recordCandidate({
       ...request,
-      taskScope: request.taskScope.trim() || this.currentSession.taskScope,
-      cue: request.cue.trim(),
+      guide,
+      keywords,
     });
     return {
       accepted: true,
@@ -109,3 +122,16 @@ export class RefineRunServiceImpl implements RefineRunService {
 }
 
 const RUN_FINISH_REASONS = new Set<RunFinishRequest["reason"]>(["goal_achieved", "hard_failure"]);
+
+function normalizeKeywords(keywords: string[]): string[] {
+  if (!Array.isArray(keywords) || keywords.length < 1 || keywords.length > 3) {
+    throw new Error("knowledge.record_candidate.keywords is required");
+  }
+  return keywords.map((keyword, index) => {
+    const trimmed = keyword.trim();
+    if (!trimmed) {
+      throw new Error(`knowledge.record_candidate.keywords[${index}] is required`);
+    }
+    return trimmed;
+  });
+}

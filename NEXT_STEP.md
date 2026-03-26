@@ -1,3 +1,3 @@
 # NEXT_STEP
 
-- `P0` 基于 [docs/project/refine-observe-page-surface-analysis.md](docs/project/refine-observe-page-surface-analysis.md)、[docs/project/refine-observation-enhancement-decision-matrix.md](docs/project/refine-observation-enhancement-decision-matrix.md) 和 [docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md](docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md)，跑一轮新的 TikTok customer-service refine e2e，记录 `observationReadiness` 在 empty inbox / new tab / partial page 场景下的真实表现，并冻结下一版 query-surface + task-facing inbox summary spec，明确哪些 deterministic text buckets 应进入 `observe.query`，哪些摘要仍应留在 adapter 层。
+- `P0` 先不要继续扩 retrieval surface；基于 TikTok refine-only rerun `20260326_200513_031`，把 metrics 语义拆清楚：保留 startup-loaded guidance count 表示 bootstrap/start prompt 注入数，新增 runtime page-knowledge hit metric 表示 `observe.page` 在真实任务页命中的知识次数；随后再单独评估 start prompt 是否要在命中稳定 empty-state knowledge 且页面证据一致时，允许 agent 直接 finish 而不是重复复核。

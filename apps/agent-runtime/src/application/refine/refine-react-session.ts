@@ -121,10 +121,9 @@ class InMemoryRefineReactSession implements RefineReactSession {
     const runId = sourceRunId?.trim() || this.runId;
     const newPromoted: AttentionKnowledge[] = this.candidates.map((candidate) => ({
       id: `knowledge_${randomUUID()}`,
-      taskScope: candidate.taskScope,
       page: candidate.page,
-      category: candidate.category,
-      cue: candidate.cue,
+      guide: candidate.guide,
+      keywords: candidate.keywords,
       rationale: candidate.rationale,
       sourceRunId: runId,
       sourceObservationRef: candidate.sourceObservationRef,
@@ -142,12 +141,7 @@ class InMemoryRefineReactSession implements RefineReactSession {
   loadGuidance(request: AttentionKnowledgeLoadRequest): AttentionKnowledge[] {
     const limit = Number.isFinite(request.limit) && (request.limit ?? 0) > 0 ? Math.floor(request.limit as number) : 8;
     return this.promoted
-      .filter(
-        (item) =>
-          item.taskScope === request.taskScope &&
-          item.page.origin === request.page.origin &&
-          item.page.normalizedPath === request.page.normalizedPath
-      )
+      .filter((item) => item.page.origin === request.page.origin && item.page.normalizedPath === request.page.normalizedPath)
       .slice(0, limit);
   }
 

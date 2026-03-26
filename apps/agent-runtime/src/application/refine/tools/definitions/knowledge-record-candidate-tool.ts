@@ -1,18 +1,12 @@
 import type { ToolCallResult } from "../../../../contracts/tool-client.js";
-import {
-  ATTENTION_KNOWLEDGE_CATEGORIES,
-  type AttentionKnowledgeCategory,
-} from "../../../../domain/attention-knowledge.js";
 import type { RefineToolContext } from "../refine-tool-context.js";
 import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineRunService } from "../services/refine-run-service.js";
 
-const KNOWLEDGE_RECORD_CANDIDATE_DESCRIPTION =
-  "Record reusable attention knowledge candidate with provenance references.";
+const KNOWLEDGE_RECORD_CANDIDATE_DESCRIPTION = "Record a page-level retrieval cue with provenance references.";
 const KNOWLEDGE_RECORD_CANDIDATE_SCHEMA = {
   type: "object",
   properties: {
-    taskScope: { type: "string" },
     page: {
       type: "object",
       properties: {
@@ -22,16 +16,18 @@ const KNOWLEDGE_RECORD_CANDIDATE_SCHEMA = {
       required: ["origin", "normalizedPath"],
       additionalProperties: false,
     },
-    category: {
-      type: "string",
-      enum: ATTENTION_KNOWLEDGE_CATEGORIES,
+    guide: { type: "string" },
+    keywords: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 1,
+      maxItems: 3,
     },
-    cue: { type: "string" },
     rationale: { type: "string" },
     sourceObservationRef: { type: "string" },
     sourceActionRef: { type: "string" },
   },
-  required: ["taskScope", "page", "category", "cue", "sourceObservationRef"],
+  required: ["page", "guide", "keywords", "sourceObservationRef"],
   additionalProperties: false,
 } as const;
 
@@ -41,10 +37,9 @@ export const knowledgeRecordCandidateTool: RefineToolDefinition = {
   inputSchema: KNOWLEDGE_RECORD_CANDIDATE_SCHEMA,
   async invoke(args, context) {
     return (await readRunService(context).recordKnowledgeCandidate({
-      taskScope: readStringArg(args, "taskScope"),
       page: readPageArg(args),
-      category: readEnumArg(args, "category", ATTENTION_KNOWLEDGE_CATEGORIES),
-      cue: readStringArg(args, "cue"),
+      guide: readStringArg(args, "guide"),
+      keywords: readStringArrayArg(args, "keywords"),
       rationale: readOptionalStringArg(args, "rationale"),
       sourceObservationRef: readStringArg(args, "sourceObservationRef"),
       sourceActionRef: readOptionalStringArg(args, "sourceActionRef"),
@@ -81,12 +76,20 @@ function readOptionalStringArg(args: Record<string, unknown>, key: string): stri
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function readEnumArg<T extends string>(args: Record<string, unknown>, key: string, values: readonly T[]): T {
-  const value = readStringArg(args, key);
-  if (!values.includes(value as T)) {
-    throw new Error(`invalid argument: ${key}=${value}`);
+function readStringArrayArg(args: Record<string, unknown>, key: string): string[] {
+  const value = args[key];
+  if (!Array.isArray(value)) {
+    throw new Error(`missing required argument: ${key}`);
   }
-  return value as T;
+  if (value.length < 1 || value.length > 3) {
+    throw new Error(`invalid argument: ${key}`);
+  }
+  return value.map((entry, index) => {
+    if (typeof entry !== "string" || !entry.trim()) {
+      throw new Error(`invalid argument: ${key}[${index}]`);
+    }
+    return entry.trim();
+  });
 }
 
 function readPageArg(args: Record<string, unknown>): { origin: string; normalizedPath: string } {

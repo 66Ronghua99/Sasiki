@@ -6,7 +6,6 @@ import {
   isObserveQueryResponse,
   type ActionExecutionResult,
 } from "../../src/domain/refine-react.js";
-import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../src/domain/attention-knowledge.js";
 import { isPausedHitlStatus, type AgentRunResult } from "../../src/domain/agent-types.js";
 
 test("observe.page contract includes required page identity and snapshot fields", () => {
@@ -205,8 +204,60 @@ test("paused HITL uses explicit paused status instead of completed or failed", (
   assert.notEqual(pausedResult.status, "failed");
 });
 
-test("attention knowledge categories are frozen to v1 contract", () => {
-  assert.deepEqual(ATTENTION_KNOWLEDGE_CATEGORIES, ["keep", "ignore", "action-target", "success-indicator"]);
+test("observe.page response allows top-level pageKnowledge cues with guide and keywords", () => {
+  const response = {
+    observation: {
+      observationRef: "obs-1",
+      capturedAt: "2026-03-20T10:00:00.000Z",
+      page: {
+        url: "https://www.xiaohongshu.com/explore",
+        origin: "https://www.xiaohongshu.com",
+        normalizedPath: "/explore",
+        title: "Explore",
+      },
+      tabs: [
+        {
+          index: 0,
+          url: "https://www.xiaohongshu.com/explore",
+          title: "Explore",
+          isActive: true,
+        },
+      ],
+      snapshot: "<page snapshot>",
+    },
+    pageKnowledge: [
+      {
+        guide: "Search the inbox tabs first when checking whether the queue is empty.",
+        keywords: ["inbox tabs", "empty state"],
+      },
+    ],
+  };
+
+  assert.equal(isObservePageResponse(response), true);
+  assert.equal(
+    isObservePageResponse({
+      ...response,
+      pageKnowledge: [
+        {
+          keywords: ["inbox tabs"],
+        },
+      ],
+    }),
+    false,
+    "guide is required on pageKnowledge entries"
+  );
+  assert.equal(
+    isObservePageResponse({
+      ...response,
+      pageKnowledge: [
+        {
+          guide: "Search the inbox tabs first when checking whether the queue is empty.",
+        },
+      ],
+    }),
+    false,
+    "keywords are required on pageKnowledge entries"
+  );
 });
 
 test("refine-react tool surface includes screenshot, tab-select, and file-upload actions", () => {

@@ -3,7 +3,7 @@
  * Used By: runtime/replay-refinement/*
  * Last Updated: 2026-03-20
  */
-import type { AttentionKnowledgeCategory } from "./attention-knowledge.js";
+import type { PageKnowledge } from "./attention-knowledge.js";
 
 export const OBSERVE_QUERY_ALLOWED_NARROWING_FIELDS = ["mode", "text", "role", "elementRef", "limit"] as const;
 
@@ -41,6 +41,7 @@ export interface PageObservation {
 
 export interface ObservePageResponse {
   observation: PageObservation;
+  pageKnowledge?: PageKnowledge[];
 }
 
 export interface ObserveQueryRequest {
@@ -97,10 +98,9 @@ export interface HitlPausedResponse {
 export type HitlRequestResponse = HitlAnsweredResponse | HitlPausedResponse;
 
 export interface KnowledgeRecordCandidateRequest {
-  taskScope: string;
   page: Pick<PageIdentity, "origin" | "normalizedPath">;
-  category: AttentionKnowledgeCategory;
-  cue: string;
+  guide: string;
+  keywords: string[];
   rationale?: string;
   sourceObservationRef: string;
   sourceActionRef?: string;
@@ -186,11 +186,33 @@ function isObserveQueryMatch(value: unknown): value is ObserveQueryMatch {
   );
 }
 
+function isPageKnowledge(value: unknown): value is PageKnowledge {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const allowedKeys = new Set(["guide", "keywords"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
+  const keywords = value.keywords;
+  return (
+    hasNonEmptyString(value.guide) &&
+    Array.isArray(keywords) &&
+    keywords.length > 0 &&
+    keywords.length <= 3 &&
+    keywords.every((entry) => hasNonEmptyString(entry))
+  );
+}
+
+function isPageKnowledgeArray(value: unknown): value is PageKnowledge[] {
+  return Array.isArray(value) && value.every((entry) => isPageKnowledge(entry));
+}
+
 export function isObservePageResponse(value: unknown): value is ObservePageResponse {
   if (!isRecord(value) || !isRecord(value.observation)) {
     return false;
   }
-  const allowedKeys = new Set(["observation"]);
+  const allowedKeys = new Set(["observation", "pageKnowledge"]);
   if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
     return false;
   }
@@ -220,7 +242,8 @@ export function isObservePageResponse(value: unknown): value is ObservePageRespo
     (observation.activeTabMatchesPage === undefined || typeof observation.activeTabMatchesPage === "boolean") &&
     (observation.observationReadiness === undefined || isObservationReadiness(observation.observationReadiness)) &&
     (observation.pageTab === undefined || isBrowserTabIdentity(observation.pageTab)) &&
-    (observation.taskRelevantTabs === undefined || isBrowserTabIdentityArray(observation.taskRelevantTabs))
+    (observation.taskRelevantTabs === undefined || isBrowserTabIdentityArray(observation.taskRelevantTabs)) &&
+    (value.pageKnowledge === undefined || isPageKnowledgeArray(value.pageKnowledge))
   );
 }
 

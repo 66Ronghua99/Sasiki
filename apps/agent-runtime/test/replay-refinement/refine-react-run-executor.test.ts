@@ -541,10 +541,9 @@ test("executor runs browser observe/action through composite tools and persists 
       fullPage: true,
     });
     await toolClient.callTool("knowledge.record_candidate", {
-      taskScope: "buy coffee beans",
       page: query.page,
-      category: "action-target",
-      cue: "buy button",
+      guide: "buy button",
+      keywords: ["buy button", "purchase"],
       sourceObservationRef: first.sourceObservationRef,
     });
     await toolClient.callTool("run.finish", {

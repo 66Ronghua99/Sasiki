@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../src/contracts/tool-client.js";
-import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../src/domain/attention-knowledge.js";
+import type { AttentionKnowledge } from "../../src/domain/attention-knowledge.js";
 import { createRefineReactSession } from "../../src/application/refine/refine-react-session.js";
+import { AttentionGuidanceLoader } from "../../src/application/refine/attention-guidance-loader.js";
 import {
   createBootstrapRefineReactToolClient,
   RefineReactToolClient,
@@ -199,6 +200,26 @@ function defaultTabsListText(): string {
     "- 0: (current) [Explore](https://www.xiaohongshu.com/explore)",
     "- 1: [Creator](https://creator.xiaohongshu.com/publish/publish?source=official)",
   ].join("\n");
+}
+
+function createAttentionKnowledgeRecord(input: {
+  id: string;
+  page: { origin: string; normalizedPath: string };
+  guide: string;
+  keywords: string[];
+  sourceRunId: string;
+  sourceObservationRef: string;
+  promotedAt: string;
+}): AttentionKnowledge {
+  return {
+    id: input.id,
+    page: input.page,
+    guide: input.guide,
+    keywords: input.keywords,
+    sourceRunId: input.sourceRunId,
+    sourceObservationRef: input.sourceObservationRef,
+    promotedAt: input.promotedAt,
+  };
 }
 
 function findTool(tools: ToolDefinition[], name: string): ToolDefinition {
@@ -408,17 +429,18 @@ test("composite tool client emits frozen field-level input schemas for critical 
   const recordCandidate = readSchema(findTool(tools, "knowledge.record_candidate"));
   assert.equal(recordCandidate.type, "object");
   assert.equal(recordCandidate.additionalProperties, false);
-  assert.deepEqual(readRequired(recordCandidate), ["taskScope", "page", "category", "cue", "sourceObservationRef"]);
-  assert.equal(readObjectPropertySchema(recordCandidate, "taskScope").type, "string");
-  assert.equal(readObjectPropertySchema(recordCandidate, "cue").type, "string");
+  assert.deepEqual(readRequired(recordCandidate), ["page", "guide", "keywords", "sourceObservationRef"]);
+  assert.equal(readObjectPropertySchema(recordCandidate, "guide").type, "string");
   assert.equal(readObjectPropertySchema(recordCandidate, "sourceObservationRef").type, "string");
-  assert.deepEqual(readObjectPropertySchema(recordCandidate, "category").enum, ATTENTION_KNOWLEDGE_CATEGORIES);
   const pageSchema = readObjectPropertySchema(recordCandidate, "page");
   assert.equal(pageSchema.type, "object");
   assert.equal(pageSchema.additionalProperties, false);
   assert.deepEqual(readRequired(pageSchema), ["origin", "normalizedPath"]);
   assert.equal(readObjectPropertySchema(pageSchema, "origin").type, "string");
   assert.equal(readObjectPropertySchema(pageSchema, "normalizedPath").type, "string");
+  const keywordsSchema = readObjectPropertySchema(recordCandidate, "keywords");
+  assert.equal(keywordsSchema.type, "array");
+  assert.deepEqual((keywordsSchema.items as Record<string, unknown>) ?? {}, { type: "string" });
 
   const screenshot = readSchema(findTool(tools, "act.screenshot"));
   assert.equal(screenshot.type, "object");
@@ -445,6 +467,18 @@ test("composite tool client emits frozen field-level input schemas for critical 
 test("runtime tool facade keeps existing behavior contracts on the legacy client path", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-runtime-contract", "task", { taskScope: "search-product" });
+  session.recordObservation({
+    observationRef: "obs-runtime-1",
+    page: {
+      url: "https://www.xiaohongshu.com/explore",
+      origin: "https://www.xiaohongshu.com",
+      normalizedPath: "/explore",
+      title: "Explore",
+    },
+    tabs: [],
+    snapshot: "legacy observation snapshot",
+    capturedAt: "2026-03-26T00:00:00.000Z",
+  });
   const client = new RefineReactToolClient({
     rawClient: raw,
     session,
@@ -457,13 +491,12 @@ test("runtime tool facade keeps existing behavior contracts on the legacy client
     context: "modal is blocking progress",
   });
   const candidate = await client.callTool("knowledge.record_candidate", {
-    taskScope: "search-product",
     page: {
       origin: "https://www.xiaohongshu.com",
       normalizedPath: "/explore",
     },
-    category: "keep",
-    cue: "Need to confirm selection before submit",
+    guide: "Need to confirm selection before submit.",
+    keywords: ["confirm selection", "submit"],
     rationale: "Submit can have side effects",
     sourceObservationRef: "obs-runtime-1",
   });
@@ -632,6 +665,63 @@ test("observe.page can omit snapshot in response while preserving latest observa
   assert.equal(matches.length, 1);
   assert.equal(matches[0].elementRef, "el-buy");
   assert.equal(matches[0].normalizedText, "buy now");
+});
+
+test("observe.page through the composed client returns exact pageKnowledge and preserves it when snapshot is omitted", async () => {
+  const raw = new StubRawToolClient();
+  const session = createRefineReactSession("run-page-knowledge", "task", { taskScope: "search-product" });
+  const composition = createRefineToolComposition({
+    rawToolClient: raw,
+    session,
+    guidanceLoader: new AttentionGuidanceLoader({
+      async query(request) {
+        assert.deepEqual(request.page, {
+          origin: "https://www.xiaohongshu.com",
+          normalizedPath: "/explore",
+        });
+        assert.equal(request.limit, 2);
+        return [
+          createAttentionKnowledgeRecord({
+            id: "knowledge_1",
+            page: request.page,
+            guide: "Search the inbox tabs first when checking whether the queue is empty.",
+            keywords: ["inbox tabs", "empty state"],
+            sourceRunId: "run-previous",
+            sourceObservationRef: "obs-previous",
+            promotedAt: "2026-03-24T00:00:00.000Z",
+          }),
+          createAttentionKnowledgeRecord({
+            id: "knowledge_2",
+            page: request.page,
+            guide: "Use the current page title as the primary cue when tabs are ambiguous.",
+            keywords: ["page title"],
+            sourceRunId: "run-previous",
+            sourceObservationRef: "obs-previous",
+            promotedAt: "2026-03-24T00:01:00.000Z",
+          }),
+        ];
+      },
+    }),
+    knowledgeTopN: 2,
+  });
+  const client = new RefineReactToolClient(composition);
+
+  await client.connect();
+  const observed = (await client.callTool("observe.page", { includeSnapshot: false })) as Record<string, unknown>;
+  await client.disconnect();
+
+  const observation = observed.observation as Record<string, unknown>;
+  assert.equal("snapshot" in observation, false);
+  assert.deepEqual(observed.pageKnowledge, [
+    {
+      guide: "Search the inbox tabs first when checking whether the queue is empty.",
+      keywords: ["inbox tabs", "empty state"],
+    },
+    {
+      guide: "Use the current page title as the primary cue when tabs are ambiguous.",
+      keywords: ["page title"],
+    },
+  ]);
 });
 
 test("observe.page response keeps the approved readiness and derived tab views alongside raw tabs", async () => {
