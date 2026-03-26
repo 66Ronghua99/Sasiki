@@ -15,6 +15,25 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 7. `docs/architecture/overview.md`
 8. `docs/superpowers/templates/`
 
+## Sandbox E2E 路由（主路径）
+1. **Seed bootstrap**
+   - 先在种子仓库执行 `bootstrap`（如有需要保留 `profile/cookie`）。
+   - 新 worktree 通过 `--source` 或 `SASIKI_SANDBOX_SOURCE` 执行 bootstrap 继承。
+   - feature worktree 不应只同步代码；当前 front-door docs（至少 `PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）与 `.sandbox/runtime.config.json` 也应一并同步，保证 worktree 自己就是可执行、可验真的完整上下文。
+
+2. **统一端到端执行**
+   - 优先使用 `flow`/`selfcheck` 作为主路径，不建议直接绕开走 observe/compact/refine 单点命令。
+   - 推荐命令：
+     - `node .sandbox/bin/sandbox-workflow.mjs flow --observe-task "..."`
+     - `node .sandbox/bin/sandbox-selfcheck.mjs --source <seed>`
+
+3. **观测与归档**
+   - 开启 `--inspect` 获取 observe/compact/refine 阶段 CDP 快照。
+   - 产物主归档到 `.sandbox/artifacts/...`，便于回放与 diff。
+
+4. **默认 profile/cookie**
+   - 当前默认目录为 `~/.sasiki/chrome_profile` 与 `~/.sasiki/cookies`，可在 `.sandbox/runtime.config.json` 改回 `.sandbox` 路径。
+
 ## Core Project Rules
 1. 最小闭环必须是多轮 agent 对话，不做 heuristic rule-based 过滤拼接主导。
 2. MVP 先验证 agent 能力边界，再决定外围约束；不要先堆复杂 structure/contract/fallback。
@@ -38,7 +57,7 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 - `apps/agent-runtime/src/application/observe/`：observe workflow 与 recording support。
 - `apps/agent-runtime/src/application/compact/`：sop-compact workflow。
 - `apps/agent-runtime/src/application/refine/`：refine bootstrap、tooling、executor、workflow。
-- `apps/agent-runtime/src/kernel/agent-loop.ts`：shared execution kernel 的核心执行环。
+- `apps/agent-runtime/src/kernel/pi-agent-loop.ts`：shared execution kernel 的核心执行环。
 
 ## Quality Gates
 代码变更交付前至少通过：

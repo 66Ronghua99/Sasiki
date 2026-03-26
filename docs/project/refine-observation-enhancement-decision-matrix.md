@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note is the follow-up to [refine-observe-page-surface-analysis.md](/Users/cory/codes/Sasiki-dev-refine-observe-surface/docs/project/refine-observe-page-surface-analysis.md).
+This note is the follow-up to [refine-observe-page-surface-analysis.md](../../docs/project/refine-observe-page-surface-analysis.md).
 
 The first note explains the current reality. This note answers the next question:
 

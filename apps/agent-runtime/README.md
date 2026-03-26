@@ -21,6 +21,17 @@ npm install
 npm run dev -- observe "在百度演示一次：搜索咖啡豆并打开一个结果"
 ```
 
+Recommended repo-level sandbox entry:
+
+```bash
+cd /Users/you/Sasiki-dev
+node .sandbox/bin/sandbox-workflow.mjs bootstrap --source /Users/you/Sasiki-dev
+node .sandbox/bin/sandbox-workflow.mjs flow \
+  --observe-task "打开百度搜索咖啡豆并点击第一条结果" \
+  --refine-task "打开百度搜索咖啡豆并点击第一条结果" \
+  --inspect
+```
+
 Run refine:
 ```bash
 npm run dev -- refine "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"
@@ -77,19 +88,19 @@ node apps/agent-runtime/dist/index.js refine -c apps/agent-runtime/runtime.confi
   3. Playwright bundled Chromium (`playwright` / `playwright-core`)
 - Recommended local Sasiki runtime path:
   - system Chrome binary
-  - `~/.sasiki/chrome_profile` as the persistent Sasiki browser profile
+  - `~/.sasiki/chrome_profile` as the persistent profile (or `.sandbox/chrome_profile` if you prefer repo-local)
   - `~/.sasiki/cookies` cookie injection enabled
-- For local e2e on this machine/repo, prefer:
+- For local e2e in this repo, prefer:
   - `PREFER_SYSTEM_BROWSER=true`
   - `CHROME_EXECUTABLE_PATH=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
   - `CDP_USER_DATA_DIR=~/.sasiki/chrome_profile`
   - `COOKIES_DIR=~/.sasiki/cookies`
 - Config:
   - `PLAYWRIGHT_MCP_CDP_ENDPOINT` (default `http://localhost:9222`)
-  - `CDP_USER_DATA_DIR` (default `~/.sasiki/chrome_profile`)
-  - `CDP_RESET_PAGES_ON_LAUNCH` (default `true`, only when runtime launches the local browser)
+- `CDP_USER_DATA_DIR` (default `~/.sasiki/chrome_profile`)
+- `CDP_RESET_PAGES_ON_LAUNCH` (default `true`, only when runtime launches the local browser)
   - `INJECT_COOKIES` (default `true`)
-  - `COOKIES_DIR` (default `~/.sasiki/cookies`)
+- `COOKIES_DIR` (default `~/.sasiki/cookies`)
 - `PREFER_SYSTEM_BROWSER` (default `true`)
 - `CDP_HEADLESS` (`false` by default)
 - `CHROME_EXECUTABLE_PATH` (optional override)

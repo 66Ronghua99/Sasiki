@@ -38,6 +38,7 @@
 - 当前本地 refine e2e 的默认路径应固定为：系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`。
 - 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
+- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 `.sandbox/runtime.config.json` 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
@@ -58,6 +59,9 @@
 - backward capability cleanup 完成后，`core/*` 与迁移期 `runtime/*` 兼容壳、legacy CLI upgrade-error 面、以及 migration-era README grammar 都已经删净；后续若再引入类似兼容层，应视为新需求而不是默认回归。
 - `observe.page` 第一版坚持“完整 snapshot 读取”，不提前做 context 优化、delta 注入或语义缩减。
 - `observe.page` 当前仍是 MVP 形态：runtime 基本只保留 raw `browser_snapshot` 文本，并额外解析 `page` / `tabs` / `activeTabIndex` / `activeTabMatchesPage`；它还没有做 settle、retry、multi-pass capture、section tree、completeness scoring 或 screenshot/DOM 融合。
+- `observe.page` 现在会在稳定 capture 后按当前页的 exact `page.origin + page.normalizedPath` 加载 pageKnowledge；返回给 agent 的 pageKnowledge 只应保留原始 `guide` + `keywords`，`includeSnapshot=false` 只能省掉 snapshot，不能丢 cues。
+- refinement knowledge 的 active reuse boundary 已经切到 exact `page.origin + page.normalizedPath`；`taskScope` 不再参与 retrieval gate，也不应再被悄悄拿回 storage/query key。
+- `knowledge.record_candidate` 的活跃 payload 现在是 `page + guide + keywords + provenance`；旧 `category/cue` attention-note 语义只应留在历史背景文档里，不应回流到 runtime contract。
 - `observationReadiness = ready` should be treated as the only agent-visible cue that the current observation is safe to reason over; `incomplete` means the agent should stay conservative and not over-trust the current observation.
 - 后续如果增强 observation，不应拿派生摘要替换 raw snapshot；更稳的方向是保留 raw `snapshot` + raw `tabs` 作为 provenance，再叠加 `observation health`、`region summaries`、`task-facing summaries`、以及 execution-oriented `taskRelevantTabs`。
 - observe / compact / refine 的 concrete collaborator 构造都应留在 shell-owned composition（当前是 `application/shell/runtime-composition-root.ts`）；workflow-owned 代码只消费 injected seams，不应重新把 `SopAssetStore`、artifacts writer 或其他 concrete adapter new 回 application 内部。
@@ -92,6 +96,8 @@
 - `observe.query` 元素提取必须兼容 YAML `- role [ref=...]` 行；否则会出现“页面有元素但 query 常年空结果”的假阴性。
 - `sourceObservationRef` 现在不仅要“存在”，还要与 live active tab 一致；不一致时应显式失败并要求先 `act.select_tab` / `observe.page` 重新对齐上下文。
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
+- `loadedKnowledgeCount` 当前语义是 bootstrap/start prompt 阶段加载到 run 的 guidance 数量，不等于 runtime 里 `observe.page.pageKnowledge` 的命中次数；TikTok rerun `20260326_200513_031` 已证明两者可能分离。
+- page-level knowledge 命中后，agent 仍可能因为当前 start prompt 的 finish policy 偏保守而继续做一轮等价复核；这不一定是 retrieval 失效，更可能是执行规则没有明确授权“empty-state + corroborating DOM”可直接完成。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 - `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
 - refine tool context 现在以 `browserService` / `runService` 作为活跃路径的 service-owned refs；definitions 应直接读取这些服务引用，`providers/*` 与 `runtime/*` 已退场，不应再作为活跃路径回流。

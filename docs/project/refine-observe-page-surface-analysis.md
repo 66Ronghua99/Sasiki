@@ -16,9 +16,9 @@ The goal is to separate four different questions that are easy to mix together:
 | Layer | Source | Shape | What is preserved | What is dropped / not added | Current owner |
 | --- | --- | --- | --- | --- | --- |
 | Raw browser snapshot | MCP `browser_snapshot` | Markdown text with sections like `Open tabs`, `Page`, `Snapshot`, sometimes `Events` | Full raw text, including tab list, page section, YAML-like accessibility tree, console/event lines | No explicit structured JSON from MCP; if a thing is absent in markdown, upper layers cannot recover it | `@playwright/mcp` via `browser_snapshot` |
-| Adapter metadata parsing | `RefineBrowserSnapshotParser.parseObservationMetadata(...)` | `page`, `tabs`, `activeTabIndex`, `activeTabMatchesPage` | Tab identities, active tab, page identity, active-tab preference when `Page URL` is stale | No waiting/retry/stability policy; no semantic segmentation of header/body; no extra DOM/API fetch | [refine-browser-snapshot-parser.ts](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts) |
-| Stored observation contract | `ObservePageResponse` / `PageObservation` | `observationRef`, `page`, `tabs`, `activeTabIndex`, `activeTabMatchesPage`, `snapshot`, `capturedAt` | Raw snapshot plus parsed page/tab metadata | No parsed element tree, no visibility scores, no section labels, no stable regions, no screenshot link | [refine-react.ts](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/domain/refine-react.ts) |
-| Deterministic query layer | `observe.query` over parsed snapshot lines | `matches[]` with `elementRef`, `role`, `rawText`, `normalizedText` | Elements from YAML or legacy lines that contain `[ref=...]` | Lines without `ref`, console/events, page/tabs sections, and any free-form semantic inference | [refine-browser-service.ts](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts) |
+| Adapter metadata parsing | `RefineBrowserSnapshotParser.parseObservationMetadata(...)` | `page`, `tabs`, `activeTabIndex`, `activeTabMatchesPage` | Tab identities, active tab, page identity, active-tab preference when `Page URL` is stale | No waiting/retry/stability policy; no semantic segmentation of header/body; no extra DOM/API fetch | [refine-browser-snapshot-parser.ts](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts) |
+| Stored observation contract | `ObservePageResponse` / `PageObservation` | `observationRef`, `page`, `tabs`, `activeTabIndex`, `activeTabMatchesPage`, `snapshot`, `capturedAt` | Raw snapshot plus parsed page/tab metadata | No parsed element tree, no visibility scores, no section labels, no stable regions, no screenshot link | [refine-react.ts](../../apps/agent-runtime/src/domain/refine-react.ts) |
+| Deterministic query layer | `observe.query` over parsed snapshot lines | `matches[]` with `elementRef`, `role`, `rawText`, `normalizedText` | Elements from YAML or legacy lines that contain `[ref=...]` | Lines without `ref`, console/events, page/tabs sections, and any free-form semantic inference | [refine-browser-service.ts](../../apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts) |
 | Agent reasoning layer | Model prompt + tool outputs | Natural-language reasoning over tool payloads | Whatever the model notices from `snapshot`, `page`, `tabs`, and prior actions | No runtime-side attention guidance beyond current prompt/tool descriptions | refine prompt + model behavior |
 
 ## What `observe.page` Does Today
@@ -35,8 +35,8 @@ The goal is to separate four different questions that are easy to mix together:
 
 Relevant code:
 
-- [observe-page-tool.ts](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/tools/definitions/observe-page-tool.ts)
-- [refine-browser-service.ts#L66](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L66)
+- [observe-page-tool.ts](../../apps/agent-runtime/src/application/refine/tools/definitions/observe-page-tool.ts)
+- [refine-browser-service.ts#L66](../../apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L66)
 
 ### Important consequence
 
@@ -70,7 +70,7 @@ Then turns them into:
 - `normalizedPath`
 - `title`
 
-See [refine-browser-snapshot-parser.ts#L25](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L25) and [refine-browser-snapshot-parser.ts#L68](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L68).
+See [refine-browser-snapshot-parser.ts#L25](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L25) and [refine-browser-snapshot-parser.ts#L68](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L68).
 
 ### 2. Tab metadata
 
@@ -81,7 +81,7 @@ It parses the `### Open tabs` section line-by-line into:
 - `title`
 - `isActive`
 
-See [refine-browser-snapshot-parser.ts#L87](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L87).
+See [refine-browser-snapshot-parser.ts#L87](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L87).
 
 ### Important repair behavior
 
@@ -89,8 +89,8 @@ If the markdown `Page URL` disagrees with the active tab URL, the parser prefers
 
 This is not theoretical; it is a deliberate repair path:
 
-- [refine-browser-snapshot-parser.ts#L31](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L31)
-- [refine-react-tool-client.test.ts#L515](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts#L515)
+- [refine-browser-snapshot-parser.ts#L31](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L31)
+- [refine-react-tool-client.test.ts#L515](../../apps/agent-runtime/test/replay-refinement/refine-react-tool-client.test.ts#L515)
 
 This is why some runs still recover correct `page` identity even when the raw `Page URL` line is stale.
 
@@ -114,10 +114,10 @@ It does not directly search:
 
 Relevant code:
 
-- [refine-browser-service.ts#L294](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L294)
-- [refine-browser-service.ts#L311](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L311)
-- [refine-browser-snapshot-parser.ts#L51](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L51)
-- [refine-browser-snapshot-parser.ts#L163](/Users/cory/codes/Sasiki-dev-refine-observe-surface/apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L163)
+- [refine-browser-service.ts#L294](../../apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L294)
+- [refine-browser-service.ts#L311](../../apps/agent-runtime/src/application/refine/tools/services/refine-browser-service.ts#L311)
+- [refine-browser-snapshot-parser.ts#L51](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L51)
+- [refine-browser-snapshot-parser.ts#L163](../../apps/agent-runtime/src/application/refine/refine-browser-snapshot-parser.ts#L163)
 
 ### Practical implications
 
@@ -140,8 +140,8 @@ In the successful TikTok baseline run, homepage observation `obs_20260324_090514
 
 Evidence:
 
-- [event_stream.jsonl#L7](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_090514_720/event_stream.jsonl#L7)
-- agent then explicitly clicked that exact ref at [event_stream.jsonl#L8](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_090514_720/event_stream.jsonl#L8)
+- [event_stream.jsonl#L7](../../artifacts/e2e/20260324_090514_720/event_stream.jsonl#L7)
+- agent then explicitly clicked that exact ref at [event_stream.jsonl#L8](../../artifacts/e2e/20260324_090514_720/event_stream.jsonl#L8)
 
 This proves that the current `observe.page` surface can expose the customer-service entry when the raw snapshot is stable enough.
 
@@ -157,8 +157,8 @@ but no customer-service text or clickable customer-message element.
 
 Evidence:
 
-- [event_stream.jsonl#L7](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L7)
-- after that, `observe.query("客服")`, `observe.query("消息")`, `observe.query("service")` all returned empty against the same observation at [event_stream.jsonl#L10](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L10), [event_stream.jsonl#L13](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L13), and [event_stream.jsonl#L16](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L16)
+- [event_stream.jsonl#L7](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L7)
+- after that, `observe.query("客服")`, `observe.query("消息")`, `observe.query("service")` all returned empty against the same observation at [event_stream.jsonl#L10](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L10), [event_stream.jsonl#L13](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L13), and [event_stream.jsonl#L16](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L16)
 
 This suggests the failure mode was not just “agent ignored available info”. In that run, the raw snapshot itself was materially poorer.
 
@@ -177,7 +177,7 @@ In the successful run, inbox observation `obs_20260324_090514_720_4` had:
 
 Evidence:
 
-- [event_stream.jsonl#L22](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_090514_720/event_stream.jsonl#L22)
+- [event_stream.jsonl#L22](../../artifacts/e2e/20260324_090514_720/event_stream.jsonl#L22)
 
 Because the parser prefers the active tab identity when `Page URL` is stale, the stored `page` became `/chat/inbox/current`, which is the correct logical page.
 
@@ -194,8 +194,8 @@ In the failed experimental run, the agent navigated directly to `/inbox` and the
 
 Evidence:
 
-- navigation to `/inbox` at [event_stream.jsonl#L28](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L28)
-- later repeated empty `observe.query(...)` calls over observation `obs_20260324_091231_578_3` at [event_stream.jsonl#L34](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L34), [event_stream.jsonl#L37](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L37), [event_stream.jsonl#L40](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L40), [event_stream.jsonl#L43](/Users/cory/codes/Sasiki-dev-refine-observe-surface/artifacts/e2e/20260324_091231_578/event_stream.jsonl#L43)
+- navigation to `/inbox` at [event_stream.jsonl#L28](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L28)
+- later repeated empty `observe.query(...)` calls over observation `obs_20260324_091231_578_3` at [event_stream.jsonl#L34](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L34), [event_stream.jsonl#L37](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L37), [event_stream.jsonl#L40](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L40), [event_stream.jsonl#L43](../../artifacts/e2e/20260324_091231_578/event_stream.jsonl#L43)
 
 This run shows a second kind of limitation:
 

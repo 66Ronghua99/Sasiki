@@ -10,6 +10,16 @@ npm --prefix apps/agent-runtime run build
 node apps/agent-runtime/dist/index.js "打开小红书，搜索咖啡豆推荐，打开帖子并点赞后截图"
 ```
 
+## Sandboxed Runtime Workflow
+
+端到端测试与观测流程请参照 [AGENTS.md](AGENTS.md) 的“Sandbox E2E 路由”约定。
+
+如需单独观察当前 Chrome 页：
+
+```bash
+node .sandbox/bin/sandbox-workflow.mjs inspect --out .sandbox/inspect/state.png
+```
+
 ## Repository Layout
 
 - `apps/agent-runtime/`: production runtime implementation.
