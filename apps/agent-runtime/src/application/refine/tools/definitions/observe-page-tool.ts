@@ -5,7 +5,7 @@ import type { RefineToolDefinition } from "../refine-tool-definition.js";
 import type { RefineBrowserService } from "../services/refine-browser-service.js";
 
 const OBSERVE_PAGE_DESCRIPTION =
-  "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning. Set includeSnapshot=false to keep the latest snapshot for observe.query without returning full snapshot text to you.";
+  "Capture a fresh stabilized page snapshot with readiness state and derived task-facing tab views, and mint a new observationRef. Call this after navigation, tab switches, or other page-changing actions before further structural reasoning. Set includeSnapshot=false to keep the latest snapshot for observe.query without returning full snapshot text to the agent.";
 const OBSERVE_PAGE_SCHEMA = {
   type: "object",
   properties: {
