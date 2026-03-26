@@ -6,7 +6,6 @@
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
 
 export interface AttentionGuidanceQuery {
-  taskScope: string;
   page: {
     origin: string;
     normalizedPath: string;
@@ -38,13 +37,30 @@ export class AttentionGuidanceLoader {
         guidance: "",
       };
     }
+    for (const record of records) {
+      validatePageKnowledgeRecord(record);
+    }
     const guidance = [
-      "Loaded prior attention guidance:",
-      ...records.map((record, index) => `${index + 1}. [${record.category}] ${record.cue}`),
+      "Loaded prior page retrieval cues:",
+      ...records.map((record, index) => `${index + 1}. ${record.guide} Keywords: ${record.keywords.join(", ")}`),
     ].join("\n");
     return {
       records,
       guidance,
     };
+  }
+}
+
+function validatePageKnowledgeRecord(record: AttentionKnowledge): void {
+  if (typeof record.guide !== "string" || !record.guide.trim()) {
+    throw new Error(`invalid attention knowledge record: expected guide for page ${record.page.origin}${record.page.normalizedPath}`);
+  }
+  if (
+    !Array.isArray(record.keywords) ||
+    record.keywords.length < 1 ||
+    record.keywords.length > 3 ||
+    record.keywords.some((keyword) => typeof keyword !== "string" || !keyword.trim())
+  ) {
+    throw new Error(`invalid attention knowledge record: expected keywords for page ${record.page.origin}${record.page.normalizedPath}`);
   }
 }

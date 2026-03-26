@@ -32,6 +32,7 @@ import {
   type RefineWorkflow,
   type RefineWorkflowRequest,
 } from "../refine/refine-workflow.js";
+import { createRefineToolComposition } from "../refine/tools/refine-tool-composition.js";
 import { type RefinePersistenceContext } from "../refine/refine-run-bootstrap-provider.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import { createRuntimeTelemetryRegistry } from "./runtime-telemetry-registry.js";
@@ -180,6 +181,14 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     config,
     telemetryRegistry,
     refineSystemPrompt: plan.prompts.refineSystemPrompt,
+  }, {
+    createToolComposition(rawToolClient) {
+      return createRefineToolComposition({
+        rawToolClient,
+        guidanceLoader: refinePersistenceContext.guidanceLoader,
+        knowledgeTopN: config.refinementKnowledgeTopN,
+      });
+    },
   });
 
   return {

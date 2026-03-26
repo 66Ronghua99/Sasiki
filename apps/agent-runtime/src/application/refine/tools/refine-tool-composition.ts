@@ -1,6 +1,7 @@
 import type { ToolClient } from "../../../contracts/tool-client.js";
 import type { PiAgentToolHookRegistry } from "../../../kernel/pi-agent-tool-hooks.js";
 import { createRefineReactSession, type RefineReactSession } from "../refine-react-session.js";
+import type { AttentionGuidanceLoader } from "../attention-guidance-loader.js";
 import { createRefineBrowserToolRegistry } from "./refine-browser-tool-registry.js";
 import { createRefineRuntimeToolRegistry } from "./refine-runtime-tool-registry.js";
 import { RefineToolRegistry } from "./refine-tool-registry.js";
@@ -29,6 +30,8 @@ export interface RefineToolCompositionInput {
   rawToolClient?: ToolClient;
   session?: RefineReactSession;
   hitlAnswerProvider?: HitlAnswerProvider;
+  guidanceLoader?: Pick<AttentionGuidanceLoader, "load">;
+  knowledgeTopN?: number;
 }
 
 export interface RefineToolComposition {
@@ -50,6 +53,8 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
   const browserService = new RefineBrowserServiceImpl({
     rawClient,
     session,
+    guidanceLoader: input.guidanceLoader,
+    knowledgeTopN: input.knowledgeTopN,
   });
   const runService = new RefineRunServiceImpl({
     session,
@@ -91,9 +96,14 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
   };
 }
 
-export function createBootstrapRefineToolComposition(rawClient: ToolClient): RefineToolComposition {
+export function createBootstrapRefineToolComposition(
+  rawClient: ToolClient,
+  options: Pick<RefineToolCompositionInput, "guidanceLoader" | "knowledgeTopN"> = {},
+): RefineToolComposition {
   return createRefineToolComposition({
     rawToolClient: rawClient,
+    guidanceLoader: options.guidanceLoader,
+    knowledgeTopN: options.knowledgeTopN,
   });
 }
 

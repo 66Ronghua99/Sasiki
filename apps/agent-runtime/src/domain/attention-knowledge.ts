@@ -3,20 +3,18 @@
  * Used By: runtime/replay-refinement/*
  * Last Updated: 2026-03-20
  */
-export const ATTENTION_KNOWLEDGE_CATEGORIES = ["keep", "ignore", "action-target", "success-indicator"] as const;
-
-export type AttentionKnowledgeCategory = (typeof ATTENTION_KNOWLEDGE_CATEGORIES)[number];
-
 export interface AttentionPageIdentity {
   origin: string;
   normalizedPath: string;
 }
 
-export interface AttentionKnowledgeCandidate {
-  taskScope: string;
+export interface PageKnowledge {
+  guide: string;
+  keywords: string[];
+}
+
+export interface AttentionKnowledgeCandidate extends PageKnowledge {
   page: AttentionPageIdentity;
-  category: AttentionKnowledgeCategory;
-  cue: string;
   rationale?: string;
   sourceObservationRef: string;
   sourceActionRef?: string;
@@ -30,21 +28,15 @@ export interface AttentionKnowledge extends AttentionKnowledgeCandidate {
 }
 
 export interface AttentionKnowledgeLoadRequest {
-  taskScope: string;
   page: AttentionPageIdentity;
   limit?: number;
 }
 
 export interface AttentionKnowledgeLoadResult {
-  taskScope: string;
   page: AttentionPageIdentity;
   loaded: AttentionKnowledge[];
 }
 
-export function isAttentionKnowledgeCategory(value: unknown): value is AttentionKnowledgeCategory {
-  return typeof value === "string" && (ATTENTION_KNOWLEDGE_CATEGORIES as readonly string[]).includes(value);
-}
-
 export function normalizeAttentionPageKey(page: AttentionPageIdentity): string {
-  return `${page.origin.trim().toLowerCase()}|${page.normalizedPath.trim() || "/"}`;
+  return `${page.origin}|${page.normalizedPath}`;
 }

@@ -92,7 +92,6 @@ export class RefineRunBootstrapProvider {
       normalizedPath: initialObservation.page.normalizedPath,
     };
     const loadedGuidance = await this.guidanceLoader.load({
-      taskScope,
       page,
       limit: this.knowledgeTopN,
     });

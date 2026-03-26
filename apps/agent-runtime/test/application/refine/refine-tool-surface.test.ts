@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ToolCallResult } from "../../../src/contracts/tool-client.js";
-import { ATTENTION_KNOWLEDGE_CATEGORIES } from "../../../src/domain/attention-knowledge.js";
 import {
   createRefineToolContextRef,
   type RefineToolContext,
@@ -20,7 +19,10 @@ import {
   createRefineReactSession,
   type RefineReactSession,
 } from "../../../src/application/refine/refine-react-session.js";
-import type { HitlAnswerProvider } from "../../../src/application/refine/tools/services/refine-run-service.js";
+import {
+  RefineRunServiceImpl,
+  type HitlAnswerProvider,
+} from "../../../src/application/refine/tools/services/refine-run-service.js";
 import {
   RefineBrowserServiceImpl,
 } from "../../../src/application/refine/tools/services/refine-browser-service.js";
@@ -36,10 +38,9 @@ interface RuntimeDefinitionContext extends RefineToolContext {
       context?: string;
     }): Promise<{ status: "answered"; answer: string } | { status: "paused"; resumeRunId: string; resumeToken: string }>;
     recordKnowledgeCandidate(request: {
-      taskScope: string;
       page: { origin: string; normalizedPath: string };
-      category: (typeof ATTENTION_KNOWLEDGE_CATEGORIES)[number];
-      cue: string;
+      guide: string;
+      keywords: string[];
       rationale?: string;
       sourceObservationRef: string;
       sourceActionRef?: string;
@@ -230,7 +231,7 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
         },
         async recordKnowledgeCandidate(request) {
           calls.push(
-            `knowledge:${request.taskScope}:${request.page.origin}${request.page.normalizedPath}:${request.category}:${request.sourceObservationRef}`
+            `knowledge:${request.page.origin}${request.page.normalizedPath}:${request.guide}:${request.sourceObservationRef}`
           );
           return {
             accepted: true,
@@ -260,7 +261,7 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   assert.equal(hitl.description, "Ask for human intervention when safe progress requires explicit human input.");
   assert.equal(
     recordCandidate.description,
-    "Record reusable attention knowledge candidate with provenance references."
+    "Record a page-level retrieval cue with provenance references."
   );
   assert.equal(
     runFinish.description,
@@ -268,10 +269,13 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   );
   assert.deepEqual((runFinish.inputSchema as { required?: unknown }).required, ["reason", "summary"]);
   assert.deepEqual(
-    (((recordCandidate.inputSchema as { properties?: Record<string, unknown> }).properties?.category as {
-      enum?: unknown;
-    })?.enum),
-    ATTENTION_KNOWLEDGE_CATEGORIES
+    (((recordCandidate.inputSchema as { properties?: Record<string, unknown> }).properties?.keywords as {
+      type?: unknown;
+      minItems?: unknown;
+      maxItems?: unknown;
+      items?: unknown;
+    })?.type),
+    "array"
   );
 
   const hitlResult = await surface.callTool("hitl.request", {
@@ -279,13 +283,12 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     context: "dialog is open",
   });
   const knowledgeResult = await surface.callTool("knowledge.record_candidate", {
-    taskScope: "publish-flow",
     page: {
       origin: "https://example.com",
       normalizedPath: "/publish",
     },
-    category: "keep",
-    cue: "Need cover image before submit",
+    guide: "Need cover image before submit",
+    keywords: ["cover image", "submit"],
     rationale: "Submit stays disabled",
     sourceObservationRef: "obs-3",
   });
@@ -308,8 +311,122 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   });
   assert.deepEqual(calls, [
     "hitl:Need confirmation:dialog is open",
-    "knowledge:publish-flow:https://example.com/publish:keep:obs-3",
+    "knowledge:https://example.com/publish:Need cover image before submit:obs-3",
     "finish:goal_achieved:Publish flow completed",
+  ]);
+});
+
+test("runtime tool definitions reject knowledge candidates whose page does not match the referenced observation", async () => {
+  const session = createRefineReactSession("run-mismatch", "task", { taskScope: "search-product" });
+  session.recordObservation({
+    observationRef: "obs-1",
+    page: {
+      url: "https://example.com/current",
+      origin: "https://example.com",
+      normalizedPath: "/current",
+      title: "Current",
+    },
+    tabs: [],
+    snapshot: "snapshot",
+    capturedAt: "2026-03-24T00:00:00.000Z",
+  });
+  const surface = new RefineToolSurface({
+    registry: createRefineRuntimeToolRegistry(),
+    contextRef: createRefineToolContextRef<RuntimeDefinitionContext>({
+      runService: new RefineRunServiceImpl({
+        session,
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      surface.callTool("knowledge.record_candidate", {
+        page: {
+          origin: "https://example.com",
+          normalizedPath: "/elsewhere",
+        },
+        guide: "Need to confirm selection before submit.",
+        keywords: ["confirm selection"],
+        sourceObservationRef: "obs-1",
+      }),
+    /page.*sourceObservationRef|mismatch/i
+  );
+});
+
+test("observe.page omits snapshot but preserves top-level pageKnowledge from the browser service", async () => {
+  const surface = new RefineToolSurface({
+    registry: createRefineBrowserToolRegistry(),
+    contextRef: createRefineToolContextRef<BrowserDefinitionContext>({
+      browserService: {
+        async capturePageObservation() {
+          return {
+            observation: {
+              observationRef: "obs-browser-1",
+              page: {
+                url: "https://example.com/current",
+                origin: "https://example.com",
+                normalizedPath: "/current",
+                title: "Current",
+              },
+              tabs: [],
+              activeTabIndex: 0,
+              activeTabMatchesPage: true,
+              snapshot: "snapshot",
+              capturedAt: "2026-03-22T00:00:00.000Z",
+            },
+            pageKnowledge: [
+              {
+                guide: "Search the inbox tabs first when checking whether the queue is empty.",
+                keywords: ["inbox tabs", "empty state"],
+              },
+            ],
+          };
+        },
+        async queryObservation() {
+          return {
+            observationRef: "obs-browser-1",
+            page: {
+              origin: "https://example.com",
+              normalizedPath: "/current",
+            },
+            matches: [],
+          };
+        },
+        async clickFromObservation() {
+          throw new Error("not used");
+        },
+        async typeIntoElement() {
+          throw new Error("not used");
+        },
+        async pressKey() {
+          throw new Error("not used");
+        },
+        async navigateFromObservation() {
+          throw new Error("not used");
+        },
+        async switchActiveTab() {
+          throw new Error("not used");
+        },
+        async captureScreenshot() {
+          throw new Error("not used");
+        },
+        async handleFileUpload() {
+          throw new Error("not used");
+        },
+      },
+    }),
+  });
+
+  const result = await surface.callTool("observe.page", { includeSnapshot: false });
+  const observation = result.observation as Record<string, unknown>;
+
+  assert.equal("snapshot" in observation, false);
+  assert.deepEqual(result.pageKnowledge, [
+    {
+      guide: "Search the inbox tabs first when checking whether the queue is empty.",
+      keywords: ["inbox tabs", "empty state"],
+    },
   ]);
 });
 

@@ -90,24 +90,23 @@ test("refine bootstrap module owns persistence context wiring under artifacts", 
   const knowledge: AttentionKnowledge = {
     id: "knowledge-1",
     sourceRunId: "run-1",
-    taskScope: "search",
     page: {
       origin: "https://example.com",
       normalizedPath: "/",
     },
-    category: "keep",
-    cue: "keep the hero button visible",
+    guide: "keep the hero button visible",
+    keywords: ["hero button", "keep"],
     sourceObservationRef: "obs-1",
     promotedAt: new Date("2026-03-21T00:00:01.000Z").toISOString(),
   };
   await context.knowledgeStore.append([knowledge]);
   const loaded = await context.guidanceLoader.load({
-    taskScope: "search",
     page: {
       origin: "https://example.com",
       normalizedPath: "/",
     },
-  });
+    limit: 8,
+  } as never);
 
   const resumePath = await context.hitlResumeStore.save({
     runId: "run-1",
@@ -119,7 +118,42 @@ test("refine bootstrap module owns persistence context wiring under artifacts", 
 
   assert.equal(loaded.records.length, 1);
   assert.match(loaded.guidance, /keep the hero button visible/);
+  assert.match(loaded.guidance, /hero button/);
   assert.equal(resumePath, path.join(tmpRoot, "artifacts", "run-1", "hitl_resume.json"));
+});
+
+test("refine bootstrap guidance loader fails explicitly for legacy persisted knowledge shape", async () => {
+  const loader = new AttentionGuidanceLoader({
+    async query(): Promise<AttentionKnowledge[]> {
+      return [
+        {
+          id: "legacy-knowledge-1",
+          sourceRunId: "run-legacy",
+          page: {
+            origin: "https://example.com",
+            normalizedPath: "/",
+          },
+          taskScope: "search",
+          category: "keep",
+          cue: "keep the hero button visible",
+          sourceObservationRef: "obs-legacy",
+          promotedAt: new Date("2026-03-21T00:00:01.000Z").toISOString(),
+        } as never,
+      ];
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      loader.load({
+        page: {
+          origin: "https://example.com",
+          normalizedPath: "/",
+        },
+        limit: 8,
+      }),
+    /page-level retrieval cue|guide|keywords/i
+  );
 });
 
 test("refine bootstrap provider loads resume context, pre-observes the page, loads guidance, and assembles prompt through prompt provider", async () => {
@@ -177,7 +211,6 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
     guidanceLoader: {
       load: async (input) => {
         assert.deepEqual(input, {
-          taskScope: "resume task from store",
           page: {
             origin: "https://creator.xiaohongshu.com",
             normalizedPath: "/publish",

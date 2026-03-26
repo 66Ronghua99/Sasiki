@@ -11,6 +11,8 @@ import type {
   ObserveQueryResponse,
   PageObservation,
 } from "../../../../domain/refine-react.js";
+import type { PageKnowledge } from "../../../../domain/attention-knowledge.js";
+import type { AttentionGuidanceLoader } from "../../../refine/attention-guidance-loader.js";
 import type { RefineReactSession } from "../../refine-react-session.js";
 import { RefineBrowserSnapshotParser } from "../../refine-browser-snapshot-parser.js";
 import {
@@ -53,11 +55,15 @@ export interface RefineBrowserService {
 export interface RefineBrowserServiceOptions {
   rawClient: ToolClient;
   session: RefineReactSession;
+  guidanceLoader?: Pick<AttentionGuidanceLoader, "load">;
+  knowledgeTopN?: number;
   stabilizationSettings?: Partial<ObservationStabilizerSettings>;
 }
 
 export class RefineBrowserServiceImpl implements RefineBrowserService {
   private readonly rawClient: ToolClient;
+  private readonly guidanceLoader?: Pick<AttentionGuidanceLoader, "load">;
+  private readonly knowledgeTopN: number;
   private readonly parser = new RefineBrowserSnapshotParser();
   private readonly stabilizationSettings: Partial<ObservationStabilizerSettings>;
   private currentSession: RefineReactSession;
@@ -66,6 +72,8 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
 
   constructor(options: RefineBrowserServiceOptions) {
     this.rawClient = options.rawClient;
+    this.guidanceLoader = options.guidanceLoader;
+    this.knowledgeTopN = Math.max(1, options.knowledgeTopN ?? 8);
     this.stabilizationSettings = options.stabilizationSettings ?? {};
     this.currentSession = options.session;
   }
@@ -99,7 +107,10 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
       capturedAt: new Date().toISOString(),
     };
     this.currentSession.recordObservation(observation);
-    return { observation };
+    return {
+      observation,
+      pageKnowledge: await this.loadPageKnowledge(observation.page),
+    };
   }
 
   async queryObservation(request: ObserveQueryRequest): Promise<ObserveQueryResponse> {
@@ -400,6 +411,23 @@ export class RefineBrowserServiceImpl implements RefineBrowserService {
       action: "select",
       index: metadata.activeTabIndex,
     });
+  }
+
+  private async loadPageKnowledge(page: PageObservation["page"]): Promise<PageKnowledge[]> {
+    if (!this.guidanceLoader) {
+      return [];
+    }
+    const loaded = await this.guidanceLoader.load({
+      page: {
+        origin: page.origin,
+        normalizedPath: page.normalizedPath,
+      },
+      limit: this.knowledgeTopN,
+    });
+    return loaded.records.map((record) => ({
+      guide: record.guide,
+      keywords: [...record.keywords],
+    }));
   }
 
   private async supportsRawTool(name: string): Promise<boolean> {

@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ToolCallResult, ToolClient, ToolDefinition } from "../../../src/contracts/tool-client.js";
+import type { AttentionKnowledge } from "../../../src/domain/attention-knowledge.js";
 import { createRefineReactSession } from "../../../src/application/refine/refine-react-session.js";
+import { AttentionGuidanceLoader } from "../../../src/application/refine/attention-guidance-loader.js";
 import {
   RefineBrowserServiceImpl,
 } from "../../../src/application/refine/tools/services/refine-browser-service.js";
@@ -233,6 +235,26 @@ function countWaitCalls(rawClient: StubRawToolClient): number {
   return rawClient.calls.filter((call) => call.name === "browser_wait_for").length;
 }
 
+function createAttentionKnowledgeRecord(input: {
+  id: string;
+  page: { origin: string; normalizedPath: string };
+  guide: string;
+  keywords: string[];
+  sourceRunId: string;
+  sourceObservationRef: string;
+  promotedAt: string;
+}): AttentionKnowledge {
+  return {
+    id: input.id,
+    page: input.page,
+    guide: input.guide,
+    keywords: input.keywords,
+    sourceRunId: input.sourceRunId,
+    sourceObservationRef: input.sourceObservationRef,
+    promotedAt: input.promotedAt,
+  };
+}
+
 test("browser service rebinds the latest session before stabilized page observation", async () => {
   const rawClient = new StubRawToolClient({
     snapshotResponses: [
@@ -271,6 +293,101 @@ test("browser service rebinds the latest session before stabilized page observat
     "browser_snapshot",
     "browser_snapshot",
   ]);
+});
+
+test("browser service loads exact pageKnowledge for the current page without rewriting the cues", async () => {
+  const rawClient = new StubRawToolClient({
+    snapshotResponses: [
+      { kind: "snapshot", text: buildStableSnapshot() },
+      { kind: "snapshot", text: buildStableSnapshot() },
+    ],
+  });
+  const queriedPages: Array<{ origin: string; normalizedPath: string }> = [];
+  const guidanceLoader = new AttentionGuidanceLoader({
+    async query(request) {
+      queriedPages.push(request.page);
+      assert.deepEqual(request.page, {
+        origin: "https://example.com",
+        normalizedPath: "/one",
+      });
+      assert.equal(request.limit, 2);
+      return [
+        createAttentionKnowledgeRecord({
+          id: "knowledge-1",
+          page: request.page,
+          guide: "Keep the inbox tabs visible before checking whether the queue is empty.",
+          keywords: ["inbox tabs", "empty state"],
+          sourceRunId: "run-previous",
+          sourceObservationRef: "obs-previous",
+          promotedAt: "2026-03-24T00:00:00.000Z",
+        }),
+        createAttentionKnowledgeRecord({
+          id: "knowledge-2",
+          page: request.page,
+          guide: "Use the current page title as the primary cue when tabs are ambiguous.",
+          keywords: ["page title"],
+          sourceRunId: "run-previous",
+          sourceObservationRef: "obs-previous",
+          promotedAt: "2026-03-24T00:01:00.000Z",
+        }),
+      ];
+    },
+  });
+  const service = new RefineBrowserServiceImpl({
+    rawClient,
+    session: createRefineReactSession("run-page-knowledge", "task-page-knowledge", { taskScope: "scope-page-knowledge" }),
+    guidanceLoader,
+    knowledgeTopN: 2,
+  });
+
+  const result = await service.capturePageObservation();
+
+  assert.deepEqual(queriedPages, [
+    {
+      origin: "https://example.com",
+      normalizedPath: "/one",
+    },
+  ]);
+  assert.deepEqual(result.pageKnowledge, [
+    {
+      guide: "Keep the inbox tabs visible before checking whether the queue is empty.",
+      keywords: ["inbox tabs", "empty state"],
+    },
+    {
+      guide: "Use the current page title as the primary cue when tabs are ambiguous.",
+      keywords: ["page title"],
+    },
+  ]);
+});
+
+test("browser service returns an empty pageKnowledge array on an exact-page miss", async () => {
+  const rawClient = new StubRawToolClient({
+    snapshotResponses: [
+      { kind: "snapshot", text: buildStableSnapshot() },
+      { kind: "snapshot", text: buildStableSnapshot() },
+    ],
+  });
+  const guidanceLoader = new AttentionGuidanceLoader({
+    async query(request) {
+      assert.deepEqual(request.page, {
+        origin: "https://example.com",
+        normalizedPath: "/one",
+      });
+      return [];
+    },
+  });
+  const service = new RefineBrowserServiceImpl({
+    rawClient,
+    session: createRefineReactSession("run-page-knowledge-miss", "task-page-knowledge-miss", {
+      taskScope: "scope-page-knowledge-miss",
+    }),
+    guidanceLoader,
+    knowledgeTopN: 2,
+  });
+
+  const result = await service.capturePageObservation();
+
+  assert.deepEqual(result.pageKnowledge, []);
 });
 
 test("browser service treats a pre-gate timeout as non-fatal before stabilizing the page", async () => {

@@ -199,7 +199,13 @@ export function createRefineWorkflowAssembly(
   const createAgentRuntime =
     overrides.createAgentRuntime ?? ((input) => new RefineWorkflowRuntime({ loop: input.loop, runExecutor: input.runExecutor }));
 
-  const toolComposition = createToolComposition(options.rawToolClient);
+  const toolComposition =
+    createToolComposition === createBootstrapRefineToolComposition
+      ? createBootstrapRefineToolComposition(options.rawToolClient, {
+          guidanceLoader: options.persistenceContext.guidanceLoader,
+          knowledgeTopN: options.config.refinementKnowledgeTopN,
+        })
+      : createToolComposition(options.rawToolClient);
   const toolClient = new RefineReactToolClient(toolComposition);
   const promptProvider = createPromptProvider();
   const bootstrapProvider = createBootstrapProvider({

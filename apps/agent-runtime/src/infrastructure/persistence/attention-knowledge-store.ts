@@ -9,7 +9,6 @@ import path from "node:path";
 import type { AttentionKnowledge } from "../../domain/attention-knowledge.js";
 
 export interface AttentionKnowledgeQuery {
-  taskScope: string;
   page: {
     origin: string;
     normalizedPath: string;
@@ -41,12 +40,7 @@ export class AttentionKnowledgeStore {
     const limit = Number.isFinite(request.limit) && (request.limit ?? 0) > 0 ? Math.floor(request.limit as number) : 8;
     const entries = await this.readAll();
     return entries
-      .filter(
-        (item) =>
-          item.taskScope === request.taskScope &&
-          item.page.origin === request.page.origin &&
-          item.page.normalizedPath === request.page.normalizedPath
-      )
+      .filter((item) => item.page.origin === request.page.origin && item.page.normalizedPath === request.page.normalizedPath)
       .sort((a, b) => b.promotedAt.localeCompare(a.promotedAt))
       .slice(0, limit);
   }
