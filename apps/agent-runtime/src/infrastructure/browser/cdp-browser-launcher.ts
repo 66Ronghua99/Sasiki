@@ -71,6 +71,7 @@ export class CdpBrowserLauncher {
   private readonly config: CdpBrowserLauncherConfig;
   private readonly logger: Logger;
   private process: ChildProcess | null = null;
+  private launchedByRuntime = false;
 
   constructor(config: CdpBrowserLauncherConfig, logger: Logger) {
     this.config = config;
@@ -80,14 +81,17 @@ export class CdpBrowserLauncher {
   async start(): Promise<CdpLaunchResult> {
     if (!this.config.launchCdp) {
       this.logger.info("cdp_launch_skipped", { reason: "disabled", endpoint: this.config.cdpEndpoint });
+      this.launchedByRuntime = false;
       return { launched: false, endpoint: this.config.cdpEndpoint, cookieFilesLoaded: 0, cookiesInjected: 0 };
     }
     if (!this.isLocalEndpoint(this.config.cdpEndpoint)) {
       this.logger.warn("cdp_launch_skipped", { reason: "non_local_endpoint", endpoint: this.config.cdpEndpoint });
+      this.launchedByRuntime = false;
       return { launched: false, endpoint: this.config.cdpEndpoint, cookieFilesLoaded: 0, cookiesInjected: 0 };
     }
     if (await this.isEndpointReady()) {
       this.logger.info("cdp_launch_skipped", { reason: "endpoint_already_ready", endpoint: this.config.cdpEndpoint });
+      this.launchedByRuntime = false;
       const cookies = await this.injectCookiesIfNeeded();
       await this.resetPagesOnLaunchIfNeeded();
       return {
@@ -137,6 +141,7 @@ export class CdpBrowserLauncher {
       stdio: "ignore",
     });
     this.process.unref();
+    this.launchedByRuntime = true;
 
     await this.waitForEndpointReady();
     const cookies = await this.injectCookiesIfNeeded();
@@ -158,9 +163,16 @@ export class CdpBrowserLauncher {
   }
 
   async stop(): Promise<void> {
+    if (!this.launchedByRuntime) {
+      this.logger.info("cdp_close_skipped", { reason: "not_launched_by_runtime", endpoint: this.config.cdpEndpoint });
+      this.process = null;
+      return;
+    }
+
     const closedByCdp = await this.closeBrowserOverCdp();
     if (closedByCdp) {
       this.process = null;
+      this.launchedByRuntime = false;
       return;
     }
 
@@ -177,6 +189,7 @@ export class CdpBrowserLauncher {
       });
     } finally {
       this.process = null;
+      this.launchedByRuntime = false;
     }
   }
 
@@ -265,7 +278,16 @@ export class CdpBrowserLauncher {
     const url = `${this.config.cdpEndpoint.replace(/\/$/, "")}/json/version`;
     try {
       const response = await fetch(url);
-      return response.ok;
+      if (!response.ok) {
+        return false;
+      }
+      const text = await response.text();
+      try {
+        const payload = JSON.parse(text);
+        return !!(typeof payload.webSocketDebuggerUrl === "string" || typeof payload["webSocketDebuggerUrl"] === "string");
+      } catch {
+        return false;
+      }
     } catch {
       return false;
     }

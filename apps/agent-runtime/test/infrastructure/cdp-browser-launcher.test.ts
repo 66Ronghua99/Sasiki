@@ -74,3 +74,51 @@ test("browser reset does not hang forever when closing a stale page stalls", asy
   assert.equal(closeCalls, 1);
   assert.equal(result, "timed_out");
 });
+
+test("browser stop does not close external endpoint when launcher did not spawn the browser", async () => {
+  const logs: Array<{ level: "info" | "warn" | "error"; message: string; payload?: Record<string, unknown> }> = [];
+  const launcher = new CdpBrowserLauncher(
+    {
+      cdpEndpoint: "http://127.0.0.1:9222",
+      launchCdp: true,
+      userDataDir: "~/.sasiki/chrome_profile",
+      resetPagesOnLaunch: false,
+      headless: false,
+      startupTimeoutMs: 30_000,
+      injectCookies: false,
+      cookiesDir: "~/.sasiki/cookies",
+      preferSystemBrowser: true,
+    },
+    {
+      info(message, payload) {
+        logs.push({ level: "info", message, payload });
+      },
+      warn(message, payload) {
+        logs.push({ level: "warn", message, payload });
+      },
+      error(message, payload) {
+        logs.push({ level: "error", message, payload });
+      },
+    }
+  );
+
+  (launcher as any).isEndpointReady = async () => true;
+  (launcher as any).injectCookiesIfNeeded = async () => ({ filesLoaded: 0, cookiesInjected: 0 });
+  (launcher as any).resetPagesOnLaunchIfNeeded = async () => {};
+
+  let closeCalls = 0;
+  (launcher as any).closeBrowserOverCdp = async () => {
+    closeCalls += 1;
+    return true;
+  };
+
+  const startResult = await launcher.start();
+  assert.equal(startResult.launched, false);
+  await launcher.stop();
+
+  assert.equal(closeCalls, 0);
+  assert.equal(
+    logs.some((entry) => entry.message === "cdp_close_skipped" && entry.payload?.reason === "not_launched_by_runtime"),
+    true
+  );
+});

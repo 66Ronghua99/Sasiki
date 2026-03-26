@@ -216,3 +216,18 @@ apps/agent-runtime/dist/
 apps/agent-runtime/runtime.config.json
 artifacts/
 .worktrees/
+
+# Project local sandbox state
+/.sandbox/*
+!/.sandbox/bin/
+!/.sandbox/bin/**
+!/.sandbox/templates/
+!/.sandbox/templates/**
+!/.sandbox/README.md
+/.sandbox/chrome_profile*/
+/.sandbox/cookies/
+/.sandbox/artifacts/
+/.sandbox/inspect/
+/.sandbox/runtime.config.json
+/.sandbox/runtime.*.json
+/.sandbox/state.json

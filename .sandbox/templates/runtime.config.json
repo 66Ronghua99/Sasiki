@@ -1,0 +1,44 @@
+{
+  "llm": {
+    "model": "openai/qwen-plus",
+    "apiKey": "",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  },
+  "mcp": {
+    "command": "npx",
+    "args": ["@playwright/mcp@latest"],
+    "env": {}
+  },
+  "cdp": {
+    "endpoint": "http://127.0.0.1:9222",
+    "launch": true,
+    "userDataDir": "~/.sasiki/chrome_profile",
+    "resetPagesOnLaunch": true,
+    "headless": false,
+    "injectCookies": true,
+    "cookiesDir": "~/.sasiki/cookies",
+    "preferSystemBrowser": true,
+    "startupTimeoutMs": 30000
+  },
+  "runtime": {
+    "artifactsDir": ".sandbox/artifacts"
+  },
+  "observe": {
+    "timeoutMs": 120000
+  },
+  "semantic": {
+    "mode": "auto",
+    "timeoutMs": 12000
+  },
+  "consumption": {
+    "enabled": false,
+    "topN": 3,
+    "hintsLimit": 8,
+    "maxGuideChars": 4000
+  },
+  "hitl": {
+    "enabled": false,
+    "retryLimit": 2,
+    "maxInterventions": 1
+  }
+}
