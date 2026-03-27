@@ -4,6 +4,7 @@
  * Last Updated: 2026-03-21
  */
 import type { AgentRunRequest } from "../../domain/agent-types.js";
+import type { SopSkillMetadata } from "../../domain/sop-skill.js";
 import type { HitlAnswerProvider } from "./tools/services/refine-run-service.js";
 import { createRefineReactSession } from "./refine-react-session.js";
 import type { RefineReactToolClient } from "./refine-react-tool-client.js";
@@ -28,6 +29,7 @@ export interface RefineRunBootstrapProviderOptions {
   createRunId: () => string;
   guidanceLoader: Pick<AttentionGuidanceLoaderContract, "load">;
   hitlResumeStore: RefineHitlResumeStorePort;
+  skillCatalog?: RefineSkillMetadataCatalog;
   promptProvider: Pick<PromptProvider, "buildRefineStartPrompt">;
   knowledgeTopN?: number;
 }
@@ -44,6 +46,11 @@ export interface RefineRunBootstrapResult {
   taskScope: string;
   prompt: string;
   loadedGuidanceCount: number;
+  selectedSkillName?: string;
+}
+
+export interface RefineSkillMetadataCatalog {
+  listMetadata(): Promise<SopSkillMetadata[]>;
 }
 
 export interface RefinePersistenceContext {
@@ -58,6 +65,7 @@ export class RefineRunBootstrapProvider {
   private readonly createRunId: () => string;
   private readonly guidanceLoader: Pick<AttentionGuidanceLoader, "load">;
   private readonly hitlResumeStore: RefineHitlResumeStorePort;
+  private readonly skillCatalog: RefineSkillMetadataCatalog;
   private readonly promptProvider: Pick<PromptProvider, "buildRefineStartPrompt">;
   private readonly knowledgeTopN: number;
 
@@ -65,6 +73,7 @@ export class RefineRunBootstrapProvider {
     this.createRunId = options.createRunId;
     this.guidanceLoader = options.guidanceLoader;
     this.hitlResumeStore = options.hitlResumeStore;
+    this.skillCatalog = options.skillCatalog ?? { listMetadata: async () => [] };
     this.promptProvider = options.promptProvider;
     this.knowledgeTopN = Math.max(1, options.knowledgeTopN ?? 8);
   }
@@ -75,9 +84,11 @@ export class RefineRunBootstrapProvider {
 
   async prepare(input: RefineRunBootstrapInput): Promise<RefineRunBootstrapResult> {
     const resumeRecord = await this.loadResumeRecord(input.request);
-    const task = input.request.task.trim() || resumeRecord?.task?.trim() || "";
+    const availableSkills = await this.skillCatalog.listMetadata();
+    const selectedSkill = this.resolveSelectedSkill(input.request, availableSkills);
+    const task = input.request.task.trim() || resumeRecord?.task?.trim() || selectedSkill?.description.trim() || "";
     if (!task) {
-      throw new Error("refinement run requires task text or a valid --resume-run-id with stored task context");
+      throw new Error("refinement run requires task text, --skill <name>, or a valid --resume-run-id with stored task context");
     }
 
     const runId = input.request.resumeRunId?.trim() || this.createRunId();
@@ -107,10 +118,13 @@ export class RefineRunBootstrapProvider {
       prompt: this.promptProvider.buildRefineStartPrompt({
         task,
         guidance: loadedGuidance.guidance,
+        availableSkills,
+        selectedSkillName: selectedSkill?.name,
         resumeInstruction,
         initialObservation,
       }),
       loadedGuidanceCount: loadedGuidance.records.length,
+      selectedSkillName: selectedSkill?.name,
     };
   }
 
@@ -125,6 +139,18 @@ export class RefineRunBootstrapProvider {
   private resolveTaskScope(task: string): string {
     const collapsed = task.replace(/\s+/g, " ").trim();
     return collapsed.length > 80 ? collapsed.slice(0, 80) : collapsed || "unknown-task";
+  }
+
+  private resolveSelectedSkill(request: AgentRunRequest, availableSkills: SopSkillMetadata[]): SopSkillMetadata | undefined {
+    const requestedSkillName = request.skillName?.trim();
+    if (!requestedSkillName) {
+      return undefined;
+    }
+    const selectedSkill = availableSkills.find((skill) => skill.name === requestedSkillName);
+    if (!selectedSkill) {
+      throw new Error(`requested SOP skill not found: ${requestedSkillName}`);
+    }
+    return selectedSkill;
   }
 
   private extractInitialObservation(value: unknown): {

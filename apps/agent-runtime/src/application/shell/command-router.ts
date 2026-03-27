@@ -3,7 +3,7 @@
  * Used By: index.ts
  * Last Updated: 2026-03-21
  */
-import type { RuntimeCliCommand } from "../../domain/agent-types.js";
+import type { RuntimeCliCommand, SopCompactCliAction } from "../../domain/agent-types.js";
 
 export type RuntimeSemanticMode = "off" | "auto" | "on";
 
@@ -17,15 +17,25 @@ export interface RefineCliArguments {
   command: "refine";
   configPath?: string;
   task: string;
+  skillName?: string;
   resumeRunId?: string;
 }
 
-export interface SopCompactCliArguments {
+export interface SopCompactRunCliArguments {
   command: "sop-compact";
+  action: "run";
   configPath?: string;
   runId: string;
   semanticMode?: RuntimeSemanticMode;
 }
+
+export interface SopCompactListCliArguments {
+  command: "sop-compact";
+  action: "list";
+  configPath?: string;
+}
+
+export type SopCompactCliArguments = SopCompactRunCliArguments | SopCompactListCliArguments;
 
 export type CliArguments = ObserveCliArguments | RefineCliArguments | SopCompactCliArguments;
 
@@ -68,22 +78,21 @@ export function parseObserveArguments(argv: string[]): ObserveCliArguments {
 }
 
 export function parseRefineArguments(argv: string[]): RefineCliArguments {
-  const { configPath, task, resumeRunId } = parseTaskArguments(argv);
-  const result: RefineCliArguments = {
+  const { configPath, task, skillName, resumeRunId } = parseTaskArguments(argv);
+  return {
     command: "refine",
     configPath,
+    skillName,
     task,
+    resumeRunId,
   };
-  if (resumeRunId !== undefined) {
-    result.resumeRunId = resumeRunId;
-  }
-  return result;
 }
 
 export function parseSopCompactArguments(argv: string[]): SopCompactCliArguments {
   let configPath: string | undefined;
   let runId: string | undefined;
   let semanticMode: RuntimeSemanticMode | undefined;
+  let action: SopCompactCliAction | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--config" || arg === "-c") {
@@ -113,19 +122,30 @@ export function parseSopCompactArguments(argv: string[]): SopCompactCliArguments
       semanticMode = parseSemanticMode(arg.slice("--semantic=".length));
       continue;
     }
+    if (arg === "list") {
+      action = "list";
+      continue;
+    }
     if (!runId) {
       runId = arg;
     }
   }
+  if (action === "list") {
+    if (runId !== undefined || semanticMode !== undefined) {
+      throw new Error("invalid sop-compact list usage. usage: sop-compact list [--config path]");
+    }
+    return { command: "sop-compact", action: "list", configPath };
+  }
   if (!runId?.trim()) {
     throw new Error("missing run id. usage: sop-compact --run-id <run_id>");
   }
-  return { command: "sop-compact", configPath, runId: runId.trim(), semanticMode };
+  return { command: "sop-compact", action: "run", configPath, runId: runId.trim(), semanticMode };
 }
 
-function parseTaskArguments(argv: string[]): { configPath?: string; task: string; resumeRunId?: string } {
+function parseTaskArguments(argv: string[]): { configPath?: string; task: string; skillName?: string; resumeRunId?: string } {
   const taskParts: string[] = [];
   let configPath: string | undefined;
+  let skillName: string | undefined;
   let resumeRunId: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -136,6 +156,23 @@ function parseTaskArguments(argv: string[]): { configPath?: string; task: string
     }
     if (arg.startsWith("--config=")) {
       configPath = arg.slice("--config=".length);
+      continue;
+    }
+    if (arg === "--skill") {
+      const value = argv[i + 1]?.trim();
+      if (!value) {
+        throw new Error("missing skill name. usage: refine [--skill <name>] [--resume-run-id <run_id>] \"your task\"");
+      }
+      skillName = value;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--skill=")) {
+      const value = arg.slice("--skill=".length).trim();
+      if (!value) {
+        throw new Error("missing skill name. usage: refine [--skill <name>] [--resume-run-id <run_id>] \"your task\"");
+      }
+      skillName = value;
       continue;
     }
     if (arg === "--resume-run-id") {
@@ -149,7 +186,7 @@ function parseTaskArguments(argv: string[]): { configPath?: string; task: string
     }
     taskParts.push(arg);
   }
-  return { configPath, task: taskParts.join(" ").trim(), resumeRunId };
+  return { configPath, task: taskParts.join(" ").trim(), skillName, resumeRunId };
 }
 
 function hasLegacyModeFlags(argv: string[]): boolean {

@@ -53,17 +53,15 @@ export interface CompactReuseBoundary {
   contextDependencies: string[];
 }
 
-export interface CompactCapabilityOutput {
-  schemaVersion: "compact_capability_output.v0";
-  runId: string;
-  taskUnderstanding: string;
-  workflowSkeleton: string[];
-  decisionStrategy: string[];
-  actionPolicy: CompactActionPolicy;
-  stopPolicy: string[];
-  reuseBoundary: CompactReuseBoundary;
-  remainingUncertainties: string[];
+export interface CompactSkillOutput {
+  schemaVersion: "compact_skill_output.v0";
+  skillName: string;
+  description: string;
+  body: string;
+  sourceObserveRunId: string;
 }
+
+export type CompactCapabilityOutput = CompactSkillOutput;
 
 export interface CompactHumanLoopRequest {
   reason_for_clarification: string;

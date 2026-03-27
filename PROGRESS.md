@@ -10,6 +10,9 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Current Code Status
+- **SOP skill compact persistence + discovery slice 已完成（Task 1/2/3）**: `sop-compact` 现在会把 durable user-level SOP skill 写到 `~/.sasiki/skills/` 目录下的每-skill markdown 文档，只在 compact session 明确收敛到 `ready_to_finalize` 时落地；`SopSkillStore` 负责 canonical skill discovery / read / write contract，并对缺失 skill 文档、空 body、非法 skill name、frontmatter mismatch 等状态显式失败；CLI 新增 `sop-compact list`，通过 shell-owned composition 返回 skill `name + description` 的 JSON catalog，而 `sop-compact --run-id <run_id>` 继续走原有 hosted workflow path。fresh focused verification：`npx tsx --test test/infrastructure/persistence/sop-skill-store.test.ts test/application/layer-boundaries.test.ts test/application/compact/interactive-sop-compact.test.ts test/application/shell/workflow-runtime.test.ts` 通过，`npm --prefix apps/agent-runtime run lint:arch` 为 `0 error`。
+- **SOP skill refine bootstrap + `skill.reader` slice 已完成（Task 4/5）**: `refine` 现在支持可选 `--skill <name>`；bootstrap 默认加载 `~/.sasiki/skills/` skill catalog 的 frontmatter metadata，并在显式请求缺失 skill 时直接失败；start prompt 会收到 available skill bank 与 requested skill name，但不会内联 full body；refine tool surface 新增 `skill.reader`，仅支持列出可用 SOP skills 或按名读取一个 skill body；`SopSkillStore` 的 concrete assembly 仍只留在 shell。fresh focused verification：`npm --prefix apps/agent-runtime run test -- test/runtime/refine-run-bootstrap-provider.test.ts test/application/refine/prompt-provider.test.ts test/application/refine/refine-tool-surface.test.ts test/replay-refinement/refine-react-tool-client.test.ts` 通过，`npm --prefix apps/agent-runtime run typecheck` 通过。
+- **SOP skill compact->refine closeout verification 已完成（Task 6）**: 当前 worktree 已 fresh 跑完 repo-level `lint`、`test`、`typecheck`、`build`、`hardgate`，built CLI dry check `node apps/agent-runtime/dist/index.js sop-compact list` 在空 skill store 下返回 `[]`；严格 reviewer 复查按 `harness:refactor` 口径无新增 finding，`layer-boundaries` + compact/refine focused tests 继续作为新 seam 的 `harness:lint-test-design` proof。fresh hardgate report：`artifacts/code-gate/2026-03-27T04-49-22-654Z/report.json`。
 - **Refine page-level retrieval cues slice 已完成**: refine knowledge 现在以 exact `page.origin + page.normalizedPath` 为唯一 retrieval gate；`observe.page` 会在稳定 capture 后返回 agent-facing `pageKnowledge`（仅 `guide + keywords`）；`knowledge.record_candidate` 也已改成记录 `page + guide + keywords + provenance`，不再依赖 `taskScope/category/cue`。tool-surface delivery 与 default workflow assembly 都已经接通，prompt-time guidance 只保留为次级兼容路径，不再是主设计真源。fresh verification：`npm --prefix apps/agent-runtime run lint`、`test`、`typecheck`、`build`、`hardgate` 全部通过；fresh hardgate report 为 `artifacts/code-gate/2026-03-26T09-45-42-193Z/report.json`。
 - **Refine-only TikTok rerun 已确认 runtime page-knowledge hit**: rerun `20260326_200513_031` 已完成并确认 `/chat/inbox/current` 的 `observe.page` 返回非空 `pageKnowledge`，说明 page-level knowledge 在真实 refine run 中已成功命中；但 `artifacts/e2e/20260326_200513_031/run_summary.json` 仍显示 `loadedKnowledgeCount: 0`，表明该字段当前只代表 bootstrap/startup guidance 注入数，不能直接代表 runtime page hit。下一轮应先拆清 metric 语义，再单独评估 start prompt 是否要在命中稳定 empty-state knowledge 且页面证据一致时允许直接 finish。
 - **URL literal fidelity 问题已登记为未解决项**: TikTok customer-service refine e2e 中，模型在复述首页 URL 时会高频把 `&register_libra=` 误写成 `®ister_libra=`，导致 `act.navigate` 实际收到被污染的 query string。这不是 `observe.page` stabilization 主链的问题，也不是当前 P0，因为 fresh stabilized-observe success run `20260324_225753_579` 仍然可以完成 empty inbox 检查；但它会降低导航可预测性，后续需要单独收一个 literal-fidelity 修复 slice。已知样本里 2026-03-24 当天带 `act.navigate` 的 TikTok run 中，broken 13 次、correct 3 次。
@@ -94,6 +97,8 @@ apps/agent-runtime/src/
 - `docs/testing/strategy.md`
 
 ## Active Spec / Plan
+- `docs/superpowers/specs/2026-03-27-sop-skill-compact-to-refine-design.md`
+- `docs/superpowers/plans/2026-03-27-sop-skill-compact-to-refine-implementation.md`
 - `docs/superpowers/specs/2026-03-24-refine-tiktok-customer-service-e2e-design.md`
 - `docs/superpowers/plans/2026-03-24-refine-tiktok-customer-service-e2e-implementation.md`
 - `docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`
@@ -119,9 +124,18 @@ apps/agent-runtime/src/
 - 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
 
 ## TODO
-- `P0` 基于 `observationReadiness` 已落地的 TikTok baseline，跑一轮新的 customer-service refine e2e，记录 empty inbox / new tab / partial page 场景下 readiness 的真实表现，并冻结下一版 query-surface + task-facing inbox summary spec，明确哪些 deterministic text buckets 应进入 `observe.query`，哪些摘要仍应留在 adapter 层。
+- `P0` 启动 `loadedKnowledgeCount` / runtime `pageKnowledge` metric semantics slice：把 startup guidance 注入数与 `observe.page` 运行时命中数拆成两个显式指标，补上 run summary + focused coverage，然后再决定 stable empty-state knowledge 是否允许直接 finish。
 
 ## DONE
+- 已完成 SOP skill compact->refine Task 6 closeout：
+  - full gates：`npm --prefix apps/agent-runtime run lint`
+  - full gates：`npm --prefix apps/agent-runtime run test`
+  - full gates：`npm --prefix apps/agent-runtime run typecheck`
+  - full gates：`npm --prefix apps/agent-runtime run build`
+  - full gates：`npm --prefix apps/agent-runtime run hardgate`
+  - built dry check：`node apps/agent-runtime/dist/index.js sop-compact list`
+  - hardgate evidence：`artifacts/code-gate/2026-03-27T04-49-22-654Z/report.json`
+  - reviewer closeout：strict `harness:refactor` recheck 无新增 finding
 - 已完成 Phase 2 Task 1（kernel leakage inventory docs sync）：
   - 记录了今天 `kernel/*` 的实际泄漏清单
   - 区分了 product-domain 与 infrastructure imports

@@ -18,11 +18,17 @@ import {
   type HitlAnswerProvider,
   type RefineRunService,
 } from "./services/refine-run-service.js";
+import {
+  RefineSkillServiceImpl,
+  type RefineSkillService,
+  type RefineSkillStorePort,
+} from "./services/refine-skill-service.js";
 import { createRefineToolHookPipeline, type RefineToolHookPipeline } from "./refine-tool-hook-pipeline.js";
 
 export interface RefineToolCompositionContext extends RefineToolContext {
   browserService?: RefineBrowserService;
   runService?: RefineRunService;
+  skillService?: RefineSkillService;
 }
 
 export interface RefineToolCompositionInput {
@@ -32,6 +38,7 @@ export interface RefineToolCompositionInput {
   hitlAnswerProvider?: HitlAnswerProvider;
   guidanceLoader?: Pick<AttentionGuidanceLoader, "load">;
   knowledgeTopN?: number;
+  skillStore?: RefineSkillStorePort;
 }
 
 export interface RefineToolComposition {
@@ -60,15 +67,19 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
     session,
     hitlAnswerProvider: input.hitlAnswerProvider,
   });
+  const skillService = input.skillStore ? new RefineSkillServiceImpl({ skillStore: input.skillStore }) : undefined;
   contextRef.set({
     browserService,
     runService,
+    skillService,
   });
 
   const registry = new RefineToolRegistry({
     definitions: [
       ...createRefineBrowserToolRegistry().listDefinitions(),
-      ...createRefineRuntimeToolRegistry().listDefinitions(),
+      ...createRefineRuntimeToolRegistry({
+        includeSkillReader: Boolean(skillService),
+      }).listDefinitions(),
     ],
   });
   const hookPipeline = createNoOpHookPipeline();
@@ -98,12 +109,13 @@ export function createRefineToolComposition(input: RefineToolCompositionInput): 
 
 export function createBootstrapRefineToolComposition(
   rawClient: ToolClient,
-  options: Pick<RefineToolCompositionInput, "guidanceLoader" | "knowledgeTopN"> = {},
+  options: Pick<RefineToolCompositionInput, "guidanceLoader" | "knowledgeTopN" | "skillStore"> = {},
 ): RefineToolComposition {
   return createRefineToolComposition({
     rawToolClient: rawClient,
     guidanceLoader: options.guidanceLoader,
     knowledgeTopN: options.knowledgeTopN,
+    skillStore: options.skillStore,
   });
 }
 

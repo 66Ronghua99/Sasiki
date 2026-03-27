@@ -38,7 +38,7 @@
 - 当前本地 refine e2e 的默认路径应固定为：系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`。
 - 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
-- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 `.sandbox/runtime.config.json` 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
+- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 sandbox 里的 runtime config JSON 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
@@ -101,6 +101,9 @@
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 - `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
 - refine tool context 现在以 `browserService` / `runService` 作为活跃路径的 service-owned refs；definitions 应直接读取这些服务引用，`providers/*` 与 `runtime/*` 已退场，不应再作为活跃路径回流。
+- SOP skill 在 refine 里的活跃消费模型现在分成两层：bootstrap 只加载 `~/.sasiki/skills/` skill catalog 的 `name` / `description` frontmatter metadata，full body 只能通过 `skill.reader` 显式读取；不要把整个 skill markdown bank 偷偷塞进 start prompt。
+- `skill.reader` 只应在 refine composition 注入了真实 skill service / store 时才注册；raw direct-call refine surface 若没有 SOP persistence backing，必须保持原始工具面，不要暴露一个会在运行时悬空的 reader。
+- SOP skill 引用必须层层显式失败：blank / invalid `skillName` 不能回退成 list mode，tool arg parser、service、store 都应拒绝非法引用，这样空白输入不会掩盖真实状态。
 - pi-agent hooks 现在只通过 `PiAgentToolAdapter` 的按 `toolName` registry 执行；`RefineToolSurface.callTool(...)`、`RefineReactToolClient.callTool(...)` 和 bootstrap direct observe 都必须保持 hook-free。
 - Phase 4 之后，`application/refine/tools/services/*` 是 refine tool behavior 的 canonical home；若 `providers/*` 或活跃 `runtime/*` 重新出现，应优先视为架构回退而不是正常扩展。
 

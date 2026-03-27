@@ -32,33 +32,12 @@ export function normalizeCompactCapabilityOutput(
   payload: Record<string, unknown>,
   state: CompactSessionState
 ): CompactCapabilityOutput {
-  const actionPolicy = readRecord(payload.actionPolicy);
-  const reuseBoundary = readRecord(payload.reuseBoundary);
-  const remainingUncertainties = [
-    ...readStringArray(payload.remainingUncertainties),
-    ...state.openDecisions,
-    ...state.workflowSkeleton.uncertainSteps,
-  ];
-
   return {
-    schemaVersion: "compact_capability_output.v0",
-    runId: state.runId,
-    taskUnderstanding: readString(payload.taskUnderstanding) ?? state.taskUnderstanding,
-    workflowSkeleton: readStringArray(payload.workflowSkeleton, state.workflowSkeleton.stableSteps),
-    decisionStrategy: readStringArray(payload.decisionStrategy),
-    actionPolicy: {
-      requiredActions: readStringArray(actionPolicy?.requiredActions),
-      optionalActions: readStringArray(actionPolicy?.optionalActions),
-      conditionalActions: readStringArray(actionPolicy?.conditionalActions),
-      nonCoreActions: readStringArray(actionPolicy?.nonCoreActions),
-    },
-    stopPolicy: readStringArray(payload.stopPolicy),
-    reuseBoundary: {
-      applicableWhen: readStringArray(reuseBoundary?.applicableWhen),
-      notApplicableWhen: readStringArray(reuseBoundary?.notApplicableWhen),
-      contextDependencies: readStringArray(reuseBoundary?.contextDependencies),
-    },
-    remainingUncertainties: uniqueStrings(remainingUncertainties),
+    schemaVersion: "compact_skill_output.v0",
+    skillName: readRequiredString(payload.skillName, "skillName"),
+    description: readRequiredString(payload.description, "description"),
+    body: readRequiredString(payload.body, "body"),
+    sourceObserveRunId: state.runId,
   };
 }
 
@@ -108,35 +87,9 @@ export function buildCompactSessionStatusEvent(
   };
 }
 
-function uniqueStrings(values: string[]): string[] {
-  const result: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of values) {
-    const normalized = raw.trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    result.push(normalized);
+function readRequiredString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`compact finalizer must return a non-empty string field: ${field}`);
   }
-  return result;
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function readStringArray(value: unknown, fallback: string[] = []): string[] {
-  if (!Array.isArray(value)) {
-    return [...fallback];
-  }
-  return uniqueStrings(
-    value
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
-  );
-}
-
-function readRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+  return value.trim();
 }

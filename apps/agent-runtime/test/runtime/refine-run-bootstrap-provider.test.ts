@@ -26,6 +26,7 @@ function buildRequest(overrides: Partial<AgentRunRequest> = {}): AgentRunRequest
     task: "buy coffee beans",
     resumeRunId: undefined,
     sopRunId: undefined,
+    skillName: undefined,
     ...overrides,
   };
 }
@@ -223,6 +224,14 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
         };
       },
     },
+    skillCatalog: {
+      listMetadata: async () => [
+        {
+          name: "tiktok-customer-service",
+          description: "Check whether new customer chats need handling.",
+        },
+      ],
+    },
     promptProvider: {
       buildRefineStartPrompt(input) {
         promptCalls.push(input);
@@ -257,6 +266,13 @@ test("refine bootstrap provider loads resume context, pre-observes the page, loa
     {
       task: "resume task from store",
       guidance: "reuse the saved title flow",
+      availableSkills: [
+        {
+          name: "tiktok-customer-service",
+          description: "Check whether new customer chats need handling.",
+        },
+      ],
+      selectedSkillName: undefined,
       resumeInstruction: "Resumed from paused run paused_run_7. Human prompt context: human noted a blocker",
       initialObservation: {
         observationRef: "obs_resume_1",
@@ -312,6 +328,9 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
         records: [],
       }),
     },
+    skillCatalog: {
+      listMetadata: async () => [],
+    },
     hitlResumeStore: {
       load: async (): Promise<undefined> => undefined,
       save: async () => "saved",
@@ -321,6 +340,8 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
         assert.deepEqual(input, {
           task: "buy coffee beans",
           guidance: "",
+          availableSkills: [],
+          selectedSkillName: undefined,
           resumeInstruction: "",
           initialObservation: {
             observationRef: "obs_fresh_1",
@@ -357,4 +378,152 @@ test("refine bootstrap provider creates a new run id and still assembles prompt 
     },
   ]);
   assert.deepEqual(hitlAnswerProviders, [undefined]);
+});
+
+test("refine bootstrap provider loads skill metadata by default, resolves explicit skill names without loading bodies, and supports skill-only requests", async () => {
+  const promptCalls: Array<Record<string, unknown>> = [];
+  let listMetadataCalls = 0;
+  const toolClient = {
+    setSession() {},
+    setHitlAnswerProvider() {},
+    async callTool(): Promise<unknown> {
+      return {
+        observation: {
+          observationRef: "obs_skill_1",
+          page: {
+            url: "https://seller.example.com/homepage",
+            origin: "https://seller.example.com",
+            normalizedPath: "/homepage",
+            title: "Seller Center",
+          },
+          activeTabIndex: 0,
+          tabs: [{ index: 0 }],
+        },
+      };
+    },
+  };
+
+  const provider = new RefineRunBootstrapProvider({
+    createRunId: () => "skill_run_1",
+    guidanceLoader: {
+      load: async () => ({
+        guidance: "",
+        records: [],
+      }),
+    },
+    skillCatalog: {
+      async listMetadata() {
+        listMetadataCalls += 1;
+        return [
+          {
+            name: "tiktok-customer-service",
+            description: "Check whether new customer chats need handling.",
+          },
+        ];
+      },
+      async readSkill() {
+        assert.fail("bootstrap should not load full skill bodies");
+      },
+    },
+    hitlResumeStore: {
+      load: async (): Promise<undefined> => undefined,
+      save: async () => "saved",
+    },
+    promptProvider: {
+      buildRefineStartPrompt(input) {
+        promptCalls.push(input);
+        return "skill prompt";
+      },
+    },
+  });
+
+  const result = await provider.prepare({
+    request: buildRequest({
+      task: "",
+      skillName: "tiktok-customer-service",
+    }),
+    toolClient,
+  });
+
+  assert.equal(listMetadataCalls, 1);
+  assert.equal(result.task, "Check whether new customer chats need handling.");
+  assert.equal(result.selectedSkillName, "tiktok-customer-service");
+  assert.deepEqual(promptCalls, [
+    {
+      task: "Check whether new customer chats need handling.",
+      guidance: "",
+      availableSkills: [
+        {
+          name: "tiktok-customer-service",
+          description: "Check whether new customer chats need handling.",
+        },
+      ],
+      selectedSkillName: "tiktok-customer-service",
+      resumeInstruction: "",
+      initialObservation: {
+        observationRef: "obs_skill_1",
+        page: {
+          url: "https://seller.example.com/homepage",
+          origin: "https://seller.example.com",
+          normalizedPath: "/homepage",
+          title: "Seller Center",
+        },
+        activeTabIndex: 0,
+        openTabCount: 1,
+      },
+    },
+  ]);
+});
+
+test("refine bootstrap provider fails explicitly when an explicitly requested skill is missing", async () => {
+  const provider = new RefineRunBootstrapProvider({
+    createRunId: () => "run_missing_skill",
+    guidanceLoader: {
+      load: async () => ({
+        guidance: "",
+        records: [],
+      }),
+    },
+    skillCatalog: {
+      listMetadata: async () => [],
+    },
+    hitlResumeStore: {
+      load: async (): Promise<undefined> => undefined,
+      save: async () => "saved",
+    },
+    promptProvider: {
+      buildRefineStartPrompt() {
+        return "unused";
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.prepare({
+        request: buildRequest({
+          task: "",
+          skillName: "missing-skill",
+        }),
+        toolClient: {
+          setSession() {},
+          setHitlAnswerProvider() {},
+          async callTool(): Promise<unknown> {
+            return {
+              observation: {
+                observationRef: "obs_missing_skill_1",
+                page: {
+                  url: "https://example.com",
+                  origin: "https://example.com",
+                  normalizedPath: "/",
+                  title: "Example",
+                },
+                tabs: [{ index: 0 }],
+              },
+            };
+          },
+        },
+      }),
+    /missing-skill|skill/i
+  );
 });

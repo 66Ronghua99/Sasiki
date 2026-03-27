@@ -18,18 +18,15 @@ import type { LlmThinkingLevel } from "../../domain/llm-thinking.js";
 import type { SopTrace } from "../../domain/sop-trace.js";
 import { validateSopTrace } from "../../domain/sop-trace.js";
 import type { RuntimeSemanticMode } from "../config/runtime-config.js";
-import { applyCompactSessionPatch, buildInitialCompactSessionState, type CompactTraceSummary } from "./compact-session-machine.js";
+import { type CompactTraceSummary } from "./compact-session-machine.js";
 import { normalizeCompactTurnOutput } from "./compact-turn-normalizer.js";
 import {
   FINALIZE_SYSTEM_PROMPT,
   REASONER_SYSTEM_PROMPT,
   SUMMARIZE_SYSTEM_PROMPT,
 } from "./interactive-sop-compact-prompts.js";
+import { runInteractiveCompactSession } from "./interactive-sop-compact-session.js";
 import {
-  buildCompactAgentTurnEvent,
-  buildCompactAssistantEvent,
-  buildCompactClarificationRequestEvent,
-  buildCompactSessionStatusEvent,
   normalizeCompactCapabilityOutput,
 } from "./compact-runtime-support.js";
 import { SopRuleCompactBuilder } from "./sop-rule-compact-builder.js";
@@ -62,6 +59,15 @@ export interface CompactArtifactsWriter {
   compactSessionDir(sessionId: string): string;
 }
 
+export interface CompactSkillStore {
+  writeSkill(document: {
+    name: string;
+    description: string;
+    body: string;
+    sourceObserveRunId: string;
+  }): Promise<{ skillPath: string }>;
+}
+
 interface InteractiveSopCompactOptions {
   semantic: CompactSemanticOptions;
   hardLimit?: number;
@@ -69,17 +75,21 @@ interface InteractiveSopCompactOptions {
   modelClient: CompactModelClient;
   createArtifactsWriter: (runId: string) => CompactArtifactsWriter;
   telemetryRegistry: RuntimeTelemetryRegistry;
+  skillStore: CompactSkillStore;
 }
 
 export interface InteractiveSopCompactResult {
   runId: string;
+  sourceObserveRunId: string;
   sessionId: string;
   sessionDir: string;
   runDir: string;
   sourceTracePath: string;
   sessionStatePath: string;
   humanLoopPath: string;
-  capabilityOutputPath: string;
+  selectedSkillName: string | null;
+  skillPath: string | null;
+  capabilityOutputPath: string | null;
   status: CompactConvergenceStatus;
   roundsCompleted: number;
   remainingOpenDecisions: string[];
@@ -93,6 +103,7 @@ export class InteractiveSopCompactService {
   private readonly modelClient: CompactModelClient;
   private readonly createArtifactsWriter: (runId: string) => CompactArtifactsWriter;
   private readonly telemetryRegistry: RuntimeTelemetryRegistry;
+  private readonly skillStore: CompactSkillStore;
   private readonly ruleBuilder = new SopRuleCompactBuilder();
 
   constructor(artifactsDir: string, options: InteractiveSopCompactOptions) {
@@ -103,6 +114,7 @@ export class InteractiveSopCompactService {
     this.modelClient = options.modelClient;
     this.createArtifactsWriter = options.createArtifactsWriter;
     this.telemetryRegistry = options.telemetryRegistry;
+    this.skillStore = options.skillStore;
   }
 
   async compact(runId: string): Promise<InteractiveSopCompactResult> {
@@ -132,110 +144,25 @@ export class InteractiveSopCompactService {
 
       const trace = await this.readTrace(sourceTracePath);
       const summary = this.buildTraceSummary(runId, trace);
-      let state = buildInitialCompactSessionState(runId, sessionId, summary);
-      let latestHumanReply: string | undefined;
-
-      await writer.writeCompactSessionState(state, sessionId);
-
-      while (true) {
-        if (state.roundIndex >= this.hardLimit) {
-          state = {
-            ...state,
-            convergence: {
-              status: "max_round_reached",
-              reason: `hard limit ${this.hardLimit} reached`,
-            },
-          };
-          await writer.writeCompactSessionState(state, sessionId);
-          await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-          break;
-        }
-
-        const roundNumber = state.roundIndex + 1;
-        const turn = await this.reasonRound(summary, state, latestHumanReply);
-        await this.emitTelemetry(
-          telemetry,
-          buildCompactAgentTurnEvent({
-            runId,
-            roundIndex: roundNumber,
-            assistantResponse: turn.assistantResponse,
-            convergenceStatus: turn.patch.convergenceNext.status,
-          })
-        );
-        await writer.appendCompactHumanLoop(buildCompactAssistantEvent(roundNumber, turn.assistantResponse), sessionId);
-
-        state = applyCompactSessionPatch(state, turn.patch);
-        await writer.writeCompactSessionState(state, sessionId);
-        await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-        await this.emitTelemetry(telemetry, {
-          timestamp: new Date().toISOString(),
-          workflow: "compact",
-          runId,
-          eventType: "workflow.lifecycle",
-          payload: {
-            phase: "round_completed",
-            sessionId,
-            roundIndex: state.roundIndex,
-            convergenceStatus: state.convergence.status,
-            artifactsDir: runDir,
-          },
-        });
-
-        if (state.convergence.status !== "continue") {
-          latestHumanReply = undefined;
-          break;
-        }
-
-        if (!turn.humanLoopRequest) {
-          latestHumanReply = undefined;
-          continue;
-        }
-
-        await writer.appendCompactHumanLoop(
-          buildCompactClarificationRequestEvent(state.roundIndex, turn.humanLoopRequest),
-          sessionId
-        );
-        const humanResponse = await this.humanLoopTool.requestClarification(turn.humanLoopRequest);
-        await writer.appendCompactHumanLoop(
-          {
-            timestamp: new Date().toISOString(),
-            roundIndex: state.roundIndex,
-            role: "human",
-            eventType: "human_reply",
-            payload: {
-              interaction_status: humanResponse.interaction_status,
-              human_reply: humanResponse.human_reply,
-            },
-          },
-          sessionId
-        );
-
-        if (humanResponse.interaction_status === "defer" || humanResponse.interaction_status === "stop") {
-          state = {
-            ...state,
-            convergence: {
-              status: "user_stopped",
-              reason:
-                humanResponse.interaction_status === "stop"
-                  ? "user explicitly stopped compact session"
-                  : "user deferred clarification",
-            },
-          };
-          await writer.writeCompactSessionState(state, sessionId);
-          await writer.appendCompactHumanLoop(buildCompactSessionStatusEvent(state.roundIndex, state.convergence), sessionId);
-          break;
-        }
-
-        latestHumanReply = humanResponse.human_reply.trim();
-        state = {
-          ...state,
-          humanFeedbackMemory: uniqueStrings([...state.humanFeedbackMemory, latestHumanReply]),
-        };
-        await writer.writeCompactSessionState(state, sessionId);
-      }
-
-      const capabilityOutput = await this.finalize(summary, state);
-      await writer.writeCompactCapabilityOutput(capabilityOutput, sessionId);
+      const state = await runInteractiveCompactSession({
+        runId,
+        sessionId,
+        artifactsDir: runDir,
+        hardLimit: this.hardLimit,
+        summary,
+        writer,
+        humanLoopTool: this.humanLoopTool,
+        reasonRound: (traceSummary, sessionState, latestHumanReply) =>
+          this.reasonRound(traceSummary, sessionState, latestHumanReply),
+        emitTelemetry: async (event) => {
+          await this.emitTelemetry(telemetry, event);
+        },
+      });
+      const capabilityOutput =
+        state.convergence.status === "ready_to_finalize" ? await this.finalize(summary, state) : null;
+      const persistedSkill = capabilityOutput
+        ? await this.persistFinalizedSkill(writer, capabilityOutput, sessionId)
+        : null;
       await this.emitTelemetry(telemetry, {
         timestamp: new Date().toISOString(),
         workflow: "compact",
@@ -252,13 +179,18 @@ export class InteractiveSopCompactService {
 
       return {
         runId,
+        sourceObserveRunId: runId,
         sessionId,
         sessionDir: writer.compactSessionDir(sessionId),
         runDir,
         sourceTracePath,
         sessionStatePath: path.join(writer.compactSessionDir(sessionId), "compact_session_state.json"),
         humanLoopPath: path.join(writer.compactSessionDir(sessionId), "compact_human_loop.jsonl"),
-        capabilityOutputPath: path.join(writer.compactSessionDir(sessionId), "compact_capability_output.json"),
+        selectedSkillName: capabilityOutput?.skillName ?? null,
+        skillPath: persistedSkill?.skillPath ?? null,
+        capabilityOutputPath: capabilityOutput
+          ? path.join(writer.compactSessionDir(sessionId), "compact_capability_output.json")
+          : null,
         status: state.convergence.status,
         roundsCompleted: state.roundIndex,
         remainingOpenDecisions: [...state.openDecisions],
@@ -421,7 +353,7 @@ export class InteractiveSopCompactService {
 
   private buildFinalizePrompt(summary: CompactTraceSummary, state: CompactSessionState): string {
     return [
-      "Finalize the compact capability output from this session.",
+      "Finalize the compact skill document output from this session.",
       "",
       "Trace Summary JSON:",
       JSON.stringify(summary, null, 2),
@@ -430,9 +362,10 @@ export class InteractiveSopCompactService {
       JSON.stringify(state, null, 2),
       "",
       "Rules:",
-      "1) workflowSkeleton must reflect stableSteps only.",
-      "2) If stop policy or action policy is not truly clear, keep it conservative and surface uncertainty.",
-      "3) remainingUncertainties should include openDecisions and any still-important uncertain steps.",
+      "1) skillName must be a short kebab-case identifier for the reusable skill.",
+      "2) description must be one short sentence describing when to use the skill.",
+      "3) body must be markdown and should capture the stable reusable workflow without inventing details.",
+      "4) If something is still uncertain, state it explicitly inside the markdown body instead of guessing.",
     ].join("\n");
   }
 
@@ -441,6 +374,20 @@ export class InteractiveSopCompactService {
     state: CompactSessionState
   ): CompactCapabilityOutput {
     return normalizeCompactCapabilityOutput(payload, state);
+  }
+
+  private async persistFinalizedSkill(
+    writer: CompactArtifactsWriter,
+    capabilityOutput: CompactCapabilityOutput,
+    sessionId: string
+  ): Promise<{ skillPath: string }> {
+    await writer.writeCompactCapabilityOutput(capabilityOutput, sessionId);
+    return this.skillStore.writeSkill({
+      name: capabilityOutput.skillName,
+      description: capabilityOutput.description,
+      body: capabilityOutput.body,
+      sourceObserveRunId: capabilityOutput.sourceObserveRunId,
+    });
   }
 
   private async emitTelemetry(telemetry: RuntimeRunTelemetry | null, event: RuntimeEvent): Promise<void> {
@@ -461,18 +408,4 @@ export class InteractiveSopCompactService {
       return null;
     }
   }
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const result: string[] = [];
-  const seen = new Set<string>();
-  for (const raw of values) {
-    const normalized = raw.trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result;
 }

@@ -16,7 +16,7 @@ async function main(): Promise<void> {
     printUsageAndExit();
     return;
   }
-  if (args.command === "refine" && !args.task && !args.resumeRunId) {
+  if (args.command === "refine" && !args.task && !args.resumeRunId && !args.skillName) {
     printUsageAndExit();
     return;
   }
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
 
 function printUsageAndExit(): void {
   process.stderr.write(
-    "Usage:\n  npm run dev -- observe [--config path] \"your task\"\n  npm run dev -- refine [--config path] [--resume-run-id <run_id>] \"your task\"\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
+    "Usage:\n  npm run dev -- observe [--config path] \"your task\"\n  npm run dev -- refine [--config path] [--skill <name>] [--resume-run-id <run_id>] \"your task\"\n  npm run dev -- sop-compact list [--config path]\n  npm run dev -- sop-compact --run-id <run_id> [--semantic off|auto|on] [--config path]\n"
   );
   process.exit(1);
 }

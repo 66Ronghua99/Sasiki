@@ -4,6 +4,7 @@ import test from "node:test";
 import { WorkflowRuntime } from "../../../src/application/shell/workflow-runtime.js";
 import type { RuntimeConfig } from "../../../src/application/config/runtime-config.js";
 import type { HostedWorkflow } from "../../../src/application/shell/workflow-contract.js";
+import type { SopSkillMetadata } from "../../../src/domain/sop-skill.js";
 
 function buildRuntimeConfig(): RuntimeConfig {
   return {} as RuntimeConfig;
@@ -61,7 +62,11 @@ function createObserveWorkflowFactory(
 
 function createRefineWorkflowFactory(
   events: string[]
-): (request: { task: string; resumeRunId?: string }) => HostedWorkflow<{ task: string; status: string; finishReason: string; steps: []; mcpCalls: []; assistantTurns: [] }> {
+): (request: {
+  task: string;
+  resumeRunId?: string;
+  skillName?: string;
+}) => HostedWorkflow<{ task: string; status: string; finishReason: string; steps: []; mcpCalls: []; assistantTurns: [] }> {
   return (request) => ({
     prepare: async () => {
       events.push("browser.start");
@@ -93,13 +98,16 @@ function createCompactWorkflowFactory(
   events: string[]
 ): (request: { runId: string; semanticMode?: "off" | "auto" | "on" }) => HostedWorkflow<{
   runId: string;
+  sourceObserveRunId: string;
   sessionId: string;
   sessionDir: string;
   runDir: string;
   sourceTracePath: string;
   sessionStatePath: string;
   humanLoopPath: string;
-  capabilityOutputPath: string;
+  selectedSkillName: string | null;
+  skillPath: string | null;
+  capabilityOutputPath: string | null;
   status: "ready_to_finalize";
   roundsCompleted: number;
   remainingOpenDecisions: string[];
@@ -112,12 +120,15 @@ function createCompactWorkflowFactory(
       events.push(`compact.execute:${request.runId}`);
       return {
         runId: request.runId,
+        sourceObserveRunId: request.runId,
         sessionId: `${request.runId}_compact_session`,
         sessionDir: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session`,
         runDir: `/tmp/${request.runId}`,
         sourceTracePath: `/tmp/${request.runId}/demonstration_trace.json`,
         sessionStatePath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_session_state.json`,
         humanLoopPath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_human_loop.jsonl`,
+        selectedSkillName: "homepage-capture",
+        skillPath: `/tmp/skills/homepage-capture/SKILL.md`,
         capabilityOutputPath: `/tmp/${request.runId}/compact_sessions/${request.runId}_compact_session/compact_capability_output.json`,
         status: "ready_to_finalize",
         roundsCompleted: 2,
@@ -268,7 +279,7 @@ test("workflow runtime dispatches refine through the shared registry and host pa
 
 test("workflow runtime allows resume-only refine requests through the shared host path", async () => {
   const events: string[] = [];
-  let receivedRequest: { task: string; resumeRunId?: string } | null = null;
+  let receivedRequest: { task: string; resumeRunId?: string; skillName?: string } | null = null;
 
   const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
     createRuntimeComposition: () =>
@@ -295,10 +306,45 @@ test("workflow runtime allows resume-only refine requests through the shared hos
 
   assert.deepEqual(receivedRequest, {
     task: "",
+    skillName: undefined,
     resumeRunId: "paused-run",
   });
   assert.equal(result.task, "");
   assert.deepEqual(events, ["host.run:start", "browser.start", "agent.start", "agent.run:", "host.run:dispose", "agent.stop", "browser.stop"]);
+});
+
+test("workflow runtime threads requested skill names into refine workflow creation", async () => {
+  const events: string[] = [];
+  let receivedRequest: { task: string; resumeRunId?: string; skillName?: string } | null = null;
+
+  const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
+    createRuntimeComposition: () =>
+      ({
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: (request) => {
+          receivedRequest = request;
+          return createRefineWorkflowFactory(events)(request);
+        },
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
+      }) as never,
+    createRuntimeHost: () => createRuntimeHost(events),
+  });
+
+  await runtime.execute({
+    command: "refine",
+    task: "",
+    skillName: "tiktok-customer-service",
+  });
+
+  assert.deepEqual(receivedRequest, {
+    task: "",
+    resumeRunId: undefined,
+    skillName: "tiktok-customer-service",
+  });
 });
 
 test("workflow runtime dispatches sop-compact through the shared registry and host path", async () => {
@@ -340,12 +386,16 @@ test("workflow runtime dispatches sop-compact through the shared registry and ho
 
   const result = await runtime.execute({
     command: "sop-compact",
+    action: "run",
     runId: "compact-run",
     semanticMode: "on",
   });
 
   assert.deepEqual(registryFactoryKeys, ["observe", "refine", "sop-compact"]);
   assert.equal(result.runId, "compact-run");
+  assert.equal(result.sourceObserveRunId, "compact-run");
+  assert.equal(result.selectedSkillName, "homepage-capture");
+  assert.equal(result.skillPath, "/tmp/skills/homepage-capture/SKILL.md");
   assert.deepEqual(events, [
     "host.run:start",
     "compact.prepare:compact-run",
@@ -353,6 +403,53 @@ test("workflow runtime dispatches sop-compact through the shared registry and ho
     "host.run:dispose",
     "compact.dispose:compact-run",
   ]);
+});
+
+test("workflow runtime returns sop-compact list output through shell-owned composition", async () => {
+  const events: string[] = [];
+  const skillCatalog: SopSkillMetadata[] = [
+    {
+      name: "homepage-capture",
+      description: "Capture the homepage hero section.",
+    },
+  ];
+
+  const runtime = new WorkflowRuntime(buildRuntimeConfig(), {
+    createRuntimeComposition: () =>
+      ({
+        observeWorkflowFactory: createObserveWorkflowFactory(events),
+        refineWorkflowFactory: createRefineWorkflowFactory(events),
+        compactWorkflowFactory: (request) =>
+          createCompactWorkflowFactory(events)({
+            runId: request.runId,
+            semanticMode: request.semanticMode,
+          }),
+        listSopSkills: async () => {
+          events.push("composition.listSopSkills");
+          return skillCatalog;
+        },
+      }) as never,
+    createRuntimeHost: () => ({
+      async run<T>(_workflow: HostedWorkflow<T>): Promise<T> {
+        events.push("host.run");
+        return new Promise<T>(() => {});
+      },
+      async requestInterrupt(): Promise<boolean> {
+        return false;
+      },
+      async dispose(): Promise<void> {
+        events.push("host.dispose");
+      },
+    }),
+  });
+
+  const result = await runtime.execute({
+    command: "sop-compact",
+    action: "list",
+  });
+
+  assert.deepEqual(result, skillCatalog);
+  assert.deepEqual(events, ["composition.listSopSkills"]);
 });
 
 test("workflow runtime delegates interrupts to the shared runtime host while a workflow is preparing", async () => {

@@ -4,6 +4,7 @@
  * Last Updated: 2026-03-21
  */
 import type { AgentRunResult, ObserveRunResult } from "../../domain/agent-types.js";
+import type { SopSkillMetadata } from "../../domain/sop-skill.js";
 import type { InteractiveSopCompactResult } from "../compact/interactive-sop-compact.js";
 import type { CliArguments, SopCompactCliArguments } from "./command-router.js";
 import type { RuntimeConfig } from "../config/runtime-config.js";
@@ -33,6 +34,7 @@ export class WorkflowRuntime {
   private readonly observeWorkflowFactory: RuntimeComposition["observeWorkflowFactory"];
   private readonly refineWorkflowFactory: RuntimeComposition["refineWorkflowFactory"];
   private readonly compactWorkflowFactory: RuntimeComposition["compactWorkflowFactory"];
+  private readonly listSopSkills: RuntimeComposition["listSopSkills"];
   private readonly createWorkflowRegistry: typeof createWorkflowRegistry;
   private readonly runtimeHost: RuntimeHostLike;
 
@@ -41,11 +43,18 @@ export class WorkflowRuntime {
     this.observeWorkflowFactory = composition.observeWorkflowFactory;
     this.refineWorkflowFactory = composition.refineWorkflowFactory;
     this.compactWorkflowFactory = composition.compactWorkflowFactory;
+    this.listSopSkills = composition.listSopSkills;
     this.createWorkflowRegistry = dependencies.createWorkflowRegistry ?? createWorkflowRegistry;
     this.runtimeHost = (dependencies.createRuntimeHost ?? (() => new RuntimeHost()))();
   }
 
-  async execute(request: WorkflowRuntimeCommandRequest): Promise<ObserveRunResult | AgentRunResult | InteractiveSopCompactResult> {
+  async execute(
+    request: WorkflowRuntimeCommandRequest
+  ): Promise<ObserveRunResult | AgentRunResult | InteractiveSopCompactResult | SopSkillMetadata[]> {
+    if (request.command === "sop-compact" && request.action === "list") {
+      return this.listSopSkills();
+    }
+
     const workflowTask = request.command === "observe" || request.command === "refine" ? request.task : undefined;
     const registry = this.createWorkflowRegistry({
       observe: () => {
@@ -60,11 +69,12 @@ export class WorkflowRuntime {
         }
         return this.refineWorkflowFactory({
           task: workflowTask,
+          skillName: request.command === "refine" ? request.skillName : undefined,
           resumeRunId: request.command === "refine" ? request.resumeRunId : undefined,
         });
       },
       "sop-compact": () => {
-        const compactRequest = request as SopCompactCliArguments;
+        const compactRequest = request as Extract<SopCompactCliArguments, { action: "run" }>;
         return this.compactWorkflowFactory({
           runId: compactRequest.runId,
           semanticMode: compactRequest.semanticMode,

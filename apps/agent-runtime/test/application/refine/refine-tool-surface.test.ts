@@ -50,6 +50,12 @@ interface RuntimeDefinitionContext extends RefineToolContext {
       summary: string;
     }): Promise<{ accepted: true; finalStatus: "completed" | "failed" }>;
   };
+  readonly skillService: {
+    listSkills(): Promise<Array<{ name: string; description: string }>>;
+    readSkill(request: {
+      skillName: string;
+    }): Promise<{ name: string; description: string; body: string }>;
+  };
 }
 
 interface BrowserDefinitionContext extends RefineToolContext {
@@ -217,7 +223,7 @@ test("surface lifecycle rolls back partial connect failures", async () => {
 
 test("runtime tool definitions expose frozen schemas and invoke provider behavior", async () => {
   const calls: string[] = [];
-  const registry = createRefineRuntimeToolRegistry();
+  const registry = createRefineRuntimeToolRegistry({ includeSkillReader: true });
   const surface = new RefineToolSurface({
     registry,
     contextRef: createRefineToolContextRef<RuntimeDefinitionContext>({
@@ -246,17 +252,37 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
           };
         },
       },
+      skillService: {
+        async listSkills() {
+          calls.push("skill:list");
+          return [
+            {
+              name: "tiktok-customer-service",
+              description: "Check whether new customer chats need handling.",
+            },
+          ];
+        },
+        async readSkill(request) {
+          calls.push(`skill:read:${request.skillName}`);
+          return {
+            name: request.skillName,
+            description: "Check whether new customer chats need handling.",
+            body: "# TikTok Customer Service\n\n## Goal\n\nCheck the inbox.\n",
+          };
+        },
+      },
     }),
   });
 
   const listedTools = await surface.listTools();
   assert.deepEqual(
     registry.listDefinitions().map((definition) => definition.name),
-    ["hitl.request", "knowledge.record_candidate", "run.finish"]
+    ["hitl.request", "knowledge.record_candidate", "run.finish", "skill.reader"]
   );
   const hitl = findListedTool(listedTools, "hitl.request");
   const recordCandidate = findListedTool(listedTools, "knowledge.record_candidate");
   const runFinish = findListedTool(listedTools, "run.finish");
+  const skillReader = findListedTool(listedTools, "skill.reader");
 
   assert.equal(hitl.description, "Ask for human intervention when safe progress requires explicit human input.");
   assert.equal(
@@ -267,7 +293,12 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     runFinish.description,
     "Explicitly mark refine run completion or hard failure with a concise evidence-backed summary. Use this once the task goal or a verified empty-state conclusion is confirmed."
   );
+  assert.equal(
+    skillReader.description,
+    "List available SOP skills or load one selected SOP skill body by name."
+  );
   assert.deepEqual((runFinish.inputSchema as { required?: unknown }).required, ["reason", "summary"]);
+  assert.deepEqual((skillReader.inputSchema as { required?: unknown }).required, []);
   assert.deepEqual(
     (((recordCandidate.inputSchema as { properties?: Record<string, unknown> }).properties?.keywords as {
       type?: unknown;
@@ -296,6 +327,17 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     reason: "goal_achieved",
     summary: "Publish flow completed",
   });
+  const listedSkills = await surface.callTool("skill.reader", {});
+  const skillResult = await surface.callTool("skill.reader", {
+    skillName: "tiktok-customer-service",
+  });
+  await assert.rejects(
+    () =>
+      surface.callTool("skill.reader", {
+        skillName: "   ",
+      }),
+    /invalid argument: skillName/
+  );
 
   assert.deepEqual(hitlResult, {
     status: "answered",
@@ -309,10 +351,25 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
     accepted: true,
     finalStatus: "completed",
   });
+  assert.deepEqual(listedSkills, {
+    skills: [
+      {
+        name: "tiktok-customer-service",
+        description: "Check whether new customer chats need handling.",
+      },
+    ],
+  });
+  assert.deepEqual(skillResult, {
+    name: "tiktok-customer-service",
+    description: "Check whether new customer chats need handling.",
+    body: "# TikTok Customer Service\n\n## Goal\n\nCheck the inbox.\n",
+  });
   assert.deepEqual(calls, [
     "hitl:Need confirmation:dialog is open",
     "knowledge:https://example.com/publish:Need cover image before submit:obs-3",
     "finish:goal_achieved:Publish flow completed",
+    "skill:list",
+    "skill:read:tiktok-customer-service",
   ]);
 });
 

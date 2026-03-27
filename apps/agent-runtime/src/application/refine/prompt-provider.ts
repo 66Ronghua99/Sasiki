@@ -4,6 +4,7 @@
  * Last Updated: 2026-03-21
  */
 import type { RuntimeConfig } from "../config/runtime-config.js";
+import type { SopSkillMetadata } from "../../domain/sop-skill.js";
 import { REFINE_REACT_SYSTEM_PROMPT, RUN_OPERATOR_SYSTEM_PROMPT } from "./system-prompts.js";
 
 export interface RuntimePromptBundle {
@@ -14,6 +15,8 @@ export interface RuntimePromptBundle {
 export interface RefineStartPromptInput {
   task: string;
   guidance: string;
+  availableSkills: SopSkillMetadata[];
+  selectedSkillName?: string;
   resumeInstruction: string;
   initialObservation: {
     observationRef: string;
@@ -55,14 +58,27 @@ export class PromptProvider {
       "Execution rules:",
       "- Reuse the provided observationRef until you explicitly call observe.page again.",
       "- observe.query only searches the latest captured snapshot. It does not refresh the page and does not mint a new observationRef.",
+      input.selectedSkillName
+        ? `- Load the requested SOP body with skill.reader early before you rely on ${input.selectedSkillName}-specific details.`
+        : "- If an SOP skill looks relevant, use skill.reader to load its body before relying on SOP-specific details.",
       "- After act.navigate, act.select_tab, or any click that changes page/tab context, call observe.page before the next structural query or action.",
       "- If a click opens a new tab, switch to the correct tab first, then observe.page before continuing.",
       "- When the task is to check whether inbox/work items exist, a verified empty state after checking the relevant tabs or filters is a valid completion. Summarize what was checked, then call run.finish.",
     ];
+    const availableSkillsLines =
+      input.availableSkills.length > 0
+        ? [
+            "Available SOP skills:",
+            ...input.availableSkills.map((skill) => `- ${skill.name}: ${skill.description}`),
+          ]
+        : [];
+    const selectedSkillLines = input.selectedSkillName ? [`Requested SOP skill: ${input.selectedSkillName}`] : [];
 
     return [
       `Task: ${input.task}`,
       initialObservationLines.join("\n"),
+      availableSkillsLines.join("\n"),
+      selectedSkillLines.join("\n"),
       input.guidance,
       input.resumeInstruction,
       executionRules.join("\n"),
