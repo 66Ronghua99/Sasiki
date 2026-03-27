@@ -13,6 +13,9 @@ import path from "node:path";
 import os from "node:os";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { waitForCdpEndpointReadyFromConfig } from "./cdp-ready.mjs";
+import { resolveCompactScriptedReplies } from "./compact-scripted-replies.mjs";
+import { applyProxySafeEnv, buildProxySafeEnv } from "./proxy-env.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const sandboxRoot = path.join(projectRoot, ".sandbox");
@@ -33,9 +36,9 @@ const HELP_TEXT = `Sasiki sandbox flow runner
 Usage:
   node .sandbox/bin/sandbox-workflow.mjs bootstrap [--source <worktree-path>] [--copy-profile|--no-copy-profile] [--copy-cookies|--no-copy-cookies] [--force]
   node .sandbox/bin/sandbox-workflow.mjs observe [--config <path>] [--task "<observe task>"] [--auto-observe] [--observe-preset <preset>] [--inspect]
-  node .sandbox/bin/sandbox-workflow.mjs compact [--config <path>] --run-id <run_id> [--semantic off|auto|on] [--inspect]
+  node .sandbox/bin/sandbox-workflow.mjs compact [--config <path>] --run-id <run_id> [--semantic off|auto|on] [--compact-scripted-replies '<json-array|string>'] [--inspect]
   node .sandbox/bin/sandbox-workflow.mjs refine [--config <path>] [--task "<refine task>"] [--resume-run-id <run_id>] [--inspect]
-  node .sandbox/bin/sandbox-workflow.mjs flow --observe-task "<observe task>" [--refine-task "<refine task>"] [--config <path>] [--compact|--skip-compact] [--semantic off|auto|on] [--auto-observe] [--observe-preset <preset>] [--inspect] [--resume-run-id <run_id>]
+  node .sandbox/bin/sandbox-workflow.mjs flow --observe-task "<observe task>" [--refine-task "<refine task>"] [--config <path>] [--compact|--skip-compact] [--semantic off|auto|on] [--auto-observe] [--observe-preset <preset>] [--compact-scripted-replies '<json-array|string>'] [--inspect] [--resume-run-id <run_id>]
   node .sandbox/bin/sandbox-workflow.mjs inspect [status|watch] [--config <path>] [--out <screenshot-path>] [--title <label>] [--interval <ms>] [--max-steps <n>]
 
 Notes:
@@ -54,6 +57,8 @@ if (!command || command === "--help" || command === "-h") {
 const RUN_ID_PATTERN = /^\d{8}_\d{6}_\d{3}$/;
 const COMPACT_SESSION_PATTERN = /^.+_compact_/;
 const DEFAULT_OBSERVE_PRESET = "tiktok-shop-customer-service";
+
+applyProxySafeEnv(process.env);
 
 await main();
 
@@ -197,6 +202,11 @@ async function runCompact({ options, positionals }) {
   }
   ensureRuntimeReady(configPath);
   const semantic = normalizeSemantic(options.semantic);
+  const compactScriptedReplies = resolveCompactScriptedReplies({
+    explicitReplies: options["compact-scripted-replies"] ?? options.compactScriptedReplies,
+    autoObserve: toBoolean(options["auto-observe"], false),
+    observePreset: normalizeObservePreset(options["observe-preset"]),
+  });
   const doInspect = toBoolean(options.inspect, false);
   const compactSessionRoot = path.join(getArtifactsRoot(configPath), runId, "compact_sessions");
   const beforeSessions = listDirectories(compactSessionRoot, COMPACT_SESSION_PATTERN);
@@ -207,16 +217,23 @@ async function runCompact({ options, positionals }) {
     configPath,
     args: ["sop-compact", "--run-id", runId, ...(semantic ? ["--semantic", semantic] : [])],
     label: "compact",
+    extraEnv: compactScriptedReplies
+      ? { SASIKI_COMPACT_SCRIPTED_REPLIES: compactScriptedReplies }
+      : undefined,
   });
   const afterSessions = listDirectories(compactSessionRoot, COMPACT_SESSION_PATTERN);
   const sessionId = pickNew(beforeSessions, afterSessions);
+  const sessionDir = sessionId ? path.join(compactSessionRoot, sessionId) : undefined;
+  const compactSummary = sessionDir ? loadCompactSessionSummary(sessionDir) : {};
   const summary = {
     command: "sop-compact",
     runId,
     configPath,
     semantic: semantic ?? "auto",
     compactSessionId: sessionId,
-    compactSessionDir: sessionId ? path.join(compactSessionRoot, sessionId) : undefined,
+    compactSessionDir: sessionDir,
+    selectedSkillName: compactSummary.selectedSkillName,
+    skillPath: compactSummary.skillPath,
   };
   stdoutJSON(summary);
 }
@@ -262,7 +279,11 @@ async function runFlow({ options }) {
   const resumeRunId = options["resume-run-id"] ?? options.resumeRunId;
   const autoObserve = toBoolean(options["auto-observe"], false);
   const observePreset = normalizeObservePreset(options["observe-preset"]);
-  const refineArgs = resumeRunId ? ["--resume-run-id", String(resumeRunId)] : [];
+  const compactScriptedReplies = resolveCompactScriptedReplies({
+    explicitReplies: options["compact-scripted-replies"] ?? options.compactScriptedReplies,
+    autoObserve,
+    observePreset,
+  });
   const compactEnabled = doCompact && !skipCompact;
   const inspectWarnings = [];
 
@@ -286,6 +307,8 @@ async function runFlow({ options }) {
 
   let compactSessionId;
   let compactSessionDir;
+  let selectedSkillName;
+  let skillPath;
   const compactSessionRoot = path.join(getArtifactsRoot(configPath), observeRunId, "compact_sessions");
   if (compactEnabled) {
     const beforeSessions = listDirectories(compactSessionRoot, COMPACT_SESSION_PATTERN);
@@ -296,18 +319,29 @@ async function runFlow({ options }) {
       configPath,
       args: ["sop-compact", "--run-id", observeRunId, ...(compactSemantic ? ["--semantic", compactSemantic] : [])],
       label: "compact",
+      extraEnv: compactScriptedReplies
+        ? { SASIKI_COMPACT_SCRIPTED_REPLIES: compactScriptedReplies }
+        : undefined,
     });
     const afterSessions = listDirectories(compactSessionRoot, COMPACT_SESSION_PATTERN);
     compactSessionId = pickNew(beforeSessions, afterSessions);
     compactSessionDir = compactSessionId ? path.join(compactSessionRoot, compactSessionId) : undefined;
+    const compactSummary = compactSessionDir ? loadCompactSessionSummary(compactSessionDir) : {};
+    selectedSkillName = compactSummary.selectedSkillName;
+    skillPath = compactSummary.skillPath;
     if (doInspect) {
       runStatusInspectSafe(configPath, "after-compact", observeRunId, inspectWarnings);
     }
   }
 
+  const refineArgs = [
+    ...(selectedSkillName ? ["--skill", selectedSkillName] : []),
+    ...(resumeRunId ? ["--resume-run-id", String(resumeRunId)] : []),
+    refineTask,
+  ];
   const refineRunId = runCommandAndResolveRunId({
     command: "refine",
-    args: [refineTask, ...refineArgs],
+    args: refineArgs,
     configPath,
   });
   if (doInspect) {
@@ -322,6 +356,8 @@ async function runFlow({ options }) {
     observePreset: autoObserve ? observePreset : undefined,
     compactSessionId,
     compactSessionDir,
+    selectedSkillName,
+    skillPath,
     refineRunId,
     artifactsRoot: getArtifactsRoot(configPath),
     compactSemantic: compactSemantic ?? "auto",
@@ -388,6 +424,7 @@ async function runObserveRuntimeWithAutomation({ task, configPath, observePreset
 
   await Promise.race([observeStartedPromise, wait(15000)]);
   if (!runtimeExited) {
+    await waitForCdpEndpointReadyFromConfig(configPath, { intervalMs: 500 });
     const demoResult = await runObserveDemoWithRetry(configPath, observePreset);
     if (demoResult.code !== 0) {
       child.kill("SIGTERM");
@@ -512,13 +549,13 @@ function runCommandAndResolveRunId({ command, args, configPath }) {
   return runId;
 }
 
-function runRuntime({ configPath, args, label }) {
+function runRuntime({ configPath, args, label, extraEnv }) {
   if (!existsSync(runtimeEntry)) {
     throw new Error(
       `runtime dist not found: ${runtimeEntry}. run: npm --prefix apps/agent-runtime run build`
     );
   }
-  const runtimeEnv = buildRuntimeEnv(configPath);
+  const runtimeEnv = buildRuntimeEnv(configPath, extraEnv);
   const result = runCommand(process.execPath, [runtimeEntry, ...args, "--config", configPath], {
     env: runtimeEnv,
     cwd: projectRoot,
@@ -528,30 +565,14 @@ function runRuntime({ configPath, args, label }) {
   }
 }
 
-function buildRuntimeEnv(configPath) {
+function buildRuntimeEnv(configPath, extraEnv = {}) {
   const runtimeEnv = buildProxySafeEnv({
     ...process.env,
     RUNTIME_CONFIG_PATH: configPath,
     RUNTIME_ARTIFACTS_DIR: getArtifactsRoot(configPath),
+    ...extraEnv,
   });
   return runtimeEnv;
-}
-
-function buildProxySafeEnv(env) {
-  const next = { ...env };
-  delete next.http_proxy;
-  delete next.https_proxy;
-  delete next.HTTP_PROXY;
-  delete next.HTTPS_PROXY;
-  if (!next.NO_PROXY && !next.no_proxy) {
-    next.NO_PROXY = "localhost,127.0.0.1,::1";
-    next.no_proxy = "localhost,127.0.0.1,::1";
-  } else if (!next.NO_PROXY && next.no_proxy) {
-    next.NO_PROXY = next.no_proxy;
-  } else if (!next.no_proxy && next.NO_PROXY) {
-    next.no_proxy = next.NO_PROXY;
-  }
-  return next;
 }
 
 function runCommand(commandPath, args, options) {
@@ -592,6 +613,22 @@ function pickNew(before, after) {
   const beforeSet = new Set(before);
   const added = after.filter((name) => !beforeSet.has(name));
   return added.length > 0 ? added.sort().slice(-1)[0] : after.length ? after.sort().slice(-1)[0] : undefined;
+}
+
+function loadCompactSessionSummary(sessionDir) {
+  const capabilityOutputPath = path.join(sessionDir, "compact_capability_output.json");
+  if (!existsSync(capabilityOutputPath)) {
+    return {};
+  }
+  const capability = loadJson(capabilityOutputPath);
+  const selectedSkillName =
+    typeof capability.skillName === "string" && capability.skillName.trim() ? capability.skillName.trim() : undefined;
+  const skillPath =
+    typeof capability.skillPath === "string" && capability.skillPath.trim() ? capability.skillPath.trim() : undefined;
+  return {
+    selectedSkillName,
+    skillPath,
+  };
 }
 
 function ensureRuntimeReady(configPath) {

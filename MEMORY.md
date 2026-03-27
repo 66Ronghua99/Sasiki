@@ -98,6 +98,7 @@
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
 - `loadedKnowledgeCount` 当前语义是 bootstrap/start prompt 阶段加载到 run 的 guidance 数量，不等于 runtime 里 `observe.page.pageKnowledge` 的命中次数；TikTok rerun `20260326_200513_031` 已证明两者可能分离。
 - page-level knowledge 命中后，agent 仍可能因为当前 start prompt 的 finish policy 偏保守而继续做一轮等价复核；这不一定是 retrieval 失效，更可能是执行规则没有明确授权“empty-state + corroborating DOM”可直接完成。
+- SOP skill 已经进入 refine 的真实活跃路径，但 skill 只提供“主路径 + 业务边界”，不能替代 runtime navigation resilience；最新 selfcheck 证明 agent 即使加载了 `tiktok-shop-check-inbox-messages`，在直跳 `/chat/inbox/current` 被站点落回 homepage / message-center 时，仍需要依赖运行时观测和 fallback 探索去恢复，而不是期待 user prompt 补充“若被重定向则如何处理”的细节说明。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 - `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
 - refine tool context 现在以 `browserService` / `runService` 作为活跃路径的 service-owned refs；definitions 应直接读取这些服务引用，`providers/*` 与 `runtime/*` 已退场，不应再作为活跃路径回流。

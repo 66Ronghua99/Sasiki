@@ -9,6 +9,10 @@ import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-lau
 import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
+import {
+  parseScriptedCompactReplies,
+  ScriptedCompactHumanLoopTool,
+} from "../../infrastructure/hitl/scripted-compact-human-loop-tool.js";
 import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
 import { ModelResolver } from "../../infrastructure/llm/model-resolver.js";
 import { FileAgentCheckpointWriter, createNoopAgentCheckpointWriter } from "../../infrastructure/persistence/agent-checkpoint-writer.js";
@@ -44,6 +48,7 @@ import type {
   RuntimeTelemetrySink,
 } from "../../contracts/runtime-telemetry.js";
 import type { SopSkillMetadata } from "../../domain/sop-skill.js";
+import type { CompactHumanLoopTool } from "../../contracts/compact-human-loop-tool.js";
 
 export interface RuntimeCompositionPlanInput {
   refinementEnabled: boolean;
@@ -160,7 +165,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     timeoutMs: config.semanticTimeoutMs,
     thinkingLevel: config.thinkingLevel,
   });
-  const compactHumanLoopTool = new TerminalCompactHumanLoopTool();
+  const compactHumanLoopTool = createCompactHumanLoopTool(process.env);
   const observeWorkflowFactory = createObserveWorkflowFactory({
     browserLifecycle,
     logger,
@@ -260,4 +265,12 @@ function createRunIdFactory(): () => string {
     ];
     return parts.join("");
   };
+}
+
+function createCompactHumanLoopTool(env: NodeJS.ProcessEnv): CompactHumanLoopTool {
+  const scriptedReplies = parseScriptedCompactReplies(env.SASIKI_COMPACT_SCRIPTED_REPLIES);
+  if (scriptedReplies.length > 0) {
+    return new ScriptedCompactHumanLoopTool(scriptedReplies);
+  }
+  return new TerminalCompactHumanLoopTool();
 }
