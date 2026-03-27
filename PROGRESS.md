@@ -16,7 +16,7 @@
 - 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
 
 ## Active Mainline
-- 当前唯一直接执行指针以 [`NEXT_STEP.md`](/Users/cory/codes/Sasiki-dev/NEXT_STEP.md) 为准；当前 P0 是拆清 TikTok refine-only rerun `20260326_200513_031` 里的 metrics 语义。
+- 当前唯一直接执行指针以 [`NEXT_STEP.md`](NEXT_STEP.md) 为准；当前 P0 是拆清 TikTok refine-only rerun `20260326_200513_031` 里的 metrics 语义。
 - 当前主线不是继续扩 retrieval surface，而是先拆开 bootstrap/start prompt 注入数与 runtime `observe.page` page-knowledge hit 次数的语义。
 - 在 metrics 语义拆清之前，不应把 `loadedKnowledgeCount` 当成 runtime page-knowledge hit 的替代指标。
 
