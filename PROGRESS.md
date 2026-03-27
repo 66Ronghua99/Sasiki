@@ -24,12 +24,13 @@
 - 当前活跃代码基线已经包含 refine page-level retrieval cues slice；retrieval gate 已切到 exact `page.origin + page.normalizedPath`，`observe.page` 会在稳定 capture 后返回 agent-facing `pageKnowledge`。fresh verification：`npm --prefix apps/agent-runtime run lint`、`test`、`typecheck`、`build`、`hardgate` 全绿，对应 report 为 `artifacts/code-gate/2026-03-26T09-45-42-193Z/report.json`。
 - SOP skill compact persistence + discovery 与 refine bootstrap + `skill.reader` slice 已完成：`sop-compact` 现在会把 durable SOP skill 写到 `~/.sasiki/skills/`，`sop-compact list` 通过 shell-owned composition 暴露 catalog，`refine` 支持 `--skill <name>`，bootstrap 默认只加载 skill metadata，full body 通过 `skill.reader` 按需读取。closeout verification 已完成，fresh hardgate report 为 `artifacts/code-gate/2026-03-27T04-49-22-654Z/report.json`。
 - Sandbox observe->compact->refine chain 已推进到 skill-loaded refine：full-access 环境下 direct `refine` run `20260327_142923_316` 已确认 Chrome 启动和真实 TikTok 客服检查可完成；sandbox selfcheck 现在能稳定跑过 `observe -> sop-compact`，compact run `20260327_145330_192` 已产出 durable SOP skill `tiktok-shop-check-inbox-messages`，后续 refine run `20260327_145552_964` 已实际通过 `skill.reader` 读入该 skill。
+- Sandbox handoff follow-up bugfix slice 已完成：`sandbox-workflow flow/selfcheck` 现在会在 compact 未真正 finalize 出 durable skill 时显式失败，不再静默继续进入 refine；`sandbox-workflow refine` 与 selfcheck/front door 已补齐手动 `--skill <name>` 路径；auto-observe 在 CDP ready wait / demo 失败时会主动终止残留 observe 进程；scripted compact replies 改为 per-workflow fresh instance，不再跨 run 串状态。fresh verification：`node --test .sandbox/bin/*.test.mjs`、`npm --prefix apps/agent-runtime run lint`、`test`、`typecheck`、`build`、`hardgate` 全绿；fresh hardgate report 为 `artifacts/code-gate/2026-03-27T10-04-24-032Z/report.json`。
 - 当前前门架构真相仍是 OpenAI-style layer model + narrowed shell/application/kernel split；`runtime-host.ts` 是唯一顶层 workflow lifecycle owner，`runtime-composition-root.ts` 是唯一顶层 concrete assembly owner，`kernel/*` 已不再 direct import `domain/*` / `infrastructure/*`。
 
 ## Active Risks
 - `loadedKnowledgeCount` 当前只代表 bootstrap/start prompt guidance 注入数，和 runtime page-knowledge hit 次数可能分离。
 - TikTok customer-service refine e2e 里仍存在 URL literal fidelity 问题：模型会把 `&register_libra=` 污染成 `®ister_libra=`，降低 `act.navigate` 可预测性。
-- Sandbox/selfcheck 已把 skill handoff 接通，但 refine 在直跳 `/chat/inbox/current` 后仍可能观测到 homepage / message-center；redirect/path-mismatch recovery 仍需增强，不能依赖 user prompt 把导航异常写成操作细则。
+- Sandbox handoff guards 已收紧为显式失败，但 refine 在直跳 `/chat/inbox/current` 后仍可能观测到 homepage / message-center；剩余 open item 是 redirect/path-mismatch recovery，而不是 compact->refine handoff 或 scripted-reply state bleed。
 - 当前 skill/SOP prompt 语义仍偏薄：bootstrap 只注入 metadata、skill body 依赖 `skill.reader` 按需读取，后续若要提高稳定性，需要增强 refine system/start prompt 对 skill 使用方式与异常恢复的指导。
 
 ## Active Architecture Truth
@@ -81,6 +82,7 @@ apps/agent-runtime/src/
 ## Active Spec / Plan
 - `docs/superpowers/specs/2026-03-27-sop-skill-compact-to-refine-design.md`
 - `docs/superpowers/plans/2026-03-27-sop-skill-compact-to-refine-implementation.md`
+- `docs/superpowers/plans/2026-03-27-sandbox-handoff-bugfixes-implementation.md`
 - `docs/superpowers/specs/2026-03-24-refine-tiktok-customer-service-e2e-design.md`
 - `docs/superpowers/plans/2026-03-24-refine-tiktok-customer-service-e2e-implementation.md`
 - `docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`

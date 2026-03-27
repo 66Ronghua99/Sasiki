@@ -59,6 +59,21 @@
 - **Task 2 已完成**: legacy direct run 作为活跃产品面已移除；CLI 外部契约冻结为 `observe` / `refine` / `sop-compact`；legacy `runtime` / `--mode run|observe` 只保留为显式 upgrade error。
 - **Task 1 已完成**: 活跃架构文档已冻结为全局 taxonomy spec 和 implementation plan。
 
+- 已完成 sandbox handoff follow-up bugfix slice：
+  - 新增 `.sandbox/bin/sandbox-workflow-support.mjs`，把 compact handoff gate、manual refine arg builder、以及 auto-observe cleanup 收口成可测试支撑层
+  - `sandbox-workflow flow/selfcheck` 现在会在 compact 未真正 finalize 出 durable skill 时显式失败；`selectedSkillName` 单独存在不再被当成可继续 refine 的充分条件
+  - `sandbox-workflow refine` 与 `sandbox-selfcheck` 已补齐 manual `--skill <name>` front door
+  - auto-observe 在 CDP ready wait / demo 失败时会主动终止 spawned observe runtime，避免遗留后台进程
+  - `runtime-composition-root.ts` 改为按 compact workflow 创建 fresh scripted human-loop tool，避免 `ScriptedCompactHumanLoopTool` 跨 run 串状态
+  - fresh verification：
+    - `node --test .sandbox/bin/*.test.mjs`
+    - `npm --prefix apps/agent-runtime run lint`
+    - `npm --prefix apps/agent-runtime run test`
+    - `npm --prefix apps/agent-runtime run typecheck`
+    - `npm --prefix apps/agent-runtime run build`
+    - `npm --prefix apps/agent-runtime run hardgate`
+  - fresh hardgate report：`artifacts/code-gate/2026-03-27T10-04-24-032Z/report.json`
+
 #### Migrated `DONE`
 - 已完成 Phase 2 Task 1（kernel leakage inventory docs sync）：
   - 记录了今天 `kernel/*` 的实际泄漏清单

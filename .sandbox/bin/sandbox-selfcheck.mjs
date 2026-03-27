@@ -30,6 +30,7 @@ const source = options.source ?? options.seed ?? options.origin ?? options.from 
 const config = options.config ?? options.c;
 const observeTask = options["observe-task"] ?? process.env.SANDBOX_SELFCHECK_OBSERVE_TASK ?? defaultObserveTask;
 const refineTask = options["refine-task"] ?? process.env.SANDBOX_SELFCHECK_REFINE_TASK ?? defaultRefineTask;
+const skillName = options.skill ?? options["skill-name"] ?? options.skillName;
 const semantic = options.semantic;
 const compact = toBoolean(options.compact, true) && !toBoolean(options["skip-compact"], false);
 const resumeRunId = options["resume-run-id"] ?? options.resumeRunId;
@@ -109,6 +110,9 @@ try {
   }
   if (resumeRunId) {
     flowArgs.push("--resume-run-id", resumeRunId);
+  }
+  if (skillName) {
+    flowArgs.push("--skill", String(skillName));
   }
 
   flowResult = runWorkflow(flowArgs, flowLog);

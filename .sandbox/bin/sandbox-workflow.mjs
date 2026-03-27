@@ -16,6 +16,12 @@ import { fileURLToPath } from "node:url";
 import { waitForCdpEndpointReadyFromConfig } from "./cdp-ready.mjs";
 import { resolveCompactScriptedReplies } from "./compact-scripted-replies.mjs";
 import { applyProxySafeEnv, buildProxySafeEnv } from "./proxy-env.mjs";
+import {
+  assertCompactSkillHandoff,
+  buildRefineRuntimeArgs,
+  loadCompactSessionSummary,
+  runObserveAutomationSession,
+} from "./sandbox-workflow-support.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const sandboxRoot = path.join(projectRoot, ".sandbox");
@@ -37,8 +43,8 @@ Usage:
   node .sandbox/bin/sandbox-workflow.mjs bootstrap [--source <worktree-path>] [--copy-profile|--no-copy-profile] [--copy-cookies|--no-copy-cookies] [--force]
   node .sandbox/bin/sandbox-workflow.mjs observe [--config <path>] [--task "<observe task>"] [--auto-observe] [--observe-preset <preset>] [--inspect]
   node .sandbox/bin/sandbox-workflow.mjs compact [--config <path>] --run-id <run_id> [--semantic off|auto|on] [--compact-scripted-replies '<json-array|string>'] [--inspect]
-  node .sandbox/bin/sandbox-workflow.mjs refine [--config <path>] [--task "<refine task>"] [--resume-run-id <run_id>] [--inspect]
-  node .sandbox/bin/sandbox-workflow.mjs flow --observe-task "<observe task>" [--refine-task "<refine task>"] [--config <path>] [--compact|--skip-compact] [--semantic off|auto|on] [--auto-observe] [--observe-preset <preset>] [--compact-scripted-replies '<json-array|string>'] [--inspect] [--resume-run-id <run_id>]
+  node .sandbox/bin/sandbox-workflow.mjs refine [--config <path>] [--task "<refine task>"] [--skill <name>] [--resume-run-id <run_id>] [--inspect]
+  node .sandbox/bin/sandbox-workflow.mjs flow --observe-task "<observe task>" [--refine-task "<refine task>"] [--config <path>] [--compact|--skip-compact] [--semantic off|auto|on] [--auto-observe] [--observe-preset <preset>] [--compact-scripted-replies '<json-array|string>'] [--skill <name>] [--inspect] [--resume-run-id <run_id>]
   node .sandbox/bin/sandbox-workflow.mjs inspect [status|watch] [--config <path>] [--out <screenshot-path>] [--title <label>] [--interval <ms>] [--max-steps <n>]
 
 Notes:
@@ -232,6 +238,7 @@ async function runCompact({ options, positionals }) {
     semantic: semantic ?? "auto",
     compactSessionId: sessionId,
     compactSessionDir: sessionDir,
+    status: compactSummary.status,
     selectedSkillName: compactSummary.selectedSkillName,
     skillPath: compactSummary.skillPath,
   };
@@ -240,12 +247,14 @@ async function runCompact({ options, positionals }) {
 
 async function runRefine({ options, positionals }) {
   const task = resolveTaskArg(options.task, positionals);
-  if (!task) {
-    throw new Error("refine command requires --task or positional task text");
-  }
   const configPath = resolveConfigPath(options.config ?? options.c);
+  const skillName = options.skill ?? options["skill-name"] ?? options.skillName;
   const resumeRunId = options["resume-run-id"] ?? options.resumeRunId;
-  const trailing = resumeRunId ? ["--resume-run-id", String(resumeRunId)] : [];
+  const refineArgs = buildRefineRuntimeArgs({
+    task,
+    skillName,
+    resumeRunId,
+  });
   ensureRuntimeReady(configPath);
   const doInspect = toBoolean(options.inspect, false);
   if (doInspect) {
@@ -253,7 +262,7 @@ async function runRefine({ options, positionals }) {
   }
   const runId = runCommandAndResolveRunId({
     command: "refine",
-    args: [task, ...trailing],
+    args: refineArgs,
     configPath,
   });
   if (doInspect) {
@@ -262,6 +271,7 @@ async function runRefine({ options, positionals }) {
   stdoutJSON({
     command: "refine",
     runId,
+    skillName: skillName ? String(skillName).trim() : undefined,
     resumeRunId,
     configPath,
     artifactsRoot: getArtifactsRoot(configPath),
@@ -277,6 +287,7 @@ async function runFlow({ options }) {
   const doCompact = toBoolean(options.compact, true);
   const skipCompact = toBoolean(options["skip-compact"], false);
   const resumeRunId = options["resume-run-id"] ?? options.resumeRunId;
+  const explicitSkillName = String(options.skill ?? options["skill-name"] ?? options.skillName ?? "").trim();
   const autoObserve = toBoolean(options["auto-observe"], false);
   const observePreset = normalizeObservePreset(options["observe-preset"]);
   const compactScriptedReplies = resolveCompactScriptedReplies({
@@ -327,18 +338,23 @@ async function runFlow({ options }) {
     compactSessionId = pickNew(beforeSessions, afterSessions);
     compactSessionDir = compactSessionId ? path.join(compactSessionRoot, compactSessionId) : undefined;
     const compactSummary = compactSessionDir ? loadCompactSessionSummary(compactSessionDir) : {};
-    selectedSkillName = compactSummary.selectedSkillName;
+    selectedSkillName = assertCompactSkillHandoff({
+      observeRunId,
+      compactSessionId,
+      compactSessionDir,
+      compactSummary,
+    });
     skillPath = compactSummary.skillPath;
     if (doInspect) {
       runStatusInspectSafe(configPath, "after-compact", observeRunId, inspectWarnings);
     }
   }
 
-  const refineArgs = [
-    ...(selectedSkillName ? ["--skill", selectedSkillName] : []),
-    ...(resumeRunId ? ["--resume-run-id", String(resumeRunId)] : []),
-    refineTask,
-  ];
+  const refineArgs = buildRefineRuntimeArgs({
+    task: refineTask,
+    skillName: compactEnabled ? selectedSkillName : explicitSkillName,
+    resumeRunId,
+  });
   const refineRunId = runCommandAndResolveRunId({
     command: "refine",
     args: refineArgs,
@@ -388,59 +404,14 @@ async function runObserveRuntimeWithAutomation({ task, configPath, observePreset
     env: runtimeEnv,
     stdio: ["ignore", "pipe", "pipe"],
   });
-
-  let stdout = "";
-  let stderr = "";
-  let runtimeExited = false;
-  let observeStarted = false;
-  let resolveObserveStarted;
-  const observeStartedPromise = new Promise((resolve) => {
-    resolveObserveStarted = resolve;
+  await runObserveAutomationSession({
+    child,
+    waitForCdpReady: () => waitForCdpEndpointReadyFromConfig(configPath, { intervalMs: 500 }),
+    runObserveDemoWithRetry: () => runObserveDemoWithRetry(configPath, observePreset),
+    wait,
+    stdoutWriter: process.stdout,
+    stderrWriter: process.stderr,
   });
-  const runtimeExit = new Promise((resolve, reject) => {
-    child.stdout.on("data", (chunk) => {
-      const text = String(chunk);
-      stdout += text;
-      if (!observeStarted && text.includes("observe_started")) {
-        observeStarted = true;
-        resolveObserveStarted(true);
-      }
-      process.stdout.write(text);
-    });
-    child.stderr.on("data", (chunk) => {
-      const text = String(chunk);
-      stderr += text;
-      process.stderr.write(text);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      runtimeExited = true;
-      if (!observeStarted) {
-        resolveObserveStarted(false);
-      }
-      resolve(code ?? 1);
-    });
-  });
-
-  await Promise.race([observeStartedPromise, wait(15000)]);
-  if (!runtimeExited) {
-    await waitForCdpEndpointReadyFromConfig(configPath, { intervalMs: 500 });
-    const demoResult = await runObserveDemoWithRetry(configPath, observePreset);
-    if (demoResult.code !== 0) {
-      child.kill("SIGTERM");
-      await runtimeExit;
-      throw new Error(`auto observe demo failed: ${demoResult.stderr || demoResult.stdout}`);
-    }
-    await wait(1200);
-    if (!runtimeExited) {
-      child.kill("SIGTERM");
-    }
-  }
-
-  const runtimeCode = await runtimeExit;
-  if (runtimeCode !== 0) {
-    throw new Error(`observe failed (code ${runtimeCode}): ${stderr || stdout}`);
-  }
 }
 
 async function runObserveDemoWithRetry(configPath, observePreset) {
@@ -613,22 +584,6 @@ function pickNew(before, after) {
   const beforeSet = new Set(before);
   const added = after.filter((name) => !beforeSet.has(name));
   return added.length > 0 ? added.sort().slice(-1)[0] : after.length ? after.sort().slice(-1)[0] : undefined;
-}
-
-function loadCompactSessionSummary(sessionDir) {
-  const capabilityOutputPath = path.join(sessionDir, "compact_capability_output.json");
-  if (!existsSync(capabilityOutputPath)) {
-    return {};
-  }
-  const capability = loadJson(capabilityOutputPath);
-  const selectedSkillName =
-    typeof capability.skillName === "string" && capability.skillName.trim() ? capability.skillName.trim() : undefined;
-  const skillPath =
-    typeof capability.skillPath === "string" && capability.skillPath.trim() ? capability.skillPath.trim() : undefined;
-  return {
-    selectedSkillName,
-    skillPath,
-  };
 }
 
 function ensureRuntimeReady(configPath) {

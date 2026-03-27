@@ -28,6 +28,16 @@ export function parseScriptedCompactReplies(raw: string | undefined): string[] {
   }
 }
 
+export function createScriptedCompactHumanLoopToolFactory(
+  raw: string | undefined
+): (() => ScriptedCompactHumanLoopTool) | undefined {
+  const replies = parseScriptedCompactReplies(raw);
+  if (replies.length === 0) {
+    return undefined;
+  }
+  return () => new ScriptedCompactHumanLoopTool(replies);
+}
+
 export class ScriptedCompactHumanLoopTool implements CompactHumanLoopTool {
   private readonly replies: string[];
   private nextIndex = 0;

@@ -10,8 +10,7 @@ import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/pl
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
 import {
-  parseScriptedCompactReplies,
-  ScriptedCompactHumanLoopTool,
+  createScriptedCompactHumanLoopToolFactory,
 } from "../../infrastructure/hitl/scripted-compact-human-loop-tool.js";
 import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
 import { ModelResolver } from "../../infrastructure/llm/model-resolver.js";
@@ -165,7 +164,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     timeoutMs: config.semanticTimeoutMs,
     thinkingLevel: config.thinkingLevel,
   });
-  const compactHumanLoopTool = createCompactHumanLoopTool(process.env);
+  const compactHumanLoopToolFactory = createCompactHumanLoopToolFactory(process.env);
   const observeWorkflowFactory = createObserveWorkflowFactory({
     browserLifecycle,
     logger,
@@ -222,7 +221,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
         },
         createArtifactsWriter: createCompactArtifactsWriter,
         modelClient: compactModelClient,
-        humanLoopTool: compactHumanLoopTool,
+        humanLoopTool: compactHumanLoopToolFactory(),
         telemetryRegistry,
         skillStore: sopSkillStore,
       });
@@ -267,10 +266,10 @@ function createRunIdFactory(): () => string {
   };
 }
 
-function createCompactHumanLoopTool(env: NodeJS.ProcessEnv): CompactHumanLoopTool {
-  const scriptedReplies = parseScriptedCompactReplies(env.SASIKI_COMPACT_SCRIPTED_REPLIES);
-  if (scriptedReplies.length > 0) {
-    return new ScriptedCompactHumanLoopTool(scriptedReplies);
+function createCompactHumanLoopToolFactory(env: NodeJS.ProcessEnv): () => CompactHumanLoopTool {
+  const scriptedToolFactory = createScriptedCompactHumanLoopToolFactory(env.SASIKI_COMPACT_SCRIPTED_REPLIES);
+  if (scriptedToolFactory) {
+    return () => scriptedToolFactory();
   }
-  return new TerminalCompactHumanLoopTool();
+  return () => new TerminalCompactHumanLoopTool();
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createScriptedCompactHumanLoopToolFactory,
   parseScriptedCompactReplies,
   ScriptedCompactHumanLoopTool,
 } from "../../src/infrastructure/hitl/scripted-compact-human-loop-tool.js";
@@ -41,4 +42,17 @@ test("ScriptedCompactHumanLoopTool returns replies in order and fails explicitly
     () => tool.requestClarification({} as never),
     /scripted sop-compact replies exhausted/
   );
+});
+
+test("createScriptedCompactHumanLoopToolFactory returns fresh tool state for each compact run", async () => {
+  const createTool = createScriptedCompactHumanLoopToolFactory('["first answer"]');
+
+  const firstRunTool = createTool();
+  const secondRunTool = createTool();
+
+  const first = await firstRunTool.requestClarification({} as never);
+  const second = await secondRunTool.requestClarification({} as never);
+
+  assert.equal(first.human_reply, "first answer");
+  assert.equal(second.human_reply, "first answer");
 });

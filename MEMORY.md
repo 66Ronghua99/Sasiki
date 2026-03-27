@@ -39,6 +39,10 @@
 - 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
 - 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 `.sandbox/runtime.config.json` 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
+- sandbox `flow`/`selfcheck` 的 compact->refine handoff 不能只看 `selectedSkillName`；至少要同时满足 `ready_to_finalize` 与 truthful persisted `skillPath`，否则应显式失败而不是继续 refine。
+- sandbox refine front door 应继续复用统一的 handoff arg builder；手动 `--skill <name>`、`--resume-run-id <run_id>` 与 task text 的组合规则不要在 `sandbox-workflow` / `sandbox-selfcheck` / runtime CLI 之间各写一套。
+- auto-observe 帮手若在 CDP ready wait 或 demo 执行阶段失败，必须终止已启动的 observe runtime，避免遗留后台进程污染下一次 sandbox run。
+- scripted compact replies 必须按 compact workflow/session 新建实例；不要把带游标状态的 `ScriptedCompactHumanLoopTool` 作为 composition 单例跨 run 复用。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
