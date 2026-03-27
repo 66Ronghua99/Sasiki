@@ -98,9 +98,13 @@
 - refine `action.success` 不能硬编码为 true；需要从工具结果语义（`isError` / `### Error`）判定。
 - `loadedKnowledgeCount` 当前语义是 bootstrap/start prompt 阶段加载到 run 的 guidance 数量，不等于 runtime 里 `observe.page.pageKnowledge` 的命中次数；TikTok rerun `20260326_200513_031` 已证明两者可能分离。
 - page-level knowledge 命中后，agent 仍可能因为当前 start prompt 的 finish policy 偏保守而继续做一轮等价复核；这不一定是 retrieval 失效，更可能是执行规则没有明确授权“empty-state + corroborating DOM”可直接完成。
+- SOP skill 已经进入 refine 的真实活跃路径，但 skill 只提供“主路径 + 业务边界”，不能替代 runtime navigation resilience；最新 selfcheck 证明 agent 即使加载了 `tiktok-shop-check-inbox-messages`，在直跳 `/chat/inbox/current` 被站点落回 homepage / message-center 时，仍需要依赖运行时观测和 fallback 探索去恢复，而不是期待 user prompt 补充“若被重定向则如何处理”的细节说明。
 - 小红书长文草稿真实 e2e 已有标准化执行手册：`docs/testing/refine-e2e-xiaohongshu-long-note-runbook.md`；后续优先按手册执行，不再临时拼命令。
 - `RefineReactToolClient` 现在是 direct-call facade，只持有 `surface + contextRef`；真正的 refine tool ownership 已收敛到 `application/refine/tools/refine-tool-composition.ts`。
 - refine tool context 现在以 `browserService` / `runService` 作为活跃路径的 service-owned refs；definitions 应直接读取这些服务引用，`providers/*` 与 `runtime/*` 已退场，不应再作为活跃路径回流。
+- SOP skill 在 refine 里的活跃消费模型现在分成两层：bootstrap 只加载 `~/.sasiki/skills/` skill catalog 的 `name` / `description` frontmatter metadata，full body 只能通过 `skill.reader` 显式读取；不要把整个 skill markdown bank 偷偷塞进 start prompt。
+- `skill.reader` 只应在 refine composition 注入了真实 skill service / store 时才注册；raw direct-call refine surface 若没有 SOP persistence backing，必须保持原始工具面，不要暴露一个会在运行时悬空的 reader。
+- SOP skill 引用必须层层显式失败：blank / invalid `skillName` 不能回退成 list mode，tool arg parser、service、store 都应拒绝非法引用，这样空白输入不会掩盖真实状态。
 - pi-agent hooks 现在只通过 `PiAgentToolAdapter` 的按 `toolName` registry 执行；`RefineToolSurface.callTool(...)`、`RefineReactToolClient.callTool(...)` 和 bootstrap direct observe 都必须保持 hook-free。
 - Phase 4 之后，`application/refine/tools/services/*` 是 refine tool behavior 的 canonical home；若 `providers/*` 或活跃 `runtime/*` 重新出现，应优先视为架构回退而不是正常扩展。
 

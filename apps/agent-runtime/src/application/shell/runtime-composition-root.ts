@@ -9,6 +9,10 @@ import { CdpBrowserLauncher } from "../../infrastructure/browser/cdp-browser-lau
 import { PlaywrightDemonstrationRecorder } from "../../infrastructure/browser/playwright-demonstration-recorder.js";
 import { TerminalHitlController } from "../../infrastructure/hitl/terminal-hitl-controller.js";
 import { TerminalCompactHumanLoopTool } from "../../infrastructure/hitl/terminal-compact-human-loop-tool.js";
+import {
+  parseScriptedCompactReplies,
+  ScriptedCompactHumanLoopTool,
+} from "../../infrastructure/hitl/scripted-compact-human-loop-tool.js";
 import { JsonModelClient } from "../../infrastructure/llm/json-model-client.js";
 import { ModelResolver } from "../../infrastructure/llm/model-resolver.js";
 import { FileAgentCheckpointWriter, createNoopAgentCheckpointWriter } from "../../infrastructure/persistence/agent-checkpoint-writer.js";
@@ -20,6 +24,7 @@ import { ArtifactsWriter } from "../../infrastructure/persistence/artifacts-writ
 import { AttentionKnowledgeStore } from "../../infrastructure/persistence/attention-knowledge-store.js";
 import { RefineHitlResumeStore } from "../../infrastructure/persistence/refine-hitl-resume-store.js";
 import { SopAssetStore } from "../../infrastructure/persistence/sop-asset-store.js";
+import { SopSkillStore } from "../../infrastructure/persistence/sop-skill-store.js";
 import { createCompactWorkflow } from "../compact/compact-workflow.js";
 import { InteractiveSopCompactService } from "../compact/interactive-sop-compact.js";
 import type { RuntimeSemanticMode } from "../config/runtime-config.js";
@@ -42,6 +47,8 @@ import type {
   RuntimeTelemetryRegistry,
   RuntimeTelemetrySink,
 } from "../../contracts/runtime-telemetry.js";
+import type { SopSkillMetadata } from "../../domain/sop-skill.js";
+import type { CompactHumanLoopTool } from "../../contracts/compact-human-loop-tool.js";
 
 export interface RuntimeCompositionPlanInput {
   refinementEnabled: boolean;
@@ -67,6 +74,7 @@ export interface RuntimeComposition {
   observeWorkflowFactory: (taskHint: string) => ObserveWorkflow;
   refineWorkflowFactory: (request: RefineWorkflowRequest) => RefineWorkflow;
   compactWorkflowFactory: (request: CompactWorkflowRequest) => ReturnType<typeof createCompactWorkflow>;
+  listSopSkills: () => Promise<SopSkillMetadata[]>;
 }
 
 export interface CompactWorkflowRequest {
@@ -149,6 +157,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
   const createCompactArtifactsWriter = (runId: string) => new ArtifactsWriter(config.artifactsDir, runId);
   const createRefineArtifactsWriter = (runId: string) => new ArtifactsWriter(config.artifactsDir, runId);
   const observeSopAssetStore = new SopAssetStore(config.sopAssetRootDir);
+  const sopSkillStore = new SopSkillStore();
   const compactModelClient = new JsonModelClient({
     model: config.model,
     apiKey: config.apiKey,
@@ -156,7 +165,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     timeoutMs: config.semanticTimeoutMs,
     thinkingLevel: config.thinkingLevel,
   });
-  const compactHumanLoopTool = new TerminalCompactHumanLoopTool();
+  const compactHumanLoopTool = createCompactHumanLoopTool(process.env);
   const observeWorkflowFactory = createObserveWorkflowFactory({
     browserLifecycle,
     logger,
@@ -177,6 +186,8 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     createRunId,
     resolvedModel: resolvedRefineModel,
     persistenceContext: refinePersistenceContext,
+    skillCatalog: sopSkillStore,
+    skillStore: sopSkillStore,
     createArtifactsWriter: createRefineArtifactsWriter,
     config,
     telemetryRegistry,
@@ -187,6 +198,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
         rawToolClient,
         guidanceLoader: refinePersistenceContext.guidanceLoader,
         knowledgeTopN: config.refinementKnowledgeTopN,
+        skillStore: sopSkillStore,
       });
     },
   });
@@ -196,6 +208,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
     telemetryRegistry,
     observeWorkflowFactory,
     refineWorkflowFactory: refineAssembly.createWorkflow,
+    listSopSkills: () => sopSkillStore.listMetadata(),
     compactWorkflowFactory: (request: CompactWorkflowRequest) => {
       const compactSemanticMode = request.semanticMode ?? config.semanticMode;
       const compactService = new InteractiveSopCompactService(config.artifactsDir, {
@@ -211,6 +224,7 @@ export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposit
         modelClient: compactModelClient,
         humanLoopTool: compactHumanLoopTool,
         telemetryRegistry,
+        skillStore: sopSkillStore,
       });
 
       return createCompactWorkflow({
@@ -251,4 +265,12 @@ function createRunIdFactory(): () => string {
     ];
     return parts.join("");
   };
+}
+
+function createCompactHumanLoopTool(env: NodeJS.ProcessEnv): CompactHumanLoopTool {
+  const scriptedReplies = parseScriptedCompactReplies(env.SASIKI_COMPACT_SCRIPTED_REPLIES);
+  if (scriptedReplies.length > 0) {
+    return new ScriptedCompactHumanLoopTool(scriptedReplies);
+  }
+  return new TerminalCompactHumanLoopTool();
 }

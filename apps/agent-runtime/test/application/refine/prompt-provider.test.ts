@@ -39,6 +39,17 @@ test("start prompt includes the initial observation and re-observe rules", () =>
   const prompt = provider.buildRefineStartPrompt({
     task: "check inbox",
     guidance: "reuse known message entry point",
+    availableSkills: [
+      {
+        name: "tiktok-customer-service",
+        description: "Check whether new customer chats need handling.",
+      },
+      {
+        name: "xiaohongshu-publish",
+        description: "Draft and publish a Xiaohongshu post.",
+      },
+    ],
+    selectedSkillName: "tiktok-customer-service",
     resumeInstruction: "",
     initialObservation: {
       observationRef: "obs_run_1_1",
@@ -54,6 +65,10 @@ test("start prompt includes the initial observation and re-observe rules", () =>
   });
 
   assert.match(prompt, /observationRef: obs_run_1_1/);
+  assert.match(prompt, /Available SOP skills:/);
+  assert.match(prompt, /tiktok-customer-service: Check whether new customer chats need handling\./);
+  assert.match(prompt, /Requested SOP skill: tiktok-customer-service/);
+  assert.match(prompt, /Load the requested SOP body with skill\.reader early/);
   assert.match(prompt, /observe\.query only searches the latest captured snapshot/);
   assert.match(prompt, /After act\.navigate, act\.select_tab, or any click that changes page\/tab context, call observe\.page/);
   assert.match(prompt, /verified empty state after checking the relevant tabs or filters is a valid completion/);

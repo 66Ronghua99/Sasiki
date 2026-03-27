@@ -180,9 +180,15 @@ async function runTikTokCustomerServiceDemo(endpoint) {
     const playwright = await resolvePlaywrightModule();
     const browser = await connectBrowser(playwright, endpoint);
     try {
-      const homePage = await findPageByUrl(browser, /\/homepage/i, 12000);
+      let homePage = await findPageByUrl(browser, /\/homepage/i, 12000);
+      if (!homePage) {
+        homePage = await ensureActivePage(browser).catch(() => null);
+      }
       if (homePage) {
         await homePage.bringToFront().catch(() => {});
+        if (!/\/homepage/i.test(safeString(homePage.url()))) {
+          await homePage.goto(homeUrl, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+        }
         await homePage.waitForTimeout(900);
         const entry = await clickUiToken(homePage, [
           "客户消息",
@@ -200,10 +206,18 @@ async function runTikTokCustomerServiceDemo(endpoint) {
 
       let inboxPage = await findPageByUrl(browser, /\/chat\/inbox\/current/i, 6000);
       if (!inboxPage) {
-        inboxTarget = await openUrlViaCdp(endpoint, inboxUrl);
         uiActions.usedDirectInboxFallback = true;
-        await sleep(2200);
-        inboxPage = await findPageByUrl(browser, /\/chat\/inbox\/current/i, 10000);
+        const fallbackPage = homePage ?? (await ensureActivePage(browser).catch(() => null));
+        if (fallbackPage) {
+          await fallbackPage.bringToFront().catch(() => {});
+          await fallbackPage.goto(inboxUrl, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+          await fallbackPage.waitForTimeout(2200);
+          inboxPage = fallbackPage;
+        } else {
+          inboxTarget = await openUrlViaCdp(endpoint, inboxUrl);
+          await sleep(2200);
+          inboxPage = await findPageByUrl(browser, /\/chat\/inbox\/current/i, 10000);
+        }
       }
 
       if (inboxPage) {

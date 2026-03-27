@@ -4,11 +4,13 @@
  * Last Updated: 2026-03-23
  */
 export type RuntimeCliCommand = "observe" | "refine" | "sop-compact";
+export type SopCompactCliAction = "run" | "list";
 export type RuntimeMode = "observe" | "refine";
 export type AgentRunStatus = "completed" | "failed" | "stalled" | "max_steps" | "paused_hitl" | "budget_exhausted";
 
 export interface AgentRunRequest {
   task: string;
+  skillName?: string;
   sopRunId?: string;
   resumeRunId?: string;
 }

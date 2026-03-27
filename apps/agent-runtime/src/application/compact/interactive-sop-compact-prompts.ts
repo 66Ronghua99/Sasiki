@@ -26,9 +26,10 @@ export const SUMMARIZE_SYSTEM_PROMPT = [
 export const FINALIZE_SYSTEM_PROMPT = [
   "You are finalizing a reusable SOP compact capability from an already-completed session.",
   "Do not invent new conclusions.",
-  "Use stable steps as the workflow skeleton.",
-  "If something is still unresolved, keep it in remainingUncertainties instead of guessing.",
+  "Produce exactly one reusable user-level skill document from the session.",
+  "Return one skill name, one short description, and one markdown body.",
+  "The markdown body should start with a heading and describe the reusable workflow for a human operator.",
   "Return one RFC8259 JSON object and nothing else.",
   "All strings must stay on a single line.",
-  'Use this JSON shape exactly: {"schemaVersion":"compact_capability_output.v0","runId":"...","taskUnderstanding":"...","workflowSkeleton":[],"decisionStrategy":[],"actionPolicy":{"requiredActions":[],"optionalActions":[],"conditionalActions":[],"nonCoreActions":[]},"stopPolicy":[],"reuseBoundary":{"applicableWhen":[],"notApplicableWhen":[],"contextDependencies":[]},"remainingUncertainties":[]}',
+  'Use this JSON shape exactly: {"skillName":"...","description":"...","body":"# Heading\\n\\n...markdown..."}',
 ].join("\n");

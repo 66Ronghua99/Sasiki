@@ -20,8 +20,13 @@ import {
   type ReactRefinementRunExecutorOptions,
 } from "./react-refinement-run-executor.js";
 import { RefineReactToolClient } from "./refine-react-tool-client.js";
-import { type RefinePersistenceContext, RefineRunBootstrapProvider } from "./refine-run-bootstrap-provider.js";
+import {
+  type RefinePersistenceContext,
+  type RefineSkillMetadataCatalog,
+  RefineRunBootstrapProvider,
+} from "./refine-run-bootstrap-provider.js";
 import { createBootstrapRefineToolComposition, type RefineToolComposition } from "./tools/refine-tool-composition.js";
+import type { RefineSkillStorePort } from "./tools/services/refine-skill-service.js";
 
 export interface RefineWorkflowBrowserLifecycle {
   start(): Promise<unknown>;
@@ -30,6 +35,7 @@ export interface RefineWorkflowBrowserLifecycle {
 
 export interface RefineWorkflowRequest {
   task: string;
+  skillName?: string;
   resumeRunId?: string;
 }
 
@@ -53,6 +59,8 @@ export interface CreateRefineWorkflowFactoryOptions {
   createRunId: () => string;
   resolvedModel: PiAgentModel;
   persistenceContext: RefinePersistenceContext;
+  skillCatalog?: RefineSkillMetadataCatalog;
+  skillStore?: RefineSkillStorePort;
   createArtifactsWriter: (runId: string) => RefinementArtifactsWriter;
   config: Pick<
     RuntimeConfig,
@@ -137,12 +145,14 @@ export class RefineWorkflow implements HostedWorkflow<AgentRunResult> {
   private readonly browserLifecycle: RefineWorkflowBrowserLifecycle;
   private readonly agentRuntime: RefineWorkflowAgentRuntime;
   private readonly task: string;
+  private readonly skillName?: string;
   private readonly resumeRunId?: string;
 
   constructor(options: RefineWorkflowOptions) {
     this.browserLifecycle = options.browserLifecycle;
     this.agentRuntime = options.agentRuntime;
     this.task = options.task;
+    this.skillName = options.skillName;
     this.resumeRunId = options.resumeRunId;
   }
 
@@ -154,6 +164,7 @@ export class RefineWorkflow implements HostedWorkflow<AgentRunResult> {
   async execute(): Promise<AgentRunResult> {
     return this.agentRuntime.run({
       task: this.task,
+      skillName: this.skillName,
       resumeRunId: this.resumeRunId,
     });
   }
@@ -204,6 +215,7 @@ export function createRefineWorkflowAssembly(
       ? createBootstrapRefineToolComposition(options.rawToolClient, {
           guidanceLoader: options.persistenceContext.guidanceLoader,
           knowledgeTopN: options.config.refinementKnowledgeTopN,
+          skillStore: options.skillStore,
         })
       : createToolComposition(options.rawToolClient);
   const toolClient = new RefineReactToolClient(toolComposition);
@@ -212,6 +224,7 @@ export function createRefineWorkflowAssembly(
     createRunId: options.createRunId,
     guidanceLoader: options.persistenceContext.guidanceLoader,
     hitlResumeStore: options.persistenceContext.hitlResumeStore,
+    skillCatalog: options.skillCatalog,
     promptProvider,
     knowledgeTopN: options.config.refinementKnowledgeTopN,
   });
@@ -250,6 +263,7 @@ export function createRefineWorkflowAssembly(
         browserLifecycle: options.browserLifecycle,
         agentRuntime,
         task: request.task,
+        skillName: request.skillName,
         resumeRunId: request.resumeRunId,
       });
     },

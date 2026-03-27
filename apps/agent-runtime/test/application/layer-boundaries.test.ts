@@ -71,6 +71,7 @@ test("application boundaries use canonical application and infrastructure module
   assert.match(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/llm\/json-model-client\.js"/);
   assert.match(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/artifacts-writer\.js"/);
   assert.match(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/sop-asset-store\.js"/);
+  assert.match(runtimeCompositionRootSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/sop-skill-store\.js"/);
   assert.match(runtimeCompositionRootSource, /new AttentionKnowledgeStore\(/);
   assert.match(runtimeCompositionRootSource, /new AttentionGuidanceLoader\(/);
   assert.match(runtimeCompositionRootSource, /new RefineHitlResumeStore\(/);
@@ -123,6 +124,7 @@ test("shell remains the phase 1 singleton owner for lifecycle and front-door han
   assert.match(runtimeCompositionRootSource, /new McpStdioClient\(/);
   assert.match(runtimeCompositionRootSource, /new PlaywrightDemonstrationRecorder\(\)/);
   assert.match(runtimeCompositionRootSource, /new SopAssetStore\(/);
+  assert.match(runtimeCompositionRootSource, /new SopSkillStore\(\)/);
   assert.match(runtimeCompositionRootSource, /new ArtifactsWriter\(/);
   assert.match(runtimeCompositionRootSource, /new JsonModelClient\(/);
   assert.match(runtimeCompositionRootSource, /new TerminalCompactHumanLoopTool\(\)/);
@@ -153,6 +155,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
   const refineReactToolClientSource = await readSource("application/refine/refine-react-tool-client.ts");
   const refineBrowserServiceSource = await readSource("application/refine/tools/services/refine-browser-service.ts");
   const refineRunServiceSource = await readSource("application/refine/tools/services/refine-run-service.ts");
+  const refineSkillServiceSource = await readSource("application/refine/tools/services/refine-skill-service.ts");
   const refineRunBootstrapProviderSource = await readSource("application/refine/refine-run-bootstrap-provider.ts");
   const definitionSources = {
     "observe-page-tool.ts": await readSource("application/refine/tools/definitions/observe-page-tool.ts"),
@@ -167,6 +170,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
     "hitl-request-tool.ts": await readSource("application/refine/tools/definitions/hitl-request-tool.ts"),
     "knowledge-record-candidate-tool.ts": await readSource("application/refine/tools/definitions/knowledge-record-candidate-tool.ts"),
     "run-finish-tool.ts": await readSource("application/refine/tools/definitions/run-finish-tool.ts"),
+    "skill-reader-tool.ts": await readSource("application/refine/tools/definitions/skill-reader-tool.ts"),
   } as const;
 
   assert.match(observeWorkflowSource, /from "\.\.\/shell\/workflow-contract\.js"/);
@@ -197,6 +201,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
   assert.doesNotMatch(compactSource, /new JsonModelClient\(/);
   assert.doesNotMatch(compactSource, /new TerminalCompactHumanLoopTool\(/);
   assert.doesNotMatch(compactSource, /new ArtifactsWriter\(/);
+  assert.doesNotMatch(compactSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/sop-skill-store\.js"/);
 
   assert.doesNotMatch(attentionGuidanceLoaderSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/attention-knowledge-store\.js"/);
   assert.doesNotMatch(refineBootstrapSource, /from "\.\.\/\.\.\/infrastructure\/persistence\/attention-knowledge-store\.js"/);
@@ -236,6 +241,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
 
   assert.match(refineToolCompositionSource, /from "\.\/services\/refine-browser-service\.js"/);
   assert.match(refineToolCompositionSource, /from "\.\/services\/refine-run-service\.js"/);
+  assert.match(refineToolCompositionSource, /from "\.\/services\/refine-skill-service\.js"/);
   assert.doesNotMatch(refineToolCompositionSource, /from "\.\/runtime\/refine-browser-tools\.js"/);
   assert.doesNotMatch(refineToolCompositionSource, /from "\.\/runtime\/refine-runtime-tools\.js"/);
   assert.doesNotMatch(refineToolCompositionSource, /from "\.\/providers\/refine-browser-provider\.js"/);
@@ -246,12 +252,14 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
     export interface RefineToolCompositionContext extends RefineToolContext {
       browserService?: RefineBrowserService;
       runService?: RefineRunService;
+      skillService?: RefineSkillService;
     }
     `,
     "refine tool composition should expose service-owned context refs"
   );
   assert.match(refineToolCompositionSource, /browserService/);
   assert.match(refineToolCompositionSource, /runService/);
+  assert.match(refineToolCompositionSource, /skillService/);
   assert.match(refineToolCompositionSource, /rawClient/);
   assert.doesNotMatch(refineToolCompositionSource, /contextRef\.set\(\{\s*\.\.\.contextRef\.get\(\),\s*session:/s);
   assertHasSnippet(
@@ -260,6 +268,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
     contextRef.set({
       browserService,
       runService,
+      skillService,
     });
     `,
     "refine tool composition should seed only service refs into the active context"
@@ -271,13 +280,16 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
   assert.match(refineRunServiceSource, /getSession\(\): RefineReactSession;/);
   assert.match(refineRunServiceSource, /setSession\(session: RefineReactSession\): void;/);
   assert.match(refineRunServiceSource, /setHitlAnswerProvider\(provider\?: HitlAnswerProvider\): void;/);
+  assert.match(refineSkillServiceSource, /listSkills\(\): Promise<SopSkillMetadata\[\]>/);
+  assert.match(refineSkillServiceSource, /readSkill\(request: RefineSkillReaderRequest\): Promise<RefineSkillReaderResponse>/);
   assert.doesNotMatch(refineBrowserServiceSource, /contextRef\.set\(\{\s*\.\.\.this\.contextRef\.get\(\),\s*session:/s);
   assert.doesNotMatch(refineRunServiceSource, /contextRef\.set\(\{\s*\.\.\.this\.contextRef\.get\(\),\s*session:/s);
   assert.doesNotMatch(refineRunServiceSource, /contextRef\.set\(\s*context\s*\)/s);
   assert.doesNotMatch(refineBrowserServiceSource, /from "\.\.\/runtime\/refine-browser-tools\.js"/);
   assert.doesNotMatch(refineRunServiceSource, /from "\.\.\/runtime\/refine-runtime-tools\.js"/);
+  assert.doesNotMatch(refineSkillServiceSource, /from "\.\.\/runtime\/refine-runtime-tools\.js"/);
   for (const [fileName, source] of Object.entries(definitionSources)) {
-    assert.match(source, /browserService|runService/, `${fileName} should read service-owned context`);
+    assert.match(source, /browserService|runService|skillService/, `${fileName} should read service-owned context`);
     assert.doesNotMatch(source, /context\.browser\b/, `${fileName} should not read legacy browser context`);
     assert.doesNotMatch(source, /context\.runtime\b/, `${fileName} should not read legacy runtime context`);
     assert.doesNotMatch(source, /from "\.\.\/providers\/refine-/, `${fileName} should not import provider seams`);
@@ -287,6 +299,7 @@ test("workflow modules stay isolated while shell owns the concrete observe and c
   assert.doesNotMatch(refineRunServiceSource, /from "\.\.\/providers\/refine-runtime-provider\.js"/);
   assert.doesNotMatch(refineBrowserServiceSource, /from "\.\.\/\.\.\/\.\.\/infrastructure\//);
   assert.doesNotMatch(refineRunServiceSource, /from "\.\.\/\.\.\/\.\.\/infrastructure\//);
+  assert.doesNotMatch(refineSkillServiceSource, /from "\.\.\/\.\.\/\.\.\/infrastructure\//);
 
   assert.equal(existsSync(path.join(srcRoot, "application/refine/tools/providers/refine-browser-provider.ts")), false);
   assert.equal(existsSync(path.join(srcRoot, "application/refine/tools/providers/refine-runtime-provider.ts")), false);

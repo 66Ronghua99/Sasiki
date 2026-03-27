@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { buildProxySafeEnv } from "./proxy-env.mjs";
 
 const workflowScript = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -186,6 +187,7 @@ function runWorkflow(args, logPath) {
     const result = spawnSync(cmd, [workflowScript, ...args], {
       encoding: "utf8",
       cwd: projectRoot,
+      env: buildProxySafeEnv({ ...process.env }),
       maxBuffer: 8_388_608,
       stdio: ["ignore", "pipe", "pipe"],
     });

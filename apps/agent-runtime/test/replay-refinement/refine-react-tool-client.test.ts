@@ -347,7 +347,7 @@ test("refine tool client rebinding keeps browser observations on the latest sess
   assert.equal(observation.observationRef, "obs_run-2_1");
 });
 
-test("composite tool client exposes exactly twelve refine-agent facing tools", async () => {
+test("composite tool client exposes the raw-client-safe refine-agent tool set", async () => {
   const raw = new StubRawToolClient();
   const session = createRefineReactSession("run-1", "task", { taskScope: "search-product" });
   const client = new RefineReactToolClient({ rawClient: raw, session });
@@ -462,6 +462,7 @@ test("composite tool client emits frozen field-level input schemas for critical 
   assert.equal(readObjectPropertySchema(fileUpload, "sourceObservationRef").type, "string");
   assert.equal(readObjectPropertySchema(fileUpload, "paths").type, "array");
   assert.deepEqual((fileUploadProperties.paths as Record<string, unknown>).items, { type: "string" });
+
 });
 
 test("runtime tool facade keeps existing behavior contracts on the legacy client path", async () => {

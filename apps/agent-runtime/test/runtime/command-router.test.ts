@@ -28,6 +28,7 @@ test("parseRefineArguments preserves explicit refine grammar including resume", 
   assert.deepEqual(
     parseRefineArguments([
       "--config=agent.config.json",
+      "--skill=tiktok-customer-service",
       "--resume-run-id=resume-456",
       "hello",
       "world",
@@ -35,6 +36,7 @@ test("parseRefineArguments preserves explicit refine grammar including resume", 
     {
       command: "refine",
       configPath: "agent.config.json",
+      skillName: "tiktok-customer-service",
       task: "hello world",
       resumeRunId: "resume-456",
     }
@@ -46,11 +48,20 @@ test("parseSopCompactArguments preserves current compact grammar", () => {
     parseSopCompactArguments(["--config=agent.config.json", "--semantic", "on", "run-123"]),
     {
       command: "sop-compact",
+      action: "run",
       configPath: "agent.config.json",
       runId: "run-123",
       semanticMode: "on",
     }
   );
+});
+
+test("parseSopCompactArguments supports list grammar", () => {
+  assert.deepEqual(parseSopCompactArguments(["list"]), {
+    command: "sop-compact",
+    action: "list",
+    configPath: undefined,
+  });
 });
 
 test("parseCliArguments rejects archived sop compact commands", () => {
@@ -70,9 +81,18 @@ test("parseCliArguments rejects archived sop compact clarify commands", () => {
 test("parseCliArguments delegates sop compact parsing", () => {
   assert.deepEqual(parseCliArguments(["sop-compact", "--run-id", "run-777"]), {
     command: "sop-compact",
+    action: "run",
     configPath: undefined,
     runId: "run-777",
     semanticMode: undefined,
+  });
+});
+
+test("parseCliArguments delegates sop compact list parsing", () => {
+  assert.deepEqual(parseCliArguments(["sop-compact", "list"]), {
+    command: "sop-compact",
+    action: "list",
+    configPath: undefined,
   });
 });
 
@@ -86,10 +106,18 @@ test("parseCliArguments delegates explicit observe parsing", () => {
 
 test("parseCliArguments delegates explicit refine parsing", () => {
   assert.deepEqual(
-    parseCliArguments(["refine", "--config=agent.config.json", "--resume-run-id=resume-456", "hello", "world"]),
+    parseCliArguments([
+      "refine",
+      "--config=agent.config.json",
+      "--skill=tiktok-customer-service",
+      "--resume-run-id=resume-456",
+      "hello",
+      "world",
+    ]),
     {
       command: "refine",
       configPath: "agent.config.json",
+      skillName: "tiktok-customer-service",
       task: "hello world",
       resumeRunId: "resume-456",
     }
@@ -142,7 +170,18 @@ test("parseRefineArguments preserves empty task when resume id is provided", () 
   assert.deepEqual(parseRefineArguments(["--resume-run-id", "run-1"]), {
     command: "refine",
     configPath: undefined,
+    skillName: undefined,
     task: "",
     resumeRunId: "run-1",
+  });
+});
+
+test("parseRefineArguments preserves empty task when a skill name is provided", () => {
+  assert.deepEqual(parseRefineArguments(["--skill", "tiktok-customer-service"]), {
+    command: "refine",
+    configPath: undefined,
+    skillName: "tiktok-customer-service",
+    task: "",
+    resumeRunId: undefined,
   });
 });
