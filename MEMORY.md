@@ -38,7 +38,7 @@
 - 当前本地 refine e2e 的默认路径应固定为：系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`。
 - 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
-- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 sandbox 里的 runtime config JSON 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
+- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 `.sandbox/runtime.config.json` 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
 - refinement / compact 这类链路中的 JSON 工件应继续作为真源；Markdown 说明文档只做索引和解释。
 - `lint:docs` 如果保留，只应视为仓库本地文档对齐检查，而不是 Harness governance contract 的一部分。
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
@@ -121,6 +121,7 @@
   - `MEMORY.md`
   - `AGENT_INDEX.md`
   - `.harness/bootstrap.toml`
+  - `PROJECT_LOGS.md`（仅在需要历史决策、方向追溯、项目级 inspect 时读取）
   - `docs/project/current-state.md`
 - 如果需要历史背景，再按需读取 `.plan/20260310_*`、`.plan/20260312_*`、`.plan/20260313_*`。
 - 新的 active spec / plan / evidence 默认写到 Harness 目录结构下，不再继续把 `.plan/` 当成唯一前台入口。
