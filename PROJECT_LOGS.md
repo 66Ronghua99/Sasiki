@@ -290,3 +290,17 @@
   - full gates：`npm --prefix apps/agent-runtime run build`
   - full gates：`npm --prefix apps/agent-runtime run hardgate`
   - fresh hardgate report：`artifacts/code-gate/2026-03-23T04-23-38-903Z/report.json`
+
+### 2026-03-27 (root README workflow sync)
+- 已将仓库根 `README.md` 从旧的单条直跑示例收口到当前真实前门：
+  - 推荐入口改为 sandbox-first：`bootstrap -> flow / selfcheck -> inspect`
+  - 明确 `observe -> sop-compact -> refine` 是当前主链，而底层 runtime 只保留 `observe` / `refine` / `sop-compact`
+  - 补充了 `sop-compact list`、`refine --skill <name>`、`refine --resume-run-id <run_id>` 与产物位置说明
+- 本轮未改变 active implementation pointer；`NEXT_STEP.md` 继续保持 metric semantics slice 为唯一下一步。
+- fresh verification：
+  - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run test`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
+  - `npm --prefix apps/agent-runtime run hardgate`
+  - fresh hardgate report：`artifacts/code-gate/2026-03-27T12-37-43-949Z/report.json`
