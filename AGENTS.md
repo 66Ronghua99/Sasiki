@@ -11,15 +11,16 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 3. `MEMORY.md`
 4. `AGENT_INDEX.md`（项目根优先，缺失时用共享路由）
 5. `.harness/bootstrap.toml`
-6. `docs/project/current-state.md`
-7. `docs/architecture/overview.md`
-8. `docs/superpowers/templates/`
+6. `PROJECT_LOGS.md`（仅在项目级 inspect / 复盘 / 方向追溯 / 历史决策争议时按需读取）
+7. `docs/project/current-state.md`
+8. `docs/architecture/overview.md`
+9. `docs/superpowers/templates/`
 
 ## Sandbox E2E 路由（主路径）
 1. **Seed bootstrap**
    - 先在种子仓库执行 `bootstrap`（如有需要保留 `profile/cookie`）。
    - 新 worktree 通过 `--source` 或 `SASIKI_SANDBOX_SOURCE` 执行 bootstrap 继承。
-   - feature worktree 不应只同步代码；当前 front-door docs（至少 `PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）与 `.sandbox/runtime.config.json` 也应一并同步，保证 worktree 自己就是可执行、可验真的完整上下文。
+   - feature worktree 不应只同步代码；当前 front-door docs（至少 `PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）与 `.sandbox/runtime.config.json` 也应一并同步，保证 worktree 自己就是可执行、可验真的完整上下文。
 
 2. **统一端到端执行**
    - 优先使用 `flow`/`selfcheck` 作为主路径，不建议直接绕开走 observe/compact/refine 单点命令。
@@ -68,6 +69,10 @@ Sasiki 是一个浏览器任务自动化 agent 系统，核心目标是把“示
 - `npm --prefix apps/agent-runtime run build`
 
 ## Related Docs
+- Status panel: `PROGRESS.md`
+- Append-only project log: `PROJECT_LOGS.md`
+- Immediate execution pointer: `NEXT_STEP.md`
+- Stable lessons: `MEMORY.md`
 - Bootstrap manifest: `.harness/bootstrap.toml`
 - Harness templates: `docs/superpowers/templates/`
 - Current state: `docs/project/current-state.md`

@@ -3,8 +3,9 @@
 ## Default Route
 
 1. Load `using-superpowers`.
-2. Read `PROGRESS.md`, `NEXT_STEP.md`, `MEMORY.md`, and `.harness/bootstrap.toml`.
-3. Route by task type:
+2. Read `PROGRESS.md`, `NEXT_STEP.md`, `MEMORY.md`, `AGENT_INDEX.md`, and `.harness/bootstrap.toml`.
+3. Read `PROJECT_LOGS.md` only for project-level inspect, retrospective, direction-trace, or historical decision disputes.
+4. Route by task type:
    - new workflow or behavior design -> `brainstorming`
    - approved multi-step work -> `writing-plans`
    - implementation in this session -> `executing-plans` or `subagent-driven-development`

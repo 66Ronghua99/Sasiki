@@ -113,11 +113,12 @@ apps/agent-runtime/src/
 
 ## Current Documentation Truth
 - Active entry docs:
-  - `PROGRESS.md`
+  - `PROGRESS.md`（always loaded status panel）
   - `NEXT_STEP.md`
   - `MEMORY.md`
   - `AGENT_INDEX.md`
   - `.harness/bootstrap.toml`
+  - `PROJECT_LOGS.md`（append-only project log, on-demand）
   - `docs/project/current-state.md`
   - `docs/architecture/overview.md`
 - Active execution pointer:
