@@ -93,6 +93,47 @@
   - `observe` bucket：`PlaywrightDemonstrationRecorder`, `ArtifactsWriter`, `SopAssetStore`
   - `compact` bucket：`JsonModelClient`, `TerminalCompactHumanLoopTool`, `ArtifactsWriter`
   - `refine` bucket：`AttentionKnowledgeStore`, `RefineHitlResumeStore`, `ArtifactsWriter`
+
+### 2026-03-27 (refine skill prompt wording pass)
+- 在 `codex/refine-skill-prompts` worktree 对 refine skill 相关 agent-facing 文案做了一轮强化：
+  - `apps/agent-runtime/src/application/refine/system-prompts.ts`
+  - `apps/agent-runtime/src/application/refine/prompt-provider.ts`
+  - `apps/agent-runtime/src/application/refine/tools/definitions/skill-reader-tool.ts`
+- 本轮强化重点：
+  - 明确 skill 是从 prior runs 沉淀出来的 durable workflow document，而不是可忽略的背景提示
+  - 明确 metadata 只是 startup index，agent 需要在显式指定、语义明显相关、或恢复/完成判定含糊时主动调用 `skill.reader`
+  - 明确 skill 的价值包括 workflow applicability、goal、durable constraints、recovery cues 与 completion signals
+  - 明确 live observation 与 skill 的关系：skill 指导推理，但当前页面证据仍是真实状态真源
+- 同步更新了 refine prompt / tool surface 相关测试断言文案。
+- fresh targeted verification：
+  - `npm --prefix apps/agent-runtime run test -- test/application/refine/prompt-provider.test.ts test/application/refine/refine-tool-surface.test.ts`
+  - 结果：`115 passed, 0 failed`
+  - 说明：本轮只跑不触发浏览器的定向单测，未占用 Chrome Profile，也未执行全量门禁。
+
+### 2026-03-27 (refine system prompt hierarchy pass)
+- 将 `REFINE_REACT_SYSTEM_PROMPT` 从平铺的并列 `##` 标题重排为显式层级结构：
+  - `## Core Mission`
+  - `## Knowledge Model`
+  - `## Role Contract`
+  - `## Operating Rules`
+  - `## Completion Policy`
+- 在层级重排时同步压缩了 `SOP Skill Guidance` 的重复表述，保留“skill 是什么 / 何时主动读取 / metadata 与 full body 的关系 / live observation 优先级”这四类核心语义。
+- fresh targeted verification：
+  - `npm --prefix apps/agent-runtime run test -- test/application/refine/prompt-provider.test.ts`
+  - `npm --prefix apps/agent-runtime run test -- test/application/refine/prompt-provider.test.ts test/application/refine/refine-tool-surface.test.ts`
+  - 结果：两次命令均通过，最新定向结果为 `115 passed, 0 failed`
+
+### 2026-03-27 (worktree env preflight doc sync)
+- 将 “fresh worktree 缺少 `apps/agent-runtime/node_modules`，导致 `tsx: command not found`” 记录为显式的测试前置环境问题，而不是产品回归。
+- 已更新：
+  - `docs/testing/strategy.md`
+  - `docs/testing/refine-e2e-baidu-search-runbook.md`
+  - `docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`
+  - `MEMORY.md`
+- 新约定：
+  - 在 worktree 中跑测试或 runbook 前，先检查 `apps/agent-runtime/node_modules`
+  - 若脚本报 `tsx: command not found`，固定先执行 `npm --prefix apps/agent-runtime ci`
+- 顺手修正了一处已有 doc drift：`MEMORY.md` 不再引用仓库中不存在的 `.sandbox/runtime.config.json`，改为指向“实际使用的本地 runtime config 文件”。
   - `config` bucket：`RuntimeBootstrapProvider`
   - move-now：observe / compact / refine 的 concrete adapters
   - temporary exception：config loader seam，留到 Phase 3 Task 4

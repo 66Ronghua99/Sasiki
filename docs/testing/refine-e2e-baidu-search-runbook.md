@@ -40,7 +40,28 @@
 
 ## 标准执行流程
 
-### 0) 本地 runtime config 约定
+### 0) worktree 依赖预检
+
+如果这是一个新建或久未使用的 worktree，先确认本地测试依赖已安装。
+
+推荐检查：
+
+```bash
+test -d apps/agent-runtime/node_modules && echo "deps ready" || echo "deps missing"
+```
+
+若命令输出 `deps missing`，或后续任何 `npm --prefix apps/agent-runtime run ...` 报 `tsx: command not found`，先执行：
+
+```bash
+npm --prefix apps/agent-runtime ci
+```
+
+说明：
+1. `apps/agent-runtime` 的 `test` / `dev` 脚本依赖 worktree 本地安装的 `tsx`。
+2. fresh worktree 可能只有代码和文档，没有 `node_modules`。
+3. 这一步只修复 worktree 工具链，不会触发浏览器，也不会占用 Chrome profile。
+
+### 1) 本地 runtime config 约定
 
 本仓库后续默认按以下本地配置执行 refine e2e：
 
@@ -64,7 +85,7 @@
 2. `.sasiki/chrome_profile` 是 Sasiki 专用持久化 profile，不是系统默认个人浏览器 profile。
 3. Playwright bundled Chrome 如需继续使用，必须配独立 profile；不要再直接复用 `.sasiki/chrome_profile`。
 
-### 1) 先做 CDP 探活（必须带 NO_PROXY）
+### 2) 先做 CDP 探活（必须带 NO_PROXY）
 
 ```bash
 NO_PROXY=localhost,127.0.0.1,::1 no_proxy=localhost,127.0.0.1,::1 \
@@ -73,13 +94,13 @@ curl -sS http://127.0.0.1:9222/json/version
 
 通过标准：输出中包含 `webSocketDebuggerUrl`。
 
-### 2) 构建 runtime
+### 3) 构建 runtime
 
 ```bash
 npm --prefix apps/agent-runtime run build
 ```
 
-### 3) 执行 e2e（推荐命令，内置 proxy 防护）
+### 4) 执行 e2e（推荐命令，内置 proxy 防护）
 
 ```bash
 env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
@@ -90,14 +111,14 @@ node apps/agent-runtime/dist/index.js \
   "打开百度搜索咖啡豆，点击第一条搜索结果链接。"
 ```
 
-### 4) 记录本次 run_id
+### 5) 记录本次 run_id
 
 ```bash
 RUN_ID=$(ls -1t artifacts/e2e | head -n1)
 echo "$RUN_ID"
 ```
 
-### 5) 验收检查
+### 6) 验收检查
 
 ```bash
 sed -n '1,200p' "artifacts/e2e/${RUN_ID}/run_summary.json"
@@ -155,6 +176,17 @@ rg -n '"toolName":"run.finish"|"toolName":"act.click"|"toolName":"act.type"|"too
 1. 优先切回本 runbook 的默认路径：系统 Chrome + `~/.sasiki/chrome_profile`。
 2. 不要让 bundled Chrome 直接复用 `.sasiki/chrome_profile`。
 3. 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
+
+### 问题 4：`tsx: command not found`
+
+典型表现：
+- `npm --prefix apps/agent-runtime run test ...` 直接报 `sh: tsx: command not found`
+- 浏览器相关流程还没开始，测试命令就在本地脚本入口处失败
+
+处理步骤：
+1. 先确认当前是在新 worktree 或未装依赖的 worktree 中执行。
+2. 执行 `npm --prefix apps/agent-runtime ci`。
+3. 安装完成后重跑原命令，再判断是否存在真实产品问题。
 
 ## 交付记录模板
 

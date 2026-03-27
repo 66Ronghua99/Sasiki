@@ -62,6 +62,27 @@
 
 ## 标准执行流程
 
+### 0) worktree 依赖预检
+
+如果这是一个新建或久未使用的 worktree，先确认本地测试依赖已安装。
+
+推荐检查：
+
+```bash
+test -d apps/agent-runtime/node_modules && echo "deps ready" || echo "deps missing"
+```
+
+若命令输出 `deps missing`，或后续任何 `npm --prefix apps/agent-runtime run ...` 报 `tsx: command not found`，先执行：
+
+```bash
+npm --prefix apps/agent-runtime ci
+```
+
+说明：
+1. `apps/agent-runtime` 的脚本依赖 worktree 本地安装的 `tsx`。
+2. fresh worktree 可能只有代码和文档，没有 `node_modules`。
+3. 这一步只修复 worktree 工具链，不会触发浏览器，也不会占用 Chrome profile。
+
 ### 1) 构建 runtime
 
 ```bash
@@ -117,6 +138,19 @@ rg -n '"toolName":"observe.page"|"toolName":"act.navigate"|"toolName":"act.click
   - `已分配` / `未分配` 均无实际会话
   - `未读 (0)`、`未回复 (0)` 等状态为 0
   - 列表只显示 `快速设置` 引导，不是客户对话
+
+## 常见故障与处理
+
+### 问题 1：`tsx: command not found`
+
+典型表现：
+- `npm --prefix apps/agent-runtime run test ...` 或其他本地脚本在命令入口直接失败
+- 浏览器流程还没开始，当前 worktree 就缺少本地 devDependencies
+
+处理步骤：
+1. 先不要把它当成 Chrome、profile、cookie 或 refine 行为问题。
+2. 执行 `npm --prefix apps/agent-runtime ci`。
+3. 安装完成后再重跑本 runbook 的构建或验证命令。
 
 ## 交付记录模板
 

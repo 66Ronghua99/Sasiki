@@ -1,7 +1,7 @@
 /**
  * Deps: runtime-config.ts, application/refine/system-prompts.ts
  * Used By: application/shell/runtime-composition-root.ts, application/refine/refine-run-bootstrap-provider.ts
- * Last Updated: 2026-03-21
+ * Last Updated: 2026-03-27
  */
 import type { RuntimeConfig } from "../config/runtime-config.js";
 import type { SopSkillMetadata } from "../../domain/sop-skill.js";
@@ -56,14 +56,22 @@ export class PromptProvider {
 
     const executionRules = [
       "Execution rules:",
+      "- Available SOP skills are durable workflow knowledge about reusable workflows, not optional background noise.",
+      "- A skill explains when a workflow applies, what outcome it is for, durable constraints, likely recovery cues, and valid completion signals.",
+      "- These startup SOP entries are metadata only; the durable workflow body is not preloaded.",
+      "- Use skill.reader proactively and early when a requested or clearly relevant SOP skill applies, or when you need to disambiguate recovery or completion behavior.",
       "- Reuse the provided observationRef until you explicitly call observe.page again.",
       "- observe.query only searches the latest captured snapshot. It does not refresh the page and does not mint a new observationRef.",
       input.selectedSkillName
         ? `- Load the requested SOP body with skill.reader early before you rely on ${input.selectedSkillName}-specific details.`
-        : "- If an SOP skill looks relevant, use skill.reader to load its body before relying on SOP-specific details.",
+        : "- If an SOP skill looks relevant from the task, page, or available metadata, use skill.reader to load its durable body before relying on SOP-specific details.",
+      "- Metadata is only the skill index, not the full workflow. Read the body before inventing skill-specific fallback logic or declaring a workflow-specific done state.",
+      "- Treat the user task as the desired outcome, not as a place to request fallback navigation scripts or redirect playbooks.",
       "- After act.navigate, act.select_tab, or any click that changes page/tab context, call observe.page before the next structural query or action.",
       "- If a click opens a new tab, switch to the correct tab first, then observe.page before continuing.",
-      "- When the task is to check whether inbox/work items exist, a verified empty state after checking the relevant tabs or filters is a valid completion. Summarize what was checked, then call run.finish.",
+      "- If navigation lands on an unexpected page, redirect, or path mismatch, recover with fresh observation and the relevant SOP guidance instead of waiting for the user to author fallback instructions.",
+      "- If fresh observation disagrees with a skill, stay grounded in the page state and adapt; the skill should inform reasoning, not override live evidence.",
+      "- A corroborated empty state after checking the relevant tabs or filters is a valid completion. Corroboration can come from visible empty-state DOM or consistent pageKnowledge cues. Summarize what was checked, then call run.finish.",
     ];
     const availableSkillsLines =
       input.availableSkills.length > 0

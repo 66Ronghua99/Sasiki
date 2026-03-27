@@ -38,7 +38,8 @@
 - 当前本地 refine e2e 的默认路径应固定为：系统 Chrome 二进制 + `~/.sasiki/chrome_profile` + `~/.sasiki/cookies`。
 - 不要再让 Playwright bundled Chrome 直接复用 `~/.sasiki/chrome_profile`；该 profile 可能已被更高版本系统 Chrome 升级，旧 bundled Chrome 会在 CDP 建连阶段 `ECONNRESET` / `socket hang up`。
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
-- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和 `.sandbox/runtime.config.json` 也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
+- 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和实际使用的本地 runtime config 文件也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
+- fresh worktree 可能只有代码和文档，没有 `apps/agent-runtime/node_modules`；若本地脚本报 `tsx: command not found`，先执行 `npm --prefix apps/agent-runtime ci`，不要误判成产品回归或 Chrome profile 问题。
 - sandbox `flow`/`selfcheck` 的 compact->refine handoff 不能只看 `selectedSkillName`；至少要同时满足 `ready_to_finalize` 与 truthful persisted `skillPath`，否则应显式失败而不是继续 refine。
 - sandbox refine front door 应继续复用统一的 handoff arg builder；手动 `--skill <name>`、`--resume-run-id <run_id>` 与 task text 的组合规则不要在 `sandbox-workflow` / `sandbox-selfcheck` / runtime CLI 之间各写一套。
 - auto-observe 帮手若在 CDP ready wait 或 demo 执行阶段失败，必须终止已启动的 observe runtime，避免遗留后台进程污染下一次 sandbox run。

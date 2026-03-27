@@ -39,6 +39,25 @@ For the approved global taxonomy refactor, the following are blocking acceptance
    - observe and compact ownership moves
    - lifecycle wrappers and runtime-state narrowing
 
+## Worktree Environment Preflight
+
+Before running any repo test or runbook command inside a fresh worktree, confirm that the local `apps/agent-runtime` toolchain is actually installed.
+
+1. Check whether the worktree has `apps/agent-runtime/node_modules/`.
+2. If `npm --prefix apps/agent-runtime run test ...` fails with `tsx: command not found`, treat it as a missing worktree environment first, not as a product regression.
+3. Recovery command:
+
+```bash
+npm --prefix apps/agent-runtime ci
+```
+
+4. After that, rerun the intended focused test or runbook command.
+
+Rationale:
+- this repository's test entrypoint depends on the local `tsx` binary from `apps/agent-runtime/node_modules/.bin`
+- fresh git worktrees may carry code and docs but not the installed dependency tree
+- this preflight avoids false negatives before browser, Chrome profile, or runtime behavior are even involved
+
 ## Recommended Runbook
 
 - For the default repeatable refine smoke e2e flow (百度搜索咖啡豆并点击第一条结果，含 proxy-safe command 与验收检查), use:
