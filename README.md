@@ -2,42 +2,20 @@
 
 Sasiki is a browser task automation agent system that turns one demonstrated workflow into reusable SOP knowledge and then reuses that knowledge during later live runs.
 
-## Recommended Workflow
+## Quick Start
 
-The current front door is sandbox-first:
-
-1. Bootstrap the current worktree from a seed repo or another ready worktree.
-2. Run the end-to-end `observe -> sop-compact -> refine` pipeline through `flow`, or use `selfcheck` for the one-shot wrapper.
-3. Use `inspect` or the generated artifacts for verification.
+The normal CLI entry lives under `apps/agent-runtime`.
 
 ```bash
 npm --prefix apps/agent-runtime install
 npm --prefix apps/agent-runtime run build
 
-# Optional: seed this worktree from another prepared worktree
-node .sandbox/bin/sandbox-workflow.mjs bootstrap --source /Users/you/Sasiki-dev
-
-# Recommended e2e entry
-node .sandbox/bin/sandbox-workflow.mjs flow \
-  --observe-task "打开 TikTok Global Shop 客服页面，进入客户消息并检查是否有未读或未分配消息。" \
-  --refine-task "打开 TikTok Global Shop 客服页面，检查是否有未读或未分配消息。" \
-  --inspect
-
-# One-shot wrapper around bootstrap -> flow -> inspect
-node .sandbox/bin/sandbox-selfcheck.mjs --source /Users/you/Sasiki-dev
+node apps/agent-runtime/dist/index.js observe "在百度演示一次：搜索咖啡豆并打开一个结果"
 ```
 
-Notes:
+## CLI Commands
 
-- `flow` / `selfcheck` is the recommended e2e route; use the individual `observe`, `compact`, and `refine` sandbox commands only when you need to inspect a stage in isolation.
-- Sandbox commands default to `.sandbox/runtime.config.json`.
-- Current default Chrome profile and cookie paths are `~/.sasiki/chrome_profile` and `~/.sasiki/cookies`.
-- Add `--skill <name>` to sandbox `refine` or runtime `refine` when you want to force a persisted SOP skill.
-- Add `--resume-run-id <run_id>` to resume a paused refine run.
-
-## Runtime Commands
-
-The production runtime itself exposes only three command surfaces:
+The production runtime exposes only three command surfaces:
 
 ```bash
 # Observe a demonstration
@@ -54,29 +32,39 @@ node apps/agent-runtime/dist/index.js refine "打开百度搜索咖啡豆，点�
 
 # Run refine with an explicit SOP skill
 node apps/agent-runtime/dist/index.js refine --skill tiktok-shop-check-inbox-messages
+
+# Resume a paused refine run
+node apps/agent-runtime/dist/index.js refine --resume-run-id 20260327_145552_964
 ```
 
 `refine` accepts task text, `--skill <name>`, or `--resume-run-id <run_id>`. Startup only loads skill metadata; the full skill body is read on demand through `skill.reader`.
 
-## Inspect And Artifacts
+## Runtime Config
 
-If you only need to inspect the live CDP page state:
+Configuration is loaded from the first available source:
 
 ```bash
-node .sandbox/bin/sandbox-workflow.mjs inspect --out .sandbox/inspect/state.png
+cp apps/agent-runtime/runtime.config.example.json apps/agent-runtime/runtime.config.json
+node apps/agent-runtime/dist/index.js refine -c apps/agent-runtime/runtime.config.json "打开小红书并搜索咖啡豆"
 ```
 
-Common evidence locations:
+Load order:
 
-- sandbox orchestration artifacts: `.sandbox/artifacts/...`
-- runtime run artifacts: `artifacts/e2e/<run_id>/`
-- refine canonical outputs: `event_stream.jsonl`, `run_summary.json`, and optional `agent_checkpoints/`
+- `--config <path>` / `-c <path>`
+- `RUNTIME_CONFIG_PATH`
+- `./runtime.config.json`
+- `./apps/agent-runtime/runtime.config.json`
+
+Current local defaults typically use:
+
+- system Chrome or Chromium
+- `~/.sasiki/chrome_profile`
+- `~/.sasiki/cookies`
 
 ## Repository Layout
 
 - `apps/agent-runtime/`: production runtime implementation.
 - `docs/`: current-state, architecture, runbooks, and superpowers specs/plans.
-- `.sandbox/`: sandbox bootstrap/config/scripts and sandbox-local artifacts.
 - `references/`: upstream snapshots and research references.
 - `examples/`: non-runtime example artifacts.
 - `artifacts/e2e/`: per-run outputs and canonical runtime evidence.

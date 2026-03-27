@@ -304,3 +304,8 @@
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
   - fresh hardgate report：`artifacts/code-gate/2026-03-27T12-37-43-949Z/report.json`
+
+### 2026-03-27 (root README CLI front-door + repo skills cleanup)
+- 根 `README.md` 已改回 normal CLI front door：移除 sandbox 使用说明，改为以 `apps/agent-runtime` 下的 `observe` / `sop-compact` / `refine` 为主入口，并保留最小 config 说明。
+- 仓库级 `skills/` 目录已从当前分支删除；检查结果显示该目录此前同时存在于 `master` 与 `mvp-dev`。
+- 本轮未改动 active runtime 指针；`NEXT_STEP.md` 仍维持 metric semantics slice。
