@@ -295,7 +295,7 @@ test("runtime tool definitions expose frozen schemas and invoke provider behavio
   );
   assert.equal(
     skillReader.description,
-    "List available SOP skills or load one selected SOP skill body by name."
+    "Inspect durable SOP workflow knowledge. Skills are reusable workflow documents distilled from prior runs: they explain when a workflow applies, the intended outcome, durable constraints, recovery cues, and valid completion signals. Call this proactively when a skill is explicitly requested, clearly relevant from the task or current page, or when metadata alone is not enough to choose recovery or completion behavior. Without skillName it returns the startup metadata bank so you can choose a skill; with skillName it loads the full body for one selected skill."
   );
   assert.deepEqual((runFinish.inputSchema as { required?: unknown }).required, ["reason", "summary"]);
   assert.deepEqual((skillReader.inputSchema as { required?: unknown }).required, []);
