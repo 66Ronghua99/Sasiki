@@ -32,6 +32,19 @@ describe("run summary updater", () => {
     assert.equal(interrupted.updatedAt, "2026-03-30T00:01:00.000Z");
   });
 
+  test("keeps an interrupted run interrupted when a later start event arrives", () => {
+    const interrupted = updateRunSummary(createRunSummary({ status: "interrupted" }), {
+      type: "run.started",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: "2026-03-30T00:01:00.000Z",
+      status: "running",
+    });
+
+    assert.equal(interrupted.status, "interrupted");
+    assert.equal(interrupted.updatedAt, "2026-03-30T00:01:00.000Z");
+  });
+
   test("mergeRunSummaries keeps interrupted runs interrupted when later finish events are merged", () => {
     const merged = mergeRunSummaries(
       [createRunSummary({ status: "interrupted" })],

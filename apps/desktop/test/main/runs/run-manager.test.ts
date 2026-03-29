@@ -504,6 +504,85 @@ describe("RunManager", () => {
     assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
     assert.equal(events.list(handle.runId).at(-1)?.type, "run.finished");
   });
+
+  test("run manager keeps interrupted runs interrupted when the runtime emits a late start event", async () => {
+    const events = new RunEventBus();
+    const interruptGate = createDeferred<void>();
+    const postInterruptGate = createDeferred<void>();
+    const lateStartGate = createDeferred<void>();
+    const finishGate = createDeferred<void>();
+    const runManager = new RunManager({
+      createRuntime: (() => ({
+        async runObserve(request: { task: string }, hooks: DesktopRuntimeServiceHooks = {}) {
+          hooks.onEvent?.({
+            type: "run.started",
+            workflow: "observe",
+            status: "running",
+            timestamp: new Date().toISOString(),
+          });
+          await interruptGate.promise;
+          await postInterruptGate.promise;
+          hooks.onEvent?.({
+            type: "run.started",
+            workflow: "observe",
+            status: "running",
+            timestamp: new Date().toISOString(),
+          });
+          lateStartGate.resolve();
+          await finishGate.promise;
+          hooks.onEvent?.({
+            type: "run.finished",
+            workflow: "observe",
+            status: "completed",
+            timestamp: new Date().toISOString(),
+            resultSummary: `observe:${request.task}`,
+          });
+          return {
+            mode: "observe",
+            runId: "observe-run",
+            taskHint: request.task,
+            status: "completed",
+            finishReason: "observe_timeout_reached",
+            artifactsDir: "/tmp/observe-run",
+          } as const;
+        },
+        async runCompact() {
+          throw new Error("not implemented");
+        },
+        async runRefine() {
+          throw new Error("not implemented");
+        },
+        async requestInterrupt() {
+          interruptGate.resolve();
+          return true;
+        },
+        async stop() {
+          // no-op
+        },
+      })) as never,
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    const interruptResult = await runManager.interruptRun(handle.runId);
+    assert.equal(interruptResult.interrupted, true);
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+
+    postInterruptGate.resolve();
+    await lateStartGate.promise;
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+
+    finishGate.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+    assert.equal(events.list(handle.runId).at(-1)?.type, "run.finished");
+  });
 });
 
 function createDeferred<T>() {

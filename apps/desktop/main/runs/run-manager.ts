@@ -415,7 +415,10 @@ export class RunManager {
     }
 
     if (mapped.type === "run.started") {
-      this.updateRun(runId, { status: "running", updatedAt: mapped.timestamp });
+      this.updateRun(runId, {
+        status: currentRun.status === "interrupted" ? "interrupted" : "running",
+        updatedAt: mapped.timestamp,
+      });
     } else if (mapped.type === "run.finished") {
       this.updateRun(runId, {
         status: currentRun.status === "interrupted" ? "interrupted" : mapped.status,
