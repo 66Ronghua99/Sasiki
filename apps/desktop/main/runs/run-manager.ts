@@ -141,7 +141,10 @@ export class RunManager {
       return { runId };
     } catch (error) {
       await this.failRun(runId, error);
-      throw error;
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
     }
   }
 
@@ -167,7 +170,10 @@ export class RunManager {
       return { runId };
     } catch (error) {
       await this.failRun(runId, error);
-      throw error;
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
     }
   }
 
@@ -195,7 +201,10 @@ export class RunManager {
       return { runId };
     } catch (error) {
       await this.failRun(runId, error);
-      throw error;
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
     }
   }
 
@@ -227,14 +236,14 @@ export class RunManager {
 
   async stopAll(): Promise<void> {
     this.shutdownRequested = true;
-    await Promise.all(
+    await Promise.allSettled(
       [...this.pendingStartupPromises.values()].map(async (startupPromise) => {
         await startupPromise.catch(() => undefined);
       }),
     );
     const activeRuntimes = [...this.runtimes.values()];
     this.runtimes.clear();
-    await Promise.all(activeRuntimes.map(async (runtime) => runtime.stop()));
+    await Promise.allSettled(activeRuntimes.map(async (runtime) => runtime.stop()));
   }
 
   listRuns(): DesktopRunSummary[] {
@@ -294,6 +303,10 @@ export class RunManager {
     if (this.shutdownRequested) {
       throw new Error("Run manager is shutting down");
     }
+  }
+
+  private isShutdownError(error: unknown): boolean {
+    return error instanceof Error && error.message === "Run manager is shutting down";
   }
 
   private async startRuntime(
@@ -394,7 +407,8 @@ export class RunManager {
   }
 
   private handleRuntimeEvent(runId: string, event: DesktopRuntimeServiceEvent): void {
-    const workflow = this.requireRun(runId).workflow;
+    const currentRun = this.requireRun(runId);
+    const workflow = currentRun.workflow;
     const mapped = this.mapServiceEvent(runId, workflow, event);
     if (!mapped) {
       return;
@@ -404,9 +418,9 @@ export class RunManager {
       this.updateRun(runId, { status: "running", updatedAt: mapped.timestamp });
     } else if (mapped.type === "run.finished") {
       this.updateRun(runId, {
-        status: mapped.status,
+        status: currentRun.status === "interrupted" ? "interrupted" : mapped.status,
         updatedAt: mapped.timestamp,
-        artifactPath: this.requireRun(runId).artifactPath,
+        artifactPath: currentRun.artifactPath,
       });
     } else if (mapped.type === "run.interrupted") {
       this.updateRun(runId, { status: "interrupted", updatedAt: mapped.timestamp });

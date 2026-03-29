@@ -58,6 +58,13 @@ export function updateRunSummary(
   }
 
   if (event.type === "run.finished") {
+    if (run.status === "interrupted") {
+      return {
+        ...run,
+        updatedAt: event.timestamp,
+      };
+    }
+
     return {
       ...run,
       status: event.status,

@@ -267,7 +267,7 @@ describe("RunManager", () => {
     assert.equal(lastEvent && "status" in lastEvent ? lastEvent.status : undefined, "failed");
   });
 
-  test("run manager marks a run as failed when runtime creation rejects", async () => {
+  test("run manager keeps a failed startup run on the returned handle", async () => {
     const events = new RunEventBus();
     const runManager = new RunManager({
       createRuntime: async () => {
@@ -277,16 +277,14 @@ describe("RunManager", () => {
       createRunId: () => "desktop-observe-1",
     });
 
-    await assert.rejects(
-      runManager.startObserve({
-        task: "record a baidu search",
-        siteAccountId: "acct-1",
-      }),
-      /runtime creation failed/,
-    );
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
 
-    assert.equal(runManager.getRun("desktop-observe-1")?.status, "failed");
-    const lastEvent = events.list("desktop-observe-1").at(-1);
+    assert.equal(handle.runId, "desktop-observe-1");
+    assert.equal(runManager.getRun(handle.runId)?.status, "failed");
+    const lastEvent = events.list(handle.runId).at(-1);
     assert.equal(lastEvent?.type, "run.finished");
     assert.equal(lastEvent && "status" in lastEvent ? lastEvent.status : undefined, "failed");
   });
@@ -341,6 +339,47 @@ describe("RunManager", () => {
 
     assert.equal(stopCalls, 1);
     assert.equal((await runManager.interruptRun(handle.runId)).interrupted, false);
+  });
+
+  test("run manager waits for every runtime stop even if one stop rejects", async () => {
+    const events = new RunEventBus();
+    const stopCalls: string[] = [];
+    const runManager = new RunManager({
+      createRuntime: ((context: { workflow: "observe" | "sop-compact" | "refine" }) => ({
+        async runObserve() {
+          return new Promise<never>(() => undefined);
+        },
+        async runCompact() {
+          return new Promise<never>(() => undefined);
+        },
+        async runRefine() {
+          return new Promise<never>(() => undefined);
+        },
+        async requestInterrupt() {
+          return true;
+        },
+        async stop() {
+          stopCalls.push(context.workflow);
+          if (context.workflow === "observe") {
+            throw new Error("observe stop failed");
+          }
+        },
+      })) as never,
+      events,
+      createRunId: (workflow) => `desktop-${workflow}-1`,
+    });
+
+    await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+    await runManager.startRefine({
+      task: "check inbox",
+      siteAccountId: "acct-1",
+    });
+
+    await assert.doesNotReject(runManager.stopAll());
+    assert.deepEqual(stopCalls.sort(), ["observe", "refine"]);
   });
 
   test("run manager does not launch a pending runtime after stopAll begins", async () => {
@@ -399,6 +438,71 @@ describe("RunManager", () => {
     assert.equal(runObserveCalls, 0);
     assert.equal(stopCalls, 1);
     assert.equal(runManager.getRun("desktop-observe-1")?.status, "failed");
+  });
+
+  test("run manager keeps interrupted runs interrupted even after the runtime later finishes", async () => {
+    const events = new RunEventBus();
+    const interruptGate = createDeferred<void>();
+    const finishGate = createDeferred<void>();
+    const runManager = new RunManager({
+      createRuntime: (() => ({
+        async runObserve(request: { task: string }, hooks: DesktopRuntimeServiceHooks = {}) {
+          hooks.onEvent?.({
+            type: "run.started",
+            workflow: "observe",
+            status: "running",
+            timestamp: new Date().toISOString(),
+          });
+          await interruptGate.promise;
+          await finishGate.promise;
+          hooks.onEvent?.({
+            type: "run.finished",
+            workflow: "observe",
+            status: "completed",
+            timestamp: new Date().toISOString(),
+            resultSummary: `observe:${request.task}`,
+          });
+          return {
+            mode: "observe",
+            runId: "observe-run",
+            taskHint: request.task,
+            status: "completed",
+            finishReason: "observe_timeout_reached",
+            artifactsDir: "/tmp/observe-run",
+          } as const;
+        },
+        async runCompact() {
+          throw new Error("not implemented");
+        },
+        async runRefine() {
+          throw new Error("not implemented");
+        },
+        async requestInterrupt() {
+          interruptGate.resolve();
+          return true;
+        },
+        async stop() {
+          // no-op
+        },
+      })) as never,
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    const interruptResult = await runManager.interruptRun(handle.runId);
+    assert.equal(interruptResult.interrupted, true);
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+
+    finishGate.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+    assert.equal(events.list(handle.runId).at(-1)?.type, "run.finished");
   });
 });
 
