@@ -7,7 +7,7 @@ import type { SiteRegistry } from "./site-registry";
 export interface EmbeddedLoginWindowLike {
   show(): void;
   loadURL(url: string): Promise<void>;
-  once(event: "closed", listener: () => void): void;
+  once(event: "close" | "closed", listener: () => void): void;
   webContents: {
     session: {
       cookies: {
@@ -55,12 +55,17 @@ export function createEmbeddedLoginLauncher(
         height: 900,
         show: true,
         autoHideMenuBar: true,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        partition: createEmbeddedLoginPartition(input.siteAccountId),
-      },
-    });
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          partition: createEmbeddedLoginPartition(input.siteAccountId),
+        },
+      });
+
+      let cookiesPromise: Promise<CredentialCookieRecord[]> | undefined;
+      window.once("close", () => {
+        cookiesPromise = window.webContents.session.cookies.get({});
+      });
 
       window.show();
       void window.loadURL(site.loginUrl).catch(() => undefined);
@@ -69,7 +74,11 @@ export function createEmbeddedLoginLauncher(
         window.once("closed", resolve);
       });
 
-      const cookies = await window.webContents.session.cookies.get({});
+      if (!cookiesPromise) {
+        throw new Error(`No cookies captured for ${site.loginUrl}`);
+      }
+
+      const cookies = await cookiesPromise;
       if (cookies.length === 0) {
         throw new Error(`No cookies captured for ${site.loginUrl}`);
       }

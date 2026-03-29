@@ -23,16 +23,7 @@ describe("embedded login launcher", () => {
     } as unknown as SiteAccountStore;
 
     const createdOptions: Array<{ webPreferences: { partition?: string } }> = [];
-    let latestWindow:
-      | {
-          show(): void;
-          loadURL(url: string): Promise<void>;
-          once(event: "closed", listener: () => void): void;
-          close(): void;
-          closedRegistered: boolean;
-          webContents: { session: { cookies: { get(filter: unknown): Promise<Array<{ name: string; value: string; domain: string }>> } } };
-        }
-      | undefined;
+    let latestWindow: ReturnType<typeof createWindowStub> | undefined;
 
     const launcher = createEmbeddedLoginLauncher({
       siteAccountStore,
@@ -40,56 +31,71 @@ describe("embedded login launcher", () => {
       windowFactory: {
         create(options) {
           createdOptions.push(options);
-          let closedListener: (() => void) | undefined;
-          let closedRegistered = false;
-          const window = {
-            show() {
-              // no-op
-            },
-            async loadURL() {
-              // no-op
-            },
-            once(event: "closed", listener: () => void) {
-              if (event === "closed") {
-                closedRegistered = true;
-                closedListener = listener;
-              }
-            },
-            close() {
-              closedListener?.();
-            },
-            webContents: {
-              session: {
-                cookies: {
-                  async get() {
-                    return [{ name: "sessionid", value: "cookie", domain: ".tiktok.com" }];
-                  },
-                },
-              },
-            },
-            get closedRegistered() {
-              return closedRegistered;
-            },
-          };
-          latestWindow = window;
-          return window;
+          latestWindow = createWindowStub();
+          return latestWindow;
         },
       },
     });
 
     const firstLaunch = launcher.launch({ siteAccountId: "acct-1" });
-    await waitForWindow(() => latestWindow?.closedRegistered === true);
+    await waitForWindow(() => latestWindow);
+    await waitForWindow(() => (latestWindow?.closedRegistered ? latestWindow : undefined));
+    assert.equal(latestWindow?.closeRegistered, true);
     latestWindow?.close();
     await firstLaunch;
 
     const secondLaunch = launcher.launch({ siteAccountId: "acct-1" });
-    await waitForWindow(() => latestWindow?.closedRegistered === true);
+    await waitForWindow(() => latestWindow);
+    await waitForWindow(() => (latestWindow?.closedRegistered ? latestWindow : undefined));
+    assert.equal(latestWindow?.closeRegistered, true);
     latestWindow?.close();
     await secondLaunch;
 
     assert.doesNotMatch(createdOptions[0]?.webPreferences.partition ?? "", /^persist:/);
     assert.doesNotMatch(createdOptions[1]?.webPreferences.partition ?? "", /^persist:/);
     assert.notEqual(createdOptions[0]?.webPreferences.partition, createdOptions[1]?.webPreferences.partition);
+  });
+
+  test("captures cookies before the login window is destroyed", async () => {
+    const siteAccountStore = {
+      async getById(siteAccountId: string) {
+        return {
+          id: siteAccountId,
+          site: "tiktok-shop",
+          label: "Account A",
+        };
+      },
+    } as unknown as SiteAccountStore;
+
+    let latestWindow:
+      | (ReturnType<typeof createWindowStub> & {
+          close(): void;
+          closeRegistered: boolean;
+          closedRegistered: boolean;
+        })
+      | undefined;
+
+    const launcher = createEmbeddedLoginLauncher({
+      siteAccountStore,
+      siteRegistry: new SiteRegistry(),
+      windowFactory: {
+        create() {
+          latestWindow = createWindowStub();
+          return latestWindow;
+        },
+      },
+    });
+
+    const launchPromise = launcher.launch({ siteAccountId: "acct-1" });
+    await waitForWindow(() => latestWindow);
+    await waitForWindow(() => (latestWindow?.closedRegistered ? latestWindow : undefined));
+    assert.equal(latestWindow?.closeRegistered, true);
+    latestWindow?.close();
+
+    const result = await launchPromise;
+    assert.deepEqual(await result.cookies.get({}), [
+      { name: "sessionid", value: "cookie", domain: ".tiktok.com" },
+    ]);
   });
 });
 
@@ -104,4 +110,53 @@ async function waitForWindow<T>(getValue: () => T | undefined): Promise<T> {
   }
 
   throw new Error("window was never created");
+}
+
+function createWindowStub() {
+  let closeListener: (() => void) | undefined;
+  let closedListener: (() => void) | undefined;
+  let destroyed = false;
+  let closeRegistered = false;
+  let closedRegistered = false;
+
+  return {
+    show() {
+      // no-op
+    },
+    async loadURL() {
+      // no-op
+    },
+    once(event: "close" | "closed", listener: () => void) {
+      if (event === "close") {
+        closeRegistered = true;
+        closeListener = listener;
+        return;
+      }
+      if (event === "closed") {
+        closedRegistered = true;
+        closedListener = listener;
+      }
+    },
+    close() {
+      closeListener?.();
+      destroyed = true;
+      closedListener?.();
+    },
+    webContents: {
+      session: {
+        cookies: {
+          async get() {
+            assert.equal(destroyed, false);
+            return [{ name: "sessionid", value: "cookie", domain: ".tiktok.com" }];
+          },
+        },
+      },
+    },
+    get closeRegistered() {
+      return closeRegistered;
+    },
+    get closedRegistered() {
+      return closedRegistered;
+    },
+  };
 }
