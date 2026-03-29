@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, test } from "vitest";
 import { CompactForm } from "../../renderer/src/components/workflows/compact-form";
-import { findButtonByText, setupRendererHarness } from "./dom-test-harness";
+import { findButtonByText, findElementsByTag, setupRendererHarness, submitForm } from "./dom-test-harness";
 
 describe("CompactForm client rendering", () => {
   let harness: ReturnType<typeof setupRendererHarness> | null = null;
@@ -42,6 +42,11 @@ describe("CompactForm client rendering", () => {
 
     const submitButton = findButtonByText(activeHarness.container, "Start SOP Compact");
     assert.equal(submitButton.disabled, true);
+
+    await act(async () => {
+      submitForm(findElementsByTag(activeHarness.container, "form")[0]);
+      await Promise.resolve();
+    });
 
     assert.deepEqual(submitted, []);
   });

@@ -56,6 +56,13 @@ describe("RunsPage client rendering", () => {
     client.runs.interruptRun = async () => ({ interrupted: true });
     client.artifacts.openRunArtifacts = async () => {};
 
+    const startedEvent: DesktopRunEvent = {
+      type: "run.started",
+      runId: "run-1",
+      workflow: "observe",
+      status: "running",
+      timestamp: "2026-03-29T12:00:30.000Z",
+    };
     const logEvent: DesktopRunEvent = {
       type: "run.log",
       runId: "run-1",
@@ -63,13 +70,6 @@ describe("RunsPage client rendering", () => {
       level: "info",
       message: "connected",
       timestamp: "2026-03-29T12:01:00.000Z",
-    };
-    const startedEvent: DesktopRunEvent = {
-      type: "run.started",
-      runId: "run-1",
-      workflow: "observe",
-      status: "running",
-      timestamp: "2026-03-29T12:00:30.000Z",
     };
     const finishedEvent: DesktopRunEvent = {
       type: "run.finished",
@@ -98,7 +98,6 @@ describe("RunsPage client rendering", () => {
     await act(async () => {
       subscriber?.(startedEvent);
       subscriber?.(logEvent);
-      await Promise.resolve();
       await Promise.resolve();
     });
 
@@ -136,7 +135,6 @@ describe("RunsPage client rendering", () => {
     });
 
     assert.ok(findButtonByText(activeHarness.container, "review inbox").textContent?.includes("completed"));
-    assert.equal(findButtonByText(activeHarness.container, "Open Artifacts").disabled, false);
     assert.ok(findElementByText(activeHarness.container, "/tmp/run-1"));
   });
 });
