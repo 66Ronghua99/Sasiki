@@ -19,6 +19,7 @@ import {
 import { RunEventBus } from "../../main/runs/run-event-bus";
 import { createDesktopClient } from "../../renderer/src/lib/desktop-client";
 import { desktopChannels } from "../../shared/ipc/channels";
+import { assertDesktopApiContract } from "../../shared/ipc/contracts";
 import { SopSkillStore } from "../../../agent-runtime/src/infrastructure/persistence/sop-skill-store";
 import { createDesktopPreloadApi, exposeDesktopPreloadApi } from "../../preload/desktop-api";
 
@@ -170,6 +171,10 @@ describe("desktop launch smoke", () => {
         removeListener: ipcRenderer.removeListener.bind(ipcRenderer),
       }),
     );
+    const exposedWindow = globalThis as typeof globalThis & {
+      window?: { sasiki?: unknown };
+    };
+    assertDesktopApiContract(exposedWindow.window?.sasiki);
     const client = createDesktopClient();
 
     const skillsResponse = await client.skills.list();

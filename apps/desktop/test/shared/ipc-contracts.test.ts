@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, test } from "vitest";
-import { createDesktopApiShape, desktopRunEventKinds } from "../../shared/ipc/contracts";
+import {
+  assertDesktopApiContract,
+  createDesktopApiShape,
+  desktopRunEventKinds,
+} from "../../shared/ipc/contracts";
 import { desktopChannels } from "../../shared/ipc/channels";
 import { createDesktopPreloadApi } from "../../preload/desktop-api";
 
@@ -31,29 +35,8 @@ describe("desktop foundation contracts", () => {
       },
     });
 
-    assert.deepEqual(Object.keys(api.accounts), [
-      "list",
-      "upsert",
-      "launchEmbeddedLogin",
-      "importCookieFile",
-      "verifyCredential",
-    ]);
-
-    assert.deepEqual(Object.keys(api.runs), [
-      "startObserve",
-      "startCompact",
-      "startRefine",
-      "interruptRun",
-      "listRuns",
-      "subscribe",
-    ]);
-
-    assert.deepEqual(Object.keys(api.artifacts), ["openRunArtifacts"]);
-    assert.deepEqual(Object.keys(api.skills), ["list"]);
-    assert.deepEqual(Object.keys(liveApi.accounts), Object.keys(api.accounts));
-    assert.deepEqual(Object.keys(liveApi.runs), Object.keys(api.runs));
-    assert.deepEqual(Object.keys(liveApi.artifacts), Object.keys(api.artifacts));
-    assert.deepEqual(Object.keys(liveApi.skills), Object.keys(api.skills));
+    assertDesktopApiContract(api);
+    assertDesktopApiContract(liveApi);
 
     assert.equal(desktopChannels.runs.startObserve, "runs:startObserve");
     assert.equal(desktopChannels.accounts.verifyCredential, "accounts:verifyCredential");
