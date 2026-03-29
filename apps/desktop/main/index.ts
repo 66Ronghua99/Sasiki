@@ -16,7 +16,7 @@ import { ExtensionCaptureServer } from "./browser/extension-capture-server";
 import { createDesktopRuntimeFactory } from "./runs/desktop-runtime-factory";
 import { RunEventBus } from "./runs/run-event-bus";
 import { RunManager } from "./runs/run-manager";
-import { SopSkillStore } from "../../agent-runtime/src/infrastructure/persistence/sop-skill-store";
+import { DesktopSkillStore } from "./skills/desktop-skill-store";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const desktopRootDir = join(homedir(), ".sasiki", "desktop");
@@ -53,7 +53,7 @@ const runManager = new RunManager({
   createRuntime: runtimeFactory,
   events: new RunEventBus(),
 });
-const skillStore = new SopSkillStore(skillRootDir);
+const skillStore = new DesktopSkillStore({ rootDir: skillRootDir });
 const desktopMainContext = createDesktopMainContext({
   ipcMain,
   shell: {

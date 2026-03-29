@@ -1,8 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { RuntimeConfig } from "../../../agent-runtime/src/application/config/runtime-config";
-import { loadRuntimeConfig } from "../../../agent-runtime/src/application/shell/runtime-config-bootstrap";
-import { RuntimeService } from "../../../agent-runtime/src/application/shell/runtime-service";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { CredentialBundleStore } from "../accounts/credential-bundle-store";
 import type { RuntimeProfileManager } from "../accounts/runtime-profile-manager";
 import type { SiteAccountStore } from "../accounts/site-account-store";
@@ -23,9 +21,14 @@ export interface DesktopRuntimeFactoryOptions {
   credentialStore: CredentialBundleStore;
   runtimeProfileManager: RuntimeProfileManager;
   siteRegistry: SiteRegistry;
-  loadRuntimeConfig?: typeof loadRuntimeConfig;
-  createRuntimeService?: (config: RuntimeConfig) => DesktopRuntimeService;
+  loadRuntimeConfig?: (options: RuntimeConfigSourceOptions) => Promise<unknown>;
+  createRuntimeService?: (config: unknown) => DesktopRuntimeService;
   processEnv?: NodeJS.ProcessEnv;
+}
+
+export interface RuntimeConfigSourceOptions {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
 }
 
 export type DesktopRuntimeServiceFactory = (
@@ -35,9 +38,8 @@ export type DesktopRuntimeServiceFactory = (
 export function createDesktopRuntimeFactory(
   options: DesktopRuntimeFactoryOptions,
 ): DesktopRuntimeServiceFactory {
-  const loadConfig = options.loadRuntimeConfig ?? loadRuntimeConfig;
-  const createRuntimeService =
-    options.createRuntimeService ?? ((config: RuntimeConfig) => new RuntimeService(config));
+  const loadConfig = options.loadRuntimeConfig ?? loadAgentRuntimeConfig;
+  const createRuntimeService = options.createRuntimeService ?? loadAgentRuntimeService;
   const processEnv = options.processEnv ?? process.env;
 
   return async (context: DesktopRunRuntimeContext) => {
@@ -73,6 +75,34 @@ export function createDesktopRuntimeFactory(
       runtimeEnv.COOKIES_DIR = cookiesDir;
     }
 
-    return Promise.resolve(createRuntimeService(loadConfig({ cwd: options.rootDir, env: runtimeEnv })));
+    return Promise.resolve(
+      createRuntimeService(await loadConfig({ cwd: options.rootDir, env: runtimeEnv })),
+    );
   };
+}
+
+async function loadAgentRuntimeConfig(options: RuntimeConfigSourceOptions): Promise<unknown> {
+  const runtimeConfigBootstrap = await importAgentRuntimeModule<{
+    loadRuntimeConfig(options: RuntimeConfigSourceOptions): unknown;
+  }>("application/shell/runtime-config-bootstrap.js");
+  return runtimeConfigBootstrap.loadRuntimeConfig(options);
+}
+
+async function loadAgentRuntimeService(config: unknown): Promise<DesktopRuntimeService> {
+  const runtimeServiceModule = await importAgentRuntimeModule<{
+    RuntimeService: new (config: unknown) => DesktopRuntimeService;
+  }>("application/shell/runtime-service.js");
+  return new runtimeServiceModule.RuntimeService(config);
+}
+
+async function importAgentRuntimeModule<T>(modulePath: string): Promise<T> {
+  const distRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../../agent-runtime/dist",
+  );
+  const moduleUrl = pathToFileURL(join(distRoot, modulePath)).href;
+  const dynamicImport = new Function("specifier", "return import(specifier);") as (
+    specifier: string,
+  ) => Promise<T>;
+  return dynamicImport(moduleUrl);
 }

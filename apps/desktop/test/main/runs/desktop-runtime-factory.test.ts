@@ -49,16 +49,33 @@ describe("desktop runtime factory", () => {
           cdpCookiesDir: string;
         }
       | undefined;
+    let capturedBootstrapOptions:
+      | {
+          cwd?: string;
+          env?: NodeJS.ProcessEnv;
+        }
+      | undefined;
     const runtime = await createDesktopRuntimeFactory({
       rootDir,
       siteAccountStore,
       credentialStore,
       runtimeProfileManager,
       siteRegistry,
+      async loadRuntimeConfig(options) {
+        capturedBootstrapOptions = options;
+        return {
+          cdpUserDataDir: options.env?.CDP_USER_DATA_DIR ?? "",
+          cdpCookiesDir: options.env?.COOKIES_DIR ?? "",
+        };
+      },
       createRuntimeService(config): DesktopRuntimeService {
+        const runtimeConfig = config as {
+          cdpUserDataDir: string;
+          cdpCookiesDir: string;
+        };
         capturedConfig = {
-          cdpUserDataDir: config.cdpUserDataDir,
-          cdpCookiesDir: config.cdpCookiesDir,
+          cdpUserDataDir: runtimeConfig.cdpUserDataDir,
+          cdpCookiesDir: runtimeConfig.cdpCookiesDir,
         };
         return {
           async runObserve() {
@@ -85,6 +102,7 @@ describe("desktop runtime factory", () => {
       taskSummary: "check inbox",
     });
 
+    assert.equal(capturedBootstrapOptions?.cwd, rootDir);
     assert.ok(capturedConfig);
     assert.match(capturedConfig!.cdpUserDataDir, new RegExp(`^${join(rootDir, "profiles", "runtime-profile-acct-1-")}`));
     assert.equal(capturedConfig!.cdpCookiesDir, join(capturedConfig!.cdpUserDataDir, "cookies"));

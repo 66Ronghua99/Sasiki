@@ -20,8 +20,8 @@ import { RunEventBus } from "../../main/runs/run-event-bus";
 import { createDesktopClient } from "../../renderer/src/lib/desktop-client";
 import { desktopChannels } from "../../shared/ipc/channels";
 import { assertDesktopApiContract } from "../../shared/ipc/contracts";
-import { SopSkillStore } from "../../../agent-runtime/src/infrastructure/persistence/sop-skill-store";
 import { createDesktopPreloadApi, exposeDesktopPreloadApi } from "../../preload/desktop-api";
+import { DesktopSkillStore } from "../../main/skills/desktop-skill-store";
 
 async function createTempRoot(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -123,7 +123,7 @@ describe("desktop launch smoke", () => {
       rootDir,
       port: 0,
     });
-    const skillStore = new SopSkillStore(skillRootDir);
+    const skillStore = new DesktopSkillStore({ rootDir: skillRootDir });
     const ipcMain = new FakeIpcMain();
     const shell = {
       openedPaths: [] as string[],
