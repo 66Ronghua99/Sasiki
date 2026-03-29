@@ -28,6 +28,14 @@ import type {
   VerifyCredentialResponse,
 } from "../shared/ipc/messages";
 
+type DesktopRunEventCallback = (event: DesktopRunEventMessage["event"]) => void;
+
+type DesktopDesktopApi = Omit<SasikiDesktopApi, "runs"> & {
+  runs: SasikiDesktopApi["runs"] & {
+    subscribeAll(callback: DesktopRunEventCallback): () => void;
+  };
+};
+
 async function invoke<TRequest, TResponse>(
   channel: string,
   request: TRequest,
@@ -35,7 +43,7 @@ async function invoke<TRequest, TResponse>(
   return ipcRenderer.invoke(channel, request) as Promise<TResponse>;
 }
 
-const desktopApi: SasikiDesktopApi = {
+const desktopApi: DesktopDesktopApi = {
   accounts: {
     async list() {
       const response = await invoke<ListSiteAccountsRequest, ListSiteAccountsResponse>(
@@ -120,6 +128,17 @@ const desktopApi: SasikiDesktopApi = {
         desktopChannels.runs.subscribe,
         { runId },
       );
+
+      return () => {
+        ipcRenderer.removeListener(desktopChannels.runs.events, listener);
+      };
+    },
+    subscribeAll(callback) {
+      const listener = (_event: IpcRendererEvent, payload: DesktopRunEventMessage) => {
+        callback(payload.event);
+      };
+
+      ipcRenderer.on(desktopChannels.runs.events, listener);
 
       return () => {
         ipcRenderer.removeListener(desktopChannels.runs.events, listener);
