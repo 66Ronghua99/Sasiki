@@ -58,7 +58,7 @@ export function createDesktopRuntimeFactory(
     };
 
     try {
-      if (context.siteAccountId) {
+      if (context.workflow !== "sop-compact" && context.siteAccountId) {
         const account = await options.siteAccountStore.getById(context.siteAccountId);
         if (!account) {
           throw new Error(`Unknown site account: ${context.siteAccountId}`);
