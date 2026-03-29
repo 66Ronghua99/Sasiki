@@ -7,6 +7,11 @@ const rootDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   main: {
+    build: {
+      lib: {
+        entry: resolve(rootDir, "main/index.ts"),
+      },
+    },
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
@@ -15,6 +20,11 @@ export default defineConfig({
     },
   },
   preload: {
+    build: {
+      lib: {
+        entry: resolve(rootDir, "preload/index.ts"),
+      },
+    },
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
@@ -23,7 +33,12 @@ export default defineConfig({
     },
   },
   renderer: {
-    root: "renderer",
+    root: resolve(rootDir, "renderer"),
+    build: {
+      rollupOptions: {
+        input: resolve(rootDir, "renderer/index.html"),
+      },
+    },
     plugins: [react()],
     resolve: {
       alias: {

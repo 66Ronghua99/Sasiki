@@ -121,7 +121,9 @@ function replaceIpcHandler<TRequest, TResponse>(
   handler: (request: TRequest) => Promise<TResponse>,
 ): void {
   ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, async (_event, request: TRequest) => handler(request));
+  ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
+    handler((request ?? ({} as TRequest)) as TRequest),
+  );
 }
 
 export function registerDesktopIpc(options: DesktopIpcRegistrationOptions): void {
@@ -138,9 +140,13 @@ export function registerDesktopIpc(options: DesktopIpcRegistrationOptions): void
   replaceIpcHandler(
     options.ipcMain,
     desktopChannels.artifacts.openRunArtifacts,
-    (request) => (options.artifactsHandler ?? defaultArtifactsHandler)(request),
+    (request: OpenRunArtifactsRequest) =>
+      (options.artifactsHandler ?? defaultArtifactsHandler)(request),
   );
-  replaceIpcHandler(options.ipcMain, desktopChannels.skills.list, (request = {}) =>
-    (options.skillsHandler ?? defaultSkillsHandler)(request),
+  replaceIpcHandler(
+    options.ipcMain,
+    desktopChannels.skills.list,
+    (request: ListSkillsRequest = {}) =>
+      (options.skillsHandler ?? defaultSkillsHandler)(request),
   );
 }

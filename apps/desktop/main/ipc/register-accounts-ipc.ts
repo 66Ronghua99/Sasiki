@@ -33,32 +33,38 @@ function replaceIpcHandler<TRequest, TResponse>(
   handler: (request: TRequest) => Promise<TResponse>,
 ): void {
   ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, async (_event, request: TRequest) => handler(request));
+  ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
+    handler((request ?? ({} as TRequest)) as TRequest),
+  );
 }
 
 export function registerAccountsIpc(input: {
   ipcMain: IpcMain;
   handlers: AccountsIpcHandlers;
 }): void {
-  replaceIpcHandler(input.ipcMain, desktopChannels.accounts.list, (request = {}) =>
-    input.handlers.list(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.accounts.list,
+    (request: ListSiteAccountsRequest = {}) => input.handlers.list(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.accounts.upsert, (request) =>
-    input.handlers.upsert(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.accounts.upsert,
+    (request: UpsertSiteAccountRequest) => input.handlers.upsert(request),
   );
   replaceIpcHandler(
     input.ipcMain,
     desktopChannels.accounts.launchEmbeddedLogin,
-    (request) => input.handlers.launchEmbeddedLogin(request),
+    (request: LaunchEmbeddedLoginRequest) => input.handlers.launchEmbeddedLogin(request),
   );
   replaceIpcHandler(
     input.ipcMain,
     desktopChannels.accounts.importCookieFile,
-    (request) => input.handlers.importCookieFile(request),
+    (request: ImportCookieFileRequest) => input.handlers.importCookieFile(request),
   );
   replaceIpcHandler(
     input.ipcMain,
     desktopChannels.accounts.verifyCredential,
-    (request) => input.handlers.verifyCredential(request),
+    (request: VerifyCredentialRequest) => input.handlers.verifyCredential(request),
   );
 }

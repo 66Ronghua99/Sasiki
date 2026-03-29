@@ -30,29 +30,43 @@ function replaceIpcHandler<TRequest, TResponse>(
   handler: (request: TRequest) => Promise<TResponse>,
 ): void {
   ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, async (_event, request: TRequest) => handler(request));
+  ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
+    handler((request ?? ({} as TRequest)) as TRequest),
+  );
 }
 
 export function registerRunsIpc(input: {
   ipcMain: IpcMain;
   handlers: RunsIpcHandlers;
 }): void {
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.startObserve, (request) =>
-    input.handlers.startObserve(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.startObserve,
+    (request: StartObserveRunRequest) => input.handlers.startObserve(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.startCompact, (request) =>
-    input.handlers.startCompact(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.startCompact,
+    (request: StartCompactRunRequest) => input.handlers.startCompact(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.startRefine, (request) =>
-    input.handlers.startRefine(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.startRefine,
+    (request: StartRefineRunRequest) => input.handlers.startRefine(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.interruptRun, (request) =>
-    input.handlers.interruptRun(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.interruptRun,
+    (request: InterruptRunRequest) => input.handlers.interruptRun(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.listRuns, (request = {}) =>
-    input.handlers.listRuns(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.listRuns,
+    (request: ListRunsRequest = {}) => input.handlers.listRuns(request),
   );
-  replaceIpcHandler(input.ipcMain, desktopChannels.runs.subscribe, (request) =>
-    input.handlers.subscribe(request),
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.subscribe,
+    (request: SubscribeRunRequest) => input.handlers.subscribe(request),
   );
 }
