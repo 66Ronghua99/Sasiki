@@ -40,6 +40,7 @@
 - 若必须使用 bundled Chrome，给它单独的 `userDataDir`，不要和系统 Chrome 共用 profile。
 - 新 feature worktree 不应只同步代码；front-door docs（`PROGRESS.md`、`PROJECT_LOGS.md`、`NEXT_STEP.md`、`MEMORY.md`、`docs/project/current-state.md`）和实际使用的本地 runtime config 文件也要一起带过去，否则很容易出现“代码已变、文档和 runtime 路径还停在旧状态”的假真相。
 - fresh worktree 可能只有代码和文档，没有 `apps/agent-runtime/node_modules`；若本地脚本报 `tsx: command not found`，先执行 `npm --prefix apps/agent-runtime ci`，不要误判成产品回归或 Chrome profile 问题。
+- fresh desktop worktree 也可能只有代码没有 `apps/desktop/node_modules`；若 `tsc`、`vitest` 或 `electron-vite` 报 `command not found`，先执行 `npm --prefix apps/desktop install`，不要把依赖缺失误判成 desktop 回归。
 - sandbox `flow`/`selfcheck` 的 compact->refine handoff 不能只看 `selectedSkillName`；至少要同时满足 `ready_to_finalize` 与 truthful persisted `skillPath`，否则应显式失败而不是继续 refine。
 - sandbox refine front door 应继续复用统一的 handoff arg builder；手动 `--skill <name>`、`--resume-run-id <run_id>` 与 task text 的组合规则不要在 `sandbox-workflow` / `sandbox-selfcheck` / runtime CLI 之间各写一套。
 - auto-observe 帮手若在 CDP ready wait 或 demo 执行阶段失败，必须终止已启动的 observe runtime，避免遗留后台进程污染下一次 sandbox run。
@@ -49,6 +50,8 @@
 - 尽量显式失败，不要用宽泛 fallback 或静默降级掩盖真实问题。
 - 大范围重构不要在单个 worktree 中长时间累积；更稳的节奏是每个可独立验证的小步骤完成后立刻回基线分支合并。
 - 当前重构方向里，`refine agent` 必须是唯一高决策权主脑；runtime 不能通过 heuristic 或隐式 ranking 夺回语义决策权。
+- desktop renderer 必须始终只通过 preload 暴露的 `window.sasiki` / typed client 访问能力；不要把 filesystem、Electron privilege 或 runtime orchestration 重新带回 renderer。
+- desktop quit / startup-failure cleanup 里的 `stop()` promise 必须显式 catch；只写 `void promise.finally(...)` 会把清理失败变成 unhandled rejection。
 - Task 2 之后，legacy direct run 已不再是活跃产品面；CLI 真正保留的外部入口只有 `observe`、`refine`、`sop-compact`。
 - Task 3 之后，LLM / config / persistence adapter 的长期归属已经明确在 `infrastructure/*`；旧 `core/*` / `runtime/*` 同名文件如果还存在，只应是过渡期 shim。
 - Task 4 之后，`core/*` 不再是长期实现层；真正的执行内核在 `kernel/*`。

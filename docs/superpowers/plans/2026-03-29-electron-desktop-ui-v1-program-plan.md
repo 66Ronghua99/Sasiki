@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: active
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -14,7 +14,7 @@ related:
 
 # Electron Desktop UI V1 Program Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -110,12 +110,12 @@ related:
 **Files:**
 - Plan: `docs/superpowers/plans/2026-03-29-desktop-foundation-and-shell-implementation.md`
 
-- [ ] **Step 1: Create the foundation worktree with the required branch name**
+- [x] **Step 1: Create the foundation worktree with the required branch name**
 
 Run: `using-git-worktrees` with branch `codex/desktop-foundation`
 Expected: isolated worktree ready for the new desktop package and shared contract scaffolding
 
-- [ ] **Step 2: Dispatch the foundation coding lane**
+- [x] **Step 2: Dispatch the foundation coding lane**
 
 Use:
 - one `architect` subagent for a preflight read-only review of the package shape and ownership boundaries
@@ -123,7 +123,7 @@ Use:
 
 Expected: Lane A lands first and freezes `apps/desktop` package/tooling/bootstrap plus shared desktop contracts
 
-- [ ] **Step 3: Run lane-level reviews before merging**
+- [x] **Step 3: Run lane-level reviews before merging**
 
 Use:
 - one `reviewer` subagent for spec-compliance and correctness review
@@ -138,7 +138,7 @@ Expected: Lane A merges cleanly before any parallel lane begins
 - Plan: `docs/superpowers/plans/2026-03-29-desktop-accounts-credentials-and-capture-implementation.md`
 - Plan: `docs/superpowers/plans/2026-03-29-desktop-renderer-workflows-accounts-runs-implementation.md`
 
-- [ ] **Step 1: Create three isolated worktrees after Lane A merges**
+- [x] **Step 1: Create three isolated worktrees after Lane A merges**
 
 Create:
 - branch `codex/desktop-runtime`
@@ -147,7 +147,7 @@ Create:
 
 Expected: each lane has its own isolated workspace and frozen shared contracts from Lane A
 
-- [ ] **Step 2: Dispatch three coding subagents in parallel**
+- [x] **Step 2: Dispatch three coding subagents in parallel**
 
 Use:
 - one `worker` subagent for Lane B runtime facade/run orchestration
@@ -156,7 +156,7 @@ Use:
 
 Expected: no overlapping write scopes outside the shared frozen seams from Lane A
 
-- [ ] **Step 3: Run review loops independently per lane**
+- [x] **Step 3: Run review loops independently per lane**
 
 For each lane:
 - run spec-compliance review first
@@ -172,21 +172,21 @@ Expected: each lane is individually review-clean before merge
 - Lane C branch
 - Lane D branch
 
-- [ ] **Step 1: Merge Lane B before Lane D if desktop IPC contracts changed**
+- [x] **Step 1: Merge Lane B before Lane D if desktop IPC contracts changed**
 
 Check:
 - whether `apps/desktop/shared/**` or run event shapes changed
 
 Expected: renderer lane rebases once against the final runtime IPC/event surface instead of accumulating repeated drift
 
-- [ ] **Step 2: Merge Lane C before Lane D if account DTOs changed**
+- [x] **Step 2: Merge Lane C before Lane D if account DTOs changed**
 
 Check:
 - whether account, credential, or capture-result DTOs changed
 
 Expected: renderer lane consumes the final account/capture shape before integration
 
-- [ ] **Step 3: Do not merge Lane D until its IPC clients match merged main-process handlers**
+- [x] **Step 3: Do not merge Lane D until its IPC clients match merged main-process handlers**
 
 Verify:
 - accounts actions map to actual account IPC handlers
@@ -199,12 +199,12 @@ Expected: no renderer-only merge that points at stale or missing IPC endpoints
 **Files:**
 - Plan: `docs/superpowers/plans/2026-03-29-desktop-integration-and-hardening-implementation.md`
 
-- [ ] **Step 1: Create the integration worktree after Lanes B/C/D are merged**
+- [x] **Step 1: Create the integration worktree after Lanes B/C/D are merged**
 
 Run: `using-git-worktrees` with branch `codex/desktop-integration`
 Expected: one clean worktree that contains all merged lane outputs
 
-- [ ] **Step 2: Dispatch integration coding and architecture review**
+- [x] **Step 2: Dispatch integration coding and architecture review**
 
 Use:
 - one `architect` subagent for read-only integration review
@@ -212,7 +212,7 @@ Use:
 
 Expected: contract drift, missing docs, and gate gaps are fixed in one place
 
-- [ ] **Step 3: Dispatch final verification and code review**
+- [x] **Step 3: Dispatch final verification and code review**
 
 Use:
 - one verification-focused subagent to run desktop and agent-runtime gates

@@ -322,3 +322,31 @@
   - `npm --prefix apps/desktop run test`
   - `npm --prefix apps/desktop run build`
   - `npm --prefix apps/desktop run typecheck`
+
+### 2026-03-30 (desktop ui v1 closeout)
+- 已完成 desktop integration 最后一轮 hardening 与主线合并：
+  - 修复 quit / startup-failure cleanup 上的 unhandled rejection seam
+  - `apps/desktop/main/desktop-app-lifecycle.ts` 与 `apps/desktop/main/index.ts` 现在都会显式 catch rejected `stop()` promise
+  - 新增 focused regression：`apps/desktop/test/main/desktop-app-lifecycle.test.ts`
+  - integration 分支已合回 `mvp-dev`，merge commit：`ffd2b66`
+- 已完成 desktop 前门文档收口：
+  - 新增 `apps/desktop/README.md`
+  - 更新根 `README.md`、`PROGRESS.md`、`NEXT_STEP.md`、`MEMORY.md`
+  - 更新 `docs/project/current-state.md` 与 `docs/architecture/overview.md`
+  - 2026-03-29 desktop program plan 与五条 lane plan 已全部标记为 completed
+- fresh verification：
+  - `npm --prefix apps/desktop run lint`
+  - `npm --prefix apps/desktop run test`
+  - `npm --prefix apps/desktop run typecheck`
+  - `npm --prefix apps/desktop run build`
+  - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run test`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
+  - `npm --prefix apps/agent-runtime run hardgate`
+  - fresh hardgate report：`artifacts/code-gate/2026-03-29T19-34-58-029Z/report.json`
+- reviewer 收口结论：
+  - 最终 shutdown fix 没有新的 important / critical findings
+  - 仍保留两个 residual follow-up：
+    - `apps/desktop/main/index.ts` startup-failure cleanup branch 缺少 focused automated test
+    - `createDesktopMainContext.start()` partial-startup asymmetry 仍是 acknowledged medium risk

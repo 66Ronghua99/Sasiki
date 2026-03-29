@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: planned
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -11,7 +11,7 @@ related:
 
 # Desktop Foundation And Shell Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -71,12 +71,12 @@ related:
 - Create: `apps/desktop/tsconfig.renderer.json`
 - Create: `apps/desktop/vitest.config.ts`
 
-- [ ] **Step 1: Confirm the red state before the package exists**
+- [x] **Step 1: Confirm the red state before the package exists**
 
 Run: `npm --prefix apps/desktop run build`
 Expected: FAIL because `apps/desktop/package.json` does not exist yet
 
-- [ ] **Step 2: Add the desktop package manifest and toolchain config**
+- [x] **Step 2: Add the desktop package manifest and toolchain config**
 
 ```json
 {
@@ -99,12 +99,12 @@ Implementation notes:
 - keep separate tsconfig files for node-facing and renderer-facing code
 - do not add root workspace tooling in this lane
 
-- [ ] **Step 3: Install dependencies and confirm the package can resolve**
+- [x] **Step 3: Install dependencies and confirm the package can resolve**
 
 Run: `npm --prefix apps/desktop install`
 Expected: PASS with a lockfile and installed desktop dependencies
 
-- [ ] **Step 4: Run the initial desktop build**
+- [x] **Step 4: Run the initial desktop build**
 
 Run: `npm --prefix apps/desktop run build`
 Expected: FAIL or stay red until the next task creates actual source files
@@ -122,7 +122,7 @@ Expected: FAIL or stay red until the next task creates actual source files
 - Create: `apps/desktop/shared/runs.ts`
 - Test: `apps/desktop/test/shared/ipc-contracts.test.ts`
 
-- [ ] **Step 1: Write the failing shared-contract test**
+- [x] **Step 1: Write the failing shared-contract test**
 
 ```ts
 test("desktop foundation freezes the full api and transport contract surface", () => {
@@ -135,12 +135,12 @@ test("desktop foundation freezes the full api and transport contract surface", (
 });
 ```
 
-- [ ] **Step 2: Run the focused contract test and confirm the red state**
+- [x] **Step 2: Run the focused contract test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/shared/ipc-contracts.test.ts`
 Expected: FAIL because the shared contract module does not exist yet
 
-- [ ] **Step 3: Create the shared DTOs and skeletal IPC registration points**
+- [x] **Step 3: Create the shared DTOs and skeletal IPC registration points**
 
 ```ts
 export interface SasikiDesktopApi {
@@ -191,7 +191,7 @@ Implementation notes:
 - freeze DTO names, channel ids, request/response payloads, and the `DesktopRunEvent` discriminated union here so later lanes do not invent their own account/run payload shapes
 - do not put business logic in these bootstrap files
 
-- [ ] **Step 4: Re-run the focused contract test and confirm the green state**
+- [x] **Step 4: Re-run the focused contract test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/shared/ipc-contracts.test.ts`
 Expected: PASS
@@ -208,7 +208,7 @@ Expected: PASS
 - Modify: `apps/desktop/main/index.ts`
 - Modify: `apps/desktop/preload/index.ts`
 
-- [ ] **Step 1: Add the minimal Electron window bootstrap**
+- [x] **Step 1: Add the minimal Electron window bootstrap**
 
 ```ts
 app.whenReady().then(async () => {
@@ -227,7 +227,7 @@ app.whenReady().then(async () => {
 });
 ```
 
-- [ ] **Step 2: Add a renderer shell with three placeholder pages**
+- [x] **Step 2: Add a renderer shell with three placeholder pages**
 
 ```tsx
 export function App(): JSX.Element {
@@ -247,7 +247,7 @@ export function App(): JSX.Element {
 }
 ```
 
-- [ ] **Step 3: Expose the typed API shell through preload**
+- [x] **Step 3: Expose the typed API shell through preload**
 
 ```ts
 contextBridge.exposeInMainWorld("sasiki", desktopApi);
@@ -257,7 +257,7 @@ Implementation notes:
 - the preload layer may throw `not implemented` for commands that later lanes will wire up, but the namespace shape must be stable
 - keep view components intentionally skeletal; real workflow/account/run behavior belongs to later plans
 
-- [ ] **Step 4: Run the full desktop package checks**
+- [x] **Step 4: Run the full desktop package checks**
 
 Run: `npm --prefix apps/desktop run test && npm --prefix apps/desktop run typecheck && npm --prefix apps/desktop run build`
 Expected: PASS

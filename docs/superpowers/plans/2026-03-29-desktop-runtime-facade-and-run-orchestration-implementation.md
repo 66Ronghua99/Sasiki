@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: planned
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -12,7 +12,7 @@ related:
 
 # Desktop Runtime Facade And Run Orchestration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -59,7 +59,7 @@ related:
 - Modify: `apps/agent-runtime/src/application/shell/runtime-composition-root.ts`
 - Modify: `apps/agent-runtime/src/application/shell/workflow-runtime.ts`
 
-- [ ] **Step 1: Write the failing runtime-service tests**
+- [x] **Step 1: Write the failing runtime-service tests**
 
 ```ts
 test("runtime service executes observe and emits lifecycle events", async () => {
@@ -71,12 +71,12 @@ test("runtime service executes observe and emits lifecycle events", async () => 
 });
 ```
 
-- [ ] **Step 2: Run the focused runtime-service test and confirm the red state**
+- [x] **Step 2: Run the focused runtime-service test and confirm the red state**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/shell/runtime-service.test.ts`
 Expected: FAIL because `runtime-service.ts` does not exist yet
 
-- [ ] **Step 3: Implement the runtime service and callback sink**
+- [x] **Step 3: Implement the runtime service and callback sink**
 
 ```ts
 export interface RuntimeServiceHooks {
@@ -98,7 +98,7 @@ Implementation notes:
 - keep `WorkflowRuntime` as the workflow selector/host adapter; `RuntimeService` wraps it, not replaces it
 - do not import desktop-only types into `apps/agent-runtime`
 
-- [ ] **Step 4: Re-run the focused runtime-service test and confirm the green state**
+- [x] **Step 4: Re-run the focused runtime-service test and confirm the green state**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/shell/runtime-service.test.ts`
 Expected: PASS
@@ -109,7 +109,7 @@ Expected: PASS
 - Modify: `apps/agent-runtime/src/index.ts`
 - Modify: `apps/agent-runtime/src/application/shell/runtime-service.ts`
 
-- [ ] **Step 1: Write one focused CLI-path regression test or smoke assertion**
+- [x] **Step 1: Write one focused CLI-path regression test or smoke assertion**
 
 ```ts
 test("cli main still prints the final workflow result json through runtime service", async () => {
@@ -119,12 +119,12 @@ test("cli main still prints the final workflow result json through runtime servi
 });
 ```
 
-- [ ] **Step 2: Run the focused shell test and confirm the red state**
+- [x] **Step 2: Run the focused shell test and confirm the red state**
 
 Run: `npm --prefix apps/agent-runtime run test -- test/application/shell/runtime-service.test.ts`
 Expected: FAIL until the CLI path is redirected through the new runtime service helper
 
-- [ ] **Step 3: Refactor `index.ts` to use the shared runtime service**
+- [x] **Step 3: Refactor `index.ts` to use the shared runtime service**
 
 ```ts
 const service = new RuntimeService(config);
@@ -140,7 +140,7 @@ Implementation notes:
 - preserve current CLI usage and interrupt behavior
 - do not regress `observe`, `sop-compact list`, `sop-compact --run-id`, or `refine --resume-run-id`
 
-- [ ] **Step 4: Run the existing runtime shell checks**
+- [x] **Step 4: Run the existing runtime shell checks**
 
 Run: `npm --prefix apps/agent-runtime run lint && npm --prefix apps/agent-runtime run test && npm --prefix apps/agent-runtime run typecheck && npm --prefix apps/agent-runtime run build`
 Expected: PASS
@@ -154,7 +154,7 @@ Expected: PASS
 - Modify: `apps/desktop/main/ipc/register-runs-ipc.ts`
 - Create: `apps/desktop/test/main/runs/run-manager.test.ts`
 
-- [ ] **Step 1: Write the failing `RunManager` tests**
+- [x] **Step 1: Write the failing `RunManager` tests**
 
 ```ts
 test("run manager starts refine, stores status, and relays streamed events", async () => {
@@ -165,12 +165,12 @@ test("run manager starts refine, stores status, and relays streamed events", asy
 });
 ```
 
-- [ ] **Step 2: Run the focused desktop run-manager test and confirm the red state**
+- [x] **Step 2: Run the focused desktop run-manager test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/runs/run-manager.test.ts`
 Expected: FAIL because the run manager modules do not exist yet
 
-- [ ] **Step 3: Implement the run manager and IPC registrations**
+- [x] **Step 3: Implement the run manager and IPC registrations**
 
 ```ts
 export class RunManager {
@@ -188,7 +188,7 @@ Implementation notes:
 - `register-runs-ipc.ts` should install `startObserve`, `startCompact`, `startRefine`, `interruptRun`, `listRuns`, and `subscribe` endpoints from the frozen transport contract
 - keep all desktop run state in main process, not in renderer
 
-- [ ] **Step 4: Re-run the focused run-manager test and confirm the green state**
+- [x] **Step 4: Re-run the focused run-manager test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/runs/run-manager.test.ts`
 Expected: PASS

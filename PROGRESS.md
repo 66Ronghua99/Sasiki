@@ -2,107 +2,82 @@
 
 ## Doc Ownership
 - `PROGRESS.md` 是项目状态面板，只记录当前代码基线、活跃主线、项目级风险、最近完成闭环与参考入口。
-- `PROGRESS.md` 不再承接 append-only 执行流水、每次方向转向、或细粒度尝试过程；这些内容改记到 `PROJECT_LOGS.md`。
 - `PROJECT_LOGS.md` 是 append-only 项目流水账，记录决策、尝试、推翻、转向与验证轨迹。
-- `MEMORY.md` 只保留跨阶段仍然成立的经验和环境要求。
-
-## Transition Note
-- 2026-03-27 已将旧 `PROGRESS.md` 中符合流水账职责的 `Current Code Status` 与 `DONE` 历史迁移到 `PROJECT_LOGS.md`。
-- 从这次迁移开始，`PROGRESS.md` 只保留项目状态面板信息；过程性更新默认直接追加到 `PROJECT_LOGS.md`。
-
-## Restart Baseline
-- 仓库已回滚到 `3c973462158c2cdb22c4cd7fb803db88af8bcbb7`，作为这次重启同步的代码基线。
-- 仓库已完成 Harness migration bootstrap，`.harness/bootstrap.toml` 是当前机器可读 governance 入口真源。
-- 本次重启同步的目标不是延续旧阶段流水账，而是把文档重新收口到“当前代码真实存在什么、下一步唯一要做什么”。
+- `MEMORY.md` 只保留跨阶段仍然成立的经验、环境要求与稳定边界。
 
 ## Active Mainline
-- 当前唯一直接执行指针以 [`NEXT_STEP.md`](NEXT_STEP.md) 为准；当前 P0 是拆清 TikTok refine-only rerun `20260326_200513_031` 里的 metrics 语义。
-- 当前主线不是继续扩 retrieval surface，而是先拆开 bootstrap/start prompt 注入数与 runtime `observe.page` page-knowledge hit 次数的语义。
-- 在 metrics 语义拆清之前，不应把 `loadedKnowledgeCount` 当成 runtime page-knowledge hit 的替代指标。
+- `apps/desktop` Electron UI v1 已完成并合入 `mvp-dev`；当前前门不再只有 CLI。
+- 当前唯一直接执行指针以 [NEXT_STEP.md](NEXT_STEP.md) 为准；P0 已切到 desktop live smoke / acceptance pass，而不是继续推进先前的 metric semantics slice。
+- 先前的 `loadedKnowledgeCount` / `pageKnowledge` metric semantics 工作已降级为 deferred follow-up，不再是当前唯一主线。
 
 ## Project Status
-- 当前活跃代码基线已经包含 refine page-level retrieval cues slice；retrieval gate 已切到 exact `page.origin + page.normalizedPath`，`observe.page` 会在稳定 capture 后返回 agent-facing `pageKnowledge`。fresh verification：`npm --prefix apps/agent-runtime run lint`、`test`、`typecheck`、`build`、`hardgate` 全绿，对应 report 为 `artifacts/code-gate/2026-03-26T09-45-42-193Z/report.json`。
-- SOP skill compact persistence + discovery 与 refine bootstrap + `skill.reader` slice 已完成：`sop-compact` 现在会把 durable SOP skill 写到 `~/.sasiki/skills/`，`sop-compact list` 通过 shell-owned composition 暴露 catalog，`refine` 支持 `--skill <name>`，bootstrap 默认只加载 skill metadata，full body 通过 `skill.reader` 按需读取。closeout verification 已完成，fresh hardgate report 为 `artifacts/code-gate/2026-03-27T04-49-22-654Z/report.json`。
-- Sandbox observe->compact->refine chain 已推进到 skill-loaded refine：full-access 环境下 direct `refine` run `20260327_142923_316` 已确认 Chrome 启动和真实 TikTok 客服检查可完成；sandbox selfcheck 现在能稳定跑过 `observe -> sop-compact`，compact run `20260327_145330_192` 已产出 durable SOP skill `tiktok-shop-check-inbox-messages`，后续 refine run `20260327_145552_964` 已实际通过 `skill.reader` 读入该 skill。
-- Sandbox handoff follow-up bugfix slice 已完成：`sandbox-workflow flow/selfcheck` 现在会在 compact 未真正 finalize 出 durable skill 时显式失败，不再静默继续进入 refine；`sandbox-workflow refine` 与 selfcheck/front door 已补齐手动 `--skill <name>` 路径；auto-observe 在 CDP ready wait / demo 失败时会主动终止残留 observe 进程；scripted compact replies 改为 per-workflow fresh instance，不再跨 run 串状态。fresh verification：`node --test .sandbox/bin/*.test.mjs`、`npm --prefix apps/agent-runtime run lint`、`test`、`typecheck`、`build`、`hardgate` 全绿；fresh hardgate report 为 `artifacts/code-gate/2026-03-27T10-04-24-032Z/report.json`。
-- 当前前门架构真相仍是 OpenAI-style layer model + narrowed shell/application/kernel split；`runtime-host.ts` 是唯一顶层 workflow lifecycle owner，`runtime-composition-root.ts` 是唯一顶层 concrete assembly owner，`kernel/*` 已不再 direct import `domain/*` / `infrastructure/*`。
+- Desktop UI v1 已完成：新增 `apps/desktop`，并固定了 `main/ + preload/ + renderer/ + shared/` 四层结构。Electron main 是桌面 orchestration owner，`apps/agent-runtime` 继续是 `observe` / `sop-compact` / `refine` 的共享 workflow runtime owner。
+- Desktop v1 已包含三类核心能力：`site account` 管理、`credential bundle` 导入/内置登录/Chromium 扩展采集，以及 `Workflows` / `Accounts` / `Runs` 三个主视图。
+- Desktop workflow 语义已收口到当前产品口径：`observe` 只要求任务描述并可选 `site account`，`sop-compact` 继承 source run 上下文而不是要求额外账户选择，`refine` 只暴露 `site account` 而不暴露内部 `runtime profile`。
+- 有限并行已接入桌面主进程：run state、interrupt、profile lease、事件转发、artifact 打开都在 Electron main 里统一编排，而不是散落到 renderer。
+- Fresh verification 已完成：
+  - `npm --prefix apps/desktop run lint`
+  - `npm --prefix apps/desktop run test`
+  - `npm --prefix apps/desktop run typecheck`
+  - `npm --prefix apps/desktop run build`
+  - `npm --prefix apps/agent-runtime run lint`
+  - `npm --prefix apps/agent-runtime run test`
+  - `npm --prefix apps/agent-runtime run typecheck`
+  - `npm --prefix apps/agent-runtime run build`
+  - `npm --prefix apps/agent-runtime run hardgate`
+- Fresh hardgate evidence: `artifacts/code-gate/2026-03-29T19-34-58-029Z/report.json`
 
 ## Active Risks
-- `loadedKnowledgeCount` 当前只代表 bootstrap/start prompt guidance 注入数，和 runtime page-knowledge hit 次数可能分离。
-- TikTok customer-service refine e2e 里仍存在 URL literal fidelity 问题：模型会把 `&register_libra=` 污染成 `®ister_libra=`，降低 `act.navigate` 可预测性。
-- Sandbox handoff guards 已收紧为显式失败，但 refine 在直跳 `/chat/inbox/current` 后仍可能观测到 homepage / message-center；剩余 open item 是 redirect/path-mismatch recovery，而不是 compact->refine handoff 或 scripted-reply state bleed。
-- 当前 skill/SOP prompt 语义仍偏薄：bootstrap 只注入 metadata、skill body 依赖 `skill.reader` 按需读取，后续若要提高稳定性，需要增强 refine system/start prompt 对 skill 使用方式与异常恢复的指导。
+- Desktop startup-failure cleanup 现在已显式 catch `stop()` rejection，避免 quit 路径 unhandled rejection；但 `apps/desktop/main/index.ts` 的 startup-failure branch 仍缺少 focused automated proof。
+- `createDesktopMainContext.start()` 仍存在 partial-startup asymmetry 的 residual medium risk；当前 reviewer 结论是未被本轮放大，但还没有单独消化。
+- Desktop v1 仍是 Chromium-only，并且当前自动化验证主要覆盖 macOS-oriented build/test seams；Windows 兼容只体现在进程边界和路径 ownership 设计上，尚未做实机 packaging / smoke。
+- Runtime 侧仍保留独立 follow-up：TikTok customer-service refine 里的 redirect/path-mismatch recovery 还未关闭，但这已不阻塞 desktop v1 交付。
 
 ## Active Architecture Truth
 
-当前已验证的 canonical truth：
-
 ```text
-apps/agent-runtime/src/
-  domain/           - 产品概念、状态schema、跨层契约
-  contracts/        - 能力接口（logger, tool-client, HITL等）
-  kernel/           - 可复用执行内核（pi-agent-loop, pi-agent-tool-adapter）
-  application/      - 用例编排层
-    shell/          - CLI shell, command-router, runtime-host, composition-root
-    config/         - runtime-config loader/types
-    observe/        - observe orchestration + recording support
-    compact/        - SOP compact workflow
-    refine/         - refine bootstrap, prompts, tooling, orchestration, executor
-  infrastructure/   - 外部适配器
-    llm/            - model-resolver, json-model-client
-    config/         - runtime-bootstrap-provider
-    persistence/    - artifacts-writer, sop-asset-store, attention-knowledge-store, refine-hitl-resume-store
-    mcp/            - mcp-stdio-client
-    browser/        - cdp-browser-launcher, cookie-loader
-    hitl/           - terminal-hitl-controller
+apps/agent-runtime/
+  src/application/shell/   - CLI front door, runtime facade, workflow host, composition root
+  src/application/observe/ - observe workflow semantics
+  src/application/compact/ - sop-compact workflow semantics
+  src/application/refine/  - refine bootstrap, tooling, executor, orchestration
+  src/kernel/              - shared execution kernel
+  src/infrastructure/      - browser, persistence, config, logging, MCP, HITL adapters
+
+apps/desktop/
+  main/                    - desktop orchestration owner (accounts, capture, run manager, profile leases, IPC)
+  preload/                 - safe renderer bridge
+  renderer/                - UI-only client for Workflows / Accounts / Runs
+  shared/                  - desktop DTOs, channels, IPC contracts
+  browser-extension/       - Chromium one-click cookie capture extension
 ```
 
-- Phase 2 当前 kernel boundary truth：
-  - `apps/agent-runtime/src/kernel/pi-agent-loop.ts`
-    current state: 仅依赖 `contracts/*`、`kernel/*`、Node 与 pi-agent libraries；resolved model 通过 shell-owned composition 注入，不再直接引用 `ModelResolver`。
-  - `apps/agent-runtime/src/kernel/pi-agent-tool-adapter.ts`
-    current state: 无 product-domain / infrastructure import，保留在 narrowed kernel subset。
-  - `apps/agent-runtime/src/kernel/pi-agent-tool-hooks.ts`
-    current state: 无 product-domain / infrastructure import，保留在 narrowed kernel subset。
+- `apps/agent-runtime` 仍是 workflow semantics 的 canonical owner。
+- `apps/desktop/main` 是 desktop privileges 的唯一 owner；renderer 不直接碰 filesystem、workflow runtime、cookie persistence 或 profile allocation。
+- `runtime profile` 现在是内部执行容器模型，不是普通工作流表单的用户参数。
 
 ## Active References
-- Default task-entry docs:
-  - `NEXT_STEP.md`
-  - `MEMORY.md`
-  - `AGENT_INDEX.md`
-  - `.harness/bootstrap.toml`
-- Project-state docs:
-  - `PROGRESS.md`
-  - `docs/project/current-state.md`
-  - `docs/architecture/overview.md`
-- On-demand historical trace:
-  - `PROJECT_LOGS.md`
-  - `docs/testing/strategy.md`
+- Entry docs:
+  - [NEXT_STEP.md](NEXT_STEP.md)
+  - [MEMORY.md](MEMORY.md)
+  - [AGENT_INDEX.md](AGENT_INDEX.md)
+  - [.harness/bootstrap.toml](.harness/bootstrap.toml)
+- Project state:
+  - [PROGRESS.md](PROGRESS.md)
+  - [docs/project/current-state.md](docs/project/current-state.md)
+  - [docs/architecture/overview.md](docs/architecture/overview.md)
+- Append-only history:
+  - [PROJECT_LOGS.md](PROJECT_LOGS.md)
 
 ## Active Spec / Plan
-- `docs/superpowers/specs/2026-03-27-sop-skill-compact-to-refine-design.md`
-- `docs/superpowers/plans/2026-03-27-sop-skill-compact-to-refine-implementation.md`
-- `docs/superpowers/plans/2026-03-27-sandbox-handoff-bugfixes-implementation.md`
-- `docs/superpowers/specs/2026-03-24-refine-tiktok-customer-service-e2e-design.md`
-- `docs/superpowers/plans/2026-03-24-refine-tiktok-customer-service-e2e-implementation.md`
-- `docs/testing/refine-e2e-tiktok-shop-customer-service-runbook.md`
-- `docs/project/refine-observe-page-surface-analysis.md`
-- `docs/project/refine-observation-enhancement-decision-matrix.md`
-- `docs/superpowers/specs/2026-03-24-refine-observation-stabilization-design.md`
-- `docs/superpowers/plans/2026-03-24-refine-observation-stabilization-implementation.md`
-
-## Historical Background (Load On Demand)
-- `.plan/20260310_interactive_reasoning_sop_compact.md`
-- `.plan/20260312_replay_refinement_requirement_v0.md`
-- `.plan/20260312_replay_refinement_online_design.md`
-- `.plan/20260313_execution_kernel_refine_core_rollout.md`
-- `.plan/checklist_interactive_reasoning_sop_compact.md`
-- `.plan/checklist_replay_refinement_online.md`
-- `.plan/checklist_execution_kernel_refine_core_rollout.md`
-- `docs/superpowers/specs/2026-03-21-workflow-host-boundary-clarification.md`
-- `docs/superpowers/plans/2026-03-21-workflow-host-boundary-clarification-implementation.md`
-- `docs/testing/refine-e2e-baidu-search-runbook.md`
-
-说明：
-- 以上 `.plan/*` 文档现在只作为历史背景和设计线索，不再视为当前 active 真源。
-- 旧 refinement / e2e 文档、`harness doc-truth-sync`、`executor/bootstrap boundary refactor`、`runtime surface pruning`、taxonomy reorg 和 backward capability cleanup 计划文档都已降级为历史背景。
+- Active completed desktop chain:
+  - [docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md](docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md)
+  - [docs/superpowers/plans/2026-03-29-electron-desktop-ui-v1-program-plan.md](docs/superpowers/plans/2026-03-29-electron-desktop-ui-v1-program-plan.md)
+  - [docs/superpowers/plans/2026-03-29-desktop-foundation-and-shell-implementation.md](docs/superpowers/plans/2026-03-29-desktop-foundation-and-shell-implementation.md)
+  - [docs/superpowers/plans/2026-03-29-desktop-runtime-facade-and-run-orchestration-implementation.md](docs/superpowers/plans/2026-03-29-desktop-runtime-facade-and-run-orchestration-implementation.md)
+  - [docs/superpowers/plans/2026-03-29-desktop-accounts-credentials-and-capture-implementation.md](docs/superpowers/plans/2026-03-29-desktop-accounts-credentials-and-capture-implementation.md)
+  - [docs/superpowers/plans/2026-03-29-desktop-renderer-workflows-accounts-runs-implementation.md](docs/superpowers/plans/2026-03-29-desktop-renderer-workflows-accounts-runs-implementation.md)
+  - [docs/superpowers/plans/2026-03-29-desktop-integration-and-hardening-implementation.md](docs/superpowers/plans/2026-03-29-desktop-integration-and-hardening-implementation.md)
+- Deferred runtime follow-up background:
+  - [docs/superpowers/specs/2026-03-26-refine-page-level-retrieval-cues-design.md](docs/superpowers/specs/2026-03-26-refine-page-level-retrieval-cues-design.md)
+  - [docs/superpowers/plans/2026-03-26-refine-page-level-retrieval-cues-implementation.md](docs/superpowers/plans/2026-03-26-refine-page-level-retrieval-cues-implementation.md)

@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: planned
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -11,7 +11,7 @@ related:
 
 # Desktop Renderer Workflows, Accounts, And Runs Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -59,7 +59,7 @@ related:
 - Modify: `apps/desktop/preload/index.ts`
 - Create: `apps/desktop/renderer/src/lib/desktop-client.ts`
 
-- [ ] **Step 1: Write the failing renderer-client smoke test**
+- [x] **Step 1: Write the failing renderer-client smoke test**
 
 ```tsx
 test("renderer client calls window.sasiki instead of importing ipc directly", async () => {
@@ -69,12 +69,12 @@ test("renderer client calls window.sasiki instead of importing ipc directly", as
 });
 ```
 
-- [ ] **Step 2: Run the focused renderer test and confirm the red state**
+- [x] **Step 2: Run the focused renderer test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/renderer/accounts-page.test.tsx`
 Expected: FAIL because the renderer client wrapper does not exist yet
 
-- [ ] **Step 3: Implement the typed preload and client wrapper**
+- [x] **Step 3: Implement the typed preload and client wrapper**
 
 ```ts
 export function createDesktopClient(api: SasikiDesktopApi = window.sasiki): SasikiDesktopApi {
@@ -86,7 +86,7 @@ Implementation notes:
 - keep renderer imports pointed at `desktop-client.ts`, not directly at `window`
 - `preload/index.ts` should preserve the stable namespace shape from Lane A and fill in the actual `ipcRenderer.invoke` / event-subscription logic
 
-- [ ] **Step 4: Re-run the focused renderer test and confirm the green state**
+- [x] **Step 4: Re-run the focused renderer test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/renderer/accounts-page.test.tsx`
 Expected: PASS
@@ -98,7 +98,7 @@ Expected: PASS
 - Create: `apps/desktop/renderer/src/components/accounts/account-list.tsx`
 - Create: `apps/desktop/test/renderer/accounts-page.test.tsx`
 
-- [ ] **Step 1: Write the failing Accounts page test**
+- [x] **Step 1: Write the failing Accounts page test**
 
 ```tsx
 test("accounts page lists site accounts and exposes login/import/verify actions", async () => {
@@ -110,12 +110,12 @@ test("accounts page lists site accounts and exposes login/import/verify actions"
 });
 ```
 
-- [ ] **Step 2: Run the focused Accounts page test and confirm the red state**
+- [x] **Step 2: Run the focused Accounts page test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/renderer/accounts-page.test.tsx`
 Expected: FAIL because the Accounts page is still a placeholder
 
-- [ ] **Step 3: Implement the Accounts view and actions**
+- [x] **Step 3: Implement the Accounts view and actions**
 
 ```tsx
 export function AccountsPage(): JSX.Element {
@@ -135,7 +135,7 @@ Implementation notes:
 - show credential freshness, last verification, and running-task hints
 - do not expose runtime-profile IDs in the normal page UI
 
-- [ ] **Step 4: Re-run the focused Accounts page test and confirm the green state**
+- [x] **Step 4: Re-run the focused Accounts page test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/renderer/accounts-page.test.tsx`
 Expected: PASS
@@ -153,7 +153,7 @@ Expected: PASS
 - Create: `apps/desktop/test/renderer/workflows-page.test.tsx`
 - Create: `apps/desktop/test/renderer/runs-page.test.tsx`
 
-- [ ] **Step 1: Write the failing Workflows page test**
+- [x] **Step 1: Write the failing Workflows page test**
 
 ```tsx
 test("workflows page exposes observe, sop-compact, and refine forms with the correct fields", async () => {
@@ -165,12 +165,12 @@ test("workflows page exposes observe, sop-compact, and refine forms with the cor
 });
 ```
 
-- [ ] **Step 2: Run the focused Workflows page test and confirm the red state**
+- [x] **Step 2: Run the focused Workflows page test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/renderer/workflows-page.test.tsx`
 Expected: FAIL because the Workflows page is still a placeholder
 
-- [ ] **Step 3: Implement the workflow forms**
+- [x] **Step 3: Implement the workflow forms**
 
 ```tsx
 <ObserveForm onSubmit={(task, siteAccountId) => desktop.runs.startObserve({ task, siteAccountId })} />
@@ -185,7 +185,7 @@ Implementation notes:
 - `sop-compact` uses source observe run, with semantic mode hidden in an advanced section
 - `refine` uses task or resume run plus optional site account and skill
 
-- [ ] **Step 4: Write and run the failing Runs page test**
+- [x] **Step 4: Write and run the failing Runs page test**
 
 ```tsx
 test("runs page renders live status, logs, and artifact actions", async () => {
@@ -198,7 +198,7 @@ test("runs page renders live status, logs, and artifact actions", async () => {
 Run: `npm --prefix apps/desktop run test -- test/renderer/runs-page.test.tsx`
 Expected: FAIL until the run subscription hook and log panel are implemented
 
-- [ ] **Step 5: Implement the Runs page and subscription hook, then run full desktop checks**
+- [x] **Step 5: Implement the Runs page and subscription hook, then run full desktop checks**
 
 ```ts
 export function useRunSubscription(runId: string): DesktopRunEvent[] {

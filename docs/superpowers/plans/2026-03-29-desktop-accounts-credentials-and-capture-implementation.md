@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: planned
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -11,7 +11,7 @@ related:
 
 # Desktop Accounts, Credentials, And Capture Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -63,7 +63,7 @@ related:
 - Create: `apps/desktop/main/accounts/site-registry.ts`
 - Test: `apps/desktop/test/main/accounts/site-account-store.test.ts`
 
-- [ ] **Step 1: Write the failing account-store test**
+- [x] **Step 1: Write the failing account-store test**
 
 ```ts
 test("site account store persists multiple accounts under one site", async () => {
@@ -74,12 +74,12 @@ test("site account store persists multiple accounts under one site", async () =>
 });
 ```
 
-- [ ] **Step 2: Run the focused account-store test and confirm the red state**
+- [x] **Step 2: Run the focused account-store test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/site-account-store.test.ts`
 Expected: FAIL because the account store modules do not exist yet
 
-- [ ] **Step 3: Implement the stores and profile allocator**
+- [x] **Step 3: Implement the stores and profile allocator**
 
 ```ts
 export interface SiteAccountRecord {
@@ -102,7 +102,7 @@ Implementation notes:
 - keep one active credential bundle per site account
 - do not expose runtime profile selection to the renderer
 
-- [ ] **Step 4: Re-run the focused account-store test and confirm the green state**
+- [x] **Step 4: Re-run the focused account-store test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/site-account-store.test.ts`
 Expected: PASS
@@ -116,7 +116,7 @@ Expected: PASS
 - Modify: `apps/desktop/main/ipc/register-accounts-ipc.ts`
 - Test: `apps/desktop/test/main/accounts/embedded-login-service.test.ts`
 
-- [ ] **Step 1: Write the failing embedded-login test**
+- [x] **Step 1: Write the failing embedded-login test**
 
 ```ts
 test("embedded login saves cookies back into the selected site account", async () => {
@@ -127,12 +127,12 @@ test("embedded login saves cookies back into the selected site account", async (
 });
 ```
 
-- [ ] **Step 2: Run the focused embedded-login test and confirm the red state**
+- [x] **Step 2: Run the focused embedded-login test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/embedded-login-service.test.ts`
 Expected: FAIL because the embedded login service does not exist yet
 
-- [ ] **Step 3: Implement the main-process account actions**
+- [x] **Step 3: Implement the main-process account actions**
 
 ```ts
 export class EmbeddedLoginService {
@@ -152,7 +152,7 @@ Implementation notes:
 - verification should use the site registry to choose a lightweight check URL and should return explicit success/failure metadata instead of silently succeeding
 - file import must normalize imported JSON into the same credential-bundle shape used by embedded login
 
-- [ ] **Step 4: Re-run the focused embedded-login test and confirm the green state**
+- [x] **Step 4: Re-run the focused embedded-login test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/embedded-login-service.test.ts`
 Expected: PASS
@@ -168,7 +168,7 @@ Expected: PASS
 - Modify: `apps/desktop/main/ipc/register-accounts-ipc.ts`
 - Test: `apps/desktop/test/main/accounts/extension-capture-server.test.ts`
 
-- [ ] **Step 1: Write the failing extension-capture test**
+- [x] **Step 1: Write the failing extension-capture test**
 
 ```ts
 test("extension capture server persists a browser-plugin credential bundle", async () => {
@@ -181,12 +181,12 @@ test("extension capture server persists a browser-plugin credential bundle", asy
 });
 ```
 
-- [ ] **Step 2: Run the focused extension-capture test and confirm the red state**
+- [x] **Step 2: Run the focused extension-capture test and confirm the red state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/extension-capture-server.test.ts`
 Expected: FAIL because the extension ingress server does not exist yet
 
-- [ ] **Step 3: Implement the localhost ingress and extension payload sender**
+- [x] **Step 3: Implement the localhost ingress and extension payload sender**
 
 ```ts
 const cookies = await chrome.cookies.getAll({ domain: targetDomain });
@@ -202,7 +202,7 @@ Implementation notes:
 - the desktop ingress must validate payload size and required fields before persisting
 - if no `accountId` is supplied, write a pending capture record that the Accounts view can confirm later
 
-- [ ] **Step 4: Re-run the focused extension-capture test and confirm the green state**
+- [x] **Step 4: Re-run the focused extension-capture test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/extension-capture-server.test.ts`
 Expected: PASS

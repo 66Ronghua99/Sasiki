@@ -1,6 +1,6 @@
 ---
 doc_type: plan
-status: planned
+status: completed
 implements:
   - docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md
 supersedes: []
@@ -14,7 +14,7 @@ related:
 
 # Desktop Integration And Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Spec Path:** `docs/superpowers/specs/2026-03-29-electron-desktop-ui-v1-design.md`
 
@@ -62,7 +62,7 @@ related:
 - Modify: `apps/agent-runtime/**`
 - Modify: `apps/desktop/**`
 
-- [ ] **Step 1: Run a red-state integration smoke test before fixing drift**
+- [x] **Step 1: Run a red-state integration smoke test before fixing drift**
 
 ```ts
 test("desktop main boots and renderer can request the workflow list without crashing", async () => {
@@ -75,7 +75,7 @@ test("desktop main boots and renderer can request the workflow list without cras
 Run: `npm --prefix apps/desktop run test -- test/integration/desktop-launch-smoke.test.ts`
 Expected: FAIL with missing IPC wiring, import drift, or contract mismatches after the lane merges
 
-- [ ] **Step 2: Fix merged contract drift in one place**
+- [x] **Step 2: Fix merged contract drift in one place**
 
 ```ts
 assertDesktopApiContract(window.sasiki, {
@@ -88,7 +88,7 @@ Implementation notes:
 - correct DTO mismatches here instead of reopening completed lane scopes
 - keep fixes narrow; do not redesign forms, stores, or runtime service contracts in this lane
 
-- [ ] **Step 3: Re-run the integration smoke test and confirm the green state**
+- [x] **Step 3: Re-run the integration smoke test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/integration/desktop-launch-smoke.test.ts`
 Expected: PASS
@@ -104,7 +104,7 @@ Expected: PASS
 - Modify: `docs/project/current-state.md`
 - Modify: `docs/architecture/overview.md`
 
-- [ ] **Step 1: Add a package-level desktop README**
+- [x] **Step 1: Add a package-level desktop README**
 
 ```md
 # Desktop App
@@ -117,7 +117,7 @@ This package hosts the Electron front door for Sasiki.
 - `shared/`: desktop DTOs and IPC contracts
 ```
 
-- [ ] **Step 2: Update repo front-door docs with the new desktop truth**
+- [x] **Step 2: Update repo front-door docs with the new desktop truth**
 
 Include:
 - new `apps/desktop` entry in `README.md`
@@ -126,7 +126,7 @@ Include:
 - one new direct execution pointer in `NEXT_STEP.md`
 - stable desktop lessons in `MEMORY.md` only if they are already durable
 
-- [ ] **Step 3: Re-read the updated docs and confirm they match the code**
+- [x] **Step 3: Re-read the updated docs and confirm they match the code**
 
 Run: `sed -n '1,220p' README.md && sed -n '1,220p' apps/desktop/README.md`
 Expected: docs reflect the new dual-front-door shape (`apps/agent-runtime` + `apps/desktop`) without contradicting ownership boundaries
@@ -141,17 +141,17 @@ Expected: docs reflect the new dual-front-door shape (`apps/agent-runtime` + `ap
 - Modify: `docs/superpowers/plans/2026-03-29-desktop-renderer-workflows-accounts-runs-implementation.md`
 - Modify: `docs/superpowers/plans/2026-03-29-desktop-integration-and-hardening-implementation.md`
 
-- [ ] **Step 1: Run desktop quality gates**
+- [x] **Step 1: Run desktop quality gates**
 
 Run: `npm --prefix apps/desktop run lint && npm --prefix apps/desktop run test && npm --prefix apps/desktop run typecheck && npm --prefix apps/desktop run build`
 Expected: PASS
 
-- [ ] **Step 2: Run agent-runtime quality gates**
+- [x] **Step 2: Run agent-runtime quality gates**
 
 Run: `npm --prefix apps/agent-runtime run lint && npm --prefix apps/agent-runtime run test && npm --prefix apps/agent-runtime run typecheck && npm --prefix apps/agent-runtime run build && npm --prefix apps/agent-runtime run hardgate`
 Expected: PASS
 
-- [ ] **Step 3: Update plan statuses and capture the remaining next step**
+- [x] **Step 3: Update plan statuses and capture the remaining next step**
 
 Set:
 - completed lanes to `status: completed`
