@@ -1,5 +1,6 @@
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadAgentRuntimeModule, resolveAgentRuntimeDistRoot } from "../agent-runtime-module-loader";
 
 export interface RuntimeSkillMetadata {
   name: string;
@@ -40,14 +41,9 @@ export function createRuntimeLoadedSkillStore(
 }
 
 async function loadCanonicalSkillStoreModuleFromDist(): Promise<RuntimeSkillStoreModule> {
-  return importAgentRuntimeModule<RuntimeSkillStoreModule>("infrastructure/persistence/sop-skill-store.js");
-}
-
-async function importAgentRuntimeModule<T>(modulePath: string): Promise<T> {
-  const distRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../agent-runtime/dist");
-  const moduleUrl = pathToFileURL(join(distRoot, modulePath)).href;
-  const dynamicImport = new Function("specifier", "return import(specifier);") as (
-    specifier: string,
-  ) => Promise<T>;
-  return dynamicImport(moduleUrl);
+  const distRoot = resolveAgentRuntimeDistRoot(dirname(fileURLToPath(import.meta.url)));
+  return loadAgentRuntimeModule<RuntimeSkillStoreModule>(
+    distRoot,
+    "infrastructure/persistence/sop-skill-store.js",
+  );
 }

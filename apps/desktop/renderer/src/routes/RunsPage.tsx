@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RunLogPanel } from "../components/runs/run-log-panel";
-import { createDesktopClient } from "../lib/desktop-client";
+import { resolveDesktopClient } from "../lib/desktop-client";
 import type { SasikiDesktopApi } from "../../../shared/ipc/contracts";
 import { useRunSubscription } from "../lib/use-run-subscription";
 import type { DesktopRunEvent, DesktopRunSummary } from "../../../shared/runs";
@@ -18,22 +18,19 @@ export interface RunsPageProps {
   initialEvents?: Record<string, DesktopRunEvent[]>;
 }
 
-export function RunsPage({
-  client = createDesktopClient(),
-  initialRuns,
-  initialEvents,
-}: RunsPageProps) {
+export function RunsPage({ client, initialRuns, initialEvents }: RunsPageProps) {
+  const desktopClient = resolveDesktopClient(client);
   const [runs, setRuns] = useState<DesktopRunSummary[]>(initialRuns ?? []);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRuns?.[0]?.runId ?? null);
 
   useEffect(() => {
-    if (initialRuns === undefined) {
-      void client.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
+    if (initialRuns === undefined && desktopClient) {
+      void desktopClient.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
         setRuns(nextRuns);
         setSelectedRunId((current) => current ?? nextRuns[0]?.runId ?? null);
       });
     }
-  }, [client, initialRuns]);
+  }, [desktopClient, initialRuns]);
 
   useEffect(() => {
     if (selectedRunId === null && runs[0]) {
@@ -42,7 +39,7 @@ export function RunsPage({
   }, [runs, selectedRunId]);
 
   const seededEvents = selectedRunId ? initialEvents?.[selectedRunId] ?? EMPTY_EVENTS : EMPTY_EVENTS;
-  const events = useRunSubscription(selectedRunId, client, seededEvents);
+  const events = useRunSubscription(selectedRunId, desktopClient, seededEvents);
   const liveRuns = useMemo(() => mergeRunSummaries(runs, events), [events, runs]);
   const selectedRun = useMemo(
     () => liveRuns.find((run) => run.runId === selectedRunId) ?? null,
@@ -50,7 +47,12 @@ export function RunsPage({
   );
 
   useEffect(() => {
-    const subscription = (client.runs as DesktopRunEventStream).subscribeAll;
+    const activeClient = desktopClient;
+    if (!activeClient) {
+      return;
+    }
+
+    const subscription = (activeClient.runs as DesktopRunEventStream | undefined)?.subscribeAll;
     if (!subscription) {
       return;
     }
@@ -59,12 +61,12 @@ export function RunsPage({
       setRuns((currentRuns) => mergeRunSummaries(currentRuns, [event]));
 
       if (event.type === "run.finished" || event.type === "run.interrupted") {
-        void client.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
+        void activeClient.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
           setRuns(nextRuns);
         });
       }
     });
-  }, [client]);
+  }, [desktopClient]);
 
   return (
     <section style={pageStyles}>
@@ -109,8 +111,18 @@ export function RunsPage({
 
         <RunLogPanel
           events={events}
-          onInterrupt={(runId) => void client.runs.interruptRun(runId)}
-          onOpenArtifacts={(runId) => void client.artifacts.openRunArtifacts(runId)}
+          onInterrupt={(runId) => {
+            if (!desktopClient) {
+              return;
+            }
+            void desktopClient.runs.interruptRun(runId);
+          }}
+          onOpenArtifacts={(runId) => {
+            if (!desktopClient) {
+              return;
+            }
+            void desktopClient.artifacts.openRunArtifacts(runId);
+          }}
           run={selectedRun ?? undefined}
         />
       </div>

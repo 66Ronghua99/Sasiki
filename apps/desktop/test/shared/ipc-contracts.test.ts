@@ -37,6 +37,8 @@ describe("desktop foundation contracts", () => {
 
     assertDesktopApiContract(api);
     assertDesktopApiContract(liveApi);
+    assert.equal(typeof api.runs.subscribeAll, "function");
+    assert.equal(typeof liveApi.runs.subscribeAll, "function");
 
     assert.equal(desktopChannels.runs.startObserve, "runs:startObserve");
     assert.equal(desktopChannels.accounts.verifyCredential, "accounts:verifyCredential");

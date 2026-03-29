@@ -20,7 +20,15 @@ export { desktopRunEventKinds } from "../runs";
 
 const desktopApiContract = {
   accounts: ["list", "upsert", "launchEmbeddedLogin", "importCookieFile", "verifyCredential"],
-  runs: ["startObserve", "startCompact", "startRefine", "interruptRun", "listRuns", "subscribe"],
+  runs: [
+    "startObserve",
+    "startCompact",
+    "startRefine",
+    "interruptRun",
+    "listRuns",
+    "subscribe",
+    "subscribeAll",
+  ],
   artifacts: ["openRunArtifacts"],
   skills: ["list"],
 } as const;
@@ -42,6 +50,7 @@ export interface SasikiDesktopApi {
     interruptRun(runId: string): Promise<{ interrupted: boolean }>;
     listRuns(): Promise<DesktopRunSummary[]>;
     subscribe(runId: string, callback: (event: DesktopRunEvent) => void): () => void;
+    subscribeAll(callback: (event: DesktopRunEvent) => void): () => void;
   };
   artifacts: {
     openRunArtifacts(runId: string): Promise<void>;
@@ -91,6 +100,7 @@ export function createDesktopApiShape(): SasikiDesktopApi {
       subscribe: createUnimplementedMethod<SasikiDesktopApi["runs"]["subscribe"]>(
         "runs.subscribe",
       ),
+      subscribeAll: (() => () => undefined) as SasikiDesktopApi["runs"]["subscribeAll"],
     },
     artifacts: {
       openRunArtifacts: createUnimplementedMethod<

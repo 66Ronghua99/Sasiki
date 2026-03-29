@@ -30,6 +30,7 @@ describe("RunsPage client rendering", () => {
     root = createRoot(activeHarness.container as unknown as Element);
 
     let subscriber: ((event: DesktopRunEvent) => void) | null = null;
+    let allSubscriber: ((event: DesktopRunEvent) => void) | null = null;
     let runs: DesktopRunSummary[] = [
       {
         runId: "run-1",
@@ -50,6 +51,14 @@ describe("RunsPage client rendering", () => {
       return () => {
         if (subscriber === callback) {
           subscriber = null;
+        }
+      };
+    };
+    client.runs.subscribeAll = (callback) => {
+      allSubscriber = callback;
+      return () => {
+        if (allSubscriber === callback) {
+          allSubscriber = null;
         }
       };
     };
@@ -98,6 +107,8 @@ describe("RunsPage client rendering", () => {
     await act(async () => {
       subscriber?.(startedEvent);
       subscriber?.(logEvent);
+      allSubscriber?.(startedEvent);
+      allSubscriber?.(logEvent);
       await Promise.resolve();
     });
 
@@ -129,6 +140,7 @@ describe("RunsPage client rendering", () => {
         },
       ];
       subscriber?.(finishedEvent);
+      allSubscriber?.(finishedEvent);
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
