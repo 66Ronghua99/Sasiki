@@ -73,15 +73,18 @@ export class RunEventForwarder {
 
   private forwardEvent(runId: string, event: DesktopRunEvent, subscriber: RunEventSubscriber): void {
     if (subscriber.isDestroyed?.()) {
-      this.removeSubscription(this.createKey("run", subscriber.id, runId));
-      this.removeSubscription(this.createKey("all", subscriber.id));
+      this.removeSubscriptionsForSubscriber(subscriber.id);
       return;
     }
 
-    subscriber.send(desktopChannels.runs.events, {
-      runId,
-      event,
-    });
+    try {
+      subscriber.send(desktopChannels.runs.events, {
+        runId,
+        event,
+      });
+    } catch {
+      this.removeSubscriptionsForSubscriber(subscriber.id);
+    }
   }
 
   private createKey(scope: "run" | "all", subscriberId: number, runId?: string): string {
@@ -115,6 +118,13 @@ export class RunEventForwarder {
     this.untrackSubscriptionKey(subscription.subscriberId, key);
   }
 
+  private removeSubscriptionsForSubscriber(subscriberId: number): void {
+    const keys = [...(this.subscriptionKeysBySubscriber.get(subscriberId) ?? [])];
+    for (const key of keys) {
+      this.removeSubscription(key);
+    }
+  }
+
   private trackSubscriptionKey(subscriberId: number, key: string): void {
     const keys = this.subscriptionKeysBySubscriber.get(subscriberId) ?? new Set<string>();
     keys.add(key);
@@ -140,10 +150,7 @@ export class RunEventForwarder {
 
     this.destroyListenersRegistered.add(subscriber.id);
     subscriber.once("destroyed", () => {
-      const keys = [...(this.subscriptionKeysBySubscriber.get(subscriber.id) ?? [])];
-      for (const key of keys) {
-        this.removeSubscription(key);
-      }
+      this.removeSubscriptionsForSubscriber(subscriber.id);
     });
   }
 }

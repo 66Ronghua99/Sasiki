@@ -100,6 +100,31 @@ describe("Run event forwarding", () => {
     assert.equal(subscriber.messages[0]?.channel, desktopChannels.runs.events);
   });
 
+  test("forwarder drops a broken sender without failing the run", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(23);
+    const deliveryError = new Error("renderer delivery failed");
+
+    subscriber.send = () => {
+      throw deliveryError;
+    };
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    const handle = await runManager.startObserve({ task: "record a baidu search" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(runManager.getRun(handle.runId)?.status, "completed");
+    assert.equal(subscriber.messages.length, 0);
+  });
+
   test("forwarder deduplicates repeat subscriptions and cleans up on destroy", async () => {
     const eventBus = new RunEventBus();
     const runManager = new RunManager({

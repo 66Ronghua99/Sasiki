@@ -12,16 +12,21 @@ export class RunEventBus {
     events.push(event);
     this.eventsByRun.set(runId, events);
 
-    const listeners = this.listenersByRun.get(runId);
-    if (listeners) {
-      for (const listener of listeners) {
-        listener(event);
+    this.deliver(this.listenersByRun.get(runId), event, (listener) => {
+      const listeners = this.listenersByRun.get(runId);
+      if (!listeners) {
+        return;
       }
-    }
 
-    for (const listener of this.listenersAll) {
-      listener(event);
-    }
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.listenersByRun.delete(runId);
+      }
+    });
+
+    this.deliver(this.listenersAll, event, (listener) => {
+      this.listenersAll.delete(listener);
+    });
   }
 
   list(runId: string): DesktopRunEvent[] {
@@ -51,5 +56,23 @@ export class RunEventBus {
     return () => {
       this.listenersAll.delete(listener);
     };
+  }
+
+  private deliver(
+    listeners: Set<RunEventListener> | undefined,
+    event: DesktopRunEvent,
+    removeListener: (listener: RunEventListener) => void,
+  ): void {
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of [...listeners]) {
+      try {
+        listener(event);
+      } catch {
+        removeListener(listener);
+      }
+    }
   }
 }
