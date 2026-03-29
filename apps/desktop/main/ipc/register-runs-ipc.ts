@@ -14,6 +14,7 @@ import type {
   SubscribeRunRequest,
   SubscribeRunResponse,
 } from "../../shared/ipc/messages";
+import { createRunsIpcHandlers } from "../runs/run-manager";
 
 export interface RunsIpcHandlers {
   startObserve(request: StartObserveRunRequest): Promise<StartObserveRunResponse>;
@@ -70,3 +71,5 @@ export function registerRunsIpc(input: {
     (request: SubscribeRunRequest) => input.handlers.subscribe(request),
   );
 }
+
+export { createRunsIpcHandlers };

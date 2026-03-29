@@ -13,7 +13,7 @@ import { RuntimeHost } from "./runtime-host.js";
 import { createWorkflowRegistry } from "./workflow-registry.js";
 import type { HostedWorkflow } from "./workflow-contract.js";
 
-type WorkflowRuntimeCommandRequest =
+export type WorkflowRuntimeCommandRequest =
   | Extract<CliArguments, { command: "observe" }>
   | Extract<CliArguments, { command: "refine" }>
   | Extract<CliArguments, { command: "sop-compact" }>;
