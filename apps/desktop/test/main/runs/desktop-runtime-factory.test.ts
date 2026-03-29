@@ -16,6 +16,103 @@ async function createTempRoot(prefix: string): Promise<string> {
 }
 
 describe("desktop runtime factory", () => {
+  test("releases the isolated runtime profile even when runtime stop rejects", async () => {
+    const rootDir = await createTempRoot("sasiki-runtime-factory-stop-reject-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
+    const runtimeProfileManager = new RuntimeProfileManager({ rootDir, siteAccountStore });
+    const siteRegistry = new SiteRegistry();
+
+    const account = await siteAccountStore.upsert({
+      id: "acct-1",
+      site: "tiktok-shop",
+      label: "Smoke Account",
+    });
+    await credentialStore.save({
+      siteAccountId: account.id,
+      source: "file-import",
+      cookies: [
+        {
+          name: "sessionid",
+          value: "cookie-value",
+          domain: ".tiktok.com",
+          path: "/",
+        },
+      ],
+      capturedAt: new Date().toISOString(),
+      provenance: "seed",
+    });
+
+    let capturedConfig:
+      | {
+          cdpUserDataDir: string;
+          cdpCookiesDir: string;
+        }
+      | undefined;
+    const runtime = await createDesktopRuntimeFactory({
+      rootDir,
+      siteAccountStore,
+      credentialStore,
+      runtimeProfileManager,
+      siteRegistry,
+      async loadRuntimeConfig(options) {
+        return {
+          cdpUserDataDir: options.env?.CDP_USER_DATA_DIR ?? "",
+          cdpCookiesDir: options.env?.COOKIES_DIR ?? "",
+        };
+      },
+      createRuntimeService(config): DesktopRuntimeService {
+        const runtimeConfig = config as {
+          cdpUserDataDir: string;
+          cdpCookiesDir: string;
+        };
+        capturedConfig = {
+          cdpUserDataDir: runtimeConfig.cdpUserDataDir,
+          cdpCookiesDir: runtimeConfig.cdpCookiesDir,
+        };
+        return {
+          async runObserve() {
+            await stat(join(runtimeConfig.cdpCookiesDir, "credential-bundle.json"));
+            return {
+              mode: "observe",
+              runId: "observe-run",
+              taskHint: "check inbox",
+              status: "completed",
+              finishReason: "observe_timeout_reached",
+              artifactsDir: "/tmp/observe-run",
+            };
+          },
+          async runCompact() {
+            throw new Error("not used");
+          },
+          async runRefine() {
+            throw new Error("not used");
+          },
+          async requestInterrupt() {
+            return true;
+          },
+          async stop() {
+            throw new Error("stop failed");
+          },
+        };
+      },
+    })({
+      workflow: "observe",
+      siteAccountId: account.id,
+      sourceRunId: null,
+      taskSummary: "check inbox",
+    });
+
+    assert.ok(capturedConfig);
+    const cookieFile = join(capturedConfig!.cdpCookiesDir, "credential-bundle.json");
+    await stat(cookieFile);
+
+    await assert.rejects(() => runtime.stop(), /stop failed/);
+
+    await assert.rejects(() => stat(capturedConfig!.cdpCookiesDir), /ENOENT/);
+    await assert.rejects(() => stat(capturedConfig!.cdpUserDataDir), /ENOENT/);
+  });
+
   test("materializes the active credential bundle into a run-scoped cookie file and cleans it up after the run fails", async () => {
     const rootDir = await createTempRoot("sasiki-runtime-factory-");
     const siteAccountStore = new SiteAccountStore({ rootDir });

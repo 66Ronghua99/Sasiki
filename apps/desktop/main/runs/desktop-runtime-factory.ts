@@ -120,8 +120,11 @@ export function createDesktopRuntimeFactory(
           return runtime.requestInterrupt(signal);
         },
         async stop() {
-          await runtime.stop();
-          await releaseRuntimeProfile();
+          try {
+            await runtime.stop();
+          } finally {
+            await releaseRuntimeProfile();
+          }
         },
       };
     } catch (error) {
