@@ -53,6 +53,8 @@ related:
 - Create: `apps/desktop/renderer/src/routes/AccountsPage.tsx`
 - Create: `apps/desktop/renderer/src/routes/RunsPage.tsx`
 - Create: `apps/desktop/shared/ipc/contracts.ts`
+- Create: `apps/desktop/shared/ipc/channels.ts`
+- Create: `apps/desktop/shared/ipc/messages.ts`
 - Create: `apps/desktop/shared/site-accounts.ts`
 - Create: `apps/desktop/shared/runs.ts`
 - Create: `apps/desktop/test/shared/ipc-contracts.test.ts`
@@ -123,13 +125,13 @@ Expected: FAIL or stay red until the next task creates actual source files
 - [ ] **Step 1: Write the failing shared-contract test**
 
 ```ts
-test("desktop api exposes accounts, runs, artifacts, and skills namespaces", () => {
-  assert.deepEqual(Object.keys(createDesktopApiShape()), [
-    "accounts",
-    "runs",
-    "artifacts",
-    "skills",
-  ]);
+test("desktop foundation freezes the full api and transport contract surface", () => {
+  const api = createDesktopApiShape();
+  assert.deepEqual(Object.keys(api.accounts), ["list", "upsert", "launchEmbeddedLogin", "importCookieFile", "verifyCredential"]);
+  assert.deepEqual(Object.keys(api.runs), ["startObserve", "startCompact", "startRefine", "interruptRun", "listRuns", "subscribe"]);
+  assert.equal(desktopChannels.runs.startObserve, "runs:startObserve");
+  assert.equal(desktopChannels.accounts.verifyCredential, "accounts:verifyCredential");
+  assert.equal(desktopRunEventKinds.includes("run.finished"), true);
 });
 ```
 
@@ -144,10 +146,17 @@ Expected: FAIL because the shared contract module does not exist yet
 export interface SasikiDesktopApi {
   accounts: {
     list(): Promise<SiteAccountSummary[]>;
+    upsert(input: UpsertSiteAccountInput): Promise<SiteAccountSummary>;
     launchEmbeddedLogin(input: { siteAccountId: string }): Promise<void>;
+    importCookieFile(input: ImportCookieFileInput): Promise<CredentialCaptureResult>;
+    verifyCredential(input: { siteAccountId: string }): Promise<CredentialVerificationResult>;
   };
   runs: {
     startObserve(input: ObserveRunInput): Promise<{ runId: string }>;
+    startCompact(input: CompactRunInput): Promise<{ runId: string }>;
+    startRefine(input: RefineRunInput): Promise<{ runId: string }>;
+    interruptRun(runId: string): Promise<{ interrupted: boolean }>;
+    listRuns(): Promise<DesktopRunSummary[]>;
     subscribe(runId: string, callback: (event: DesktopRunEvent) => void): () => void;
   };
   artifacts: {
@@ -157,11 +166,29 @@ export interface SasikiDesktopApi {
     list(): Promise<SopSkillSummary[]>;
   };
 }
+
+export const desktopChannels = {
+  accounts: {
+    list: "accounts:list",
+    upsert: "accounts:upsert",
+    launchEmbeddedLogin: "accounts:launchEmbeddedLogin",
+    importCookieFile: "accounts:importCookieFile",
+    verifyCredential: "accounts:verifyCredential",
+  },
+  runs: {
+    startObserve: "runs:startObserve",
+    startCompact: "runs:startCompact",
+    startRefine: "runs:startRefine",
+    interruptRun: "runs:interruptRun",
+    listRuns: "runs:listRuns",
+    subscribe: "runs:subscribe",
+  },
+} as const;
 ```
 
 Implementation notes:
-- `register-runs-ipc.ts` and `register-accounts-ipc.ts` should export callable registration functions even if they only install placeholder handlers in this lane
-- freeze DTO names here so later lanes do not invent their own account/run payload shapes
+- `register-runs-ipc.ts` and `register-accounts-ipc.ts` should be pure registration adapters that accept injected handler objects even if they only install placeholder handlers in this lane
+- freeze DTO names, channel ids, request/response payloads, and the `DesktopRunEvent` discriminated union here so later lanes do not invent their own account/run payload shapes
 - do not put business logic in these bootstrap files
 
 - [ ] **Step 4: Re-run the focused contract test and confirm the green state**
@@ -234,4 +261,3 @@ Implementation notes:
 
 Run: `npm --prefix apps/desktop run test && npm --prefix apps/desktop run typecheck && npm --prefix apps/desktop run build`
 Expected: PASS
-

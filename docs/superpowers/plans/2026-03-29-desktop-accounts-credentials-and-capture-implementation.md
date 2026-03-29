@@ -148,7 +148,7 @@ export class EmbeddedLoginService {
 ```
 
 Implementation notes:
-- `register-accounts-ipc.ts` should expose `listAccounts`, `upsertAccount`, `launchEmbeddedLogin`, `importCookieFile`, and `verifyAccountCredential`
+- `register-accounts-ipc.ts` should expose `list`, `upsert`, `launchEmbeddedLogin`, `importCookieFile`, and `verifyCredential` from the frozen contract
 - verification should use the site registry to choose a lightweight check URL and should return explicit success/failure metadata instead of silently succeeding
 - file import must normalize imported JSON into the same credential-bundle shape used by embedded login
 
@@ -206,4 +206,3 @@ Implementation notes:
 
 Run: `npm --prefix apps/desktop run test -- test/main/accounts/extension-capture-server.test.ts`
 Expected: PASS
-

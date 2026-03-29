@@ -185,11 +185,10 @@ export class RunManager {
 
 Implementation notes:
 - map desktop `siteAccountId` to runtime-ready request shapes in `run-request-mapper.ts`
-- `register-runs-ipc.ts` should install `startObserve`, `startCompact`, `startRefine`, `interruptRun`, `listRuns`, and `subscribeRun` endpoints
+- `register-runs-ipc.ts` should install `startObserve`, `startCompact`, `startRefine`, `interruptRun`, `listRuns`, and `subscribe` endpoints from the frozen transport contract
 - keep all desktop run state in main process, not in renderer
 
 - [ ] **Step 4: Re-run the focused run-manager test and confirm the green state**
 
 Run: `npm --prefix apps/desktop run test -- test/main/runs/run-manager.test.ts`
 Expected: PASS
-
