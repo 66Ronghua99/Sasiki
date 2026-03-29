@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, test } from "vitest";
+import { afterEach, describe, test } from "vitest";
 import { CookieImportService } from "../../main/accounts/cookie-import-service";
 import { CredentialBundleStore } from "../../main/accounts/credential-bundle-store";
 import { EmbeddedLoginService } from "../../main/accounts/embedded-login-service";
@@ -17,8 +17,10 @@ import {
   type ObserveRuntimeResult,
 } from "../../main/runs/run-manager";
 import { RunEventBus } from "../../main/runs/run-event-bus";
+import { createDesktopClient } from "../../renderer/src/lib/desktop-client";
 import { desktopChannels } from "../../shared/ipc/channels";
 import { SopSkillStore } from "../../../agent-runtime/src/infrastructure/persistence/sop-skill-store";
+import { createDesktopPreloadApi, exposeDesktopPreloadApi } from "../../preload/desktop-api";
 
 async function createTempRoot(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -51,7 +53,38 @@ class FakeIpcMain {
   }
 }
 
+class FakeIpcRenderer {
+  constructor(private readonly ipcMain: FakeIpcMain) {}
+
+  async invoke(channel: string, request: unknown): Promise<unknown> {
+    return this.ipcMain.invoke(channel, request);
+  }
+
+  on(): void {
+    // no-op
+  }
+
+  removeListener(): void {
+    // no-op
+  }
+}
+
+class FakeContextBridge {
+  exposeInMainWorld(name: string, api: unknown): void {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { [name]: api },
+    });
+  }
+}
+
 describe("desktop launch smoke", () => {
+  afterEach(() => {
+    if ("window" in globalThis) {
+      Reflect.deleteProperty(globalThis, "window");
+    }
+  });
+
   test("desktop main wires real ipc handlers, skill listing, account persistence, and run summaries", async () => {
     const rootDir = await createTempRoot("sasiki-desktop-main-");
     const skillRootDir = join(rootDir, "skills");
@@ -127,31 +160,37 @@ describe("desktop launch smoke", () => {
     });
 
     await context.start();
+    const ipcRenderer = new FakeIpcRenderer(ipcMain);
+    const contextBridge = new FakeContextBridge();
+    exposeDesktopPreloadApi(
+      contextBridge,
+      createDesktopPreloadApi({
+        invoke: ipcRenderer.invoke.bind(ipcRenderer),
+        on: ipcRenderer.on.bind(ipcRenderer),
+        removeListener: ipcRenderer.removeListener.bind(ipcRenderer),
+      }),
+    );
+    const client = createDesktopClient();
 
-    const skillsResponse = (await ipcMain.invoke(desktopChannels.skills.list, {})) as {
-      skills: Array<{ name: string; description: string; path: string | null; updatedAt: string | null }>;
-    };
-    assert.equal(skillsResponse.skills.length, 1);
-    assert.equal(skillsResponse.skills[0]?.name, "smoke-skill");
-    assert.equal(skillsResponse.skills[0]?.path, skillPath);
+    const skillsResponse = await client.skills.list();
+    assert.equal(skillsResponse.length, 1);
+    assert.equal(skillsResponse[0]?.name, "smoke-skill");
+    assert.equal(skillsResponse[0]?.path, skillPath);
 
-    const upsertResponse = (await ipcMain.invoke(desktopChannels.accounts.upsert, {
-      input: { id: "acct-1", site: "tiktok-shop", label: "Smoke Account" },
-    })) as {
-      account: { id: string; label: string };
-    };
-    assert.equal(upsertResponse.account.id, "acct-1");
+    const upsertResponse = await client.accounts.upsert({
+      id: "acct-1",
+      site: "tiktok-shop",
+      label: "Smoke Account",
+    });
+    assert.equal(upsertResponse.id, "acct-1");
 
-    const accountsResponse = (await ipcMain.invoke(desktopChannels.accounts.list, {})) as {
-      accounts: Array<{ id: string; label: string }>;
-    };
-    assert.deepEqual(accountsResponse.accounts.map((account) => account.label), ["Smoke Account"]);
+    const accountsResponse = await client.accounts.list();
+    assert.deepEqual(accountsResponse.map((account) => account.label), ["Smoke Account"]);
 
-    const observeResponse = (await ipcMain.invoke(desktopChannels.runs.startObserve, {
-      input: { task: "check the inbox", siteAccountId: "acct-1" },
-    })) as {
-      runId: string;
-    };
+    const observeResponse = await client.runs.startObserve({
+      task: "check the inbox",
+      siteAccountId: "acct-1",
+    });
     assert.match(observeResponse.runId, /^desktop-observe-/);
 
     const runSummary = await waitForRunSummary(ipcMain, observeResponse.runId, "completed");
@@ -159,12 +198,7 @@ describe("desktop launch smoke", () => {
     assert.equal(runSummary.status, "completed");
     assert.match(runSummary.artifactPath ?? "", /observe-smoke/);
 
-    const artifactsResponse = (await ipcMain.invoke(desktopChannels.artifacts.openRunArtifacts, {
-      runId: observeResponse.runId,
-    })) as {
-      opened: boolean;
-    };
-    assert.equal(artifactsResponse.opened, true);
+    await client.artifacts.openRunArtifacts(observeResponse.runId);
     assert.deepEqual(shell.openedPaths, [runSummary.artifactPath]);
 
     await context.stop();
