@@ -63,9 +63,7 @@ export class CredentialBundleStore {
   public async save(input: SaveCredentialBundleInput): Promise<CredentialCaptureResult> {
     const siteAccountId = assertNonEmptyString(input.siteAccountId, "siteAccountId");
     const capturedAt = assertNonEmptyString(input.capturedAt, "capturedAt");
-    const siteAccount = await this.options.siteAccountStore.getById(siteAccountId);
-
-    if (!siteAccount) {
+    if (!(await this.options.siteAccountStore.getById(siteAccountId))) {
       throw new Error(`Unknown site account: ${siteAccountId}`);
     }
 

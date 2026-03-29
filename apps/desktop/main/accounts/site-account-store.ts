@@ -31,9 +31,11 @@ export interface SetVerificationStatusInput {
 
 export class SiteAccountStore {
   private readonly filePath: string;
+  public readonly rootDir: string;
 
   public constructor(options: SiteAccountStoreOptions) {
-    this.filePath = join(options.rootDir, "accounts", "site-accounts.json");
+    this.rootDir = options.rootDir;
+    this.filePath = join(this.rootDir, "accounts", "site-accounts.json");
   }
 
   private async readData(): Promise<SiteAccountStoreData> {
