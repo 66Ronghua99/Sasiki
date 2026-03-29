@@ -21,7 +21,6 @@ import { createDesktopClient } from "../../renderer/src/lib/desktop-client";
 import { desktopChannels } from "../../shared/ipc/channels";
 import { assertDesktopApiContract } from "../../shared/ipc/contracts";
 import { createDesktopPreloadApi, exposeDesktopPreloadApi } from "../../preload/desktop-api";
-import { DesktopSkillStore } from "../../main/skills/desktop-skill-store";
 
 async function createTempRoot(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -123,7 +122,11 @@ describe("desktop launch smoke", () => {
       rootDir,
       port: 0,
     });
-    const skillStore = new DesktopSkillStore({ rootDir: skillRootDir });
+    const skillStore = {
+      async listMetadata() {
+        return [{ name: "smoke-skill", description: "smoke test skill" }];
+      },
+    };
     const ipcMain = new FakeIpcMain();
     const shell = {
       openedPaths: [] as string[],

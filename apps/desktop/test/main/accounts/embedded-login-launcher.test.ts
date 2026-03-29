@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "vitest";
 import { createEmbeddedLoginLauncher } from "../../../main/accounts/embedded-login-launcher";
+import { createEmbeddedLoginPartition } from "../../../main/accounts/embedded-login-launcher";
 import type { SiteAccountStore } from "../../../main/accounts/site-account-store";
 import { SiteRegistry } from "../../../main/accounts/site-registry";
 
 describe("embedded login launcher", () => {
+  test("derives distinct partitions for distinct raw site account ids", () => {
+    assert.notEqual(createEmbeddedLoginPartition("acct@1"), createEmbeddedLoginPartition("acct#1"));
+    assert.equal(createEmbeddedLoginPartition("acct@1"), createEmbeddedLoginPartition("acct@1"));
+  });
+
   test("uses an isolated persistent partition per site-account login window", async () => {
     const siteAccountStore = {
       async getById(siteAccountId: string) {

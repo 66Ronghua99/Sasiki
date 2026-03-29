@@ -85,6 +85,6 @@ export function createEmbeddedLoginLauncher(
 }
 
 export function createEmbeddedLoginPartition(siteAccountId: string): string {
-  const normalized = siteAccountId.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-");
-  return `persist:sasiki-embedded-login-${normalized}`;
+  const encoded = Buffer.from(siteAccountId, "utf8").toString("base64url");
+  return `persist:sasiki-embedded-login-${encoded}`;
 }
