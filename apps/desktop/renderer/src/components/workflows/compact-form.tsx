@@ -1,21 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CompactRunInput, DesktopRunSummary } from "../../../../shared/runs";
 
 export interface CompactFormProps {
-  runs: DesktopRunSummary[];
+  observeRuns: DesktopRunSummary[];
   onSubmit(input: CompactRunInput): void;
 }
 
-export function CompactForm({ runs, onSubmit }: CompactFormProps) {
-  const [sourceRunId, setSourceRunId] = useState(runs[0]?.runId ?? "");
+export function CompactForm({ observeRuns, onSubmit }: CompactFormProps) {
+  const [sourceRunId, setSourceRunId] = useState(observeRuns[0]?.runId ?? "");
   const [semanticMode, setSemanticMode] = useState<CompactRunInput["semanticMode"]>("preserve");
+
+  useEffect(() => {
+    if (sourceRunId && observeRuns.some((run) => run.runId === sourceRunId)) {
+      return;
+    }
+
+    setSourceRunId(observeRuns[0]?.runId ?? "");
+  }, [observeRuns, sourceRunId]);
+
+  const canSubmit = sourceRunId.trim().length > 0;
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        if (!canSubmit) {
+          return;
+        }
         onSubmit({
-          sourceRunId,
+          sourceRunId: sourceRunId.trim(),
           semanticMode,
         });
       }}
@@ -32,7 +45,7 @@ export function CompactForm({ runs, onSubmit }: CompactFormProps) {
           value={sourceRunId}
         >
           <option value="">Select an observe run</option>
-          {runs.map((run) => (
+          {observeRuns.map((run) => (
             <option key={run.runId} value={run.runId}>
               {run.runId} - {run.taskSummary ?? "No summary"}
             </option>
@@ -60,7 +73,7 @@ export function CompactForm({ runs, onSubmit }: CompactFormProps) {
         </div>
       </details>
 
-      <button style={primaryButtonStyles} type="submit">
+      <button disabled={!canSubmit} style={primaryButtonStyles} type="submit">
         Start SOP Compact
       </button>
     </form>

@@ -32,6 +32,17 @@ describe("WorkflowsPage", () => {
             updatedAt: "2026-03-29T12:01:00.000Z",
             artifactPath: null,
           },
+          {
+            runId: "run-2",
+            workflow: "refine",
+            status: "completed",
+            siteAccountId: "acct-1",
+            taskSummary: "backoffice sync",
+            sourceRunId: "run-1",
+            createdAt: "2026-03-29T12:02:00.000Z",
+            updatedAt: "2026-03-29T12:03:00.000Z",
+            artifactPath: null,
+          },
         ]}
       />,
     );
@@ -40,6 +51,7 @@ describe("WorkflowsPage", () => {
     assert.match(markup, /Source Observe Run/);
     assert.match(markup, /Refine Task/);
     assert.match(markup, /Semantic Mode/);
+    assert.doesNotMatch(markup, /backoffice sync/);
     assert.doesNotMatch(markup, /aria-label="Site"/);
   });
 });

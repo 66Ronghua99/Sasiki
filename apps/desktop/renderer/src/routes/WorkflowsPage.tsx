@@ -78,7 +78,7 @@ export function WorkflowsPage({
         <article style={cardStyles}>
           <h3 style={cardTitleStyles}>SOP Compact</h3>
           <CompactForm
-            runs={runs}
+            observeRuns={runs.filter((run) => run.workflow === "observe")}
             onSubmit={(input: CompactRunInput) => {
               setStatusMessage(`Compacting source run ${input.sourceRunId}`);
               void client.runs.startCompact(input);

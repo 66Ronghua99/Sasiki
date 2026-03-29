@@ -4,6 +4,13 @@ import { createDesktopClient } from "../lib/desktop-client";
 import type { SasikiDesktopApi } from "../../../shared/ipc/contracts";
 import { useRunSubscription } from "../lib/use-run-subscription";
 import type { DesktopRunEvent, DesktopRunSummary } from "../../../shared/runs";
+import { mergeRunSummaries } from "../lib/run-summary-updater";
+
+const EMPTY_EVENTS: DesktopRunEvent[] = [];
+
+type DesktopRunEventStream = {
+  subscribeAll?: (callback: (event: DesktopRunEvent) => void) => () => void;
+};
 
 export interface RunsPageProps {
   client?: SasikiDesktopApi;
@@ -34,13 +41,30 @@ export function RunsPage({
     }
   }, [runs, selectedRunId]);
 
+  const seededEvents = selectedRunId ? initialEvents?.[selectedRunId] ?? EMPTY_EVENTS : EMPTY_EVENTS;
+  const events = useRunSubscription(selectedRunId, client, seededEvents);
+  const liveRuns = useMemo(() => mergeRunSummaries(runs, events), [events, runs]);
   const selectedRun = useMemo(
-    () => runs.find((run) => run.runId === selectedRunId) ?? null,
-    [runs, selectedRunId],
+    () => liveRuns.find((run) => run.runId === selectedRunId) ?? null,
+    [liveRuns, selectedRunId],
   );
 
-  const seededEvents = selectedRunId ? initialEvents?.[selectedRunId] ?? [] : [];
-  const events = useRunSubscription(selectedRunId, client, seededEvents);
+  useEffect(() => {
+    const subscription = (client.runs as DesktopRunEventStream).subscribeAll;
+    if (!subscription) {
+      return;
+    }
+
+    return subscription((event) => {
+      setRuns((currentRuns) => mergeRunSummaries(currentRuns, [event]));
+
+      if (event.type === "run.finished" || event.type === "run.interrupted") {
+        void client.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
+          setRuns(nextRuns);
+        });
+      }
+    });
+  }, [client]);
 
   return (
     <section style={pageStyles}>
@@ -55,7 +79,7 @@ export function RunsPage({
         </div>
         <div style={summaryCardStyles}>
           <p style={summaryLabelStyles}>Run count</p>
-          <strong style={summaryValueStyles}>{runs.length}</strong>
+          <strong style={summaryValueStyles}>{liveRuns.length}</strong>
         </div>
       </header>
 
@@ -66,7 +90,7 @@ export function RunsPage({
             {runs.length === 0 ? (
               <p style={emptyStateStyles}>No runs yet.</p>
             ) : (
-              runs.map((run) => (
+              liveRuns.map((run) => (
                 <button
                   key={run.runId}
                   onClick={() => setSelectedRunId(run.runId)}

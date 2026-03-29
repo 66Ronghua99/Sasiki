@@ -16,6 +16,12 @@ export function AccountsPage({
   const [accounts, setAccounts] = useState<SiteAccountSummary[]>(initialAccounts ?? []);
   const [error, setError] = useState<string | null>(null);
 
+  const refreshAccounts = async (): Promise<void> => {
+    const nextAccounts = await client.accounts.list();
+    setAccounts(nextAccounts);
+    setError(null);
+  };
+
   useEffect(() => {
     if (initialAccounts !== undefined) {
       return;
@@ -23,10 +29,10 @@ export function AccountsPage({
 
     let cancelled = false;
 
-    void client.accounts.list().then(
-      (nextAccounts: SiteAccountSummary[]) => {
+    void refreshAccounts().then(
+      () => {
         if (!cancelled) {
-          setAccounts(nextAccounts);
+          setError(null);
         }
       },
       (failure: unknown) => {
@@ -62,11 +68,15 @@ export function AccountsPage({
 
       <AccountList
         accounts={accounts}
-        onImportCookieFile={(siteAccountId) => void client.accounts.importCookieFile({ siteAccountId })}
-        onLaunchEmbeddedLogin={(siteAccountId) =>
-          void client.accounts.launchEmbeddedLogin({ siteAccountId })
-        }
-        onVerifyCredential={(siteAccountId) => void client.accounts.verifyCredential({ siteAccountId })}
+        onImportCookieFile={(siteAccountId) => {
+          void client.accounts.importCookieFile({ siteAccountId }).then(() => refreshAccounts());
+        }}
+        onLaunchEmbeddedLogin={(siteAccountId) => {
+          void client.accounts.launchEmbeddedLogin({ siteAccountId }).then(() => refreshAccounts());
+        }}
+        onVerifyCredential={(siteAccountId) => {
+          void client.accounts.verifyCredential({ siteAccountId }).then(() => refreshAccounts());
+        }}
       />
     </section>
   );
