@@ -238,4 +238,61 @@ describe("RunManager", () => {
     assert.equal(stopCalls, 1);
     assert.equal((await runManager.interruptRun(handle.runId)).interrupted, false);
   });
+
+  test("run manager does not launch a pending runtime after stopAll begins", async () => {
+    const events = new RunEventBus();
+    const runtimeDeferred = createDeferred<DesktopRuntimeService>();
+    let runObserveCalls = 0;
+    let stopCalls = 0;
+    const runManager = new RunManager({
+      createRuntime: async () => runtimeDeferred.promise,
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const startPromise = runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    await runManager.stopAll();
+    runtimeDeferred.resolve({
+      async runObserve() {
+        runObserveCalls += 1;
+        return {
+          mode: "observe",
+          runId: "observe-run",
+          taskHint: "record a baidu search",
+          status: "completed",
+          finishReason: "observe_timeout_reached",
+          artifactsDir: "/tmp/observe-run",
+        };
+      },
+      async runCompact() {
+        throw new Error("not implemented");
+      },
+      async runRefine() {
+        throw new Error("not implemented");
+      },
+      async requestInterrupt() {
+        return true;
+      },
+      async stop() {
+        stopCalls += 1;
+      },
+    });
+
+    await assert.rejects(startPromise, /shutting down/i);
+    assert.equal(runObserveCalls, 0);
+    assert.equal(stopCalls, 1);
+  });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+
+  return { promise, resolve };
+}

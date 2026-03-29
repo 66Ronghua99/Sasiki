@@ -108,6 +108,7 @@ export class RunManager {
   private readonly events: RunEventBus;
   private readonly runs = new Map<string, DesktopRunSummary>();
   private readonly runtimes = new Map<string, DesktopRuntimeService>();
+  private shutdownRequested = false;
   private readonly now: () => string;
   private readonly createRunId: (workflow: DesktopWorkflow) => string;
 
@@ -124,6 +125,7 @@ export class RunManager {
   }
 
   async startObserve(input: ObserveRunInput): Promise<{ runId: string }> {
+    this.assertCanStart();
     const runId = this.createSummary("observe", input.siteAccountId, input.task, null);
     const runtime = await this.createRuntime({
       workflow: "observe",
@@ -131,6 +133,10 @@ export class RunManager {
       sourceRunId: null,
       taskSummary: input.task,
     });
+    if (this.shutdownRequested) {
+      await runtime.stop().catch(() => undefined);
+      throw new Error("Run manager is shutting down");
+    }
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime
@@ -149,6 +155,7 @@ export class RunManager {
   }
 
   async startCompact(input: CompactRunInput): Promise<{ runId: string }> {
+    this.assertCanStart();
     const sourceRun = this.getRun(input.sourceRunId);
     const runId = this.createSummary(
       "sop-compact",
@@ -162,6 +169,10 @@ export class RunManager {
       sourceRunId: input.sourceRunId,
       taskSummary: sourceRun?.taskSummary ?? null,
     });
+    if (this.shutdownRequested) {
+      await runtime.stop().catch(() => undefined);
+      throw new Error("Run manager is shutting down");
+    }
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime
@@ -180,6 +191,7 @@ export class RunManager {
   }
 
   async startRefine(input: RefineRunInput): Promise<{ runId: string }> {
+    this.assertCanStart();
     const sourceRun = input.resumeRunId ? this.getRun(input.resumeRunId) : undefined;
     const siteAccountId = input.siteAccountId ?? sourceRun?.siteAccountId;
     const taskSummary = input.task ?? sourceRun?.taskSummary ?? null;
@@ -195,6 +207,10 @@ export class RunManager {
       sourceRunId: input.resumeRunId ?? null,
       taskSummary,
     });
+    if (this.shutdownRequested) {
+      await runtime.stop().catch(() => undefined);
+      throw new Error("Run manager is shutting down");
+    }
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime
@@ -239,6 +255,7 @@ export class RunManager {
   }
 
   async stopAll(): Promise<void> {
+    this.shutdownRequested = true;
     const activeRuntimes = [...this.runtimes.values()];
     this.runtimes.clear();
     await Promise.all(activeRuntimes.map(async (runtime) => runtime.stop()));
@@ -295,6 +312,12 @@ export class RunManager {
         this.handleRuntimeEvent(runId, event);
       },
     };
+  }
+
+  private assertCanStart(): void {
+    if (this.shutdownRequested) {
+      throw new Error("Run manager is shutting down");
+    }
   }
 
   private handleRuntimeEvent(runId: string, event: DesktopRuntimeServiceEvent): void {
