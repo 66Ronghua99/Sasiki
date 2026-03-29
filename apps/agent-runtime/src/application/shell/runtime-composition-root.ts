@@ -81,6 +81,10 @@ export interface CompactWorkflowRequest {
   semanticMode?: RuntimeSemanticMode;
 }
 
+export interface RuntimeCompositionDependencies {
+  createAdditionalTelemetrySinks?(scope: RuntimeRunTelemetryScope): RuntimeTelemetrySink[];
+}
+
 export function planRuntimeComposition(input: RuntimeCompositionPlanInput): RuntimeCompositionPlan {
   const prompts = new PromptProvider().resolve(input);
   return {
@@ -90,12 +94,18 @@ export function planRuntimeComposition(input: RuntimeCompositionPlanInput): Runt
   };
 }
 
-export function createRuntimeComposition(config: RuntimeConfig): RuntimeComposition {
+export function createRuntimeComposition(
+  config: RuntimeConfig,
+  dependencies: RuntimeCompositionDependencies = {}
+): RuntimeComposition {
   const plan = planRuntimeComposition(config);
   const logger = new RuntimeLogger();
   const telemetryRegistry = createRuntimeTelemetryRegistry({
     createSinks: (scope: RuntimeRunTelemetryScope) => {
-      const sinks: RuntimeTelemetrySink[] = [new TerminalTelemetrySink(config.telemetry)];
+      const sinks: RuntimeTelemetrySink[] = [
+        ...(dependencies.createAdditionalTelemetrySinks?.(scope) ?? []),
+        new TerminalTelemetrySink(config.telemetry),
+      ];
       if (scope.workflow === "refine" && config.telemetry.artifactEventStreamEnabled) {
         sinks.unshift(new RuntimeEventStreamWriter(scope.artifactsDir));
       }

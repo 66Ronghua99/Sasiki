@@ -1,0 +1,157 @@
+import assert from "node:assert/strict";
+import { describe, test } from "vitest";
+import { RunEventBus } from "../../../main/runs/run-event-bus";
+import { RunManager } from "../../../main/runs/run-manager";
+import type {
+  DesktopRuntimeService,
+} from "../../../main/runs/run-manager";
+
+function createRuntimeStub(): DesktopRuntimeService {
+  return {
+    async runObserve(request, hooks = {}) {
+      hooks.onEvent?.({
+        type: "run.started",
+        workflow: "observe",
+        status: "running",
+        timestamp: new Date().toISOString(),
+      });
+      hooks.onEvent?.({
+        type: "run.log",
+        workflow: "observe",
+        level: "info",
+        message: `observe:${request.task}`,
+        timestamp: new Date().toISOString(),
+      });
+      const result = {
+        mode: "observe",
+        runId: "observe-run",
+        taskHint: request.task,
+        status: "completed",
+        finishReason: "observe_timeout_reached",
+        artifactsDir: "/tmp/observe-run",
+      } as const;
+      hooks.onEvent?.({
+        type: "run.finished",
+        workflow: "observe",
+        status: "completed",
+        timestamp: new Date().toISOString(),
+        resultSummary: `${result.status}:${result.finishReason}`,
+      });
+      return result;
+    },
+    async runCompact(request, hooks = {}) {
+      hooks.onEvent?.({
+        type: "run.started",
+        workflow: "sop-compact",
+        status: "running",
+        timestamp: new Date().toISOString(),
+      });
+      hooks.onEvent?.({
+        type: "run.log",
+        workflow: "sop-compact",
+        level: "info",
+        message: `compact:${request.runId}`,
+        timestamp: new Date().toISOString(),
+      });
+      const result = {
+        runId: request.runId,
+        sourceObserveRunId: request.runId,
+        sessionId: `${request.runId}_session`,
+        sessionDir: `/tmp/${request.runId}/session`,
+        runDir: `/tmp/${request.runId}`,
+        sourceTracePath: `/tmp/${request.runId}/trace.json`,
+        sessionStatePath: `/tmp/${request.runId}/state.json`,
+        humanLoopPath: `/tmp/${request.runId}/human.jsonl`,
+        selectedSkillName: null,
+        skillPath: null,
+        capabilityOutputPath: null,
+        status: "ready_to_finalize",
+        roundsCompleted: 1,
+        remainingOpenDecisions: [],
+      } as const;
+      hooks.onEvent?.({
+        type: "run.finished",
+        workflow: "sop-compact",
+        status: "completed",
+        timestamp: new Date().toISOString(),
+        resultSummary: `${result.status}:${result.sourceObserveRunId}`,
+      });
+      return result;
+    },
+    async runRefine(request, hooks = {}) {
+      hooks.onEvent?.({
+        type: "run.started",
+        workflow: "refine",
+        status: "running",
+        timestamp: new Date().toISOString(),
+      });
+      hooks.onEvent?.({
+        type: "run.log",
+        workflow: "refine",
+        level: "info",
+        message: `refine:${request.task ?? request.resumeRunId ?? ""}`,
+        timestamp: new Date().toISOString(),
+      });
+      const result = {
+        task: request.task ?? "",
+        status: "completed",
+        finishReason: "goal achieved",
+        steps: [],
+        mcpCalls: [],
+        assistantTurns: [],
+      } as const;
+      hooks.onEvent?.({
+        type: "run.finished",
+        workflow: "refine",
+        status: "completed",
+        timestamp: new Date().toISOString(),
+        resultSummary: `${result.status}:${result.finishReason}`,
+      });
+      return result;
+    },
+    async requestInterrupt() {
+      return true;
+    },
+    async stop() {
+      // no-op
+    },
+  };
+}
+
+describe("RunManager", () => {
+  test("run manager starts refine, stores status, and relays streamed events", async () => {
+    const events = new RunEventBus();
+    const runManager = new RunManager({ createRuntime: createRuntimeStub, events });
+
+    const handle = await runManager.startRefine({
+      task: "check inbox",
+      siteAccountId: "acct-1",
+    });
+
+    assert.equal(handle.runId.startsWith("desktop-refine-"), true);
+    assert.equal(runManager.getRun(handle.runId)?.workflow, "refine");
+    assert.equal(runManager.getRun(handle.runId)?.status, "completed");
+
+    const streamedEvents = events.list(handle.runId);
+    assert.equal(streamedEvents[0]?.type, "run.queued");
+    assert.equal(streamedEvents[1]?.type, "run.started");
+    assert.equal(streamedEvents[2]?.type, "run.log");
+    assert.equal(streamedEvents.at(-1)?.type, "run.finished");
+  });
+
+  test("run manager marks interrupted runs when the runtime accepts interrupt requests", async () => {
+    const events = new RunEventBus();
+    const runManager = new RunManager({ createRuntime: createRuntimeStub, events });
+
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    const interruptResult = await runManager.interruptRun(handle.runId);
+
+    assert.equal(interruptResult.interrupted, true);
+    assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
+    assert.equal(events.list(handle.runId).at(-1)?.type, "run.interrupted");
+  });
+});
