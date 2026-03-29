@@ -10,6 +10,7 @@ import type {
 import { mapCompactInput, mapObserveInput, mapRefineInput } from "./run-request-mapper";
 import { RunEventBus } from "./run-event-bus";
 import { RunEventForwarder, type RunEventSubscriber } from "./run-event-forwarder";
+import type { DesktopRuntimeServiceFactory } from "./desktop-runtime-factory";
 
 export interface ObserveRuntimeResult {
   runId: string;
@@ -96,14 +97,14 @@ export interface DesktopRuntimeService {
 }
 
 export interface RunManagerOptions {
-  createRuntime: () => DesktopRuntimeService;
+  createRuntime: DesktopRuntimeServiceFactory;
   events?: RunEventBus;
   now?: () => string;
   createRunId?: (workflow: DesktopWorkflow) => string;
 }
 
 export class RunManager {
-  private readonly createRuntime: () => DesktopRuntimeService;
+  private readonly createRuntime: DesktopRuntimeServiceFactory;
   private readonly events: RunEventBus;
   private readonly runs = new Map<string, DesktopRunSummary>();
   private readonly runtimes = new Map<string, DesktopRuntimeService>();
@@ -124,7 +125,12 @@ export class RunManager {
 
   async startObserve(input: ObserveRunInput): Promise<{ runId: string }> {
     const runId = this.createSummary("observe", input.siteAccountId, input.task, null);
-    const runtime = this.createRuntime();
+    const runtime = await this.createRuntime({
+      workflow: "observe",
+      siteAccountId: input.siteAccountId,
+      sourceRunId: null,
+      taskSummary: input.task,
+    });
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime
@@ -143,8 +149,19 @@ export class RunManager {
   }
 
   async startCompact(input: CompactRunInput): Promise<{ runId: string }> {
-    const runId = this.createSummary("sop-compact", undefined, null, input.sourceRunId);
-    const runtime = this.createRuntime();
+    const sourceRun = this.getRun(input.sourceRunId);
+    const runId = this.createSummary(
+      "sop-compact",
+      sourceRun?.siteAccountId,
+      sourceRun?.taskSummary ?? null,
+      input.sourceRunId,
+    );
+    const runtime = await this.createRuntime({
+      workflow: "sop-compact",
+      siteAccountId: sourceRun?.siteAccountId,
+      sourceRunId: input.sourceRunId,
+      taskSummary: sourceRun?.taskSummary ?? null,
+    });
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime
@@ -163,13 +180,21 @@ export class RunManager {
   }
 
   async startRefine(input: RefineRunInput): Promise<{ runId: string }> {
+    const sourceRun = input.resumeRunId ? this.getRun(input.resumeRunId) : undefined;
+    const siteAccountId = input.siteAccountId ?? sourceRun?.siteAccountId;
+    const taskSummary = input.task ?? sourceRun?.taskSummary ?? null;
     const runId = this.createSummary(
       "refine",
-      input.siteAccountId,
-      input.task ?? null,
+      siteAccountId,
+      taskSummary,
       input.resumeRunId ?? null,
     );
-    const runtime = this.createRuntime();
+    const runtime = await this.createRuntime({
+      workflow: "refine",
+      siteAccountId,
+      sourceRunId: input.resumeRunId ?? null,
+      taskSummary,
+    });
     this.runtimes.set(runId, runtime);
     const hooks = this.createHooks(runId);
     void runtime

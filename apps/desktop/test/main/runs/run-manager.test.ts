@@ -119,6 +119,37 @@ function createRuntimeStub(): DesktopRuntimeService {
 }
 
 describe("RunManager", () => {
+  test("passes run context into the runtime factory", async () => {
+    let receivedContext: {
+      workflow: string;
+      siteAccountId?: string;
+      sourceRunId?: string | null;
+      taskSummary?: string | null;
+    } | undefined;
+    const events = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: ((context: typeof receivedContext) => {
+        receivedContext = context;
+        return createRuntimeStub();
+      }) as never,
+      events,
+      createRunId: () => "desktop-refine-1",
+    });
+
+    await runManager.startRefine({
+      task: "check inbox",
+      siteAccountId: "acct-1",
+      skillName: "smoke-skill",
+    });
+
+    assert.deepEqual(receivedContext, {
+      workflow: "refine",
+      siteAccountId: "acct-1",
+      sourceRunId: null,
+      taskSummary: "check inbox",
+    });
+  });
+
   test("run manager starts refine, stores status, and relays streamed events", async () => {
     const events = new RunEventBus();
     const runManager = new RunManager({ createRuntime: createRuntimeStub, events });
