@@ -1,4 +1,4 @@
-import type { IpcMain } from "electron";
+import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { desktopChannels } from "../../shared/ipc/channels";
 import type {
   InterruptRunRequest,
@@ -15,6 +15,7 @@ import type {
   SubscribeRunResponse,
 } from "../../shared/ipc/messages";
 import { createRunsIpcHandlers } from "../runs/run-manager";
+import type { RunEventSubscriber } from "../runs/run-event-forwarder";
 
 export interface RunsIpcHandlers {
   startObserve(request: StartObserveRunRequest): Promise<StartObserveRunResponse>;
@@ -22,17 +23,20 @@ export interface RunsIpcHandlers {
   startRefine(request: StartRefineRunRequest): Promise<StartRefineRunResponse>;
   interruptRun(request: InterruptRunRequest): Promise<InterruptRunResponse>;
   listRuns(request: ListRunsRequest): Promise<ListRunsResponse>;
-  subscribe(request: SubscribeRunRequest): Promise<SubscribeRunResponse>;
+  subscribe(
+    request: SubscribeRunRequest,
+    context: { sender: RunEventSubscriber },
+  ): Promise<SubscribeRunResponse>;
 }
 
 function replaceIpcHandler<TRequest, TResponse>(
   ipcMain: IpcMain,
   channel: string,
-  handler: (request: TRequest) => Promise<TResponse>,
+  handler: (request: TRequest, event: IpcMainInvokeEvent) => Promise<TResponse>,
 ): void {
   ipcMain.removeHandler(channel);
   ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
-    handler((request ?? ({} as TRequest)) as TRequest),
+    handler((request ?? ({} as TRequest)) as TRequest, _event),
   );
 }
 
@@ -68,7 +72,8 @@ export function registerRunsIpc(input: {
   replaceIpcHandler(
     input.ipcMain,
     desktopChannels.runs.subscribe,
-    (request: SubscribeRunRequest) => input.handlers.subscribe(request),
+    (request: SubscribeRunRequest, event) =>
+      input.handlers.subscribe(request, { sender: event.sender as unknown as RunEventSubscriber }),
   );
 }
 

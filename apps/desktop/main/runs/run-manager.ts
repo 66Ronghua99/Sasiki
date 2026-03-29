@@ -9,6 +9,7 @@ import type {
 } from "../../shared/runs";
 import { mapCompactInput, mapObserveInput, mapRefineInput } from "./run-request-mapper";
 import { RunEventBus } from "./run-event-bus";
+import { RunEventForwarder, type RunEventSubscriber } from "./run-event-forwarder";
 
 export interface ObserveRuntimeResult {
   runId: string;
@@ -356,7 +357,11 @@ export class RunManager {
 export function createRunsIpcHandlers(runManager: Pick<
   RunManager,
   "startObserve" | "startCompact" | "startRefine" | "interruptRun" | "listRuns" | "subscribe"
->) {
+>, dependencies: {
+  forwarder?: RunEventForwarder;
+} = {}) {
+  const forwarder = dependencies.forwarder ?? new RunEventForwarder(runManager);
+
   return {
     async startObserve(request: { input: ObserveRunInput }) {
       return runManager.startObserve(request.input);
@@ -373,8 +378,8 @@ export function createRunsIpcHandlers(runManager: Pick<
     async listRuns() {
       return { runs: runManager.listRuns() };
     },
-    async subscribe(request: { runId: string }) {
-      runManager.subscribe(request.runId, () => undefined);
+    async subscribe(request: { runId: string }, context: { sender: RunEventSubscriber }) {
+      forwarder.subscribe(request.runId, context.sender);
       return {
         subscribed: true,
         eventChannel: "runs:event" as const,
