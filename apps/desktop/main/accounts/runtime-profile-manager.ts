@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { assertNonEmptyString, readJsonFile, writeJsonFile } from "./json-file-store";
+import type { SiteAccountStore } from "./site-account-store";
 
 export interface RuntimeProfileLease {
   siteAccountId: string;
@@ -16,6 +17,7 @@ interface RuntimeProfileManagerData {
 
 export interface RuntimeProfileManagerOptions {
   rootDir: string;
+  siteAccountStore: SiteAccountStore;
 }
 
 export interface RuntimeProfileAllocationInput {
@@ -26,9 +28,11 @@ export interface RuntimeProfileAllocationInput {
 export class RuntimeProfileManager {
   private readonly rootDir: string;
   private readonly filePath: string;
+  private readonly siteAccountStore: SiteAccountStore;
 
   public constructor(options: RuntimeProfileManagerOptions) {
     this.rootDir = options.rootDir;
+    this.siteAccountStore = options.siteAccountStore;
     this.filePath = join(options.rootDir, "profiles", "runtime-profile-manager.json");
   }
 
@@ -46,6 +50,11 @@ export class RuntimeProfileManager {
 
   public async allocate(input: RuntimeProfileAllocationInput): Promise<RuntimeProfileLease> {
     const siteAccountId = assertNonEmptyString(input.siteAccountId, "siteAccountId");
+    const siteAccount = await this.siteAccountStore.getById(siteAccountId);
+
+    if (!siteAccount) {
+      throw new Error(`Unknown site account: ${siteAccountId}`);
+    }
 
     if (input.allowParallel) {
       const isolatedProfileId = `runtime-profile-${siteAccountId}-${randomUUID()}`;
@@ -64,6 +73,7 @@ export class RuntimeProfileManager {
 
     data.defaultProfiles[siteAccountId] = runtimeProfileId;
     await this.writeData(data);
+    await this.siteAccountStore.setDefaultRuntimeProfileId(siteAccountId, runtimeProfileId);
     await mkdir(this.createProfilePath(runtimeProfileId), { recursive: true });
 
     return {

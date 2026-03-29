@@ -51,7 +51,9 @@ describe("desktop accounts stores", () => {
 
   test("credential bundle store replaces the active bundle for an account", async () => {
     const rootDir = await createTempRoot("sasiki-credential-store-");
-    const store = new CredentialBundleStore({ rootDir });
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const store = new CredentialBundleStore({ rootDir, siteAccountStore });
 
     const capturedAt = "2026-03-29T00:00:00.000Z";
     const first = await store.save({
@@ -79,9 +81,29 @@ describe("desktop accounts stores", () => {
     assert.deepEqual(active?.cookies, [{ name: "sid", value: "new" }]);
   });
 
+  test("credential bundle store rejects missing site accounts", async () => {
+    const rootDir = await createTempRoot("sasiki-credential-store-missing-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    const store = new CredentialBundleStore({ rootDir, siteAccountStore });
+
+    await assert.rejects(
+      () =>
+        store.save({
+          siteAccountId: "acct-1",
+          source: "embedded-login",
+          cookies: [{ name: "sid", value: "value" }],
+          capturedAt: "2026-03-29T00:00:00.000Z",
+          provenance: "embedded-window",
+        }),
+      /Unknown site account: acct-1/,
+    );
+  });
+
   test("runtime profile manager allocates isolated and reusable leases", async () => {
     const rootDir = await createTempRoot("sasiki-profile-manager-");
-    const manager = new RuntimeProfileManager({ rootDir });
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const manager = new RuntimeProfileManager({ rootDir, siteAccountStore });
 
     const reusable = await manager.allocate({
       siteAccountId: "acct-1",
@@ -94,9 +116,28 @@ describe("desktop accounts stores", () => {
 
     assert.equal(reusable.siteAccountId, "acct-1");
     assert.equal(reusable.isolated, false);
+    assert.equal(
+      (await siteAccountStore.getById("acct-1"))?.defaultRuntimeProfileId,
+      reusable.runtimeProfileId,
+    );
     assert.equal(isolated.siteAccountId, "acct-1");
     assert.equal(isolated.isolated, true);
     assert.notEqual(isolated.runtimeProfileId, reusable.runtimeProfileId);
+  });
+
+  test("runtime profile manager rejects missing site accounts", async () => {
+    const rootDir = await createTempRoot("sasiki-profile-manager-missing-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    const manager = new RuntimeProfileManager({ rootDir, siteAccountStore });
+
+    await assert.rejects(
+      () =>
+        manager.allocate({
+          siteAccountId: "acct-1",
+          allowParallel: true,
+        }),
+      /Unknown site account: acct-1/,
+    );
   });
 
   test("site registry resolves known sites and rejects unknown sites", () => {

@@ -34,7 +34,7 @@ interface CredentialBundleStoreData {
 
 export interface CredentialBundleStoreOptions {
   rootDir: string;
-  siteAccountStore?: SiteAccountStore;
+  siteAccountStore: SiteAccountStore;
 }
 
 export interface SaveCredentialBundleInput {
@@ -63,6 +63,12 @@ export class CredentialBundleStore {
   public async save(input: SaveCredentialBundleInput): Promise<CredentialCaptureResult> {
     const siteAccountId = assertNonEmptyString(input.siteAccountId, "siteAccountId");
     const capturedAt = assertNonEmptyString(input.capturedAt, "capturedAt");
+    const siteAccount = await this.options.siteAccountStore.getById(siteAccountId);
+
+    if (!siteAccount) {
+      throw new Error(`Unknown site account: ${siteAccountId}`);
+    }
+
     const data = await this.readData();
     const nextBundleId = `credential-bundle-${randomUUID()}`;
 
@@ -84,14 +90,12 @@ export class CredentialBundleStore {
 
     await this.writeData(data);
 
-    if (this.options.siteAccountStore) {
-      await this.options.siteAccountStore.setActiveCredential({
-        siteAccountId,
-        credentialBundleId: nextBundleId,
-        credentialSource: input.source,
-        credentialUpdatedAt: capturedAt,
-      });
-    }
+    await this.options.siteAccountStore.setActiveCredential({
+      siteAccountId,
+      credentialBundleId: nextBundleId,
+      credentialSource: input.source,
+      credentialUpdatedAt: capturedAt,
+    });
 
     return {
       siteAccountId,
