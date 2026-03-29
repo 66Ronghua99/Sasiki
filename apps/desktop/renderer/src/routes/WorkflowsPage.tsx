@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { CompactForm } from "../components/workflows/compact-form";
 import { ObserveForm } from "../components/workflows/observe-form";
 import { RefineForm } from "../components/workflows/refine-form";
-import { createDesktopClient } from "../lib/desktop-client";
+import { resolveDesktopClient } from "../lib/desktop-client";
 import type { SasikiDesktopApi } from "../../../shared/ipc/contracts";
 import type { CompactRunInput, DesktopRunSummary, ObserveRunInput, RefineRunInput } from "../../../shared/runs";
 import type { SiteAccountSummary } from "../../../shared/site-accounts";
@@ -16,11 +16,12 @@ export interface WorkflowsPageProps {
 }
 
 export function WorkflowsPage({
-  client = createDesktopClient(),
+  client,
   initialAccounts,
   initialRuns,
   initialSkills,
 }: WorkflowsPageProps) {
+  const desktopClient = resolveDesktopClient(client);
   const [accounts, setAccounts] = useState<SiteAccountSummary[]>(initialAccounts ?? []);
   const [runs, setRuns] = useState<DesktopRunSummary[]>(initialRuns ?? []);
   const [skills, setSkills] = useState<SopSkillSummary[]>(initialSkills ?? []);
@@ -29,22 +30,22 @@ export function WorkflowsPage({
   );
 
   useEffect(() => {
-    if (initialAccounts === undefined) {
-      void client.accounts.list().then((nextAccounts: SiteAccountSummary[]) => {
+    if (initialAccounts === undefined && desktopClient) {
+      void desktopClient.accounts.list().then((nextAccounts: SiteAccountSummary[]) => {
         setAccounts(nextAccounts);
       });
     }
-    if (initialRuns === undefined) {
-      void client.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
+    if (initialRuns === undefined && desktopClient) {
+      void desktopClient.runs.listRuns().then((nextRuns: DesktopRunSummary[]) => {
         setRuns(nextRuns);
       });
     }
-    if (initialSkills === undefined) {
-      void client.skills.list().then((nextSkills: SopSkillSummary[]) => {
+    if (initialSkills === undefined && desktopClient) {
+      void desktopClient.skills.list().then((nextSkills: SopSkillSummary[]) => {
         setSkills(nextSkills);
       });
     }
-  }, [client, initialAccounts, initialRuns, initialSkills]);
+  }, [desktopClient, initialAccounts, initialRuns, initialSkills]);
 
   return (
     <section style={pageStyles}>
@@ -70,7 +71,10 @@ export function WorkflowsPage({
             accounts={accounts}
             onSubmit={(input: ObserveRunInput) => {
               setStatusMessage(`Launching observe for ${input.task.slice(0, 48)}`);
-              void client.runs.startObserve(input);
+              if (!desktopClient) {
+                return;
+              }
+              void desktopClient.runs.startObserve(input);
             }}
           />
         </article>
@@ -81,7 +85,10 @@ export function WorkflowsPage({
             observeRuns={runs.filter((run) => run.workflow === "observe")}
             onSubmit={(input: CompactRunInput) => {
               setStatusMessage(`Compacting source run ${input.sourceRunId}`);
-              void client.runs.startCompact(input);
+              if (!desktopClient) {
+                return;
+              }
+              void desktopClient.runs.startCompact(input);
             }}
           />
         </article>
@@ -94,7 +101,10 @@ export function WorkflowsPage({
             onSubmit={(input: RefineRunInput) => {
               const seed = input.resumeRunId ?? input.task ?? "unknown refine task";
               setStatusMessage(`Launching refine from ${seed.slice(0, 48)}`);
-              void client.runs.startRefine(input);
+              if (!desktopClient) {
+                return;
+              }
+              void desktopClient.runs.startRefine(input);
             }}
           />
         </article>

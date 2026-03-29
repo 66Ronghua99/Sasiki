@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AccountList } from "../components/accounts/account-list";
-import { createDesktopClient } from "../lib/desktop-client";
+import { resolveDesktopClient } from "../lib/desktop-client";
 import type { SasikiDesktopApi } from "../../../shared/ipc/contracts";
 import type { SiteAccountSummary } from "../../../shared/site-accounts";
 
@@ -9,21 +9,23 @@ export interface AccountsPageProps {
   initialAccounts?: SiteAccountSummary[];
 }
 
-export function AccountsPage({
-  client = createDesktopClient(),
-  initialAccounts,
-}: AccountsPageProps) {
+export function AccountsPage({ client, initialAccounts }: AccountsPageProps) {
+  const desktopClient = resolveDesktopClient(client);
   const [accounts, setAccounts] = useState<SiteAccountSummary[]>(initialAccounts ?? []);
   const [error, setError] = useState<string | null>(null);
 
   const refreshAccounts = async (): Promise<void> => {
-    const nextAccounts = await client.accounts.list();
+    if (!desktopClient) {
+      return;
+    }
+
+    const nextAccounts = await desktopClient.accounts.list();
     setAccounts(nextAccounts);
     setError(null);
   };
 
   useEffect(() => {
-    if (initialAccounts !== undefined) {
+    if (initialAccounts !== undefined || !desktopClient) {
       return;
     }
 
@@ -45,7 +47,7 @@ export function AccountsPage({
     return () => {
       cancelled = true;
     };
-  }, [client, initialAccounts]);
+  }, [desktopClient, initialAccounts]);
 
   return (
     <section style={pageStyles}>
@@ -66,18 +68,27 @@ export function AccountsPage({
 
       {error ? <p style={errorStyles}>{error}</p> : null}
 
-      <AccountList
-        accounts={accounts}
-        onImportCookieFile={(siteAccountId) => {
-          void client.accounts.importCookieFile({ siteAccountId }).then(() => refreshAccounts());
-        }}
-        onLaunchEmbeddedLogin={(siteAccountId) => {
-          void client.accounts.launchEmbeddedLogin({ siteAccountId }).then(() => refreshAccounts());
-        }}
-        onVerifyCredential={(siteAccountId) => {
-          void client.accounts.verifyCredential({ siteAccountId }).then(() => refreshAccounts());
-        }}
-      />
+        <AccountList
+          accounts={accounts}
+          onImportCookieFile={(siteAccountId) => {
+            if (!desktopClient) {
+              return;
+            }
+            void desktopClient.accounts.importCookieFile({ siteAccountId }).then(() => refreshAccounts());
+          }}
+          onLaunchEmbeddedLogin={(siteAccountId) => {
+            if (!desktopClient) {
+              return;
+            }
+            void desktopClient.accounts.launchEmbeddedLogin({ siteAccountId }).then(() => refreshAccounts());
+          }}
+          onVerifyCredential={(siteAccountId) => {
+            if (!desktopClient) {
+              return;
+            }
+            void desktopClient.accounts.verifyCredential({ siteAccountId }).then(() => refreshAccounts());
+          }}
+        />
     </section>
   );
 }

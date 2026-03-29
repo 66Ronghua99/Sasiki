@@ -1,4 +1,3 @@
-import type { IpcMain } from "electron";
 import { desktopChannels } from "../../shared/ipc/channels";
 import type {
   ImportCookieFileRequest,
@@ -19,6 +18,7 @@ import type {
 } from "../accounts/embedded-login-service";
 import type { LoginVerifier } from "../accounts/login-verifier";
 import type { SiteAccountStore } from "../accounts/site-account-store";
+import type { DesktopIpcMain } from "./ipc-main-port";
 
 export interface AccountsIpcHandlers {
   list(request: ListSiteAccountsRequest): Promise<ListSiteAccountsResponse>;
@@ -46,45 +46,29 @@ export interface CreateAccountsIpcHandlersOptions {
   loginVerifier: LoginVerifier;
 }
 
-function replaceIpcHandler<TRequest, TResponse>(
-  ipcMain: IpcMain,
-  channel: string,
-  handler: (request: TRequest) => Promise<TResponse>,
-): void {
-  ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
-    handler((request ?? ({} as TRequest)) as TRequest),
-  );
-}
-
 export function registerAccountsIpc(input: {
-  ipcMain: IpcMain;
+  ipcMain: DesktopIpcMain;
   handlers: AccountsIpcHandlers;
 }): void {
-  replaceIpcHandler(
-    input.ipcMain,
-    desktopChannels.accounts.list,
-    (request: ListSiteAccountsRequest = {}) => input.handlers.list(request),
+  input.ipcMain.removeHandler(desktopChannels.accounts.list);
+  input.ipcMain.handle(desktopChannels.accounts.list, async (_event, request) =>
+    input.handlers.list((request ?? ({} as ListSiteAccountsRequest)) as ListSiteAccountsRequest),
   );
-  replaceIpcHandler(
-    input.ipcMain,
-    desktopChannels.accounts.upsert,
-    (request: UpsertSiteAccountRequest) => input.handlers.upsert(request),
+  input.ipcMain.removeHandler(desktopChannels.accounts.upsert);
+  input.ipcMain.handle(desktopChannels.accounts.upsert, async (_event, request) =>
+    input.handlers.upsert(request as UpsertSiteAccountRequest),
   );
-  replaceIpcHandler(
-    input.ipcMain,
-    desktopChannels.accounts.launchEmbeddedLogin,
-    (request: LaunchEmbeddedLoginRequest) => input.handlers.launchEmbeddedLogin(request),
+  input.ipcMain.removeHandler(desktopChannels.accounts.launchEmbeddedLogin);
+  input.ipcMain.handle(desktopChannels.accounts.launchEmbeddedLogin, async (_event, request) =>
+    input.handlers.launchEmbeddedLogin(request as LaunchEmbeddedLoginRequest),
   );
-  replaceIpcHandler(
-    input.ipcMain,
-    desktopChannels.accounts.importCookieFile,
-    (request: ImportCookieFileRequest) => input.handlers.importCookieFile(request),
+  input.ipcMain.removeHandler(desktopChannels.accounts.importCookieFile);
+  input.ipcMain.handle(desktopChannels.accounts.importCookieFile, async (_event, request) =>
+    input.handlers.importCookieFile(request as ImportCookieFileRequest),
   );
-  replaceIpcHandler(
-    input.ipcMain,
-    desktopChannels.accounts.verifyCredential,
-    (request: VerifyCredentialRequest) => input.handlers.verifyCredential(request),
+  input.ipcMain.removeHandler(desktopChannels.accounts.verifyCredential);
+  input.ipcMain.handle(desktopChannels.accounts.verifyCredential, async (_event, request) =>
+    input.handlers.verifyCredential(request as VerifyCredentialRequest),
   );
 }
 

@@ -309,3 +309,16 @@
 - 根 `README.md` 已改回 normal CLI front door：移除 sandbox 使用说明，改为以 `apps/agent-runtime` 下的 `observe` / `sop-compact` / `refine` 为主入口，并保留最小 config 说明。
 - 仓库级 `skills/` 目录已从当前分支删除；检查结果显示该目录此前同时存在于 `master` 与 `mvp-dev`。
 - 本轮未改动 active runtime 指针；`NEXT_STEP.md` 仍维持 metric semantics slice。
+
+### 2026-03-30 (desktop interrupted-state stability fix)
+- 已修复 desktop run summary 的 interrupted 稳定态回归：
+  - `apps/desktop/main/runs/run-manager.ts` 中晚到的 `run.started` 现在不会把已 interrupted 的 run 重新改回 `running`
+  - `apps/desktop/renderer/src/lib/run-summary-updater.ts` 同步补上相同守卫
+- 已补充 red-green regression tests：
+  - main：晚到 `run.started` after interrupt 不得回退状态
+  - renderer：interrupted summary 遇到晚到 `run.started` 仍保持 interrupted
+- fresh verification：
+  - `npm --prefix apps/desktop run test -- --run test/main/runs/run-manager.test.ts test/renderer/run-summary-updater.test.ts`
+  - `npm --prefix apps/desktop run test`
+  - `npm --prefix apps/desktop run build`
+  - `npm --prefix apps/desktop run typecheck`

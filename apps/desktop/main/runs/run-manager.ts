@@ -10,6 +10,7 @@ import type {
 import { mapCompactInput, mapObserveInput, mapRefineInput } from "./run-request-mapper";
 import { RunEventBus } from "./run-event-bus";
 import { RunEventForwarder, type RunEventSubscriber } from "./run-event-forwarder";
+import type { DesktopRuntimeServiceFactory } from "./desktop-runtime-factory";
 
 export interface ObserveRuntimeResult {
   runId: string;
@@ -96,17 +97,20 @@ export interface DesktopRuntimeService {
 }
 
 export interface RunManagerOptions {
-  createRuntime: () => DesktopRuntimeService;
+  createRuntime: DesktopRuntimeServiceFactory;
   events?: RunEventBus;
   now?: () => string;
   createRunId?: (workflow: DesktopWorkflow) => string;
 }
 
 export class RunManager {
-  private readonly createRuntime: () => DesktopRuntimeService;
+  private readonly createRuntime: DesktopRuntimeServiceFactory;
   private readonly events: RunEventBus;
   private readonly runs = new Map<string, DesktopRunSummary>();
   private readonly runtimes = new Map<string, DesktopRuntimeService>();
+  private readonly pendingStartupPromises = new Map<string, Promise<DesktopRuntimeService>>();
+  private readonly pendingInterruptRequests = new Set<string>();
+  private shutdownRequested = false;
   private readonly now: () => string;
   private readonly createRunId: (workflow: DesktopWorkflow) => string;
 
@@ -123,74 +127,131 @@ export class RunManager {
   }
 
   async startObserve(input: ObserveRunInput): Promise<{ runId: string }> {
+    this.assertCanStart();
     const runId = this.createSummary("observe", input.siteAccountId, input.task, null);
-    const runtime = this.createRuntime();
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runObserve(mapObserveInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.artifactsDir,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "observe",
+        siteAccountId: input.siteAccountId,
+        sourceRunId: null,
+        taskSummary: input.task,
       });
-    return { runId };
+      if (!runtime) {
+        return { runId };
+      }
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runObserve(runId, runtime, mapObserveInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
+      await this.failRun(runId, error);
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
+    }
   }
 
   async startCompact(input: CompactRunInput): Promise<{ runId: string }> {
-    const runId = this.createSummary("sop-compact", undefined, null, input.sourceRunId);
-    const runtime = this.createRuntime();
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runCompact(mapCompactInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.runDir,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    this.assertCanStart();
+    const sourceRun = this.getRun(input.sourceRunId);
+    const runId = this.createSummary(
+      "sop-compact",
+      sourceRun?.siteAccountId,
+      sourceRun?.taskSummary ?? null,
+      input.sourceRunId,
+    );
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "sop-compact",
+        siteAccountId: sourceRun?.siteAccountId,
+        sourceRunId: input.sourceRunId,
+        taskSummary: sourceRun?.taskSummary ?? null,
       });
-    return { runId };
+      if (!runtime) {
+        return { runId };
+      }
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runCompact(runId, runtime, mapCompactInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
+      await this.failRun(runId, error);
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
+    }
   }
 
   async startRefine(input: RefineRunInput): Promise<{ runId: string }> {
+    this.assertCanStart();
+    const sourceRun = input.resumeRunId ? this.getRun(input.resumeRunId) : undefined;
+    const siteAccountId = input.siteAccountId ?? sourceRun?.siteAccountId;
+    const taskSummary = input.task ?? sourceRun?.taskSummary ?? null;
     const runId = this.createSummary(
       "refine",
-      input.siteAccountId,
-      input.task ?? null,
+      siteAccountId,
+      taskSummary,
       input.resumeRunId ?? null,
     );
-    const runtime = this.createRuntime();
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runRefine(mapRefineInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.artifactsDir ?? null,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "refine",
+        siteAccountId,
+        sourceRunId: input.resumeRunId ?? null,
+        taskSummary,
       });
-    return { runId };
+      if (!runtime) {
+        return { runId };
+      }
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runRefine(runId, runtime, mapRefineInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
+      await this.failRun(runId, error);
+      if (this.isShutdownError(error)) {
+        throw error;
+      }
+      return { runId };
+    }
   }
 
   async interruptRun(runId: string): Promise<{ interrupted: boolean }> {
     const runtime = this.runtimes.get(runId);
     if (!runtime) {
-      return { interrupted: false };
+      const run = this.runs.get(runId);
+      if (!run || run.status !== "starting" || !this.pendingStartupPromises.has(runId)) {
+        return { interrupted: false };
+      }
+
+      this.pendingInterruptRequests.add(runId);
+      this.updateRun(runId, {
+        status: "interrupted",
+        updatedAt: this.now(),
+      });
+      this.events.publish(runId, {
+        type: "run.interrupted",
+        runId,
+        workflow: this.requireRun(runId).workflow,
+        timestamp: this.now(),
+        status: "interrupted",
+        reason: "SIGINT",
+      });
+      return { interrupted: true };
     }
 
     const interrupted = await runtime.requestInterrupt("SIGINT");
@@ -211,6 +272,18 @@ export class RunManager {
       reason: "SIGINT",
     });
     return { interrupted: true };
+  }
+
+  async stopAll(): Promise<void> {
+    this.shutdownRequested = true;
+    await Promise.allSettled(
+      [...this.pendingStartupPromises.values()].map(async (startupPromise) => {
+        await startupPromise.catch(() => undefined);
+      }),
+    );
+    const activeRuntimes = [...this.runtimes.values()];
+    this.runtimes.clear();
+    await Promise.allSettled(activeRuntimes.map(async (runtime) => runtime.stop()));
   }
 
   listRuns(): DesktopRunSummary[] {
@@ -266,20 +339,135 @@ export class RunManager {
     };
   }
 
+  private assertCanStart(): void {
+    if (this.shutdownRequested) {
+      throw new Error("Run manager is shutting down");
+    }
+  }
+
+  private isShutdownError(error: unknown): boolean {
+    return error instanceof Error && error.message === "Run manager is shutting down";
+  }
+
+  private async startRuntime(
+    runId: string,
+    context: Parameters<DesktopRuntimeServiceFactory>[0],
+  ): Promise<DesktopRuntimeService | null> {
+    const startupPromise = Promise.resolve().then(() => this.createRuntime(context));
+    this.pendingStartupPromises.set(runId, startupPromise);
+
+    try {
+      const runtime = await startupPromise;
+      if (this.shutdownRequested) {
+        await runtime.stop().catch(() => undefined);
+        throw new Error("Run manager is shutting down");
+      }
+      if (this.pendingInterruptRequests.delete(runId)) {
+        await runtime.stop().catch(() => undefined);
+        return null;
+      }
+      return runtime;
+    } finally {
+      this.pendingStartupPromises.delete(runId);
+    }
+  }
+
+  private async runObserve(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapObserveInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runObserve(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.artifactsDir,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async runCompact(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapCompactInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runCompact(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.runDir,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async runRefine(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapRefineInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runRefine(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.artifactsDir ?? null,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async failRun(runId: string, error: unknown): Promise<void> {
+    const run = this.runs.get(runId);
+    if (!run || run.status === "completed" || run.status === "failed" || run.status === "interrupted") {
+      return;
+    }
+
+    const message = error instanceof Error && error.message ? error.message : "desktop runtime failed";
+    this.updateRun(runId, {
+      status: "failed",
+      updatedAt: this.now(),
+    });
+    this.events.publish(runId, {
+      type: "run.finished",
+      runId,
+      workflow: run.workflow,
+      timestamp: this.now(),
+      status: "failed",
+      resultSummary: message,
+    });
+  }
+
   private handleRuntimeEvent(runId: string, event: DesktopRuntimeServiceEvent): void {
-    const workflow = this.requireRun(runId).workflow;
+    const currentRun = this.requireRun(runId);
+    const workflow = currentRun.workflow;
     const mapped = this.mapServiceEvent(runId, workflow, event);
     if (!mapped) {
       return;
     }
 
     if (mapped.type === "run.started") {
-      this.updateRun(runId, { status: "running", updatedAt: mapped.timestamp });
+      this.updateRun(runId, {
+        status: currentRun.status === "interrupted" ? "interrupted" : "running",
+        updatedAt: mapped.timestamp,
+      });
     } else if (mapped.type === "run.finished") {
       this.updateRun(runId, {
-        status: mapped.status,
+        status: currentRun.status === "interrupted" ? "interrupted" : mapped.status,
         updatedAt: mapped.timestamp,
-        artifactPath: this.requireRun(runId).artifactPath,
+        artifactPath: currentRun.artifactPath,
       });
     } else if (mapped.type === "run.interrupted") {
       this.updateRun(runId, { status: "interrupted", updatedAt: mapped.timestamp });
@@ -356,7 +544,14 @@ export class RunManager {
 
 export function createRunsIpcHandlers(runManager: Pick<
   RunManager,
-  "startObserve" | "startCompact" | "startRefine" | "interruptRun" | "listRuns" | "subscribe"
+  | "startObserve"
+  | "startCompact"
+  | "startRefine"
+  | "interruptRun"
+  | "listRuns"
+  | "subscribe"
+  | "eventBus"
+  | "stopAll"
 >, dependencies: {
   forwarder?: RunEventForwarder;
 } = {}) {
@@ -383,6 +578,25 @@ export function createRunsIpcHandlers(runManager: Pick<
       return {
         subscribed: true,
         eventChannel: "runs:event" as const,
+      };
+    },
+    async unsubscribe(request: { runId: string }, context: { sender: RunEventSubscriber }) {
+      forwarder.unsubscribe(request.runId, context.sender.id);
+      return {
+        unsubscribed: true,
+      };
+    },
+    async subscribeAll(_request: Record<string, never>, context: { sender: RunEventSubscriber }) {
+      forwarder.subscribeAll(context.sender);
+      return {
+        subscribed: true,
+        eventChannel: "runs:event" as const,
+      };
+    },
+    async unsubscribeAll(_request: Record<string, never>, context: { sender: RunEventSubscriber }) {
+      forwarder.unsubscribeAll(context.sender.id);
+      return {
+        unsubscribed: true,
       };
     },
   };

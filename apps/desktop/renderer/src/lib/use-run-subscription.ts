@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { SasikiDesktopApi } from "../../../shared/ipc/contracts";
 import type { DesktopRunEvent } from "../../../shared/runs";
-import { createDesktopClient } from "./desktop-client";
+import { resolveDesktopClient } from "./desktop-client";
 
 const EMPTY_EVENTS: DesktopRunEvent[] = [];
 
 export function useRunSubscription(
   runId: string | null,
-  client: SasikiDesktopApi = createDesktopClient(),
+  client?: SasikiDesktopApi,
   initialEvents: DesktopRunEvent[] = EMPTY_EVENTS,
 ) {
+  const desktopClient = resolveDesktopClient(client);
   const [events, setEvents] = useState<DesktopRunEvent[]>(() => initialEvents);
   const previousRunId = useRef<string | null>(runId);
   const initialEventsRef = useRef(initialEvents);
@@ -22,14 +23,14 @@ export function useRunSubscription(
       setEvents(initialEventsRef.current);
     }
 
-    if (!runId) {
+    if (!runId || !desktopClient) {
       return;
     }
 
-    return client.runs.subscribe(runId, (event) => {
+    return desktopClient.runs.subscribe(runId, (event) => {
       setEvents((current) => [...current, event]);
     });
-  }, [client, runId]);
+  }, [desktopClient, runId]);
 
   return events;
 }

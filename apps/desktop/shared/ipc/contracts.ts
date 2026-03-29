@@ -18,6 +18,21 @@ import type { SopSkillSummary } from "../skills";
 export type { DesktopRunEventKind } from "../runs";
 export { desktopRunEventKinds } from "../runs";
 
+const desktopApiContract = {
+  accounts: ["list", "upsert", "launchEmbeddedLogin", "importCookieFile", "verifyCredential"],
+  runs: [
+    "startObserve",
+    "startCompact",
+    "startRefine",
+    "interruptRun",
+    "listRuns",
+    "subscribe",
+    "subscribeAll",
+  ],
+  artifacts: ["openRunArtifacts"],
+  skills: ["list"],
+} as const;
+
 export interface SasikiDesktopApi {
   accounts: {
     list(): Promise<SiteAccountSummary[]>;
@@ -35,6 +50,7 @@ export interface SasikiDesktopApi {
     interruptRun(runId: string): Promise<{ interrupted: boolean }>;
     listRuns(): Promise<DesktopRunSummary[]>;
     subscribe(runId: string, callback: (event: DesktopRunEvent) => void): () => void;
+    subscribeAll(callback: (event: DesktopRunEvent) => void): () => void;
   };
   artifacts: {
     openRunArtifacts(runId: string): Promise<void>;
@@ -84,6 +100,7 @@ export function createDesktopApiShape(): SasikiDesktopApi {
       subscribe: createUnimplementedMethod<SasikiDesktopApi["runs"]["subscribe"]>(
         "runs.subscribe",
       ),
+      subscribeAll: (() => () => undefined) as SasikiDesktopApi["runs"]["subscribeAll"],
     },
     artifacts: {
       openRunArtifacts: createUnimplementedMethod<
@@ -94,4 +111,33 @@ export function createDesktopApiShape(): SasikiDesktopApi {
       list: createUnimplementedMethod<SasikiDesktopApi["skills"]["list"]>("skills.list"),
     },
   };
+}
+
+type ContractSectionName = keyof typeof desktopApiContract;
+
+function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+}
+
+function assertMethodSection(
+  api: Record<string, unknown>,
+  section: ContractSectionName,
+): void {
+  assertObject(api[section], `desktop api.${section}`);
+  const methods = desktopApiContract[section];
+  for (const methodName of methods) {
+    if (typeof api[section][methodName] !== "function") {
+      throw new Error(`desktop api.${section}.${methodName} must be a function`);
+    }
+  }
+}
+
+export function assertDesktopApiContract(api: unknown): asserts api is SasikiDesktopApi {
+  assertObject(api, "desktop api");
+  assertMethodSection(api, "accounts");
+  assertMethodSection(api, "runs");
+  assertMethodSection(api, "artifacts");
+  assertMethodSection(api, "skills");
 }

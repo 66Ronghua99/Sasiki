@@ -1,4 +1,3 @@
-import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { desktopChannels } from "../../shared/ipc/channels";
 import type {
   InterruptRunRequest,
@@ -11,11 +10,18 @@ import type {
   StartObserveRunResponse,
   StartRefineRunRequest,
   StartRefineRunResponse,
+  SubscribeAllRunRequest,
+  SubscribeAllRunResponse,
   SubscribeRunRequest,
   SubscribeRunResponse,
+  UnsubscribeRunRequest,
+  UnsubscribeRunResponse,
+  UnsubscribeAllRunRequest,
+  UnsubscribeAllRunResponse,
 } from "../../shared/ipc/messages";
 import { createRunsIpcHandlers } from "../runs/run-manager";
 import type { RunEventSubscriber } from "../runs/run-event-forwarder";
+import type { DesktopIpcInvokeEvent, DesktopIpcMain } from "./ipc-main-port";
 
 export interface RunsIpcHandlers {
   startObserve(request: StartObserveRunRequest): Promise<StartObserveRunResponse>;
@@ -27,21 +33,33 @@ export interface RunsIpcHandlers {
     request: SubscribeRunRequest,
     context: { sender: RunEventSubscriber },
   ): Promise<SubscribeRunResponse>;
+  unsubscribe(
+    request: UnsubscribeRunRequest,
+    context: { sender: RunEventSubscriber },
+  ): Promise<UnsubscribeRunResponse>;
+  subscribeAll(
+    request: SubscribeAllRunRequest,
+    context: { sender: RunEventSubscriber },
+  ): Promise<SubscribeAllRunResponse>;
+  unsubscribeAll(
+    request: UnsubscribeAllRunRequest,
+    context: { sender: RunEventSubscriber },
+  ): Promise<UnsubscribeAllRunResponse>;
 }
 
 function replaceIpcHandler<TRequest, TResponse>(
-  ipcMain: IpcMain,
+  ipcMain: DesktopIpcMain,
   channel: string,
-  handler: (request: TRequest, event: IpcMainInvokeEvent) => Promise<TResponse>,
+  handler: (request: TRequest, event: DesktopIpcInvokeEvent) => Promise<TResponse>,
 ): void {
   ipcMain.removeHandler(channel);
-  ipcMain.handle(channel, async (_event, request: TRequest | undefined) =>
+  ipcMain.handle(channel, async (_event, request: unknown) =>
     handler((request ?? ({} as TRequest)) as TRequest, _event),
   );
 }
 
 export function registerRunsIpc(input: {
-  ipcMain: IpcMain;
+  ipcMain: DesktopIpcMain;
   handlers: RunsIpcHandlers;
 }): void {
   replaceIpcHandler(
@@ -74,6 +92,24 @@ export function registerRunsIpc(input: {
     desktopChannels.runs.subscribe,
     (request: SubscribeRunRequest, event) =>
       input.handlers.subscribe(request, { sender: event.sender as unknown as RunEventSubscriber }),
+  );
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.unsubscribe,
+    (request: UnsubscribeRunRequest, event) =>
+      input.handlers.unsubscribe(request, { sender: event.sender as unknown as RunEventSubscriber }),
+  );
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.subscribeAll,
+    (request: SubscribeAllRunRequest = {}, event) =>
+      input.handlers.subscribeAll(request, { sender: event.sender as unknown as RunEventSubscriber }),
+  );
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.unsubscribeAll,
+    (request: UnsubscribeAllRunRequest = {}, event) =>
+      input.handlers.unsubscribeAll(request, { sender: event.sender as unknown as RunEventSubscriber }),
   );
 }
 

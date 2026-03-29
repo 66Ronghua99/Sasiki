@@ -56,6 +56,7 @@ function createSubscriber(id: number) {
   const messages: Array<{ channel: string; payload: unknown }> = [];
   let destroyedListener: (() => void) | null = null;
   let destroyed = false;
+  let destroyedRegistrations = 0;
 
   return {
     id,
@@ -64,6 +65,7 @@ function createSubscriber(id: number) {
       messages.push({ channel, payload });
     },
     once(_event: "destroyed", listener: () => void) {
+      destroyedRegistrations += 1;
       destroyedListener = listener;
     },
     isDestroyed() {
@@ -72,6 +74,9 @@ function createSubscriber(id: number) {
     destroy() {
       destroyed = true;
       destroyedListener?.();
+    },
+    get destroyedRegistrations() {
+      return destroyedRegistrations;
     },
   };
 }
@@ -93,6 +98,31 @@ describe("Run event forwarding", () => {
 
     assert.equal(subscriber.messages.length > 0, true);
     assert.equal(subscriber.messages[0]?.channel, desktopChannels.runs.events);
+  });
+
+  test("forwarder drops a broken sender without failing the run", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(23);
+    const deliveryError = new Error("renderer delivery failed");
+
+    subscriber.send = () => {
+      throw deliveryError;
+    };
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    const handle = await runManager.startObserve({ task: "record a baidu search" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(runManager.getRun(handle.runId)?.status, "completed");
+    assert.equal(subscriber.messages.length, 0);
   });
 
   test("forwarder deduplicates repeat subscriptions and cleans up on destroy", async () => {
@@ -123,5 +153,168 @@ describe("Run event forwarding", () => {
 
     assert.equal(firstMessageCount > 0, true);
     assert.equal(subscriber.messages.length, firstMessageCount);
+  });
+
+  test("forwarder registers only one destroy listener per sender", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(21);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.subscribe({ runId: "desktop-observe-2" }, { sender: subscriber });
+
+    assert.equal(subscriber.destroyedRegistrations, 1);
+  });
+
+  test("forwarder removes a run subscription when the preload cleanup unsubscribes it", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder }) as {
+      subscribe(
+        request: { runId: string },
+        context: { sender: ReturnType<typeof createSubscriber> },
+      ): Promise<{ subscribed: boolean; eventChannel: string }>;
+      unsubscribe(
+        request: { runId: string },
+        context: { sender: ReturnType<typeof createSubscriber> },
+      ): Promise<{ unsubscribed: boolean }>;
+    };
+    const subscriber = createSubscriber(13);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await runManager.startObserve({ task: "record a baidu search" });
+
+    assert.equal(subscriber.messages.length, 0);
+  });
+
+  test("forwarder keeps a run subscription active until all listeners in the same sender unsubscribe", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(17);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "still active",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "after final unsubscribe",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+  });
+
+  test("forwarder streams every run event through the global subscription path", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(11);
+
+    await handlers.subscribeAll({}, { sender: subscriber });
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "global event",
+    });
+
+    const firstMessageCount = subscriber.messages.length;
+
+    subscriber.destroy();
+    eventBus.publish("desktop-observe-2", {
+      type: "run.log",
+      runId: "desktop-observe-2",
+      workflow: "refine",
+      timestamp: new Date().toISOString(),
+      level: "warning",
+      message: "after destroy",
+    });
+
+    assert.equal(firstMessageCount > 0, true);
+    assert.equal(
+      subscriber.messages.some((entry) => entry.payload && typeof entry.payload === "object"),
+      true,
+    );
+    assert.equal(subscriber.messages.length, firstMessageCount);
+  });
+
+  test("forwarder keeps subscribeAll active until all listeners in the same sender unsubscribe", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(19);
+
+    await handlers.subscribeAll({}, { sender: subscriber });
+    await handlers.subscribeAll({}, { sender: subscriber });
+    await handlers.unsubscribeAll({}, { sender: subscriber });
+
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "still active globally",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+
+    await handlers.unsubscribeAll({}, { sender: subscriber });
+    eventBus.publish("desktop-observe-2", {
+      type: "run.log",
+      runId: "desktop-observe-2",
+      workflow: "refine",
+      timestamp: new Date().toISOString(),
+      level: "warning",
+      message: "after final global unsubscribe",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
   });
 });
