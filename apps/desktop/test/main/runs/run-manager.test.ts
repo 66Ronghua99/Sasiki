@@ -173,7 +173,49 @@ describe("RunManager", () => {
 
   test("run manager marks interrupted runs when the runtime accepts interrupt requests", async () => {
     const events = new RunEventBus();
-    const runManager = new RunManager({ createRuntime: createRuntimeStub, events });
+    const runtimeGate = createDeferred<void>();
+    const runManager = new RunManager({
+      createRuntime: (() => ({
+        async runObserve(request: { task: string }, hooks: DesktopRuntimeServiceHooks = {}) {
+          hooks.onEvent?.({
+            type: "run.started",
+            workflow: "observe",
+            status: "running",
+            timestamp: new Date().toISOString(),
+          });
+          hooks.onEvent?.({
+            type: "run.log",
+            workflow: "observe",
+            level: "info",
+            message: `observe:${request.task}`,
+            timestamp: new Date().toISOString(),
+          });
+          await runtimeGate.promise;
+          return {
+            mode: "observe",
+            runId: "observe-run",
+            taskHint: request.task,
+            status: "completed",
+            finishReason: "observe_timeout_reached",
+            artifactsDir: "/tmp/observe-run",
+          } as const;
+        },
+        async runCompact() {
+          throw new Error("not implemented");
+        },
+        async runRefine() {
+          throw new Error("not implemented");
+        },
+        async requestInterrupt() {
+          runtimeGate.resolve();
+          return true;
+        },
+        async stop() {
+          // no-op
+        },
+      })) as never,
+      events,
+    });
 
     const handle = await runManager.startObserve({
       task: "record a baidu search",
@@ -185,6 +227,68 @@ describe("RunManager", () => {
     assert.equal(interruptResult.interrupted, true);
     assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
     assert.equal(events.list(handle.runId).at(-1)?.type, "run.interrupted");
+  });
+
+  test("run manager marks a run as failed when runtime startup rejects", async () => {
+    const events = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: async () => ({
+        async runObserve() {
+          throw new Error("runtime startup failed");
+        },
+        async runCompact() {
+          throw new Error("not implemented");
+        },
+        async runRefine() {
+          throw new Error("not implemented");
+        },
+        async requestInterrupt() {
+          return true;
+        },
+        async stop() {
+          // no-op
+        },
+      }),
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(handle.runId, "desktop-observe-1");
+    assert.equal(runManager.getRun(handle.runId)?.status, "failed");
+    const lastEvent = events.list(handle.runId).at(-1);
+    assert.equal(lastEvent?.type, "run.finished");
+    assert.equal(lastEvent && "status" in lastEvent ? lastEvent.status : undefined, "failed");
+  });
+
+  test("run manager marks a run as failed when runtime creation rejects", async () => {
+    const events = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: async () => {
+        throw new Error("runtime creation failed");
+      },
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    await assert.rejects(
+      runManager.startObserve({
+        task: "record a baidu search",
+        siteAccountId: "acct-1",
+      }),
+      /runtime creation failed/,
+    );
+
+    assert.equal(runManager.getRun("desktop-observe-1")?.status, "failed");
+    const lastEvent = events.list("desktop-observe-1").at(-1);
+    assert.equal(lastEvent?.type, "run.finished");
+    assert.equal(lastEvent && "status" in lastEvent ? lastEvent.status : undefined, "failed");
   });
 
   test("run manager stops every active runtime and clears tracked handles", async () => {
@@ -255,7 +359,15 @@ describe("RunManager", () => {
       siteAccountId: "acct-1",
     });
 
-    await runManager.stopAll();
+    const stopAllPromise = runManager.stopAll();
+    let stopAllSettled = false;
+    stopAllPromise.finally(() => {
+      stopAllSettled = true;
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(stopAllSettled, false);
+
     runtimeDeferred.resolve({
       async runObserve() {
         runObserveCalls += 1;
@@ -283,8 +395,10 @@ describe("RunManager", () => {
     });
 
     await assert.rejects(startPromise, /shutting down/i);
+    await stopAllPromise;
     assert.equal(runObserveCalls, 0);
     assert.equal(stopCalls, 1);
+    assert.equal(runManager.getRun("desktop-observe-1")?.status, "failed");
   });
 });
 

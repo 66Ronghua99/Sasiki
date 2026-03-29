@@ -13,10 +13,13 @@ export interface RunEventSubscriber {
 interface SubscriptionState {
   unsubscribe: () => void;
   refCount: number;
+  subscriberId: number;
 }
 
 export class RunEventForwarder {
   private readonly subscriptions = new Map<string, SubscriptionState>();
+  private readonly subscriptionKeysBySubscriber = new Map<number, Set<string>>();
+  private readonly destroyListenersRegistered = new Set<number>();
 
   constructor(
     private readonly runManager: Pick<RunManager, "subscribe" | "eventBus">,
@@ -33,11 +36,9 @@ export class RunEventForwarder {
     const unsubscribe = this.runManager.subscribe(runId, (event) => {
       this.forwardEvent(runId, event, subscriber);
     });
-    this.subscriptions.set(key, { unsubscribe, refCount: 1 });
-
-    subscriber.once("destroyed", () => {
-      this.removeSubscription(key);
-    });
+    this.subscriptions.set(key, { unsubscribe, refCount: 1, subscriberId: subscriber.id });
+    this.trackSubscriptionKey(subscriber.id, key);
+    this.ensureDestroyListener(subscriber);
 
     return true;
   }
@@ -53,11 +54,9 @@ export class RunEventForwarder {
     const unsubscribe = this.runManager.eventBus.subscribeAll((event) => {
       this.forwardEvent(event.runId, event, subscriber);
     });
-    this.subscriptions.set(key, { unsubscribe, refCount: 1 });
-
-    subscriber.once("destroyed", () => {
-      this.removeSubscription(key);
-    });
+    this.subscriptions.set(key, { unsubscribe, refCount: 1, subscriberId: subscriber.id });
+    this.trackSubscriptionKey(subscriber.id, key);
+    this.ensureDestroyListener(subscriber);
 
     return true;
   }
@@ -102,6 +101,7 @@ export class RunEventForwarder {
 
     subscription.unsubscribe();
     this.subscriptions.delete(key);
+    this.untrackSubscriptionKey(subscription.subscriberId, key);
   }
 
   private removeSubscription(key: string): void {
@@ -112,5 +112,38 @@ export class RunEventForwarder {
 
     subscription.unsubscribe();
     this.subscriptions.delete(key);
+    this.untrackSubscriptionKey(subscription.subscriberId, key);
+  }
+
+  private trackSubscriptionKey(subscriberId: number, key: string): void {
+    const keys = this.subscriptionKeysBySubscriber.get(subscriberId) ?? new Set<string>();
+    keys.add(key);
+    this.subscriptionKeysBySubscriber.set(subscriberId, keys);
+  }
+
+  private untrackSubscriptionKey(subscriberId: number, key: string): void {
+    const keys = this.subscriptionKeysBySubscriber.get(subscriberId);
+    if (!keys) {
+      return;
+    }
+
+    keys.delete(key);
+    if (keys.size === 0) {
+      this.subscriptionKeysBySubscriber.delete(subscriberId);
+    }
+  }
+
+  private ensureDestroyListener(subscriber: RunEventSubscriber): void {
+    if (this.destroyListenersRegistered.has(subscriber.id)) {
+      return;
+    }
+
+    this.destroyListenersRegistered.add(subscriber.id);
+    subscriber.once("destroyed", () => {
+      const keys = [...(this.subscriptionKeysBySubscriber.get(subscriber.id) ?? [])];
+      for (const key of keys) {
+        this.removeSubscription(key);
+      }
+    });
   }
 }

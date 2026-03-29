@@ -56,6 +56,7 @@ function createSubscriber(id: number) {
   const messages: Array<{ channel: string; payload: unknown }> = [];
   let destroyedListener: (() => void) | null = null;
   let destroyed = false;
+  let destroyedRegistrations = 0;
 
   return {
     id,
@@ -64,6 +65,7 @@ function createSubscriber(id: number) {
       messages.push({ channel, payload });
     },
     once(_event: "destroyed", listener: () => void) {
+      destroyedRegistrations += 1;
       destroyedListener = listener;
     },
     isDestroyed() {
@@ -72,6 +74,9 @@ function createSubscriber(id: number) {
     destroy() {
       destroyed = true;
       destroyedListener?.();
+    },
+    get destroyedRegistrations() {
+      return destroyedRegistrations;
     },
   };
 }
@@ -123,6 +128,23 @@ describe("Run event forwarding", () => {
 
     assert.equal(firstMessageCount > 0, true);
     assert.equal(subscriber.messages.length, firstMessageCount);
+  });
+
+  test("forwarder registers only one destroy listener per sender", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(21);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.subscribe({ runId: "desktop-observe-2" }, { sender: subscriber });
+
+    assert.equal(subscriber.destroyedRegistrations, 1);
   });
 
   test("forwarder removes a run subscription when the preload cleanup unsubscribes it", async () => {

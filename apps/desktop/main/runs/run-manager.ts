@@ -108,6 +108,7 @@ export class RunManager {
   private readonly events: RunEventBus;
   private readonly runs = new Map<string, DesktopRunSummary>();
   private readonly runtimes = new Map<string, DesktopRuntimeService>();
+  private readonly pendingStartupPromises = new Map<string, Promise<DesktopRuntimeService>>();
   private shutdownRequested = false;
   private readonly now: () => string;
   private readonly createRunId: (workflow: DesktopWorkflow) => string;
@@ -127,31 +128,21 @@ export class RunManager {
   async startObserve(input: ObserveRunInput): Promise<{ runId: string }> {
     this.assertCanStart();
     const runId = this.createSummary("observe", input.siteAccountId, input.task, null);
-    const runtime = await this.createRuntime({
-      workflow: "observe",
-      siteAccountId: input.siteAccountId,
-      sourceRunId: null,
-      taskSummary: input.task,
-    });
-    if (this.shutdownRequested) {
-      await runtime.stop().catch(() => undefined);
-      throw new Error("Run manager is shutting down");
-    }
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runObserve(mapObserveInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.artifactsDir,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "observe",
+        siteAccountId: input.siteAccountId,
+        sourceRunId: null,
+        taskSummary: input.task,
       });
-    return { runId };
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runObserve(runId, runtime, mapObserveInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      await this.failRun(runId, error);
+      throw error;
+    }
   }
 
   async startCompact(input: CompactRunInput): Promise<{ runId: string }> {
@@ -163,31 +154,21 @@ export class RunManager {
       sourceRun?.taskSummary ?? null,
       input.sourceRunId,
     );
-    const runtime = await this.createRuntime({
-      workflow: "sop-compact",
-      siteAccountId: sourceRun?.siteAccountId,
-      sourceRunId: input.sourceRunId,
-      taskSummary: sourceRun?.taskSummary ?? null,
-    });
-    if (this.shutdownRequested) {
-      await runtime.stop().catch(() => undefined);
-      throw new Error("Run manager is shutting down");
-    }
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runCompact(mapCompactInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.runDir,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "sop-compact",
+        siteAccountId: sourceRun?.siteAccountId,
+        sourceRunId: input.sourceRunId,
+        taskSummary: sourceRun?.taskSummary ?? null,
       });
-    return { runId };
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runCompact(runId, runtime, mapCompactInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      await this.failRun(runId, error);
+      throw error;
+    }
   }
 
   async startRefine(input: RefineRunInput): Promise<{ runId: string }> {
@@ -201,31 +182,21 @@ export class RunManager {
       taskSummary,
       input.resumeRunId ?? null,
     );
-    const runtime = await this.createRuntime({
-      workflow: "refine",
-      siteAccountId,
-      sourceRunId: input.resumeRunId ?? null,
-      taskSummary,
-    });
-    if (this.shutdownRequested) {
-      await runtime.stop().catch(() => undefined);
-      throw new Error("Run manager is shutting down");
-    }
-    this.runtimes.set(runId, runtime);
-    const hooks = this.createHooks(runId);
-    void runtime
-      .runRefine(mapRefineInput(input), hooks)
-      .then((result) => {
-        this.updateRun(runId, {
-          artifactPath: result.artifactsDir ?? null,
-          updatedAt: this.now(),
-        });
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        this.runtimes.delete(runId);
+    try {
+      const runtime = await this.startRuntime(runId, {
+        workflow: "refine",
+        siteAccountId,
+        sourceRunId: input.resumeRunId ?? null,
+        taskSummary,
       });
-    return { runId };
+      this.runtimes.set(runId, runtime);
+      const hooks = this.createHooks(runId);
+      void this.runRefine(runId, runtime, mapRefineInput(input), hooks);
+      return { runId };
+    } catch (error) {
+      await this.failRun(runId, error);
+      throw error;
+    }
   }
 
   async interruptRun(runId: string): Promise<{ interrupted: boolean }> {
@@ -256,6 +227,11 @@ export class RunManager {
 
   async stopAll(): Promise<void> {
     this.shutdownRequested = true;
+    await Promise.all(
+      [...this.pendingStartupPromises.values()].map(async (startupPromise) => {
+        await startupPromise.catch(() => undefined);
+      }),
+    );
     const activeRuntimes = [...this.runtimes.values()];
     this.runtimes.clear();
     await Promise.all(activeRuntimes.map(async (runtime) => runtime.stop()));
@@ -318,6 +294,103 @@ export class RunManager {
     if (this.shutdownRequested) {
       throw new Error("Run manager is shutting down");
     }
+  }
+
+  private async startRuntime(
+    runId: string,
+    context: Parameters<DesktopRuntimeServiceFactory>[0],
+  ): Promise<DesktopRuntimeService> {
+    const startupPromise = Promise.resolve().then(() => this.createRuntime(context));
+    this.pendingStartupPromises.set(runId, startupPromise);
+
+    try {
+      const runtime = await startupPromise;
+      if (this.shutdownRequested) {
+        await runtime.stop().catch(() => undefined);
+        throw new Error("Run manager is shutting down");
+      }
+      return runtime;
+    } finally {
+      this.pendingStartupPromises.delete(runId);
+    }
+  }
+
+  private async runObserve(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapObserveInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runObserve(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.artifactsDir,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async runCompact(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapCompactInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runCompact(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.runDir,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async runRefine(
+    runId: string,
+    runtime: DesktopRuntimeService,
+    request: ReturnType<typeof mapRefineInput>,
+    hooks: DesktopRuntimeServiceHooks,
+  ): Promise<void> {
+    try {
+      const result = await runtime.runRefine(request, hooks);
+      this.updateRun(runId, {
+        artifactPath: result.artifactsDir ?? null,
+        updatedAt: this.now(),
+      });
+    } catch (error) {
+      await this.failRun(runId, error);
+    } finally {
+      this.runtimes.delete(runId);
+    }
+  }
+
+  private async failRun(runId: string, error: unknown): Promise<void> {
+    const run = this.runs.get(runId);
+    if (!run || run.status === "completed" || run.status === "failed" || run.status === "interrupted") {
+      return;
+    }
+
+    const message = error instanceof Error && error.message ? error.message : "desktop runtime failed";
+    this.updateRun(runId, {
+      status: "failed",
+      updatedAt: this.now(),
+    });
+    this.events.publish(runId, {
+      type: "run.finished",
+      runId,
+      workflow: run.workflow,
+      timestamp: this.now(),
+      status: "failed",
+      resultSummary: message,
+    });
   }
 
   private handleRuntimeEvent(runId: string, event: DesktopRuntimeServiceEvent): void {

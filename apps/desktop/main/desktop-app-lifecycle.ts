@@ -1,5 +1,10 @@
+export interface DesktopAppQuitEventLike {
+  preventDefault(): void;
+}
+
 export interface DesktopAppQuitHooksLike {
-  on(event: "before-quit" | "will-quit" | "window-all-closed", listener: () => void): void;
+  on(event: "before-quit" | "will-quit", listener: (event: DesktopAppQuitEventLike) => void): void;
+  on(event: "window-all-closed", listener: () => void): void;
   quit(): void;
 }
 
@@ -11,6 +16,7 @@ export interface DesktopAppQuitHooksOptions {
 
 export function registerDesktopQuitHooks(options: DesktopAppQuitHooksOptions): void {
   let stopPromise: Promise<void> | null = null;
+  let quitting = false;
 
   const stopOnce = (): Promise<void> => {
     if (!stopPromise) {
@@ -19,8 +25,22 @@ export function registerDesktopQuitHooks(options: DesktopAppQuitHooksOptions): v
     return stopPromise;
   };
 
-  const requestStop = () => {
-    void stopOnce();
+  const reQuit = (): void => {
+    if (quitting) {
+      return;
+    }
+
+    quitting = true;
+    options.app.quit();
+  };
+
+  const requestStop = (event?: DesktopAppQuitEventLike) => {
+    if (quitting) {
+      return;
+    }
+
+    event?.preventDefault();
+    void stopOnce().finally(reQuit);
   };
 
   options.app.on("before-quit", requestStop);
@@ -30,8 +50,6 @@ export function registerDesktopQuitHooks(options: DesktopAppQuitHooksOptions): v
       return;
     }
 
-    void stopOnce().finally(() => {
-      options.app.quit();
-    });
+    requestStop();
   });
 }
