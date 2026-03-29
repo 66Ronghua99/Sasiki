@@ -229,6 +229,59 @@ describe("RunManager", () => {
     assert.equal(events.list(handle.runId).at(-1)?.type, "run.interrupted");
   });
 
+  test("run manager remembers an interrupt requested during startup and skips the workflow body", async () => {
+    const events = new RunEventBus();
+    const runtimeDeferred = createDeferred<DesktopRuntimeService>();
+    let runObserveCalls = 0;
+    const runManager = new RunManager({
+      createRuntime: async () => runtimeDeferred.promise,
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const startPromise = runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    const interruptResult = await runManager.interruptRun("desktop-observe-1");
+    assert.equal(interruptResult.interrupted, true);
+    assert.equal(runManager.getRun("desktop-observe-1")?.status, "interrupted");
+
+    runtimeDeferred.resolve({
+      async runObserve() {
+        runObserveCalls += 1;
+        return {
+          mode: "observe",
+          runId: "observe-run",
+          taskHint: "record a baidu search",
+          status: "completed",
+          finishReason: "observe_timeout_reached",
+          artifactsDir: "/tmp/observe-run",
+        };
+      },
+      async runCompact() {
+        throw new Error("not implemented");
+      },
+      async runRefine() {
+        throw new Error("not implemented");
+      },
+      async requestInterrupt() {
+        return true;
+      },
+      async stop() {
+        // no-op
+      },
+    });
+
+    await startPromise;
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(runObserveCalls, 0);
+    assert.equal(runManager.getRun("desktop-observe-1")?.status, "interrupted");
+    assert.equal(events.list("desktop-observe-1").at(-1)?.type, "run.interrupted");
+  });
+
   test("run manager marks a run as failed when runtime startup rejects", async () => {
     const events = new RunEventBus();
     const runManager = new RunManager({

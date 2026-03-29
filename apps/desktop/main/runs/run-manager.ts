@@ -109,6 +109,7 @@ export class RunManager {
   private readonly runs = new Map<string, DesktopRunSummary>();
   private readonly runtimes = new Map<string, DesktopRuntimeService>();
   private readonly pendingStartupPromises = new Map<string, Promise<DesktopRuntimeService>>();
+  private readonly pendingInterruptRequests = new Set<string>();
   private shutdownRequested = false;
   private readonly now: () => string;
   private readonly createRunId: (workflow: DesktopWorkflow) => string;
@@ -135,11 +136,18 @@ export class RunManager {
         sourceRunId: null,
         taskSummary: input.task,
       });
+      if (!runtime) {
+        return { runId };
+      }
       this.runtimes.set(runId, runtime);
       const hooks = this.createHooks(runId);
       void this.runObserve(runId, runtime, mapObserveInput(input), hooks);
       return { runId };
     } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
       await this.failRun(runId, error);
       if (this.isShutdownError(error)) {
         throw error;
@@ -164,11 +172,18 @@ export class RunManager {
         sourceRunId: input.sourceRunId,
         taskSummary: sourceRun?.taskSummary ?? null,
       });
+      if (!runtime) {
+        return { runId };
+      }
       this.runtimes.set(runId, runtime);
       const hooks = this.createHooks(runId);
       void this.runCompact(runId, runtime, mapCompactInput(input), hooks);
       return { runId };
     } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
       await this.failRun(runId, error);
       if (this.isShutdownError(error)) {
         throw error;
@@ -195,11 +210,18 @@ export class RunManager {
         sourceRunId: input.resumeRunId ?? null,
         taskSummary,
       });
+      if (!runtime) {
+        return { runId };
+      }
       this.runtimes.set(runId, runtime);
       const hooks = this.createHooks(runId);
       void this.runRefine(runId, runtime, mapRefineInput(input), hooks);
       return { runId };
     } catch (error) {
+      if (this.runs.get(runId)?.status === "interrupted") {
+        this.pendingInterruptRequests.delete(runId);
+        return { runId };
+      }
       await this.failRun(runId, error);
       if (this.isShutdownError(error)) {
         throw error;
@@ -211,7 +233,25 @@ export class RunManager {
   async interruptRun(runId: string): Promise<{ interrupted: boolean }> {
     const runtime = this.runtimes.get(runId);
     if (!runtime) {
-      return { interrupted: false };
+      const run = this.runs.get(runId);
+      if (!run || run.status !== "starting" || !this.pendingStartupPromises.has(runId)) {
+        return { interrupted: false };
+      }
+
+      this.pendingInterruptRequests.add(runId);
+      this.updateRun(runId, {
+        status: "interrupted",
+        updatedAt: this.now(),
+      });
+      this.events.publish(runId, {
+        type: "run.interrupted",
+        runId,
+        workflow: this.requireRun(runId).workflow,
+        timestamp: this.now(),
+        status: "interrupted",
+        reason: "SIGINT",
+      });
+      return { interrupted: true };
     }
 
     const interrupted = await runtime.requestInterrupt("SIGINT");
@@ -312,7 +352,7 @@ export class RunManager {
   private async startRuntime(
     runId: string,
     context: Parameters<DesktopRuntimeServiceFactory>[0],
-  ): Promise<DesktopRuntimeService> {
+  ): Promise<DesktopRuntimeService | null> {
     const startupPromise = Promise.resolve().then(() => this.createRuntime(context));
     this.pendingStartupPromises.set(runId, startupPromise);
 
@@ -321,6 +361,10 @@ export class RunManager {
       if (this.shutdownRequested) {
         await runtime.stop().catch(() => undefined);
         throw new Error("Run manager is shutting down");
+      }
+      if (this.pendingInterruptRequests.delete(runId)) {
+        await runtime.stop().catch(() => undefined);
+        return null;
       }
       return runtime;
     } finally {
