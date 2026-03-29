@@ -2,6 +2,7 @@ import { BrowserWindow, app, ipcMain, shell } from "electron";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { registerDesktopQuitHooks } from "./desktop-app-lifecycle";
 import { createDesktopMainContext } from "./desktop-main-context";
 import { createEmbeddedLoginLauncher } from "./accounts/embedded-login-launcher";
 import { CookieImportService } from "./accounts/cookie-import-service";
@@ -77,6 +78,12 @@ const desktopMainContext = createDesktopMainContext({
   skillRootDir,
 });
 
+registerDesktopQuitHooks({
+  app,
+  platform: process.platform,
+  stop: () => desktopMainContext.stop(),
+});
+
 async function createMainWindow(): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1280,
@@ -113,12 +120,4 @@ void app
     void desktopMainContext.stop().finally(() => {
       app.quit();
     });
-  });
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    void desktopMainContext.stop().finally(() => {
-      app.quit();
-    });
-  }
 });

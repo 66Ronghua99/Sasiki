@@ -24,6 +24,7 @@ export interface EmbeddedLoginWindowOptions {
   webPreferences: {
     contextIsolation: boolean;
     nodeIntegration: boolean;
+    partition?: string;
   };
 }
 
@@ -56,6 +57,7 @@ export function createEmbeddedLoginLauncher(
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
+          partition: createEmbeddedLoginPartition(input.siteAccountId),
         },
       });
 
@@ -82,3 +84,7 @@ export function createEmbeddedLoginLauncher(
   };
 }
 
+export function createEmbeddedLoginPartition(siteAccountId: string): string {
+  const normalized = siteAccountId.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-");
+  return `persist:sasiki-embedded-login-${normalized}`;
+}
