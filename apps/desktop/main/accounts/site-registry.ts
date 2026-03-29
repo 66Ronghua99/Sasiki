@@ -4,6 +4,7 @@ export interface SiteDefinition {
   loginUrl: string;
   verificationUrl: string;
   cookieDomains: string[];
+  requiredCookieNames: string[];
 }
 
 const siteDefinitions: SiteDefinition[] = [
@@ -13,12 +14,17 @@ const siteDefinitions: SiteDefinition[] = [
     loginUrl: "https://seller.tiktok.com/",
     verificationUrl: "https://www.tiktok.com/",
     cookieDomains: ["seller.tiktok.com", ".tiktok.com", "www.tiktok.com"],
+    requiredCookieNames: ["sessionid"],
   },
 ];
 
 export class SiteRegistry {
   public list(): SiteDefinition[] {
-    return siteDefinitions.map((site) => ({ ...site, cookieDomains: [...site.cookieDomains] }));
+    return siteDefinitions.map((site) => ({
+      ...site,
+      cookieDomains: [...site.cookieDomains],
+      requiredCookieNames: [...site.requiredCookieNames],
+    }));
   }
 
   public require(site: string): SiteDefinition {
@@ -28,6 +34,10 @@ export class SiteRegistry {
       throw new Error(`Unknown site: ${site}`);
     }
 
-    return { ...definition, cookieDomains: [...definition.cookieDomains] };
+    return {
+      ...definition,
+      cookieDomains: [...definition.cookieDomains],
+      requiredCookieNames: [...definition.requiredCookieNames],
+    };
   }
 }

@@ -45,6 +45,32 @@ export interface SaveCredentialBundleInput {
   provenance: string | null;
 }
 
+export function validateCredentialCookies(cookies: CredentialCookieRecord[]): CredentialCookieRecord[] {
+  if (!Array.isArray(cookies) || cookies.length === 0) {
+    throw new Error("credential bundle must include at least one cookie");
+  }
+
+  return cookies.map((cookie, index) => {
+    if (!cookie || typeof cookie !== "object") {
+      throw new Error(`cookie at index ${index} must be an object`);
+    }
+
+    const name = assertNonEmptyString(String(cookie.name ?? ""), "cookie.name");
+    const value = assertNonEmptyString(String(cookie.value ?? ""), "cookie.value");
+
+    return {
+      name,
+      value,
+      domain: typeof cookie.domain === "string" ? cookie.domain : undefined,
+      path: typeof cookie.path === "string" ? cookie.path : undefined,
+      expires: typeof cookie.expires === "number" ? cookie.expires : undefined,
+      httpOnly: typeof cookie.httpOnly === "boolean" ? cookie.httpOnly : undefined,
+      secure: typeof cookie.secure === "boolean" ? cookie.secure : undefined,
+      sameSite: typeof cookie.sameSite === "string" ? cookie.sameSite : undefined,
+    };
+  });
+}
+
 export class CredentialBundleStore {
   private readonly filePath: string;
 
@@ -63,6 +89,7 @@ export class CredentialBundleStore {
   public async save(input: SaveCredentialBundleInput): Promise<CredentialCaptureResult> {
     const siteAccountId = assertNonEmptyString(input.siteAccountId, "siteAccountId");
     const capturedAt = assertNonEmptyString(input.capturedAt, "capturedAt");
+    const cookies = validateCredentialCookies(input.cookies);
     if (!(await this.options.siteAccountStore.getById(siteAccountId))) {
       throw new Error(`Unknown site account: ${siteAccountId}`);
     }
@@ -80,7 +107,7 @@ export class CredentialBundleStore {
       credentialBundleId: nextBundleId,
       siteAccountId,
       credentialSource: input.source,
-      cookies: input.cookies.map((cookie) => ({ ...cookie })),
+      cookies,
       capturedAt,
       provenance: input.provenance,
       active: true,

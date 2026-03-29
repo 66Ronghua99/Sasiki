@@ -26,6 +26,17 @@ function cookieMatchesDomain(cookieDomain: string | undefined, allowedDomains: s
   });
 }
 
+function cookieMatchesRequiredNames(
+  cookieName: string | undefined,
+  requiredCookieNames: string[],
+): boolean {
+  if (!cookieName) {
+    return false;
+  }
+
+  return requiredCookieNames.includes(cookieName.toLowerCase());
+}
+
 export class LoginVerifier {
   public constructor(private readonly options: LoginVerifierOptions) {}
 
@@ -59,8 +70,10 @@ export class LoginVerifier {
       };
     }
 
-    const isVerified = credentialBundle.cookies.some((cookie) =>
-      cookieMatchesDomain(cookie.domain, site.cookieDomains),
+    const isVerified = credentialBundle.cookies.some(
+      (cookie) =>
+        cookieMatchesDomain(cookie.domain, site.cookieDomains) &&
+        cookieMatchesRequiredNames(cookie.name, site.requiredCookieNames),
     );
     const checkedAt = new Date().toISOString();
 

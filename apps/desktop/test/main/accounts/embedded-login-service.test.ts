@@ -96,6 +96,76 @@ describe("desktop account capture services", () => {
     assert.equal((await siteAccountStore.getById("acct-1"))?.verificationStatus, "verified");
   });
 
+  test("login verifier rejects cookies that only match the domain but not the required session cookie name", async () => {
+    const rootDir = await createTempRoot("sasiki-login-verifier-invalid-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
+    await credentialStore.save({
+      siteAccountId: "acct-1",
+      source: "browser-plugin",
+      cookies: [{ name: "ttwid", value: "abc", domain: ".tiktok.com" }],
+      capturedAt: "2026-03-29T00:00:00.000Z",
+      provenance: "extension",
+    });
+    const verifier = new LoginVerifier({
+      siteAccountStore,
+      credentialStore,
+      siteRegistry: new SiteRegistry(),
+    });
+
+    const result = await verifier.verify({ siteAccountId: "acct-1" });
+
+    assert.equal(result.status, "invalid");
+    assert.equal((await siteAccountStore.getById("acct-1"))?.verificationStatus, "invalid");
+  });
+
+  test("embedded login rejects malformed cookies before activating a credential bundle", async () => {
+    const rootDir = await createTempRoot("sasiki-embedded-login-invalid-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
+    const service = new EmbeddedLoginService({ credentialStore });
+
+    await assert.rejects(
+      () =>
+        service.completeLogin(
+          { siteAccountId: "acct-1" },
+          {
+            cookies: {
+              async get() {
+                return [{ name: "", value: "abc", domain: ".tiktok.com" }];
+              },
+            },
+          },
+        ),
+      /cookie\.name/,
+    );
+  });
+
+  test("cookie import rejects malformed cookie entries", async () => {
+    const rootDir = await createTempRoot("sasiki-cookie-import-invalid-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
+    const importFilePath = join(rootDir, "cookies.json");
+    await writeFile(
+      importFilePath,
+      JSON.stringify([{ name: "", value: "from-file", domain: ".tiktok.com" }]),
+      "utf8",
+    );
+    const service = new CookieImportService({ credentialStore });
+
+    await assert.rejects(
+      () =>
+        service.importFromFile({
+          siteAccountId: "acct-1",
+          filePath: importFilePath,
+        }),
+      /cookie\.name/,
+    );
+  });
+
   test("accounts ipc handlers route imports and verification through the service layer", async () => {
     const rootDir = await createTempRoot("sasiki-accounts-ipc-");
     const siteAccountStore = new SiteAccountStore({ rootDir });

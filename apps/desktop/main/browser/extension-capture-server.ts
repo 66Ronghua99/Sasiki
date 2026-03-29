@@ -1,7 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { assertNonEmptyString } from "../accounts/json-file-store";
-import type { CredentialBundleStore, CredentialCookieRecord } from "../accounts/credential-bundle-store";
+import {
+  validateCredentialCookies,
+  type CredentialBundleStore,
+  type CredentialCookieRecord,
+} from "../accounts/credential-bundle-store";
 import type { SiteAccountStore } from "../accounts/site-account-store";
+import type { SiteRegistry } from "../accounts/site-registry";
 import {
   PendingExtensionCaptureStore,
   type PendingExtensionCaptureRecord,
@@ -19,6 +24,7 @@ export type ExtensionCaptureResult = CredentialCaptureResult | PendingExtensionC
 export interface ExtensionCaptureServerOptions {
   credentialStore: CredentialBundleStore;
   siteAccountStore: SiteAccountStore;
+  siteRegistry: SiteRegistry;
   pendingCaptureStore?: PendingExtensionCaptureStore;
   rootDir?: string;
   host?: string;
@@ -33,6 +39,7 @@ const DEFAULT_MAX_PAYLOAD_BYTES = 1024 * 512;
 export class ExtensionCaptureServer {
   private readonly credentialStore: CredentialBundleStore;
   private readonly siteAccountStore: SiteAccountStore;
+  private readonly siteRegistry: SiteRegistry;
   private readonly pendingCaptureStore: PendingExtensionCaptureStore;
   private readonly host: string;
   private readonly port: number;
@@ -42,6 +49,7 @@ export class ExtensionCaptureServer {
   constructor(options: ExtensionCaptureServerOptions) {
     this.credentialStore = options.credentialStore;
     this.siteAccountStore = options.siteAccountStore;
+    this.siteRegistry = options.siteRegistry;
     this.pendingCaptureStore =
       options.pendingCaptureStore ??
       new PendingExtensionCaptureStore({
@@ -54,7 +62,8 @@ export class ExtensionCaptureServer {
 
   async handleCapture(input: ExtensionCaptureRequest): Promise<ExtensionCaptureResult> {
     const site = assertNonEmptyString(input.site, "site");
-    const cookies = validateCookies(input.cookies);
+    this.siteRegistry.require(site);
+    const cookies = validateCredentialCookies(input.cookies);
     const capturedAt = new Date().toISOString();
 
     if (input.accountId) {
@@ -173,30 +182,4 @@ export class ExtensionCaptureServer {
   private writeError(response: ServerResponse, statusCode: number, message: string): void {
     this.writeJson(response, statusCode, { error: message });
   }
-}
-
-function validateCookies(cookies: CredentialCookieRecord[]): CredentialCookieRecord[] {
-  if (!Array.isArray(cookies) || cookies.length === 0) {
-    throw new Error("extension capture payload must include at least one cookie");
-  }
-
-  return cookies.map((cookie, index) => {
-    if (!cookie || typeof cookie !== "object") {
-      throw new Error(`cookie at index ${index} must be an object`);
-    }
-
-    const name = assertNonEmptyString(String(cookie.name ?? ""), "cookie.name");
-    const value = assertNonEmptyString(String(cookie.value ?? ""), "cookie.value");
-
-    return {
-      name,
-      value,
-      domain: typeof cookie.domain === "string" ? cookie.domain : undefined,
-      path: typeof cookie.path === "string" ? cookie.path : undefined,
-      expires: typeof cookie.expires === "number" ? cookie.expires : undefined,
-      httpOnly: typeof cookie.httpOnly === "boolean" ? cookie.httpOnly : undefined,
-      secure: typeof cookie.secure === "boolean" ? cookie.secure : undefined,
-      sameSite: typeof cookie.sameSite === "string" ? cookie.sameSite : undefined,
-    };
-  });
 }

@@ -99,6 +99,37 @@ describe("desktop accounts stores", () => {
     );
   });
 
+  test("credential bundle store rejects empty or malformed cookies", async () => {
+    const rootDir = await createTempRoot("sasiki-credential-store-invalid-cookies-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const store = new CredentialBundleStore({ rootDir, siteAccountStore });
+
+    await assert.rejects(
+      () =>
+        store.save({
+          siteAccountId: "acct-1",
+          source: "embedded-login",
+          cookies: [],
+          capturedAt: "2026-03-29T00:00:00.000Z",
+          provenance: "embedded-window",
+        }),
+      /at least one cookie/,
+    );
+
+    await assert.rejects(
+      () =>
+        store.save({
+          siteAccountId: "acct-1",
+          source: "embedded-login",
+          cookies: [{ name: "", value: "value" }],
+          capturedAt: "2026-03-29T00:00:00.000Z",
+          provenance: "embedded-window",
+        }),
+      /cookie\.name/,
+    );
+  });
+
   test("runtime profile manager allocates isolated and reusable leases", async () => {
     const rootDir = await createTempRoot("sasiki-profile-manager-");
     const siteAccountStore = new SiteAccountStore({ rootDir });
@@ -147,6 +178,7 @@ describe("desktop accounts stores", () => {
     assert.equal(site.site, "tiktok-shop");
     assert.equal(site.label, "TikTok Shop");
     assert.equal(site.verificationUrl, "https://www.tiktok.com/");
+    assert.deepEqual(site.requiredCookieNames, ["sessionid"]);
     assert.equal(registry.list().length > 0, true);
 
     assert.throws(() => registry.require("unknown-site"), /Unknown site/);

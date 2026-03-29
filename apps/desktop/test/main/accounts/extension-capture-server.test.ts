@@ -6,6 +6,7 @@ import { describe, test } from "vitest";
 import { CredentialBundleStore } from "../../../main/accounts/credential-bundle-store";
 import { ExtensionCaptureServer } from "../../../main/browser/extension-capture-server";
 import { SiteAccountStore } from "../../../main/accounts/site-account-store";
+import { SiteRegistry } from "../../../main/accounts/site-registry";
 
 async function createTempRoot(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -20,6 +21,7 @@ describe("desktop extension capture server", () => {
     const server = new ExtensionCaptureServer({
       credentialStore,
       siteAccountStore,
+      siteRegistry: new SiteRegistry(),
     });
 
     const result = await server.handleCapture({
@@ -46,6 +48,7 @@ describe("desktop extension capture server", () => {
     const server = new ExtensionCaptureServer({
       credentialStore,
       siteAccountStore,
+      siteRegistry: new SiteRegistry(),
       rootDir,
     });
 
@@ -61,5 +64,27 @@ describe("desktop extension capture server", () => {
     assert.equal("credentialSource" in result, false);
     assert.equal((await server.listPendingCaptures()).length, 1);
     assert.equal((await server.listPendingCaptures())[0]?.site, "tiktok-shop");
+  });
+
+  test("extension capture server rejects unsupported sites before storing pending captures", async () => {
+    const rootDir = await createTempRoot("sasiki-extension-capture-unknown-site-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
+    const server = new ExtensionCaptureServer({
+      credentialStore,
+      siteAccountStore,
+      siteRegistry: new SiteRegistry(),
+      rootDir,
+    });
+
+    await assert.rejects(
+      () =>
+        server.handleCapture({
+          site: "unknown-site",
+          cookies: [{ name: "sessionid", value: "abc", domain: ".tiktok.com" }],
+        }),
+      /Unknown site: unknown-site/,
+    );
+    assert.equal((await server.listPendingCaptures()).length, 0);
   });
 });
