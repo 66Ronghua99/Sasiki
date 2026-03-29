@@ -87,5 +87,5 @@ export function createEmbeddedLoginLauncher(
 
 export function createEmbeddedLoginPartition(siteAccountId: string): string {
   const encoded = Buffer.from(siteAccountId, "utf8").toString("base64url");
-  return `persist:sasiki-embedded-login-${encoded}-${randomUUID()}`;
+  return `sasiki-embedded-login-${encoded}-${randomUUID()}`;
 }

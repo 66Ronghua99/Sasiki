@@ -125,6 +125,33 @@ describe("Run event forwarding", () => {
     assert.equal(subscriber.messages.length, firstMessageCount);
   });
 
+  test("forwarder removes a run subscription when the preload cleanup unsubscribes it", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder }) as {
+      subscribe(
+        request: { runId: string },
+        context: { sender: ReturnType<typeof createSubscriber> },
+      ): Promise<{ subscribed: boolean; eventChannel: string }>;
+      unsubscribe(
+        request: { runId: string },
+        context: { sender: ReturnType<typeof createSubscriber> },
+      ): Promise<{ unsubscribed: boolean }>;
+    };
+    const subscriber = createSubscriber(13);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await runManager.startObserve({ task: "record a baidu search" });
+
+    assert.equal(subscriber.messages.length, 0);
+  });
+
   test("forwarder streams every run event through the global subscription path", async () => {
     const eventBus = new RunEventBus();
     const runManager = new RunManager({

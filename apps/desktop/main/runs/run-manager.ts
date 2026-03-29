@@ -238,6 +238,12 @@ export class RunManager {
     return { interrupted: true };
   }
 
+  async stopAll(): Promise<void> {
+    const activeRuntimes = [...this.runtimes.values()];
+    this.runtimes.clear();
+    await Promise.all(activeRuntimes.map(async (runtime) => runtime.stop()));
+  }
+
   listRuns(): DesktopRunSummary[] {
     return [...this.runs.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
@@ -381,7 +387,14 @@ export class RunManager {
 
 export function createRunsIpcHandlers(runManager: Pick<
   RunManager,
-  "startObserve" | "startCompact" | "startRefine" | "interruptRun" | "listRuns" | "subscribe" | "eventBus"
+  | "startObserve"
+  | "startCompact"
+  | "startRefine"
+  | "interruptRun"
+  | "listRuns"
+  | "subscribe"
+  | "eventBus"
+  | "stopAll"
 >, dependencies: {
   forwarder?: RunEventForwarder;
 } = {}) {
@@ -408,6 +421,12 @@ export function createRunsIpcHandlers(runManager: Pick<
       return {
         subscribed: true,
         eventChannel: "runs:event" as const,
+      };
+    },
+    async unsubscribe(request: { runId: string }, context: { sender: RunEventSubscriber }) {
+      forwarder.unsubscribe(request.runId, context.sender.id);
+      return {
+        unsubscribed: true,
       };
     },
     async subscribeAll(_request: Record<string, never>, context: { sender: RunEventSubscriber }) {

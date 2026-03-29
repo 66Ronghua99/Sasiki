@@ -74,4 +74,32 @@ describe("desktop foundation contracts", () => {
     assert.equal(invokeCalls.at(-1)?.channel, desktopChannels.runs.unsubscribeAll);
     assert.equal(listenerRemoved > 0, true);
   });
+
+  test("subscribe crosses the preload bridge and unsubscribes the main-side forwarder", () => {
+    const invokeCalls: Array<{ channel: string; request: unknown }> = [];
+    let listenerRemoved = 0;
+    const liveApi = createDesktopPreloadApi({
+      async invoke(channel: string, request: unknown) {
+        invokeCalls.push({ channel, request });
+        return {};
+      },
+      on() {
+        // no-op
+      },
+      removeListener() {
+        listenerRemoved += 1;
+      },
+    });
+
+    const unsubscribe = liveApi.runs.subscribe("desktop-observe-1", () => {
+      // no-op
+    });
+
+    assert.equal(invokeCalls[0]?.channel, desktopChannels.runs.subscribe);
+
+    unsubscribe();
+
+    assert.equal(invokeCalls.at(-1)?.channel, "runs:unsubscribe");
+    assert.equal(listenerRemoved > 0, true);
+  });
 });

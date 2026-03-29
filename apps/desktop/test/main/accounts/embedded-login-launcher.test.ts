@@ -87,8 +87,8 @@ describe("embedded login launcher", () => {
     latestWindow?.close();
     await secondLaunch;
 
-    assert.match(createdOptions[0]?.webPreferences.partition ?? "", /^persist:/);
-    assert.match(createdOptions[1]?.webPreferences.partition ?? "", /^persist:/);
+    assert.doesNotMatch(createdOptions[0]?.webPreferences.partition ?? "", /^persist:/);
+    assert.doesNotMatch(createdOptions[1]?.webPreferences.partition ?? "", /^persist:/);
     assert.notEqual(createdOptions[0]?.webPreferences.partition, createdOptions[1]?.webPreferences.partition);
   });
 });

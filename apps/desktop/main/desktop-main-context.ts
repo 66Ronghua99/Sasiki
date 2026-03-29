@@ -81,6 +81,7 @@ export function createDesktopMainContext(options: DesktopMainContextOptions): De
         return;
       }
 
+      await options.runManager.stopAll();
       await options.extensionCaptureServer.stop();
       started = false;
     },
@@ -131,4 +132,3 @@ function createOpenRunArtifactsHandler(
     return { opened: true };
   };
 }
-

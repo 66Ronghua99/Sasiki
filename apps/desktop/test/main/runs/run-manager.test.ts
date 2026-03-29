@@ -4,6 +4,7 @@ import { RunEventBus } from "../../../main/runs/run-event-bus";
 import { RunManager } from "../../../main/runs/run-manager";
 import type {
   DesktopRuntimeService,
+  DesktopRuntimeServiceHooks,
 } from "../../../main/runs/run-manager";
 
 function createRuntimeStub(): DesktopRuntimeService {
@@ -184,5 +185,57 @@ describe("RunManager", () => {
     assert.equal(interruptResult.interrupted, true);
     assert.equal(runManager.getRun(handle.runId)?.status, "interrupted");
     assert.equal(events.list(handle.runId).at(-1)?.type, "run.interrupted");
+  });
+
+  test("run manager stops every active runtime and clears tracked handles", async () => {
+    let stopCalls = 0;
+    const events = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: (() => ({
+        async runObserve(
+          request: { task: string },
+          hooks: DesktopRuntimeServiceHooks = {},
+        ) {
+          hooks.onEvent?.({
+            type: "run.started",
+            workflow: "observe",
+            status: "running",
+            timestamp: new Date().toISOString(),
+          });
+          return new Promise<{
+            mode: "observe";
+            runId: string;
+            taskHint: string;
+            status: "completed";
+            finishReason: string;
+            artifactsDir: string;
+          }>(() => undefined);
+        },
+        async runCompact() {
+          throw new Error("not implemented");
+        },
+        async runRefine() {
+          throw new Error("not implemented");
+        },
+        async requestInterrupt() {
+          return true;
+        },
+        async stop() {
+          stopCalls += 1;
+        },
+      })) as never,
+      events,
+      createRunId: () => "desktop-observe-1",
+    });
+
+    const handle = await runManager.startObserve({
+      task: "record a baidu search",
+      siteAccountId: "acct-1",
+    });
+
+    await runManager.stopAll();
+
+    assert.equal(stopCalls, 1);
+    assert.equal((await runManager.interruptRun(handle.runId)).interrupted, false);
   });
 });

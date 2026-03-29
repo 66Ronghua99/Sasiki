@@ -14,6 +14,8 @@ import type {
   SubscribeAllRunResponse,
   SubscribeRunRequest,
   SubscribeRunResponse,
+  UnsubscribeRunRequest,
+  UnsubscribeRunResponse,
   UnsubscribeAllRunRequest,
   UnsubscribeAllRunResponse,
 } from "../../shared/ipc/messages";
@@ -31,6 +33,10 @@ export interface RunsIpcHandlers {
     request: SubscribeRunRequest,
     context: { sender: RunEventSubscriber },
   ): Promise<SubscribeRunResponse>;
+  unsubscribe(
+    request: UnsubscribeRunRequest,
+    context: { sender: RunEventSubscriber },
+  ): Promise<UnsubscribeRunResponse>;
   subscribeAll(
     request: SubscribeAllRunRequest,
     context: { sender: RunEventSubscriber },
@@ -86,6 +92,12 @@ export function registerRunsIpc(input: {
     desktopChannels.runs.subscribe,
     (request: SubscribeRunRequest, event) =>
       input.handlers.subscribe(request, { sender: event.sender as unknown as RunEventSubscriber }),
+  );
+  replaceIpcHandler(
+    input.ipcMain,
+    desktopChannels.runs.unsubscribe,
+    (request: UnsubscribeRunRequest, event) =>
+      input.handlers.unsubscribe(request, { sender: event.sender as unknown as RunEventSubscriber }),
   );
   replaceIpcHandler(
     input.ipcMain,

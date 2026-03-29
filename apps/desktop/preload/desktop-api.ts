@@ -23,6 +23,8 @@ import type {
   SubscribeAllRunRequest,
   SubscribeAllRunResponse,
   SubscribeRunRequest,
+  UnsubscribeRunRequest,
+  UnsubscribeRunResponse,
   UnsubscribeAllRunRequest,
   UnsubscribeAllRunResponse,
   UpsertSiteAccountRequest,
@@ -161,6 +163,11 @@ export function createDesktopPreloadApi(transport: DesktopPreloadIpcRenderer): D
 
         return () => {
           transport.removeListener(desktopChannels.runs.events, listener);
+          void invoke<UnsubscribeRunRequest, UnsubscribeRunResponse>(
+            transport,
+            desktopChannels.runs.unsubscribe,
+            { runId },
+          );
         };
       },
       subscribeAll(callback) {
