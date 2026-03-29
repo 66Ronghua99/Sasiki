@@ -9,13 +9,24 @@ import {
 } from "../../main/agent-runtime-module-loader";
 
 describe("agent runtime module loader", () => {
-  test("resolves the agent runtime dist root under apps", () => {
-    const moduleDir = "/Users/cory/codes/Sasiki/.worktrees/desktop-integration/apps/desktop/main/skills";
+  test("resolves the agent runtime dist root from source main files", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "sasiki-agent-runtime-module-loader-"));
+    const moduleDir = join(workspaceRoot, "apps", "desktop", "main", "skills");
 
-    assert.equal(
-      resolveAgentRuntimeDistRoot(moduleDir),
-      "/Users/cory/codes/Sasiki/.worktrees/desktop-integration/apps/agent-runtime/dist",
-    );
+    await mkdir(join(workspaceRoot, "apps", "agent-runtime"), { recursive: true });
+    await writeFile(join(workspaceRoot, "apps", "agent-runtime", "package.json"), "{}", "utf8");
+
+    assert.equal(resolveAgentRuntimeDistRoot(moduleDir), join(workspaceRoot, "apps", "agent-runtime", "dist"));
+  });
+
+  test("resolves the agent runtime dist root from built desktop output files", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "sasiki-agent-runtime-module-loader-"));
+    const moduleDir = join(workspaceRoot, "apps", "desktop", "out", "main", "skills");
+
+    await mkdir(join(workspaceRoot, "apps", "agent-runtime"), { recursive: true });
+    await writeFile(join(workspaceRoot, "apps", "agent-runtime", "package.json"), "{}", "utf8");
+
+    assert.equal(resolveAgentRuntimeDistRoot(moduleDir), join(workspaceRoot, "apps", "agent-runtime", "dist"));
   });
 
   test("loads a runtime dist module directly from the resolved dist tree", async () => {
