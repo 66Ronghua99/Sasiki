@@ -152,6 +152,45 @@ describe("Run event forwarding", () => {
     assert.equal(subscriber.messages.length, 0);
   });
 
+  test("forwarder keeps a run subscription active until all listeners in the same sender unsubscribe", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(17);
+
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.subscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "still active",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+
+    await handlers.unsubscribe({ runId: "desktop-observe-1" }, { sender: subscriber });
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "after final unsubscribe",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+  });
+
   test("forwarder streams every run event through the global subscription path", async () => {
     const eventBus = new RunEventBus();
     const runManager = new RunManager({
@@ -191,5 +230,44 @@ describe("Run event forwarding", () => {
       true,
     );
     assert.equal(subscriber.messages.length, firstMessageCount);
+  });
+
+  test("forwarder keeps subscribeAll active until all listeners in the same sender unsubscribe", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(19);
+
+    await handlers.subscribeAll({}, { sender: subscriber });
+    await handlers.subscribeAll({}, { sender: subscriber });
+    await handlers.unsubscribeAll({}, { sender: subscriber });
+
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "still active globally",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
+
+    await handlers.unsubscribeAll({}, { sender: subscriber });
+    eventBus.publish("desktop-observe-2", {
+      type: "run.log",
+      runId: "desktop-observe-2",
+      workflow: "refine",
+      timestamp: new Date().toISOString(),
+      level: "warning",
+      message: "after final global unsubscribe",
+    });
+
+    assert.equal(subscriber.messages.length, 1);
   });
 });

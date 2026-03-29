@@ -10,8 +10,13 @@ export interface RunEventSubscriber {
   isDestroyed?(): boolean;
 }
 
+interface SubscriptionState {
+  unsubscribe: () => void;
+  refCount: number;
+}
+
 export class RunEventForwarder {
-  private readonly subscriptions = new Map<string, () => void>();
+  private readonly subscriptions = new Map<string, SubscriptionState>();
 
   constructor(
     private readonly runManager: Pick<RunManager, "subscribe" | "eventBus">,
@@ -19,17 +24,19 @@ export class RunEventForwarder {
 
   subscribe(runId: string, subscriber: RunEventSubscriber): boolean {
     const key = this.createKey("run", subscriber.id, runId);
-    if (this.subscriptions.has(key)) {
-      return false;
+    const existing = this.subscriptions.get(key);
+    if (existing) {
+      existing.refCount += 1;
+      return true;
     }
 
     const unsubscribe = this.runManager.subscribe(runId, (event) => {
       this.forwardEvent(runId, event, subscriber);
     });
-    this.subscriptions.set(key, unsubscribe);
+    this.subscriptions.set(key, { unsubscribe, refCount: 1 });
 
     subscriber.once("destroyed", () => {
-      this.unsubscribe(runId, subscriber.id);
+      this.removeSubscription(key);
     });
 
     return true;
@@ -37,17 +44,19 @@ export class RunEventForwarder {
 
   subscribeAll(subscriber: RunEventSubscriber): boolean {
     const key = this.createKey("all", subscriber.id);
-    if (this.subscriptions.has(key)) {
-      return false;
+    const existing = this.subscriptions.get(key);
+    if (existing) {
+      existing.refCount += 1;
+      return true;
     }
 
     const unsubscribe = this.runManager.eventBus.subscribeAll((event) => {
       this.forwardEvent(event.runId, event, subscriber);
     });
-    this.subscriptions.set(key, unsubscribe);
+    this.subscriptions.set(key, { unsubscribe, refCount: 1 });
 
     subscriber.once("destroyed", () => {
-      this.unsubscribeAll(subscriber.id);
+      this.removeSubscription(key);
     });
 
     return true;
@@ -55,28 +64,18 @@ export class RunEventForwarder {
 
   unsubscribe(runId: string, subscriberId: number): void {
     const key = this.createKey("run", subscriberId, runId);
-    const unsubscribe = this.subscriptions.get(key);
-    if (!unsubscribe) {
-      return;
-    }
-    unsubscribe();
-    this.subscriptions.delete(key);
+    this.releaseSubscription(key);
   }
 
   unsubscribeAll(subscriberId: number): void {
     const key = this.createKey("all", subscriberId);
-    const unsubscribe = this.subscriptions.get(key);
-    if (!unsubscribe) {
-      return;
-    }
-    unsubscribe();
-    this.subscriptions.delete(key);
+    this.releaseSubscription(key);
   }
 
   private forwardEvent(runId: string, event: DesktopRunEvent, subscriber: RunEventSubscriber): void {
     if (subscriber.isDestroyed?.()) {
-      this.unsubscribe(runId, subscriber.id);
-      this.unsubscribeAll(subscriber.id);
+      this.removeSubscription(this.createKey("run", subscriber.id, runId));
+      this.removeSubscription(this.createKey("all", subscriber.id));
       return;
     }
 
@@ -88,5 +87,30 @@ export class RunEventForwarder {
 
   private createKey(scope: "run" | "all", subscriberId: number, runId?: string): string {
     return scope === "all" ? `${scope}:${subscriberId}` : `${scope}:${subscriberId}:${runId}`;
+  }
+
+  private releaseSubscription(key: string): void {
+    const subscription = this.subscriptions.get(key);
+    if (!subscription) {
+      return;
+    }
+
+    subscription.refCount -= 1;
+    if (subscription.refCount > 0) {
+      return;
+    }
+
+    subscription.unsubscribe();
+    this.subscriptions.delete(key);
+  }
+
+  private removeSubscription(key: string): void {
+    const subscription = this.subscriptions.get(key);
+    if (!subscription) {
+      return;
+    }
+
+    subscription.unsubscribe();
+    this.subscriptions.delete(key);
   }
 }
