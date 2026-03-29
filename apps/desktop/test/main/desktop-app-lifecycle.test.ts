@@ -61,4 +61,59 @@ describe("desktop app lifecycle", () => {
     assert.equal(stopResolved, true);
     assert.equal(app.quitCalls, 1);
   });
+
+  test("observes stop rejection before quitting", async () => {
+    let stopCalls = 0;
+    const listeners = new Map<string, Array<(event?: { preventDefault(): void }) => void>>();
+    const app = {
+      on(event: string, listener: (event?: { preventDefault(): void }) => void) {
+        const current = listeners.get(event) ?? [];
+        current.push(listener);
+        listeners.set(event, current);
+      },
+      quitCalls: 0,
+      quit() {
+        this.quitCalls += 1;
+      },
+      emit(event: string, eventObject?: { preventDefault(): void }) {
+        for (const listener of listeners.get(event) ?? []) {
+          listener(eventObject);
+        }
+      },
+    } as DesktopAppQuitHooksLike & {
+      quitCalls: number;
+      emit(event: string, eventObject?: { preventDefault(): void }): void;
+    };
+
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    try {
+      registerDesktopQuitHooks({
+        app,
+        platform: "darwin",
+        stop: async () => {
+          stopCalls += 1;
+          throw new Error("stop failed");
+        },
+      });
+
+      app.emit("before-quit", {
+        preventDefault() {
+          // no-op
+        },
+      });
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      assert.equal(stopCalls, 1);
+      assert.equal(app.quitCalls, 1);
+      assert.equal(unhandledRejections.length, 0);
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+  });
 });

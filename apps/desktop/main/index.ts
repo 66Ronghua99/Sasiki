@@ -115,9 +115,14 @@ void app
       }
     });
   })
-  .catch((error) => {
-    console.error(error);
-    void desktopMainContext.stop().finally(() => {
+.catch((error) => {
+  console.error(error);
+  void desktopMainContext
+    .stop()
+    .finally(() => {
       app.quit();
+    })
+    .catch((stopError) => {
+      console.error(stopError);
     });
 });

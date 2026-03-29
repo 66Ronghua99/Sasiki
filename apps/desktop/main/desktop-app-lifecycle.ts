@@ -40,7 +40,11 @@ export function registerDesktopQuitHooks(options: DesktopAppQuitHooksOptions): v
     }
 
     event?.preventDefault();
-    void stopOnce().finally(reQuit);
+    void stopOnce()
+      .finally(reQuit)
+      .catch((error) => {
+        console.error(error);
+      });
   };
 
   options.app.on("before-quit", requestStop);
