@@ -20,7 +20,11 @@ import type {
   StartObserveRunResponse,
   StartRefineRunRequest,
   StartRefineRunResponse,
+  SubscribeAllRunRequest,
+  SubscribeAllRunResponse,
   SubscribeRunRequest,
+  UnsubscribeAllRunRequest,
+  UnsubscribeAllRunResponse,
   UpsertSiteAccountRequest,
   UpsertSiteAccountResponse,
   VerifyCredentialRequest,
@@ -159,6 +163,27 @@ export function createDesktopPreloadApi(transport: DesktopPreloadIpcRenderer): D
           transport.removeListener(desktopChannels.runs.events, listener);
         };
       },
+      subscribeAll(callback) {
+        const listener = (_event: unknown, payload: DesktopRunEventMessage) => {
+          callback(payload.event);
+        };
+
+        transport.on(desktopChannels.runs.events, listener);
+        void invoke<SubscribeAllRunRequest, SubscribeAllRunResponse>(
+          transport,
+          desktopChannels.runs.subscribeAll,
+          {},
+        );
+
+        return () => {
+          transport.removeListener(desktopChannels.runs.events, listener);
+          void invoke<UnsubscribeAllRunRequest, UnsubscribeAllRunResponse>(
+            transport,
+            desktopChannels.runs.unsubscribeAll,
+            {},
+          );
+        };
+      },
     } as DesktopPreloadApi["runs"],
     artifacts: {
       async openRunArtifacts(runId) {
@@ -180,20 +205,6 @@ export function createDesktopPreloadApi(transport: DesktopPreloadIpcRenderer): D
       },
     },
   };
-
-  Object.defineProperty(api.runs, "subscribeAll", {
-    enumerable: false,
-    value(callback: DesktopRunEventCallback) {
-      const listener = (_event: unknown, payload: DesktopRunEventMessage) => {
-        callback(payload.event);
-      };
-
-      transport.on(desktopChannels.runs.events, listener);
-      return () => {
-        transport.removeListener(desktopChannels.runs.events, listener);
-      };
-    },
-  });
 
   return api;
 }

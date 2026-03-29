@@ -98,6 +98,19 @@ export interface SubscribeRunResponse {
   eventChannel: typeof desktopChannels.runs.events;
 }
 
+export interface SubscribeAllRunRequest {}
+
+export interface SubscribeAllRunResponse {
+  subscribed: boolean;
+  eventChannel: typeof desktopChannels.runs.events;
+}
+
+export interface UnsubscribeAllRunRequest {}
+
+export interface UnsubscribeAllRunResponse {
+  unsubscribed: boolean;
+}
+
 export interface DesktopRunEventMessage {
   runId: string;
   event: DesktopRunEvent;

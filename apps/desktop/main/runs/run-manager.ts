@@ -381,7 +381,7 @@ export class RunManager {
 
 export function createRunsIpcHandlers(runManager: Pick<
   RunManager,
-  "startObserve" | "startCompact" | "startRefine" | "interruptRun" | "listRuns" | "subscribe"
+  "startObserve" | "startCompact" | "startRefine" | "interruptRun" | "listRuns" | "subscribe" | "eventBus"
 >, dependencies: {
   forwarder?: RunEventForwarder;
 } = {}) {
@@ -408,6 +408,19 @@ export function createRunsIpcHandlers(runManager: Pick<
       return {
         subscribed: true,
         eventChannel: "runs:event" as const,
+      };
+    },
+    async subscribeAll(_request: Record<string, never>, context: { sender: RunEventSubscriber }) {
+      forwarder.subscribeAll(context.sender);
+      return {
+        subscribed: true,
+        eventChannel: "runs:event" as const,
+      };
+    },
+    async unsubscribeAll(_request: Record<string, never>, context: { sender: RunEventSubscriber }) {
+      forwarder.unsubscribeAll(context.sender.id);
+      return {
+        unsubscribed: true,
       };
     },
   };

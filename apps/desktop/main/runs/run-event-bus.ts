@@ -5,6 +5,7 @@ export type RunEventListener = (event: DesktopRunEvent) => void;
 export class RunEventBus {
   private readonly eventsByRun = new Map<string, DesktopRunEvent[]>();
   private readonly listenersByRun = new Map<string, Set<RunEventListener>>();
+  private readonly listenersAll = new Set<RunEventListener>();
 
   publish(runId: string, event: DesktopRunEvent): void {
     const events = this.eventsByRun.get(runId) ?? [];
@@ -12,10 +13,13 @@ export class RunEventBus {
     this.eventsByRun.set(runId, events);
 
     const listeners = this.listenersByRun.get(runId);
-    if (!listeners) {
-      return;
+    if (listeners) {
+      for (const listener of listeners) {
+        listener(event);
+      }
     }
-    for (const listener of listeners) {
+
+    for (const listener of this.listenersAll) {
       listener(event);
     }
   }
@@ -38,6 +42,14 @@ export class RunEventBus {
       if (active.size === 0) {
         this.listenersByRun.delete(runId);
       }
+    };
+  }
+
+  subscribeAll(listener: RunEventListener): () => void {
+    this.listenersAll.add(listener);
+
+    return () => {
+      this.listenersAll.delete(listener);
     };
   }
 }

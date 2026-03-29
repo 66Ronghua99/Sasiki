@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "vitest";
@@ -154,6 +154,24 @@ describe("desktop accounts stores", () => {
     assert.equal(isolated.siteAccountId, "acct-1");
     assert.equal(isolated.isolated, true);
     assert.notEqual(isolated.runtimeProfileId, reusable.runtimeProfileId);
+  });
+
+  test("runtime profile manager releases isolated leases after use", async () => {
+    const rootDir = await createTempRoot("sasiki-profile-manager-release-");
+    const siteAccountStore = new SiteAccountStore({ rootDir });
+    await siteAccountStore.upsert({ id: "acct-1", site: "tiktok-shop", label: "Shop A" });
+    const manager = new RuntimeProfileManager({ rootDir, siteAccountStore });
+
+    const isolated = await manager.allocate({
+      siteAccountId: "acct-1",
+      allowParallel: true,
+    });
+
+    await stat(isolated.profilePath);
+
+    await manager.release(isolated);
+
+    await assert.rejects(() => stat(isolated.profilePath), /ENOENT/);
   });
 
   test("runtime profile manager rejects missing site accounts", async () => {

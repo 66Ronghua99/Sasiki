@@ -45,40 +45,89 @@ export function createDesktopRuntimeFactory(
 
   return async (context: DesktopRunRuntimeContext) => {
     const runtimeEnv = { ...processEnv };
+    let runtimeProfileLease: Awaited<ReturnType<RuntimeProfileManager["allocate"]>> | null = null;
 
-    if (context.siteAccountId) {
-      const account = await options.siteAccountStore.getById(context.siteAccountId);
-      if (!account) {
-        throw new Error(`Unknown site account: ${context.siteAccountId}`);
+    const releaseRuntimeProfile = async (): Promise<void> => {
+      if (!runtimeProfileLease) {
+        return;
       }
 
-      options.siteRegistry.require(account.site);
+      const lease = runtimeProfileLease;
+      runtimeProfileLease = null;
+      await options.runtimeProfileManager.release(lease);
+    };
 
-      const credentialBundle = await options.credentialStore.getActiveForAccount(context.siteAccountId);
-      if (!credentialBundle) {
-        throw new Error(`No active credential bundle for ${context.siteAccountId}`);
+    try {
+      if (context.siteAccountId) {
+        const account = await options.siteAccountStore.getById(context.siteAccountId);
+        if (!account) {
+          throw new Error(`Unknown site account: ${context.siteAccountId}`);
+        }
+
+        options.siteRegistry.require(account.site);
+
+        const credentialBundle = await options.credentialStore.getActiveForAccount(context.siteAccountId);
+        if (!credentialBundle) {
+          throw new Error(`No active credential bundle for ${context.siteAccountId}`);
+        }
+
+        runtimeProfileLease = await options.runtimeProfileManager.allocate({
+          siteAccountId: context.siteAccountId,
+          allowParallel: true,
+        });
+        const cookiesDir = join(runtimeProfileLease.profilePath, "cookies");
+
+        await mkdir(cookiesDir, { recursive: true });
+        await writeFile(
+          join(cookiesDir, "credential-bundle.json"),
+          `${JSON.stringify({ cookies: credentialBundle.cookies }, null, 2)}\n`,
+          "utf8",
+        );
+
+        runtimeEnv.CDP_USER_DATA_DIR = runtimeProfileLease.profilePath;
+        runtimeEnv.COOKIES_DIR = cookiesDir;
       }
 
-      const runtimeProfileLease = await options.runtimeProfileManager.allocate({
-        siteAccountId: context.siteAccountId,
-        allowParallel: true,
-      });
-      const cookiesDir = join(runtimeProfileLease.profilePath, "cookies");
-
-      await mkdir(cookiesDir, { recursive: true });
-      await writeFile(
-        join(cookiesDir, "credential-bundle.json"),
-        `${JSON.stringify({ cookies: credentialBundle.cookies }, null, 2)}\n`,
-        "utf8",
+      const runtime = await Promise.resolve(
+        createRuntimeService(await loadConfig({ cwd: options.rootDir, env: runtimeEnv })),
       );
 
-      runtimeEnv.CDP_USER_DATA_DIR = runtimeProfileLease.profilePath;
-      runtimeEnv.COOKIES_DIR = cookiesDir;
-    }
+      const withCleanup = async <T>(operation: () => Promise<T>): Promise<T> => {
+        try {
+          return await operation();
+        } finally {
+          await releaseRuntimeProfile();
+        }
+      };
 
-    return Promise.resolve(
-      createRuntimeService(await loadConfig({ cwd: options.rootDir, env: runtimeEnv })),
-    );
+      return {
+        async runObserve(request: { task: string }, hooks?: Parameters<DesktopRuntimeService["runObserve"]>[1]) {
+          return withCleanup(() => runtime.runObserve(request, hooks));
+        },
+        async runCompact(
+          request: { runId: string; semanticMode?: "off" | "auto" | "on" },
+          hooks?: Parameters<DesktopRuntimeService["runCompact"]>[1],
+        ) {
+          return withCleanup(() => runtime.runCompact(request, hooks));
+        },
+        async runRefine(
+          request: { task?: string; skillName?: string; resumeRunId?: string },
+          hooks?: Parameters<DesktopRuntimeService["runRefine"]>[1],
+        ) {
+          return withCleanup(() => runtime.runRefine(request, hooks));
+        },
+        async requestInterrupt(signal: "SIGINT" | "SIGTERM") {
+          return runtime.requestInterrupt(signal);
+        },
+        async stop() {
+          await runtime.stop();
+          await releaseRuntimeProfile();
+        },
+      };
+    } catch (error) {
+      await releaseRuntimeProfile();
+      throw error;
+    }
   };
 }
 

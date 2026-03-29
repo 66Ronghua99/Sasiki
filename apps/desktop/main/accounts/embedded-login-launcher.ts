@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { CredentialCookieRecord } from "./credential-bundle-store";
 import type { EmbeddedLoginLauncher } from "../ipc/register-accounts-ipc";
 import type { SiteAccountStore } from "./site-account-store";
@@ -54,12 +55,12 @@ export function createEmbeddedLoginLauncher(
         height: 900,
         show: true,
         autoHideMenuBar: true,
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          partition: createEmbeddedLoginPartition(input.siteAccountId),
-        },
-      });
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        partition: createEmbeddedLoginPartition(input.siteAccountId),
+      },
+    });
 
       window.show();
       void window.loadURL(site.loginUrl).catch(() => undefined);
@@ -86,5 +87,5 @@ export function createEmbeddedLoginLauncher(
 
 export function createEmbeddedLoginPartition(siteAccountId: string): string {
   const encoded = Buffer.from(siteAccountId, "utf8").toString("base64url");
-  return `persist:sasiki-embedded-login-${encoded}`;
+  return `persist:sasiki-embedded-login-${encoded}-${randomUUID()}`;
 }

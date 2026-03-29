@@ -14,11 +14,11 @@ export class RunEventForwarder {
   private readonly subscriptions = new Map<string, () => void>();
 
   constructor(
-    private readonly runManager: Pick<RunManager, "subscribe">,
+    private readonly runManager: Pick<RunManager, "subscribe" | "eventBus">,
   ) {}
 
   subscribe(runId: string, subscriber: RunEventSubscriber): boolean {
-    const key = this.createKey(runId, subscriber.id);
+    const key = this.createKey("run", subscriber.id, runId);
     if (this.subscriptions.has(key)) {
       return false;
     }
@@ -35,8 +35,36 @@ export class RunEventForwarder {
     return true;
   }
 
+  subscribeAll(subscriber: RunEventSubscriber): boolean {
+    const key = this.createKey("all", subscriber.id);
+    if (this.subscriptions.has(key)) {
+      return false;
+    }
+
+    const unsubscribe = this.runManager.eventBus.subscribeAll((event) => {
+      this.forwardEvent(event.runId, event, subscriber);
+    });
+    this.subscriptions.set(key, unsubscribe);
+
+    subscriber.once("destroyed", () => {
+      this.unsubscribeAll(subscriber.id);
+    });
+
+    return true;
+  }
+
   unsubscribe(runId: string, subscriberId: number): void {
-    const key = this.createKey(runId, subscriberId);
+    const key = this.createKey("run", subscriberId, runId);
+    const unsubscribe = this.subscriptions.get(key);
+    if (!unsubscribe) {
+      return;
+    }
+    unsubscribe();
+    this.subscriptions.delete(key);
+  }
+
+  unsubscribeAll(subscriberId: number): void {
+    const key = this.createKey("all", subscriberId);
     const unsubscribe = this.subscriptions.get(key);
     if (!unsubscribe) {
       return;
@@ -48,6 +76,7 @@ export class RunEventForwarder {
   private forwardEvent(runId: string, event: DesktopRunEvent, subscriber: RunEventSubscriber): void {
     if (subscriber.isDestroyed?.()) {
       this.unsubscribe(runId, subscriber.id);
+      this.unsubscribeAll(subscriber.id);
       return;
     }
 
@@ -57,7 +86,7 @@ export class RunEventForwarder {
     });
   }
 
-  private createKey(runId: string, subscriberId: number): string {
-    return `${subscriberId}:${runId}`;
+  private createKey(scope: "run" | "all", subscriberId: number, runId?: string): string {
+    return scope === "all" ? `${scope}:${subscriberId}` : `${scope}:${subscriberId}:${runId}`;
   }
 }

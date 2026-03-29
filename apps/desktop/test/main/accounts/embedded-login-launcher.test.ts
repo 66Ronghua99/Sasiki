@@ -8,10 +8,10 @@ import { SiteRegistry } from "../../../main/accounts/site-registry";
 describe("embedded login launcher", () => {
   test("derives distinct partitions for distinct raw site account ids", () => {
     assert.notEqual(createEmbeddedLoginPartition("acct@1"), createEmbeddedLoginPartition("acct#1"));
-    assert.equal(createEmbeddedLoginPartition("acct@1"), createEmbeddedLoginPartition("acct@1"));
+    assert.notEqual(createEmbeddedLoginPartition("acct@1"), createEmbeddedLoginPartition("acct@1"));
   });
 
-  test("uses an isolated persistent partition per site-account login window", async () => {
+  test("uses a fresh partition for repeated launches of the same site account", async () => {
     const siteAccountStore = {
       async getById(siteAccountId: string) {
         return {
@@ -82,7 +82,7 @@ describe("embedded login launcher", () => {
     latestWindow?.close();
     await firstLaunch;
 
-    const secondLaunch = launcher.launch({ siteAccountId: "acct-2" });
+    const secondLaunch = launcher.launch({ siteAccountId: "acct-1" });
     await waitForWindow(() => latestWindow?.closedRegistered === true);
     latestWindow?.close();
     await secondLaunch;

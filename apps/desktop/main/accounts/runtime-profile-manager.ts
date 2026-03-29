@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { assertNonEmptyString, readJsonFile, writeJsonFile } from "./json-file-store";
@@ -82,5 +83,13 @@ export class RuntimeProfileManager {
       profilePath: this.createProfilePath(runtimeProfileId),
       isolated: false,
     };
+  }
+
+  public async release(lease: RuntimeProfileLease): Promise<void> {
+    if (!lease.isolated) {
+      return;
+    }
+
+    await rm(lease.profilePath, { recursive: true, force: true });
   }
 }

@@ -13,6 +13,8 @@ export const desktopChannels = {
     interruptRun: "runs:interruptRun",
     listRuns: "runs:listRuns",
     subscribe: "runs:subscribe",
+    subscribeAll: "runs:subscribeAll",
+    unsubscribeAll: "runs:unsubscribeAll",
     events: "runs:event",
   },
   artifacts: {

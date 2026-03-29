@@ -124,4 +124,45 @@ describe("Run event forwarding", () => {
     assert.equal(firstMessageCount > 0, true);
     assert.equal(subscriber.messages.length, firstMessageCount);
   });
+
+  test("forwarder streams every run event through the global subscription path", async () => {
+    const eventBus = new RunEventBus();
+    const runManager = new RunManager({
+      createRuntime: createRuntimeStub,
+      events: eventBus,
+      createRunId: () => "desktop-observe-1",
+    });
+    const forwarder = new RunEventForwarder(runManager);
+    const handlers = createRunsIpcHandlers(runManager, { forwarder });
+    const subscriber = createSubscriber(11);
+
+    await handlers.subscribeAll({}, { sender: subscriber });
+    eventBus.publish("desktop-observe-1", {
+      type: "run.log",
+      runId: "desktop-observe-1",
+      workflow: "observe",
+      timestamp: new Date().toISOString(),
+      level: "info",
+      message: "global event",
+    });
+
+    const firstMessageCount = subscriber.messages.length;
+
+    subscriber.destroy();
+    eventBus.publish("desktop-observe-2", {
+      type: "run.log",
+      runId: "desktop-observe-2",
+      workflow: "refine",
+      timestamp: new Date().toISOString(),
+      level: "warning",
+      message: "after destroy",
+    });
+
+    assert.equal(firstMessageCount > 0, true);
+    assert.equal(
+      subscriber.messages.some((entry) => entry.payload && typeof entry.payload === "object"),
+      true,
+    );
+    assert.equal(subscriber.messages.length, firstMessageCount);
+  });
 });

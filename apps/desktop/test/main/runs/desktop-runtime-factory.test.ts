@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ async function createTempRoot(prefix: string): Promise<string> {
 }
 
 describe("desktop runtime factory", () => {
-  test("materializes the active credential bundle into a run-scoped cookie file", async () => {
+  test("materializes the active credential bundle into a run-scoped cookie file and cleans it up after the run fails", async () => {
     const rootDir = await createTempRoot("sasiki-runtime-factory-");
     const siteAccountStore = new SiteAccountStore({ rootDir });
     const credentialStore = new CredentialBundleStore({ rootDir, siteAccountStore });
@@ -79,7 +79,8 @@ describe("desktop runtime factory", () => {
         };
         return {
           async runObserve() {
-            throw new Error("not used");
+            await stat(join(runtimeConfig.cdpCookiesDir, "credential-bundle.json"));
+            throw new Error("run failed");
           },
           async runCompact() {
             throw new Error("not used");
@@ -111,6 +112,15 @@ describe("desktop runtime factory", () => {
     const cookieFileContent = await readFile(cookieFile, "utf8");
     assert.match(cookieFileContent, /cookie-value/);
 
-    await runtime.stop();
+    await assert.rejects(
+      () =>
+        runtime.runObserve({
+          task: "check inbox",
+        }),
+      /run failed/,
+    );
+
+    await assert.rejects(() => stat(capturedConfig!.cdpCookiesDir), /ENOENT/);
+    await assert.rejects(() => stat(capturedConfig!.cdpUserDataDir), /ENOENT/);
   });
 });
