@@ -25,7 +25,7 @@
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
 - Fresh hardgate evidence:
-  - `artifacts/code-gate/2026-03-29T19-34-58-029Z/report.json`
+  - `artifacts/code-gate/2026-03-29T19-40-41-051Z/report.json`
 
 ## Current Entry Commands
 

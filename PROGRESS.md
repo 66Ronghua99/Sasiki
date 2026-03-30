@@ -25,7 +25,7 @@
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
-- Fresh hardgate evidence: `artifacts/code-gate/2026-03-29T19-34-58-029Z/report.json`
+- Fresh hardgate evidence: `artifacts/code-gate/2026-03-29T19-40-41-051Z/report.json`
 
 ## Active Risks
 - Desktop startup-failure cleanup 现在已显式 catch `stop()` rejection，避免 quit 路径 unhandled rejection；但 `apps/desktop/main/index.ts` 的 startup-failure branch 仍缺少 focused automated proof。

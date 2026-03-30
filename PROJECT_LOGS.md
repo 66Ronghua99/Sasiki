@@ -344,7 +344,7 @@
   - `npm --prefix apps/agent-runtime run typecheck`
   - `npm --prefix apps/agent-runtime run build`
   - `npm --prefix apps/agent-runtime run hardgate`
-  - fresh hardgate report：`artifacts/code-gate/2026-03-29T19-34-58-029Z/report.json`
+  - fresh hardgate report：`artifacts/code-gate/2026-03-29T19-40-41-051Z/report.json`
 - reviewer 收口结论：
   - 最终 shutdown fix 没有新的 important / critical findings
   - 仍保留两个 residual follow-up：
